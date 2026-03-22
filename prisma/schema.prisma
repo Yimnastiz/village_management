@@ -1,0 +1,988 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ========== ENUMS ==========
+
+enum SystemRole {
+  SUPERADMIN
+  USER
+}
+
+enum VillageMembershipRole {
+  HEADMAN
+  ASSISTANT_HEADMAN
+  COMMITTEE
+  RESIDENT
+}
+
+enum MembershipStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+
+enum BindingRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum NewsStage {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum NewsVisibility {
+  PUBLIC
+  RESIDENT_ONLY
+}
+
+enum NewsSubmissionType {
+  CREATE
+  UPDATE
+}
+
+enum NewsSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum IssueStage {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum IssueCategory {
+  ROAD
+  WATER
+  ELECTRICITY
+  WASTE
+  SECURITY
+  PUBLIC_HEALTH
+  ENVIRONMENT
+  OTHER
+}
+
+enum AppointmentStage {
+  PENDING_APPROVAL
+  TIME_SUGGESTED
+  APPROVED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+enum CorrectionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum DownloadStage {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum TransparencyStage {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PopulationImportStage {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  PARTIAL
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum NotificationType {
+  ISSUE_UPDATE
+  APPOINTMENT_UPDATE
+  NEWS
+  BINDING_REQUEST
+  CORRECTION_REQUEST
+  EMERGENCY
+  SOS
+  SYSTEM
+}
+
+enum FileOwnerType {
+  ISSUE
+  ISSUE_MESSAGE
+  APPOINTMENT
+  CORRECTION_REQUEST
+  BINDING_REQUEST
+  DOWNLOAD
+  TRANSPARENCY
+  GALLERY
+  NEWS
+  PERSON
+  HOUSE
+  IMPORT_JOB
+}
+
+enum FileAccessScope {
+  PUBLIC
+  RESIDENT
+  ADMIN
+}
+
+enum HouseholdOccupancyStatus {
+  OCCUPIED
+  VACANT
+  UNDER_CONSTRUCTION
+  DEMOLISHED
+}
+
+enum PersonStatus {
+  ACTIVE
+  DECEASED
+  MOVED_OUT
+  UNKNOWN
+}
+
+enum MovementType {
+  MOVE_IN
+  MOVE_OUT
+  BIRTH
+  DEATH
+  TRANSFER
+}
+
+enum FeedbackRating {
+  VERY_SATISFIED
+  SATISFIED
+  NEUTRAL
+  DISSATISFIED
+  VERY_DISSATISFIED
+}
+
+enum EmergencyType {
+  FIRE
+  FLOOD
+  ACCIDENT
+  MEDICAL
+  CRIME
+  OTHER
+}
+
+enum EmergencyBroadcastStatus {
+  ACTIVE
+  RESOLVED
+  CANCELLED
+}
+
+enum AuditAction {
+  VIEW_SENSITIVE
+  EXPORT
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  LOGIN
+  LOGOUT
+}
+
+// ========== MODELS ==========
+
+model User {
+  id                      String     @id @default(cuid())
+  phoneNumber             String     @unique
+  phoneNumberVerified     Boolean    @default(false)
+  name                    String
+  email                   String?    @unique
+  emailVerified           Boolean    @default(false)
+  image                   String?
+  systemRole              SystemRole @default(USER)
+  registrationProvince    String?
+  registrationDistrict    String?
+  registrationSubdistrict String?
+  registrationVillageId   String?
+  citizenVerifiedAt       DateTime?
+  consentAt               DateTime?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+
+  authSessions        AuthSession[]
+  authAccounts        AuthAccount[]
+  memberships         VillageMembership[]
+  bindingRequests     BindingRequest[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  sosCases            EmergencySOS[]
+  savedItems          SavedItem[]
+  authoredNews        News[]
+  newsSubmissions     NewsSubmission[]
+  appointments        Appointment[]
+  appointmentActions  AppointmentTimeline[]
+  registrationVillage Village?            @relation("UserRegistrationVillage", fields: [registrationVillageId], references: [id])
+
+  @@index([phoneNumber])
+}
+
+model AuthSession {
+  id              String   @id @default(cuid())
+  userId          String
+  token           String   @unique
+  expiresAt       DateTime
+  ipAddress       String?
+  userAgent       String?
+  activeVillageId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village Village? @relation(fields: [activeVillageId], references: [id])
+
+  @@index([userId])
+  @@index([token])
+}
+
+model AuthAccount {
+  id                    String    @id @default(cuid())
+  userId                String
+  providerId            String
+  accountId             String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Village {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  address     String?
+  district    String?
+  province    String?
+  subdistrict String?
+  phone       String?
+  email       String?
+  website     String?
+  logoUrl     String?
+  bannerUrl   String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  memberships         VillageMembership[]
+  zones               VillageZone[]
+  houses              House[]
+  news                News[]
+  newsSubmissions     NewsSubmission[]
+  issues              Issue[]
+  appointments        Appointment[]
+  appointmentSlots    AppointmentSlot[]
+  downloads           DownloadFile[]
+  transparencyRecords TransparencyRecord[]
+  villageEvents       VillageEvent[]
+  galleryAlbums       GalleryAlbum[]
+  contactDirectories  ContactDirectory[]
+  faqItems            FAQItem[]
+  notifications       Notification[]
+  emergencyBroadcasts EmergencyBroadcast[]
+  emergencyLocations  EmergencyLocation[]
+  authSessions        AuthSession[]
+  correctionRequests  HouseholdCorrectionRequest[]
+  importJobs          PopulationImportJob[]
+  auditLogs           AuditLog[]
+  registeredUsers     User[]                       @relation("UserRegistrationVillage")
+  phoneRoleSeeds      PhoneRoleSeed[]
+  bindingRequests     BindingRequest[]
+
+  @@index([slug])
+}
+
+model VillageMembership {
+  id        String                @id @default(cuid())
+  userId    String
+  villageId String
+  role      VillageMembershipRole @default(RESIDENT)
+  status    MembershipStatus      @default(PENDING)
+  houseId   String?
+  joinedAt  DateTime?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  house   House?  @relation(fields: [houseId], references: [id])
+
+  @@unique([userId, villageId])
+  @@index([userId])
+  @@index([villageId])
+  @@index([status])
+}
+
+model VillageZone {
+  id          String   @id @default(cuid())
+  villageId   String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  houses  House[]
+
+  @@index([villageId])
+}
+
+model House {
+  id              String                   @id @default(cuid())
+  villageId       String
+  zoneId          String?
+  houseNumber     String
+  address         String?
+  occupancyStatus HouseholdOccupancyStatus @default(OCCUPIED)
+  latitude        Float?
+  longitude       Float?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  village            Village                      @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  zone               VillageZone?                 @relation(fields: [zoneId], references: [id])
+  persons            Person[]
+  memberships        VillageMembership[]
+  bindingRequests    BindingRequest[]
+  correctionRequests HouseholdCorrectionRequest[]
+  movementHistory    PersonMovement[]
+
+  @@unique([villageId, houseNumber])
+  @@index([villageId])
+}
+
+model Person {
+  id           String       @id @default(cuid())
+  houseId      String?
+  villageId    String?
+  nationalId   String?
+  firstName    String
+  lastName     String
+  dateOfBirth  DateTime?
+  gender       String?
+  phone        String?
+  email        String?
+  status       PersonStatus @default(ACTIVE)
+  profilePhoto String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  house     House?           @relation(fields: [houseId], references: [id])
+  movements PersonMovement[]
+
+  @@index([houseId])
+  @@index([nationalId])
+}
+
+model PersonMovement {
+  id           String       @id @default(cuid())
+  personId     String
+  houseId      String?
+  movementType MovementType
+  date         DateTime
+  note         String?
+  createdAt    DateTime     @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  house  House? @relation(fields: [houseId], references: [id])
+
+  @@index([personId])
+  @@index([houseId])
+}
+
+model BindingRequest {
+  id          String               @id @default(cuid())
+  userId      String
+  villageId   String?
+  houseId     String?
+  houseNumber String?
+  note        String?
+  status      BindingRequestStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village Village? @relation(fields: [villageId], references: [id])
+  house   House?   @relation(fields: [houseId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([villageId])
+}
+
+model News {
+  id          String         @id @default(cuid())
+  villageId   String
+  title       String
+  content     String         @db.Text
+  summary     String?
+  coverUrl    String?
+  imageUrls   Json?
+  stage       NewsStage      @default(DRAFT)
+  visibility  NewsVisibility @default(PUBLIC)
+  isPinned    Boolean        @default(false)
+  publishedAt DateTime?
+  authorId    String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  village      Village          @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  author       User?            @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  targets      NewsTarget[]
+  reads        NewsRead[]
+  savedItems   SavedItem[]
+  submissions  NewsSubmission[]
+
+  @@index([villageId])
+  @@index([stage])
+  @@index([publishedAt])
+}
+
+model NewsSubmission {
+  id            String               @id @default(cuid())
+  villageId     String
+  requesterId   String
+  type          NewsSubmissionType
+  status        NewsSubmissionStatus @default(PENDING)
+  targetNewsId  String?
+  payload       Json
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  reviewNote    String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  village    Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  requester  User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  targetNews News?   @relation(fields: [targetNewsId], references: [id], onDelete: SetNull)
+
+  @@index([villageId])
+  @@index([requesterId])
+  @@index([status])
+  @@index([type])
+}
+
+model NewsTarget {
+  id       String @id @default(cuid())
+  newsId   String
+  targetId String
+
+  news News @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@unique([newsId, targetId])
+}
+
+model NewsRead {
+  id     String   @id @default(cuid())
+  newsId String
+  userId String
+  readAt DateTime @default(now())
+
+  news News @relation(fields: [newsId], references: [id], onDelete: Cascade)
+
+  @@unique([newsId, userId])
+  @@index([userId])
+}
+
+model Issue {
+  id          String        @id @default(cuid())
+  villageId   String
+  reporterId  String
+  title       String
+  description String        @db.Text
+  category    IssueCategory @default(OTHER)
+  priority    IssuePriority @default(MEDIUM)
+  stage       IssueStage    @default(OPEN)
+  assigneeId  String?
+  location    String?
+  latitude    Float?
+  longitude   Float?
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  village  Village         @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  messages IssueMessage[]
+  timeline IssueTimeline[]
+  feedback IssueFeedback?
+
+  @@index([villageId])
+  @@index([reporterId])
+  @@index([stage])
+  @@index([category])
+}
+
+model IssueMessage {
+  id         String   @id @default(cuid())
+  issueId    String
+  senderId   String
+  content    String   @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+}
+
+model IssueTimeline {
+  id          String   @id @default(cuid())
+  issueId     String
+  actorId     String?
+  action      String
+  description String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+}
+
+model IssueFeedback {
+  id        String         @id @default(cuid())
+  issueId   String         @unique
+  userId    String
+  rating    FeedbackRating
+  comment   String?
+  createdAt DateTime       @default(now())
+
+  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AppointmentSlot {
+  id          String   @id @default(cuid())
+  villageId   String
+  date        DateTime @db.Date
+  startTime   String
+  endTime     String
+  maxCapacity Int      @default(1)
+  isBlocked   Boolean  @default(false)
+  note        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  village      Village       @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([villageId])
+  @@index([date])
+}
+
+model Appointment {
+  id          String           @id @default(cuid())
+  villageId   String
+  slotId      String?
+  userId      String
+  title       String
+  description String?
+  stage       AppointmentStage @default(PENDING_APPROVAL)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  scheduledAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village  Village           @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  slot     AppointmentSlot?  @relation(fields: [slotId], references: [id])
+  timeline AppointmentTimeline[]
+
+  @@index([villageId])
+  @@index([userId])
+  @@index([stage])
+}
+
+model AppointmentTimeline {
+  id            String   @id @default(cuid())
+  appointmentId String
+  actorId       String?
+  action        String
+  description   String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  actor       User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([appointmentId])
+}
+
+model HouseholdCorrectionRequest {
+  id          String                  @id @default(cuid())
+  villageId   String
+  userId      String
+  houseId     String?
+  subject     String
+  description String                  @db.Text
+  status      CorrectionRequestStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  house   House?  @relation(fields: [houseId], references: [id])
+
+  @@index([villageId])
+  @@index([userId])
+  @@index([status])
+}
+
+model DownloadFile {
+  id            String        @id @default(cuid())
+  villageId     String
+  title         String
+  description   String?
+  category      String?
+  stage         DownloadStage @default(DRAFT)
+  visibility    NewsVisibility @default(PUBLIC)
+  fileKey       String?
+  fileUrl       String?
+  fileSize      Int?
+  mimeType      String?
+  downloadCount Int           @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  village    Village     @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  savedItems SavedItem[]
+
+  @@index([villageId])
+  @@index([stage])
+  @@index([visibility])
+}
+
+model TransparencyRecord {
+  id          String            @id @default(cuid())
+  villageId   String
+  title       String
+  description String?           @db.Text
+  category    String?
+  amount      Float?
+  fiscalYear  String?
+  stage       TransparencyStage @default(DRAFT)
+  visibility  NewsVisibility    @default(PUBLIC)
+  publishedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+  @@index([stage])
+  @@index([visibility])
+}
+
+model VillageEvent {
+  id          String   @id @default(cuid())
+  villageId   String
+  title       String
+  description String?  @db.Text
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+  @@index([startsAt])
+  @@index([isPublic])
+}
+
+model GalleryAlbum {
+  id          String   @id @default(cuid())
+  villageId   String
+  title       String
+  description String?
+  coverUrl    String?
+  isPublic    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  village Village       @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  items   GalleryItem[]
+
+  @@index([villageId])
+}
+
+model GalleryItem {
+  id        String   @id @default(cuid())
+  albumId   String
+  title     String?
+  fileUrl   String
+  fileKey   String?
+  mimeType  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  album GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([albumId])
+}
+
+model ContactDirectory {
+  id        String   @id @default(cuid())
+  villageId String
+  name      String
+  role      String?
+  phone     String?
+  email     String?
+  address   String?
+  category  String?
+  sortOrder Int      @default(0)
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+}
+
+model FAQItem {
+  id        String   @id @default(cuid())
+  villageId String?
+  question  String
+  answer    String   @db.Text
+  category  String?
+  sortOrder Int      @default(0)
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  village Village? @relation(fields: [villageId], references: [id])
+
+  @@index([villageId])
+}
+
+model FileObject {
+  id          String          @id @default(cuid())
+  ownerType   FileOwnerType
+  ownerId     String
+  accessScope FileAccessScope @default(RESIDENT)
+  fileKey     String
+  fileUrl     String?
+  fileName    String
+  mimeType    String?
+  fileSize    Int?
+  uploadedBy  String?
+  createdAt   DateTime        @default(now())
+
+  @@index([ownerType, ownerId])
+  @@index([fileKey])
+}
+
+model PopulationImportJob {
+  id           String                @id @default(cuid())
+  villageId    String
+  createdBy    String
+  fileName     String
+  fileKey      String?
+  stage        PopulationImportStage @default(PENDING)
+  totalRows    Int                   @default(0)
+  importedRows Int                   @default(0)
+  failedRows   Int                   @default(0)
+  errors       Json?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+  @@index([stage])
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  villageId String?
+  userId    String
+  type      NotificationType
+  status    NotificationStatus @default(UNREAD)
+  title     String
+  body      String?
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village Village? @relation(fields: [villageId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model EmergencyBroadcast {
+  id         String                   @id @default(cuid())
+  villageId  String
+  title      String
+  content    String                   @db.Text
+  type       EmergencyType            @default(OTHER)
+  status     EmergencyBroadcastStatus @default(ACTIVE)
+  createdBy  String?
+  resolvedAt DateTime?
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+  @@index([status])
+}
+
+model EmergencySOS {
+  id         String        @id @default(cuid())
+  villageId  String?
+  userId     String
+  message    String?
+  latitude   Float?
+  longitude  Float?
+  type       EmergencyType @default(OTHER)
+  isResolved Boolean       @default(false)
+  resolvedAt DateTime?
+  createdAt  DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([villageId])
+}
+
+model EmergencyLocation {
+  id          String   @id @default(cuid())
+  villageId   String
+  name        String
+  description String?
+  type        String
+  latitude    Float?
+  longitude   Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  villageId  String?
+  userId     String?
+  action     AuditAction
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  village Village? @relation(fields: [villageId], references: [id])
+
+  @@index([userId])
+  @@index([villageId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model AuthVerification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+model PhoneRoleSeed {
+  id                String                @id @default(cuid())
+  phoneNumber       String                @unique
+  villageId         String?
+  membershipRole    VillageMembershipRole @default(RESIDENT)
+  systemRole        SystemRole?
+  isCitizenVerified Boolean               @default(true)
+  note              String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  village Village? @relation(fields: [villageId], references: [id], onDelete: SetNull)
+
+  @@index([villageId])
+}
+
+model SavedItem {
+  id         String   @id @default(cuid())
+  userId     String
+  newsId     String?
+  downloadId String?
+  createdAt  DateTime @default(now())
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  news     News?         @relation(fields: [newsId], references: [id])
+  download DownloadFile? @relation(fields: [downloadId], references: [id])
+
+  @@unique([userId, newsId])
+  @@unique([userId, downloadId])
+  @@index([userId])
+}
