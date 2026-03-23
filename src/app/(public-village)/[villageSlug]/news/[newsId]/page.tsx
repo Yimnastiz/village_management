@@ -3,13 +3,15 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { prisma } from "@/lib/prisma";
+import { normalizeVillageSlugParam } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string; newsId: string }>;
 }
 
 export default async function VillageNewsDetailPage({ params }: PageProps) {
-  const { villageSlug, newsId } = await params;
+  const { villageSlug: rawVillageSlug, newsId } = await params;
+  const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
   const village = await prisma.village.findUnique({
     where: { slug: villageSlug },

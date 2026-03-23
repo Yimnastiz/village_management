@@ -1,43 +1,54 @@
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { Bell } from "lucide-react";
+import { NotificationStatus } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+import { NotificationItem } from "./notification-item";
+import { MarkAllReadButton } from "./mark-all-read-button";
 
-export default async function Page() {
+export default async function AdminNotificationsPage() {
   const session = await getSessionContextFromServerCookies();
-  const notifications = session
-    ? await prisma.notification.findMany({
-        where: { userId: session.id },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      })
-    : [];
+  if (!session || !isAdminUser(session)) {
+    redirect("/auth/login");
+  }
+
+  const notifications = await prisma.notification.findMany({
+    where: {
+      userId: session.id,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  });
+
+  const unreadCount = notifications.filter(
+    (n) => n.status === NotificationStatus.UNREAD
+  ).length;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">การแจ้งเตือน</h1>
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
-        {notifications.length === 0 ? (
-          <p className="text-gray-500 text-center">ไม่มีการแจ้งเตือน</p>
-        ) : (
-          <div className="space-y-4">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className="rounded-lg border border-gray-100 bg-gray-50 p-4"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{notification.title}</p>
-                    <p className="text-sm text-gray-600">{notification.body}</p>
-                  </div>
-                  <div className="text-xs text-gray-400">
-                      {new Date(notification.createdAt).toLocaleString()}
-                    </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">การแจ้งเตือน</h1>
+          {unreadCount > 0 && (
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              {unreadCount} ข้อความใหม่
+            </span>
+          )}
+        </div>
+        {unreadCount > 0 && <MarkAllReadButton />}
       </div>
+
+      {notifications.length === 0 ? (
+        <EmptyState icon={Bell} title="ยังไม่มีการแจ้งเตือน" />
+      ) : (
+        <div className="space-y-3">
+          {notifications.map((notification) => (
+            <NotificationItem key={notification.id} notification={notification} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

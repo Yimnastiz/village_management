@@ -7,6 +7,8 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { DeleteAlbumButton } from "./delete-album-button";
 import { DeleteGalleryItemButton } from "./delete-item-button";
 
+const db = prisma as any;
+
 interface PageProps {
   params: Promise<{ albumId: string }>;
 }
@@ -24,11 +26,20 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
   });
   if (!membership) redirect("/auth/login");
 
-  const album = await prisma.galleryAlbum.findFirst({
+  const album = await db.galleryAlbum.findFirst({
     where: { id: albumId, villageId: membership.villageId },
     include: {
       items: {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      },
+      _count: {
+        select: {
+          itemSubmissions: {
+            where: {
+              status: "PENDING",
+            },
+          },
+        },
       },
     },
   });
@@ -45,6 +56,11 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
           <Link href={`/admin/gallery/${album.id}/edit`}>
             <Button variant="outline">แก้ไขอัลบั้ม</Button>
           </Link>
+          <Link href={`/admin/gallery/submissions?albumId=${album.id}`}>
+            <Button variant="outline">
+              คำขอเพิ่มรูป {album._count.itemSubmissions > 0 ? `(${album._count.itemSubmissions})` : ""}
+            </Button>
+          </Link>
           <Link href={`/admin/gallery/${album.id}/items/new`}>
             <Button>เพิ่มรูปภาพ</Button>
           </Link>
@@ -56,6 +72,9 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
         <div className="flex items-center gap-2">
           <Badge variant={album.isPublic ? "success" : "info"}>
             {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+          </Badge>
+          <Badge variant={album.allowResidentSubmissions ? "warning" : "default"}>
+            {album.allowResidentSubmissions ? "ลูกบ้านขอเพิ่มรูปได้" : "ปิดรับคำขอเพิ่มรูป"}
           </Badge>
         </div>
         {album.description && <p className="text-sm text-gray-700 whitespace-pre-wrap">{album.description}</p>}
@@ -71,7 +90,7 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500">ยังไม่มีรูปภาพ</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {album.items.map((item) => (
+            {album.items.map((item: any) => (
               <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
                 <div className="aspect-video bg-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

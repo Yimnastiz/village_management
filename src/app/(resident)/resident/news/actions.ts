@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
 
 export async function toggleSaveNewsAction(
   newsId: string
@@ -11,10 +11,7 @@ export async function toggleSaveNewsAction(
     return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   }
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) {
     return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
   }

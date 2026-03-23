@@ -4,17 +4,14 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export default async function ResidentDownloadsPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) redirect("/auth/login");
 
   const files = await prisma.downloadFile.findMany({

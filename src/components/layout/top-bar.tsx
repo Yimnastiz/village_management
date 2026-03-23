@@ -1,6 +1,7 @@
 "use client";
-import { Bell, LogOut, ChevronDown } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
 import Link from "next/link";
+import { LogoutButton } from "./logout-button";
 
 interface TopBarProps {
   userArea: "resident" | "admin";
@@ -26,9 +27,7 @@ export function TopBar({ userArea, userName = "ผู้ใช้งาน" }: T
           <span className="text-sm font-medium text-gray-700">{userName}</span>
           <ChevronDown className="h-4 w-4 text-gray-400" />
         </div>
-        <Link href="/auth/login" className="p-2 text-gray-400 hover:text-red-500">
-          <LogOut className="h-5 w-5" />
-        </Link>
+        <LogoutButton />
       </div>
     </header>
   );

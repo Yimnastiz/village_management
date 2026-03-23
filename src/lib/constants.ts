@@ -56,6 +56,17 @@ export const NEWS_SUBMISSION_STATUS_LABELS: Record<string, string> = {
   REJECTED: "ไม่อนุมัติ",
 };
 
+export const VILLAGE_EVENT_SUBMISSION_STATUS_LABELS: Record<string, string> = {
+  PENDING: "รออนุมัติ",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ไม่อนุมัติ",
+};
+
+export const VILLAGE_EVENT_VISIBILITY_LABELS: Record<string, string> = {
+  PUBLIC: "สาธารณะ",
+  RESIDENT: "เฉพาะลูกบ้าน",
+};
+
 export const MEMBERSHIP_ROLE_LABELS: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
   ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",

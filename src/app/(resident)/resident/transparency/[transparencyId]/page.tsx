@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 
 interface PageProps {
@@ -16,10 +16,7 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) redirect("/auth/login");
 
   const record = await prisma.transparencyRecord.findFirst({

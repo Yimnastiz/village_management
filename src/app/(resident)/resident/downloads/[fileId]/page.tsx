@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/utils";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 interface PageProps {
@@ -16,10 +16,7 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) redirect("/auth/login");
 
   const file = await prisma.downloadFile.findFirst({

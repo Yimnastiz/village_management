@@ -15,6 +15,7 @@ const schema = z.object({
   description: z.string().optional(),
   coverUrl: z.string().optional(),
   isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
+  allowResidentSubmissions: z.string().min(1, "กรุณาเลือกการรับคำขอเพิ่มรูป"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -27,6 +28,7 @@ type AlbumFormProps = {
     description: string;
     coverUrl: string;
     isPublic: string;
+    allowResidentSubmissions: string;
   };
 };
 
@@ -44,6 +46,7 @@ export function AlbumForm({ mode, albumId, defaultValues }: AlbumFormProps) {
       description: "",
       coverUrl: "",
       isPublic: "PUBLIC",
+      allowResidentSubmissions: "DISALLOW",
     },
   });
 
@@ -87,6 +90,16 @@ export function AlbumForm({ mode, albumId, defaultValues }: AlbumFormProps) {
           error={errors.isPublic?.message}
         />
       </div>
+
+      <Select
+        label="สิทธิ์ให้ลูกบ้านขอเพิ่มรูป"
+        {...register("allowResidentSubmissions")}
+        options={[
+          { value: "ALLOW", label: "อนุญาตให้ส่งคำขอเพิ่มรูป" },
+          { value: "DISALLOW", label: "ไม่อนุญาต" },
+        ]}
+        error={errors.allowResidentSubmissions?.message}
+      />
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 

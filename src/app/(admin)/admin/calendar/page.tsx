@@ -6,6 +6,10 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
+type VillageEventSubmissionCountDelegate = {
+  count(args: unknown): Promise<number>;
+};
+
 export default async function AdminCalendarPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
@@ -30,6 +34,17 @@ export default async function AdminCalendarPage() {
     },
   });
 
+  const villageEventSubmission = (
+    prisma as unknown as { villageEventSubmission: VillageEventSubmissionCountDelegate }
+  ).villageEventSubmission;
+
+  const pendingRequestCount = await villageEventSubmission.count({
+    where: {
+      villageId: membership.villageId,
+      status: "PENDING",
+    },
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -37,11 +52,18 @@ export default async function AdminCalendarPage() {
           <h1 className="text-2xl font-bold text-gray-900">ปฏิทินกิจกรรม</h1>
           <p className="text-sm text-gray-500 mt-1">เพิ่ม แก้ไข และลบกิจกรรมของหมู่บ้าน</p>
         </div>
-        <Link href="/admin/calendar/new">
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" /> เพิ่มกิจกรรม
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/calendar/requests">
+            <Button size="sm" variant="outline">
+              คำขอกิจกรรม {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}
+            </Button>
+          </Link>
+          <Link href="/admin/calendar/new">
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" /> เพิ่มกิจกรรม
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {events.length === 0 ? (

@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isAdminUser } from "@/lib/access-control";
 
 const appointmentSchema = z.object({
@@ -49,11 +49,7 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
     };
   }
 
-  // Get user's village membership
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    include: { village: true },
-  });
+  const membership = getResidentMembership(session);
 
   if (!membership) {
     return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };

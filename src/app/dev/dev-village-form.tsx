@@ -56,7 +56,7 @@ export function DevVillageForm({ thaiGeography, villages }: DevVillageFormProps)
       <input
         name="slug"
         required
-        placeholder="slug (e.g. ban-nong-khai)"
+        placeholder="slug (เช่น ban-nong-khai หรือ เขาทราย)"
         className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
 

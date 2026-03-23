@@ -1,13 +1,16 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
+import { normalizeVillageSlugParam } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
 }
 
 export default async function Page({ params }: PageProps) {
-  const { villageSlug } = await params;
+  const { villageSlug: rawVillageSlug } = await params;
+  const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
   const village = await prisma.village.findUnique({
     where: { slug: villageSlug },
@@ -17,10 +20,23 @@ export default async function Page({ params }: PageProps) {
 
   const albums = await prisma.galleryAlbum.findMany({
     where: { villageId: village.id, isPublic: true },
-    include: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      coverUrl: true,
       items: {
+        select: {
+          id: true,
+          fileUrl: true,
+        },
         orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-        take: 8,
+        take: 1,
+      },
+      _count: {
+        select: {
+          items: true,
+        },
       },
     },
     orderBy: [{ createdAt: "desc" }],
@@ -38,38 +54,34 @@ export default async function Page({ params }: PageProps) {
           <p className="text-gray-500">ยังไม่มีอัลบั้มสาธารณะ</p>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {albums.map((album) => (
-            <section key={album.id} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">{album.title}</h2>
-                  {album.description && <p className="text-sm text-gray-600 mt-1">{album.description}</p>}
-                </div>
-                <Badge variant="outline">{album.items.length} รูป</Badge>
+            <Link
+              key={album.id}
+              href={`/${villageSlug}/gallery/${album.id}`}
+              className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-md transition-shadow"
+            >
+              <div className="aspect-video bg-gray-100">
+                {album.coverUrl || album.items[0]?.fileUrl ? (
+                  <img
+                    src={album.coverUrl || album.items[0]?.fileUrl || ""}
+                    alt={album.title}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">ไม่มีรูปหน้าปก</div>
+                )}
               </div>
-
-              {album.items.length === 0 ? (
-                <p className="text-sm text-gray-500">ยังไม่มีรูปภาพในอัลบั้มนี้</p>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {album.items.map((item) => (
-                    <figure key={item.id} className="rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.fileUrl}
-                        alt={item.title || album.title}
-                        className="w-full h-32 object-cover"
-                        loading="lazy"
-                      />
-                      <figcaption className="px-2 py-1.5 text-xs text-gray-600 line-clamp-1">
-                        {item.title || "ภาพกิจกรรม"}
-                      </figcaption>
-                    </figure>
-                  ))}
+              <div className="p-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Badge variant="success">สาธารณะ</Badge>
+                  <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>
-              )}
-            </section>
+                <p className="font-medium text-gray-900 line-clamp-1">{album.title}</p>
+                {album.description && <p className="text-sm text-gray-500 line-clamp-2">{album.description}</p>}
+              </div>
+            </Link>
           ))}
         </div>
       )}

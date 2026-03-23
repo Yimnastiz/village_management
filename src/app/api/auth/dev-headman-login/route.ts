@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
       {
         villageId: seed.villageId,
         villageSlug: seed.village?.slug ?? null,
+        houseId: null,
         role: VillageMembershipRole.HEADMAN,
         status: MembershipStatus.ACTIVE,
       },

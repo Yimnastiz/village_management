@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { Home, Newspaper, Calendar, Image, Eye, Download, Siren, Phone } from "lucide-react";
+import { Home, Newspaper, Calendar, Image, Eye, Download, Phone } from "lucide-react";
+import { prisma } from "@/lib/prisma";
+import { normalizeVillageSlugParam } from "@/lib/village-slug";
+import { VillageSwitcher } from "./village-switcher";
 
 interface VillageLayoutProps {
   children: React.ReactNode;
@@ -7,8 +10,19 @@ interface VillageLayoutProps {
 }
 
 export default async function VillageLayout({ children, params }: VillageLayoutProps) {
-  const { villageSlug } = await params;
+  const { villageSlug: rawVillageSlug } = await params;
+  const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
   const base = `/${villageSlug}`;
+
+  const villages = await prisma.village.findMany({
+    where: { isActive: true },
+    orderBy: [{ name: "asc" }],
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+    },
+  });
 
   const navItems = [
     { href: base, label: "หน้าแรก", icon: Home },
@@ -17,7 +31,6 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
     { href: `${base}/gallery`, label: "แกลเลอรี", icon: Image },
     { href: `${base}/transparency`, label: "ความโปร่งใส", icon: Eye },
     { href: `${base}/downloads`, label: "ดาวน์โหลด", icon: Download },
-    { href: `${base}/emergency`, label: "ฉุกเฉิน", icon: Siren },
     { href: `${base}/contacts`, label: "ติดต่อ", icon: Phone },
   ];
 
@@ -28,6 +41,10 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
           <div className="flex items-center justify-between h-16">
             <Link href={base} className="font-bold text-lg">หมู่บ้าน {villageSlug}</Link>
             <div className="flex items-center gap-3">
+              <VillageSwitcher villages={villages} currentSlug={villageSlug} />
+              <Link href="/" className="text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
+                หน้าค้นหาหมู่บ้าน
+              </Link>
               <Link href="/auth/login" className="text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
                 เข้าสู่ระบบ
               </Link>

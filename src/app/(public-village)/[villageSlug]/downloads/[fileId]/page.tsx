@@ -3,13 +3,15 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { formatFileSize } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import { normalizeVillageSlugParam } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string; fileId: string }>;
 }
 
 export default async function DownloadDetailPage({ params }: PageProps) {
-  const { villageSlug, fileId } = await params;
+  const { villageSlug: rawVillageSlug, fileId } = await params;
+  const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
   const village = await prisma.village.findUnique({
     where: { slug: villageSlug },

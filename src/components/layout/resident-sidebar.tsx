@@ -7,6 +7,7 @@ import {
   Newspaper,
   AlertCircle,
   Calendar,
+  CalendarDays,
   Users,
   Bell,
   User,
@@ -15,6 +16,7 @@ import {
   Eye,
   FileClock,
   Download,
+  Images,
 } from "lucide-react";
 
 const navItems = [
@@ -22,7 +24,9 @@ const navItems = [
   { href: "/resident/news", label: "ข่าว/ประกาศ", icon: Newspaper },
   { href: "/resident/news/requests", label: "คำขอข่าว", icon: FileClock },
   { href: "/resident/issues", label: "แจ้งปัญหา", icon: AlertCircle },
+  { href: "/resident/calendar", label: "กิจกรรมหมู่บ้าน", icon: CalendarDays },
   { href: "/resident/appointments", label: "นัดหมาย", icon: Calendar },
+  { href: "/resident/gallery", label: "แกลเลอรี", icon: Images },
   { href: "/resident/downloads", label: "เอกสารดาวน์โหลด", icon: Download },
   { href: "/resident/household", label: "ข้อมูลครัวเรือน", icon: Users },
   { href: "/resident/transparency", label: "ความโปร่งใส", icon: Eye },

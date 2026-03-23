@@ -1,17 +1,28 @@
 import Link from "next/link";
 import { Newspaper, Calendar, Eye, Phone } from "lucide-react";
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { normalizeVillageSlugParam } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
 }
 
 export default async function VillageHomePage({ params }: PageProps) {
-  const { villageSlug } = await params;
+  const { villageSlug: rawVillageSlug } = await params;
+  const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+
+  const village = await prisma.village.findUnique({
+    where: { slug: villageSlug },
+    select: { name: true },
+  });
+  if (!village) notFound();
+
   return (
     <div className="space-y-8">
       {/* Banner */}
       <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-2xl p-8 text-white">
-        <h1 className="text-2xl font-bold mb-2">ยินดีต้อนรับสู่หมู่บ้าน {villageSlug}</h1>
+        <h1 className="text-2xl font-bold mb-2">ยินดีต้อนรับสู่หมู่บ้าน {village.name}</h1>
         <p className="text-green-100">ข้อมูล ข่าวสาร และบริการสำหรับชุมชน</p>
       </div>
 

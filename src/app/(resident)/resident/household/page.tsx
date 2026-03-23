@@ -1,6 +1,6 @@
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +11,8 @@ export default async function HouseholdPage() {
   if (!session) {
     redirect("/auth/login?callbackUrl=/resident/household");
   }
+
+  const residentMembership = getResidentMembership(session);
 
   const primaryMembership = await prisma.villageMembership.findFirst({
     where: {
@@ -57,6 +59,7 @@ export default async function HouseholdPage() {
   });
 
   const resolvedHouseId = primaryMembership?.houseId ?? latestBindingRequest?.houseId ?? null;
+  const effectiveHouseId = residentMembership?.houseId ?? resolvedHouseId;
   const resolvedHouseNumber =
     primaryMembership?.house?.houseNumber ??
     latestBindingRequest?.house?.houseNumber ??
@@ -65,11 +68,11 @@ export default async function HouseholdPage() {
   const resolvedVillageName =
     primaryMembership?.village?.name ?? latestBindingRequest?.village?.name ?? "-";
 
-  const [housePersons, houseMemberships] = resolvedHouseId
+  const [housePersons, houseMemberships] = effectiveHouseId
     ? await Promise.all([
         prisma.person.findMany({
           where: {
-            houseId: resolvedHouseId,
+            houseId: effectiveHouseId,
           },
           orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
           select: {
@@ -81,7 +84,7 @@ export default async function HouseholdPage() {
         }),
         prisma.villageMembership.findMany({
           where: {
-            houseId: resolvedHouseId,
+            houseId: effectiveHouseId,
             status: MembershipStatus.ACTIVE,
           },
           include: {

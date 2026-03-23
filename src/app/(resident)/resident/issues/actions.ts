@@ -3,7 +3,7 @@
 import { IssueCategory, IssuePriority } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -35,9 +35,7 @@ export async function createIssueAction(
     };
   }
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
 
   const issue = await prisma.issue.create({

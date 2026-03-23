@@ -3,7 +3,7 @@
 import { NewsStage, NewsVisibility } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -26,10 +26,7 @@ async function requireResidentVillage() {
     return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", userId: "", villageId: "" };
   }
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", userId: "", villageId: "" };
   }

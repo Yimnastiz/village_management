@@ -4,17 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 
 export default async function ResidentTransparencyPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) redirect("/auth/login");
 
   const records = await prisma.transparencyRecord.findMany({

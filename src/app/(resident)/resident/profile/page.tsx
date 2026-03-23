@@ -212,6 +212,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               id="name"
               name="name"
               defaultValue={user.name ?? ""}
+              suppressHydrationWarning
               required
               minLength={2}
               maxLength={120}
@@ -228,6 +229,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               name="email"
               type="email"
               defaultValue={user.email ?? ""}
+              suppressHydrationWarning
               placeholder="example@email.com"
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
@@ -242,6 +244,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               name="image"
               type="url"
               defaultValue={user.image ?? ""}
+              suppressHydrationWarning
               placeholder="https://example.com/avatar.jpg"
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
@@ -250,6 +253,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
           <div className="md:col-span-2">
             <button
               type="submit"
+              suppressHydrationWarning
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
             >
               บันทึกข้อมูลโปรไฟล์

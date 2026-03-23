@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { normalizeVillageSlugInput } from "@/lib/village-slug";
 
 function toNonEmptyString(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -22,26 +23,69 @@ function normalizePhoneNumber(raw: string): string {
 }
 
 export async function createVillageAction(formData: FormData) {
-  const slug = toNonEmptyString(formData.get("slug"));
+  const rawSlug = toNonEmptyString(formData.get("slug"));
   const name = toNonEmptyString(formData.get("name"));
   const province = toNonEmptyString(formData.get("province"));
   const district = toNonEmptyString(formData.get("district"));
   const subdistrict = toNonEmptyString(formData.get("subdistrict"));
 
-  if (!slug || !name || !province || !district || !subdistrict) {
+  if (!rawSlug || !name || !province || !district || !subdistrict) {
     throw new Error("Missing required village fields.");
   }
 
-  await prisma.village.upsert({
+  const slug = normalizeVillageSlugInput(rawSlug);
+  if (!slug) {
+    throw new Error("Invalid village slug. กรุณาใช้ตัวอักษร ไทย/อังกฤษ ตัวเลข หรือเครื่องหมาย -");
+  }
+
+  const sameSlugVillage = await prisma.village.findUnique({
     where: { slug },
-    update: {
+    select: { id: true },
+  });
+
+  if (sameSlugVillage) {
+    await prisma.village.update({
+      where: { id: sameSlugVillage.id },
+      data: {
+        name,
+        province,
+        district,
+        subdistrict,
+        isActive: true,
+      },
+    });
+    revalidatePath("/dev");
+    return;
+  }
+
+  const sameVillageByIdentity = await prisma.village.findFirst({
+    where: {
       name,
       province,
       district,
       subdistrict,
-      isActive: true,
     },
-    create: {
+    select: { id: true },
+  });
+
+  if (sameVillageByIdentity) {
+    await prisma.village.update({
+      where: { id: sameVillageByIdentity.id },
+      data: {
+        slug,
+        name,
+        province,
+        district,
+        subdistrict,
+        isActive: true,
+      },
+    });
+    revalidatePath("/dev");
+    return;
+  }
+
+  await prisma.village.create({
+    data: {
       slug,
       name,
       province,
@@ -332,6 +376,218 @@ export async function registerAdminAction(formData: FormData) {
       isCitizenVerified: true,
       note: `Admin: ${adminName} (${membershipRole})`,
     },
+  });
+
+  revalidatePath("/dev");
+}
+
+function parseOptionalDate(value: string | null): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+export async function importResidentSeedAction(formData: FormData) {
+  const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
+  const firstName = toNonEmptyString(formData.get("firstName"));
+  const lastName = toNonEmptyString(formData.get("lastName"));
+  const villageId = toNonEmptyString(formData.get("villageId"));
+  const houseNumber = toNonEmptyString(formData.get("houseNumber"));
+  const nationalId = toNonEmptyString(formData.get("nationalId"));
+  const email = toNonEmptyString(formData.get("email"));
+  const gender = toNonEmptyString(formData.get("gender"));
+  const dateOfBirthRaw = toNonEmptyString(formData.get("dateOfBirth"));
+  const address = toNonEmptyString(formData.get("address"));
+  const note = toNonEmptyString(formData.get("note"));
+  const isCitizenVerified = formData.get("isCitizenVerified") === "on";
+  const createUserAccount = formData.get("createUserAccount") === "on";
+
+  if (!rawPhone || !firstName || !lastName || !villageId || !houseNumber) {
+    throw new Error(
+      "Phone, first name, last name, village, and house number are required."
+    );
+  }
+
+  const phoneNumber = normalizePhoneNumber(rawPhone);
+  if (!/^\+?\d{9,15}$/.test(phoneNumber)) {
+    throw new Error("Invalid phone number format.");
+  }
+
+  if (nationalId && !/^\d{13}$/.test(nationalId)) {
+    throw new Error("National ID must be 13 digits.");
+  }
+
+  const dateOfBirth = parseOptionalDate(dateOfBirthRaw);
+  if (dateOfBirthRaw && !dateOfBirth) {
+    throw new Error("Invalid date of birth.");
+  }
+
+  const village = await prisma.village.findUnique({
+    where: { id: villageId },
+    select: {
+      id: true,
+      province: true,
+      district: true,
+      subdistrict: true,
+    },
+  });
+
+  if (!village) {
+    throw new Error("Village not found.");
+  }
+
+  const fullName = `${firstName} ${lastName}`;
+  const verifiedAt = isCitizenVerified ? new Date() : null;
+
+  await prisma.$transaction(async (tx) => {
+    const house = await tx.house.upsert({
+      where: {
+        villageId_houseNumber: {
+          villageId,
+          houseNumber,
+        },
+      },
+      update: {
+        address,
+      },
+      create: {
+        villageId,
+        houseNumber,
+        address,
+      },
+    });
+
+    const existingUser = await tx.user.findUnique({
+      where: { phoneNumber },
+      select: { id: true },
+    });
+
+    let userId: string | null = existingUser?.id ?? null;
+
+    if (createUserAccount || existingUser) {
+      const user = existingUser
+        ? await tx.user.update({
+            where: { phoneNumber },
+            data: {
+              name: fullName,
+              email,
+              phoneNumberVerified: true,
+              registrationProvince: village.province,
+              registrationDistrict: village.district,
+              registrationSubdistrict: village.subdistrict,
+              registrationVillageId: villageId,
+              citizenVerifiedAt: verifiedAt,
+              consentAt: verifiedAt ?? undefined,
+            },
+            select: { id: true },
+          })
+        : await tx.user.create({
+            data: {
+              phoneNumber,
+              phoneNumberVerified: true,
+              name: fullName,
+              email,
+              registrationProvince: village.province,
+              registrationDistrict: village.district,
+              registrationSubdistrict: village.subdistrict,
+              registrationVillageId: villageId,
+              citizenVerifiedAt: verifiedAt,
+              consentAt: verifiedAt,
+            },
+            select: { id: true },
+          });
+
+      userId = user.id;
+
+      await tx.villageMembership.upsert({
+        where: {
+          userId_villageId: {
+            userId,
+            villageId,
+          },
+        },
+        update: {
+          role: VillageMembershipRole.RESIDENT,
+          status: MembershipStatus.ACTIVE,
+          houseId: house.id,
+          joinedAt: new Date(),
+        },
+        create: {
+          userId,
+          villageId,
+          role: VillageMembershipRole.RESIDENT,
+          status: MembershipStatus.ACTIVE,
+          houseId: house.id,
+          joinedAt: new Date(),
+        },
+      });
+    }
+
+    const existingPerson = await tx.person.findFirst({
+      where: {
+        OR: [
+          { phone: phoneNumber },
+          nationalId ? { nationalId } : undefined,
+        ].filter(Boolean) as Array<{ phone?: string; nationalId?: string }>,
+      },
+      select: { id: true },
+    });
+
+    if (existingPerson) {
+      await tx.person.update({
+        where: { id: existingPerson.id },
+        data: {
+          villageId,
+          houseId: house.id,
+          nationalId,
+          firstName,
+          lastName,
+          dateOfBirth,
+          gender,
+          phone: phoneNumber,
+          email,
+        },
+      });
+    } else {
+      await tx.person.create({
+        data: {
+          villageId,
+          houseId: house.id,
+          nationalId,
+          firstName,
+          lastName,
+          dateOfBirth,
+          gender,
+          phone: phoneNumber,
+          email,
+        },
+      });
+    }
+
+    await tx.phoneRoleSeed.upsert({
+      where: { phoneNumber },
+      update: {
+        villageId,
+        membershipRole: VillageMembershipRole.RESIDENT,
+        systemRole: null,
+        isCitizenVerified,
+        note:
+          note ??
+          `Imported resident seed: ${fullName} / house ${houseNumber}`,
+      },
+      create: {
+        phoneNumber,
+        villageId,
+        membershipRole: VillageMembershipRole.RESIDENT,
+        isCitizenVerified,
+        note:
+          note ??
+          `Imported resident seed: ${fullName} / house ${houseNumber}`,
+      },
+    });
   });
 
   revalidatePath("/dev");

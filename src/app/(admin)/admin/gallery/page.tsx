@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
+const db = prisma as any;
+
 export default async function AdminGalleryPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
@@ -17,7 +19,7 @@ export default async function AdminGalleryPage() {
   });
   if (!membership) redirect("/auth/login");
 
-  const albums = await prisma.galleryAlbum.findMany({
+  const albums = await db.galleryAlbum.findMany({
     where: { villageId: membership.villageId },
     orderBy: [{ createdAt: "desc" }],
     select: {
@@ -25,7 +27,15 @@ export default async function AdminGalleryPage() {
       title: true,
       coverUrl: true,
       isPublic: true,
+      allowResidentSubmissions: true,
       _count: { select: { items: true } },
+    },
+  });
+
+  const pendingSubmissionCount = await db.galleryItemSubmission.count({
+    where: {
+      album: { villageId: membership.villageId },
+      status: "PENDING",
     },
   });
 
@@ -36,11 +46,18 @@ export default async function AdminGalleryPage() {
           <h1 className="text-2xl font-bold text-gray-900">แกลเลอรี</h1>
           <p className="text-sm text-gray-500 mt-1">จัดการอัลบั้มและรูปภาพของหมู่บ้าน</p>
         </div>
-        <Link href="/admin/gallery/new">
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" /> เพิ่มอัลบั้ม
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/gallery/submissions">
+            <Button size="sm" variant="outline">
+              คำขอเพิ่มรูป {pendingSubmissionCount > 0 ? `(${pendingSubmissionCount})` : ""}
+            </Button>
+          </Link>
+          <Link href="/admin/gallery/new">
+            <Button size="sm">
+              <Plus className="h-4 w-4 mr-1" /> เพิ่มอัลบั้ม
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {albums.length === 0 ? (
@@ -50,7 +67,7 @@ export default async function AdminGalleryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {albums.map((album) => (
+          {albums.map((album: any) => (
             <Link
               key={album.id}
               href={`/admin/gallery/${album.id}`}
@@ -69,6 +86,9 @@ export default async function AdminGalleryPage() {
                   <Badge variant={album.isPublic ? "success" : "info"}>
                     {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
                   </Badge>
+                  {album.allowResidentSubmissions && (
+                    <Badge variant="warning">รับคำขอรูป</Badge>
+                  )}
                   <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>
                 <p className="font-medium text-gray-900 line-clamp-1">{album.title}</p>

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getSessionContextFromServerCookies, isAdminUser, getHeadmanMembership } from "@/lib/access-control";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
@@ -17,10 +17,7 @@ export default async function AdminNewsRequestListPage() {
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getHeadmanMembership(session);
   if (!membership) redirect("/auth/login");
 
   const requests = await prisma.newsSubmission.findMany({

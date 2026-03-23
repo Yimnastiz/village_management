@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { AlbumForm } from "../../album-form";
 
+const db = prisma as any;
+
 interface PageProps {
   params: Promise<{ albumId: string }>;
 }
@@ -20,7 +22,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
   });
   if (!membership) redirect("/auth/login");
 
-  const album = await prisma.galleryAlbum.findFirst({
+  const album = await db.galleryAlbum.findFirst({
     where: { id: albumId, villageId: membership.villageId },
   });
   if (!album) notFound();
@@ -39,6 +41,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
           description: album.description || "",
           coverUrl: album.coverUrl || "",
           isPublic: album.isPublic ? "PUBLIC" : "RESIDENT",
+          allowResidentSubmissions: album.allowResidentSubmissions ? "ALLOW" : "DISALLOW",
         }}
       />
     </div>
