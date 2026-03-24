@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugParam } from "@/lib/village-slug";
+import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { AlbumGalleryViewer } from "./album-gallery-viewer";
 
 type PublicGalleryAlbumDetailPageProps = {
@@ -14,8 +14,8 @@ export default async function PublicGalleryAlbumDetailPage({ params }: PublicGal
   const { villageSlug: rawVillageSlug, albumId } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
-  const village = await prisma.village.findUnique({
-    where: { slug: villageSlug },
+  const village = await prisma.village.findFirst({
+    where: { slug: { in: getSlugVariants(villageSlug) } },
     select: { id: true, name: true, slug: true },
   });
   if (!village) notFound();

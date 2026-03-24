@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { createVillageAction } from "./actions";
+import { useActionState, useMemo, useState } from "react";
+import {
+  createVillageAction,
+  repairVillageSlugAction,
+  type VillageActionState,
+} from "./actions";
 import type { ThaiProvince } from "@/lib/thai-geography";
 
 type VillageOption = {
@@ -21,6 +25,14 @@ export function DevVillageForm({ thaiGeography, villages }: DevVillageFormProps)
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [subdistrict, setSubdistrict] = useState("");
+  const [state, formAction, isPending] = useActionState<VillageActionState | null, FormData>(
+    createVillageAction,
+    null,
+  );
+  const [repairState, repairFormAction, isRepairing] = useActionState<VillageActionState | null, FormData>(
+    repairVillageSlugAction,
+    null,
+  );
 
   const selectedProvince = useMemo(
     () => thaiGeography.find((p) => p.name === province) ?? null,
@@ -49,16 +61,39 @@ export function DevVillageForm({ thaiGeography, villages }: DevVillageFormProps)
   );
 
   return (
-    <form
-      action={createVillageAction}
-      className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3"
-    >
-      <input
-        name="slug"
-        required
-        placeholder="slug (เช่น ban-nong-khai หรือ เขาทราย)"
-        className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
+    <>
+      {state && (
+        <div
+          className={`mt-3 rounded-lg px-4 py-3 text-sm ${
+            state.success
+              ? "bg-green-50 border border-green-200 text-green-800"
+              : "bg-red-50 border border-red-200 text-red-800"
+          }`}
+        >
+          {state.message}
+        </div>
+      )}
+      {repairState && (
+        <div
+          className={`mt-3 rounded-lg px-4 py-3 text-sm ${
+            repairState.success
+              ? "bg-blue-50 border border-blue-200 text-blue-800"
+              : "bg-amber-50 border border-amber-200 text-amber-900"
+          }`}
+        >
+          {repairState.message}
+        </div>
+      )}
+      <form
+        action={formAction}
+        className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3"
+      >
+        <input
+          name="slug"
+          required
+          placeholder="slug (เช่น ban-nong-khai หรือ เขาทราย)"
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        />
 
       {/* Village name with suggestions from existing villages in selected location */}
       <input
@@ -131,10 +166,21 @@ export function DevVillageForm({ thaiGeography, villages }: DevVillageFormProps)
 
       <button
         type="submit"
-        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+        disabled={isPending}
+        className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
       >
-        Add / Update Village
+        {isPending ? "กำลังบันทึก..." : "Add / Update Village"}
       </button>
     </form>
+      <form action={repairFormAction} className="mt-3">
+        <button
+          type="submit"
+          disabled={isRepairing}
+          className="rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+        >
+          {isRepairing ? "กำลังซ่อม slug..." : "Repair Existing Garbled Slugs"}
+        </button>
+      </form>
+    </>
   );
 }

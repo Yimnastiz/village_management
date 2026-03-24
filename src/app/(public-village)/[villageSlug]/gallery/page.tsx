@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugParam } from "@/lib/village-slug";
+import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
@@ -12,8 +12,8 @@ export default async function Page({ params }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
-  const village = await prisma.village.findUnique({
-    where: { slug: villageSlug },
+  const village = await prisma.village.findFirst({
+    where: { slug: { in: getSlugVariants(villageSlug) } },
     select: { id: true, name: true },
   });
   if (!village) notFound();

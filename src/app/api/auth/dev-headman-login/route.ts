@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
     phoneNumber: user.phoneNumber,
     systemRole: user.systemRole,
     citizenVerifiedAt: user.citizenVerifiedAt,
+    activeVillageId: seed.villageId,
     memberships: [
       {
         villageId: seed.villageId,

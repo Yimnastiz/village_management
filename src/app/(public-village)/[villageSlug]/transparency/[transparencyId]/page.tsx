@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugParam } from "@/lib/village-slug";
+import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string; transparencyId: string }>;
@@ -12,8 +12,8 @@ export default async function TransparencyDetailPage({ params }: PageProps) {
   const { villageSlug: rawVillageSlug, transparencyId } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
-  const village = await prisma.village.findUnique({
-    where: { slug: villageSlug },
+  const village = await prisma.village.findFirst({
+    where: { slug: { in: getSlugVariants(villageSlug) } },
     select: { id: true, slug: true },
   });
   if (!village) notFound();

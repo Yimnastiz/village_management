@@ -3,7 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugParam } from "@/lib/village-slug";
+import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string; eventId: string }>;
@@ -13,8 +13,8 @@ export default async function PublicVillageEventDetailPage({ params }: PageProps
   const { villageSlug: rawVillageSlug, eventId } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
 
-  const village = await prisma.village.findUnique({
-    where: { slug: villageSlug },
+  const village = await prisma.village.findFirst({
+    where: { slug: { in: getSlugVariants(villageSlug) } },
     select: { id: true, slug: true, name: true },
   });
   if (!village) notFound();

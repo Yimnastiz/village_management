@@ -7,7 +7,7 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugInput } from "@/lib/village-slug";
+import { normalizeVillageSlugInput, getSlugVariants } from "@/lib/village-slug";
 
 function toNonEmptyString(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -22,7 +22,12 @@ function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s-]/g, "");
 }
 
-export async function createVillageAction(formData: FormData) {
+export type VillageActionState = { success: boolean; message: string };
+
+export async function createVillageAction(
+  _prevState: VillageActionState | null,
+  formData: FormData,
+): Promise<VillageActionState> {
   const rawSlug = toNonEmptyString(formData.get("slug"));
   const name = toNonEmptyString(formData.get("name"));
   const province = toNonEmptyString(formData.get("province"));
@@ -30,72 +35,98 @@ export async function createVillageAction(formData: FormData) {
   const subdistrict = toNonEmptyString(formData.get("subdistrict"));
 
   if (!rawSlug || !name || !province || !district || !subdistrict) {
-    throw new Error("Missing required village fields.");
+    return { success: false, message: "กรุณากรอกข้อมูลให้ครบทุกช่อง (slug, ชื่อ, จังหวัด, อำเภอ, ตำบล)" };
   }
 
   const slug = normalizeVillageSlugInput(rawSlug);
   if (!slug) {
-    throw new Error("Invalid village slug. กรุณาใช้ตัวอักษร ไทย/อังกฤษ ตัวเลข หรือเครื่องหมาย -");
+    return { success: false, message: "slug ไม่ถูกต้อง กรุณาใช้ตัวอักษร ไทย/อังกฤษ ตัวเลข หรือเครื่องหมาย -" };
   }
 
-  const sameSlugVillage = await prisma.village.findUnique({
-    where: { slug },
-    select: { id: true },
+  // Check by normalized slug AND its encoded variant (handles legacy garbled slugs)
+  const sameSlugVillage = await prisma.village.findFirst({
+    where: { slug: { in: getSlugVariants(slug) } },
+    select: { id: true, slug: true },
   });
 
   if (sameSlugVillage) {
     await prisma.village.update({
       where: { id: sameSlugVillage.id },
-      data: {
-        name,
-        province,
-        district,
-        subdistrict,
-        isActive: true,
-      },
+      data: { slug, name, province, district, subdistrict, isActive: true },
     });
     revalidatePath("/dev");
-    return;
+    const wasRepaired = sameSlugVillage.slug !== slug;
+    return {
+      success: true,
+      message: wasRepaired
+        ? `อัปเดตหมู่บ้าน "${name}" สำเร็จ (แก้ไข slug: "${sameSlugVillage.slug}" → "${slug}")`
+        : `อัปเดตหมู่บ้าน "${name}" สำเร็จ`,
+    };
   }
 
   const sameVillageByIdentity = await prisma.village.findFirst({
-    where: {
-      name,
-      province,
-      district,
-      subdistrict,
-    },
+    where: { name, province, district, subdistrict },
     select: { id: true },
   });
 
   if (sameVillageByIdentity) {
     await prisma.village.update({
       where: { id: sameVillageByIdentity.id },
-      data: {
-        slug,
-        name,
-        province,
-        district,
-        subdistrict,
-        isActive: true,
-      },
+      data: { slug, name, province, district, subdistrict, isActive: true },
     });
     revalidatePath("/dev");
-    return;
+    return { success: true, message: `อัปเดต slug ของหมู่บ้าน "${name}" เป็น "${slug}" สำเร็จ` };
   }
 
   await prisma.village.create({
-    data: {
-      slug,
-      name,
-      province,
-      district,
-      subdistrict,
-      isActive: true,
-    },
+    data: { slug, name, province, district, subdistrict, isActive: true },
   });
 
   revalidatePath("/dev");
+  return { success: true, message: `สร้างหมู่บ้าน "${name}" (slug: "${slug}") สำเร็จ` };
+}
+
+export async function repairVillageSlugAction(
+  _prevState: VillageActionState | null,
+  _formData: FormData,
+): Promise<VillageActionState> {
+  const villages = await prisma.village.findMany({
+    select: { id: true, slug: true, name: true },
+  });
+
+  let repaired = 0;
+  const errors: string[] = [];
+
+  for (const village of villages) {
+    const normalized = normalizeVillageSlugInput(village.slug);
+    if (!normalized || normalized === village.slug) continue;
+
+    // Make sure the normalized slug isn't already taken by a different village
+    const conflict = await prisma.village.findFirst({
+      where: { slug: normalized, NOT: { id: village.id } },
+      select: { id: true },
+    });
+    if (conflict) {
+      errors.push(`หมู่บ้าน "${village.name}": slug "${normalized}" ถูกใช้งานแล้ว`);
+      continue;
+    }
+
+    await prisma.village.update({
+      where: { id: village.id },
+      data: { slug: normalized },
+    });
+    repaired++;
+  }
+
+  revalidatePath("/dev");
+
+  if (repaired === 0 && errors.length === 0) {
+    return { success: true, message: "slug ของทุกหมู่บ้านถูกต้องแล้ว ไม่มีอะไรต้องแก้ไข" };
+  }
+  const parts: string[] = [];
+  if (repaired > 0) parts.push(`แก้ไข slug ${repaired} หมู่บ้านสำเร็จ`);
+  if (errors.length > 0) parts.push(`ข้ามไป ${errors.length} รายการ (slug ซ้ำ): ${errors.join("; ")}`);
+  return { success: errors.length === 0, message: parts.join(" | ") };
 }
 
 export async function upsertPhoneRoleSeedAction(formData: FormData) {
