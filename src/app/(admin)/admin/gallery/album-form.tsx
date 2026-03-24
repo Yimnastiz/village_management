@@ -13,6 +13,7 @@ import { createGalleryAlbumAction, updateGalleryAlbumAction } from "./actions";
 const schema = z.object({
   title: z.string().min(2, "กรุณาระบุชื่ออัลบั้ม"),
   description: z.string().optional(),
+  albumDate: z.string().min(1, "กรุณาระบุวันที่อัลบั้ม"),
   coverUrl: z.string().optional(),
   isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
   allowResidentSubmissions: z.string().min(1, "กรุณาเลือกการรับคำขอเพิ่มรูป"),
@@ -26,6 +27,7 @@ type AlbumFormProps = {
   defaultValues?: {
     title: string;
     description: string;
+    albumDate: string;
     coverUrl: string;
     isPublic: string;
     allowResidentSubmissions: string;
@@ -44,6 +46,7 @@ export function AlbumForm({ mode, albumId, defaultValues }: AlbumFormProps) {
     defaultValues: defaultValues ?? {
       title: "",
       description: "",
+      albumDate: "",
       coverUrl: "",
       isPublic: "PUBLIC",
       allowResidentSubmissions: "DISALLOW",
@@ -74,6 +77,7 @@ export function AlbumForm({ mode, albumId, defaultValues }: AlbumFormProps) {
       <Input label="ชื่ออัลบั้ม" {...register("title")} error={errors.title?.message} />
       <Textarea label="คำอธิบาย" {...register("description")} error={errors.description?.message} rows={4} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input label="วันที่อัลบั้ม" type="date" {...register("albumDate")} error={errors.albumDate?.message} />
         <Input
           label="URL รูปหน้าปก"
           placeholder="https://..."

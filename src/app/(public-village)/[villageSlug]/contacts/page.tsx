@@ -39,7 +39,6 @@ export default async function Page({ params }: PageProps) {
             <article key={contact.id} className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
               <div className="flex items-center gap-2">
                 {contact.category && <Badge variant="outline">{contact.category}</Badge>}
-                <Badge variant="outline">ลำดับ {contact.sortOrder}</Badge>
               </div>
               <h2 className="font-semibold text-gray-900">{contact.name}</h2>
               <p className="text-sm text-gray-600">{contact.role || "ไม่ระบุตำแหน่ง"}</p>

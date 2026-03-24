@@ -1,7 +1,15 @@
 "use server";
 
-import { IssueCategory, IssuePriority, IssueStage } from "@prisma/client";
+import {
+  IssueCategory,
+  IssuePriority,
+  IssueStage,
+  NotificationType,
+  Prisma,
+  VillageMembershipRole,
+} from "@prisma/client";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
@@ -20,6 +28,61 @@ type IssueInput = {
   priority: string;
   location?: string;
 };
+
+const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
+  VillageMembershipRole.HEADMAN,
+  VillageMembershipRole.ASSISTANT_HEADMAN,
+  VillageMembershipRole.COMMITTEE,
+];
+
+async function notifyIssueStakeholders(params: {
+  villageId: string;
+  issueId: string;
+  actorUserId: string;
+  title: string;
+  body: string;
+  reporterId?: string;
+  includeReporter?: boolean;
+  includeAdmins?: boolean;
+  metadata?: Prisma.InputJsonObject;
+}) {
+  const recipients = new Set<string>();
+
+  if (params.includeAdmins) {
+    const admins = await prisma.villageMembership.findMany({
+      where: {
+        villageId: params.villageId,
+        status: "ACTIVE",
+        role: { in: ADMIN_MEMBERSHIP_ROLES },
+      },
+      select: { userId: true },
+    });
+
+    for (const admin of admins) {
+      if (admin.userId !== params.actorUserId) recipients.add(admin.userId);
+    }
+  }
+
+  if (params.includeReporter && params.reporterId && params.reporterId !== params.actorUserId) {
+    recipients.add(params.reporterId);
+  }
+
+  if (recipients.size === 0) return;
+
+  await prisma.notification.createMany({
+    data: Array.from(recipients).map((userId) => ({
+      villageId: params.villageId,
+      userId,
+      type: NotificationType.ISSUE_UPDATE,
+      title: params.title,
+      body: params.body,
+      metadata: {
+        issueId: params.issueId,
+        ...(params.metadata ?? {}),
+      } as Prisma.InputJsonValue,
+    })),
+  });
+}
 
 async function requireAdminCtx() {
   const session = await getSessionContextFromServerCookies();
@@ -168,6 +231,27 @@ export async function adminUpdateStageAction(
     },
   });
 
+  await notifyIssueStakeholders({
+    villageId: issue.villageId,
+    issueId,
+    actorUserId: ctx.session!.id,
+    reporterId: issue.reporterId,
+    includeReporter: true,
+    includeAdmins: true,
+    title: "สถานะคำร้องถูกอัปเดต",
+    body: `${issue.title} • ${STAGE_LABELS[stage]}`,
+    metadata: {
+      stage,
+      note: note?.trim() || undefined,
+    },
+  });
+
+  revalidatePath(`/resident/issues/${issueId}`);
+  revalidatePath("/resident/issues");
+  revalidatePath("/admin/issues");
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
+
   return { success: true };
 }
 
@@ -205,6 +289,25 @@ export async function adminAddMessageAction(
   await prisma.issueMessage.create({
     data: { issueId, senderId: ctx.session!.id, content: trimmed, isInternal },
   });
+
+  await notifyIssueStakeholders({
+    villageId: issue.villageId,
+    issueId,
+    actorUserId: ctx.session!.id,
+    reporterId: issue.reporterId,
+    includeReporter: !isInternal,
+    includeAdmins: true,
+    title: isInternal ? "มีบันทึกภายในใหม่ในคำร้อง" : "มีข้อความใหม่จากผู้ดูแลในคำร้อง",
+    body: trimmed,
+    metadata: {
+      isInternal,
+    },
+  });
+
+  revalidatePath(`/resident/issues/${issueId}`);
+  revalidatePath(`/admin/issues/${issueId}`);
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
 
   return { success: true };
 }

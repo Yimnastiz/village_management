@@ -1,6 +1,7 @@
 "use server";
 
 import { NotificationType, VillageMembershipRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -9,12 +10,33 @@ const db = prisma as any;
 
 const submissionSchema = z.object({
   title: z.string().trim().min(2, "กรุณาระบุหัวข้อรูปภาพ").max(120),
-  fileUrl: z.string().trim().url("URL รูปภาพไม่ถูกต้อง"),
+  fileUrl: z.string().trim().min(1, "กรุณาอัปโหลดรูปภาพ"),
   mimeType: z.string().trim().optional(),
   note: z.string().trim().max(500, "ข้อความประกอบยาวเกินไป").optional(),
 });
 
 type SubmissionInput = z.infer<typeof submissionSchema>;
+
+function isSupportedImageSource(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("data:image/")) return true;
+  return /^https?:\/\//i.test(trimmed);
+}
+
+function revalidateGalleryResidentViews(albumId: string, submissionId?: string) {
+  revalidatePath("/resident", "layout");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/resident/gallery");
+  revalidatePath(`/resident/gallery/${albumId}`);
+  revalidatePath(`/resident/gallery/${albumId}/request`);
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
+  revalidatePath("/admin/gallery/submissions");
+  if (submissionId) {
+    revalidatePath(`/admin/gallery/submissions/${submissionId}`);
+  }
+}
 
 export async function createGalleryItemSubmissionAction(
   albumId: string,
@@ -36,6 +58,10 @@ export async function createGalleryItemSubmissionAction(
       success: false,
       error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง",
     };
+  }
+
+  if (!isSupportedImageSource(parsed.data.fileUrl)) {
+    return { success: false, error: "รูปภาพต้องเป็นไฟล์ที่อัปโหลดหรือ URL ที่ถูกต้อง" };
   }
 
   const album = await db.galleryAlbum.findFirst({
@@ -107,6 +133,8 @@ export async function createGalleryItemSubmissionAction(
       })),
     });
   }
+
+  revalidateGalleryResidentViews(album.id, created.id);
 
   return { success: true, id: created.id };
 }

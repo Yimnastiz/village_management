@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Newspaper } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 
 interface PageProps {
@@ -12,6 +14,7 @@ interface PageProps {
 export default async function VillageNewsPage({ params }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) } },
@@ -33,6 +36,18 @@ export default async function VillageNewsPage({ params }: PageProps) {
       publishedAt: true,
       createdAt: true,
       isPinned: true,
+      authorId: true,
+      author: {
+        select: {
+          memberships: {
+            where: {
+              villageId: village.id,
+              status: "ACTIVE",
+            },
+            select: { role: true },
+          },
+        },
+      },
     },
   });
 
@@ -58,6 +73,14 @@ export default async function VillageNewsPage({ params }: PageProps) {
                         ปักหมุด
                       </span>
                     )}
+                    <Badge variant="outline">
+                      {(() => {
+                        if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN;
+                        const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
+                        const isAdminSource = roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number]));
+                        return isAdminSource ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
+                      })()}
+                    </Badge>
                   </div>
                   <p className="font-medium text-gray-900 line-clamp-1">{news.title}</p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{news.summary || "-"}</p>

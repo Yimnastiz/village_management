@@ -1,22 +1,27 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Plus, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
-import { createNewsCreateRequestAction, createNewsUpdateRequestAction } from "./actions";
+import {
+  createNewsCreateRequestAction,
+  createNewsUpdateRequestAction,
+  updatePendingNewsSubmissionAction,
+} from "./actions";
+import { FileUpload } from "@/components/ui/file-upload";
 
 const schema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
   summary: z.string().optional(),
   content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  imageUrls: z.array(z.object({ url: z.string().optional() })).optional(),
   visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
   stage: z.string().min(1, "กรุณาเลือกสถานะ"),
   isPinned: z.boolean().optional(),
@@ -25,8 +30,9 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 type RequestFormProps = {
-  mode: "create" | "update";
+  mode: "create" | "update" | "submission-edit";
   targetNewsId?: string;
+  submissionId?: string;
   defaultValues?: {
     title: string;
     summary: string;
@@ -38,28 +44,45 @@ type RequestFormProps = {
   };
 };
 
-export function NewsRequestForm({ mode, targetNewsId, defaultValues }: RequestFormProps) {
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("ไม่สามารถอ่านไฟล์ได้"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function normalizeExistingImageUrls(imageUrls: string[]) {
+  return imageUrls.filter((url) => url.trim().length > 0);
+}
+
+export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValues }: RequestFormProps) {
   const router = useRouter();
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+    normalizeExistingImageUrls(defaultValues?.imageUrls ?? [])
+  );
+
   const resolvedDefaults: FormData = defaultValues
     ? {
-        ...defaultValues,
-        imageUrls:
-          defaultValues.imageUrls.length > 0
-            ? defaultValues.imageUrls.map((url) => ({ url }))
-            : [{ url: "" }],
+        title: defaultValues.title,
+        summary: defaultValues.summary,
+        content: defaultValues.content,
+        visibility: defaultValues.visibility,
+        stage: defaultValues.stage,
+        isPinned: defaultValues.isPinned,
       }
     : {
         title: "",
         summary: "",
         content: "",
-        imageUrls: [{ url: "" }],
         visibility: "PUBLIC",
         stage: "DRAFT",
         isPinned: false,
       };
 
   const {
-    control,
     register,
     handleSubmit,
     setError,
@@ -67,11 +90,6 @@ export function NewsRequestForm({ mode, targetNewsId, defaultValues }: RequestFo
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: resolvedDefaults,
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "imageUrls",
   });
 
   const visibilityOptions = Object.entries(NEWS_VISIBILITY_LABELS).map(([value, label]) => ({
@@ -84,13 +102,21 @@ export function NewsRequestForm({ mode, targetNewsId, defaultValues }: RequestFo
   }));
 
   const onSubmit = async (data: FormData) => {
+    let uploadedImageDataUrls: string[] = [];
+    if (selectedFiles.length > 0) {
+      try {
+        uploadedImageDataUrls = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
+      } catch {
+        setError("root", { message: "ไม่สามารถอ่านไฟล์รูปที่อัปโหลดได้" });
+        return;
+      }
+    }
+
     const payload = {
       title: data.title,
       summary: data.summary,
       content: data.content,
-      imageUrls: (data.imageUrls ?? [])
-        .map((item) => item.url?.trim() || "")
-        .filter((url) => url.length > 0),
+      imageUrls: [...existingImageUrls, ...uploadedImageDataUrls],
       visibility: data.visibility,
       stage: data.stage,
       isPinned: Boolean(data.isPinned),
@@ -99,7 +125,9 @@ export function NewsRequestForm({ mode, targetNewsId, defaultValues }: RequestFo
     const result =
       mode === "create"
         ? await createNewsCreateRequestAction(payload)
-        : await createNewsUpdateRequestAction(targetNewsId ?? "", payload);
+        : mode === "update"
+          ? await createNewsUpdateRequestAction(targetNewsId ?? "", payload)
+          : await updatePendingNewsSubmissionAction(submissionId ?? "", payload);
 
     if (!result.success) {
       setError("root", { message: result.error });
@@ -137,39 +165,56 @@ export function NewsRequestForm({ mode, targetNewsId, defaultValues }: RequestFo
       <Textarea label="เนื้อหา" {...register("content")} error={errors.content?.message} rows={10} />
 
       <div className="space-y-3 rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-medium text-gray-800">รูปภาพประกอบข่าว</p>
-          <Button type="button" variant="outline" size="sm" onClick={() => append({ url: "" })}>
-            <Plus className="h-4 w-4 mr-1" /> เพิ่มรูป
-          </Button>
         </div>
 
-        {fields.map((field, index) => (
-          <div key={field.id} className="flex items-start gap-2">
-            <Input
-              label={`URL รูปที่ ${index + 1}`}
-              placeholder="https://..."
-              {...register(`imageUrls.${index}.url`)}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-7"
-              onClick={() => remove(index)}
-              disabled={fields.length <= 1}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+        <FileUpload
+          label="อัปโหลดรูปภาพ"
+          accept="image/*"
+          multiple
+          maxSize={5 * 1024 * 1024}
+          onFilesChange={(files) => setSelectedFiles(files)}
+        />
+
+        {existingImageUrls.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500">รูปที่มีอยู่แล้ว (กดลบได้)</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {existingImageUrls.map((url) => (
+                <div key={url} className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                  <img src={url} alt="existing" className="h-24 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setExistingImageUrls((prev) => prev.filter((item) => item !== url))}
+                    className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-red-500 hover:bg-white"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
+
+        {selectedFiles.length > 0 && (
+          <p className="text-xs text-gray-500">ไฟล์ใหม่ที่เลือก: {selectedFiles.length} รูป</p>
+        )}
+
+        {existingImageUrls.length === 0 && selectedFiles.length === 0 && (
+          <p className="text-sm text-gray-500">ยังไม่มีรูปภาพ</p>
+        )}
       </div>
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
       <div className="flex flex-wrap gap-3">
         <Button type="submit" isLoading={isSubmitting}>
-          {mode === "create" ? "ส่งคำขอเพิ่มข่าว" : "ส่งคำขอแก้ไขข่าว"}
+          {mode === "create"
+            ? "บันทึกข่าวใหม่"
+            : mode === "update"
+              ? "ส่งคำขอแก้ไขข่าว"
+              : "บันทึกการแก้ไขคำขอ"}
         </Button>
         <Button type="button" variant="outline" onClick={() => router.back()}>
           ย้อนกลับ

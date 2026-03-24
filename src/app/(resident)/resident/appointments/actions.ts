@@ -1,6 +1,8 @@
 "use server";
 
+import { NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isAdminUser } from "@/lib/access-control";
@@ -28,6 +30,89 @@ const suggestTimeSchema = z.object({
   slotId: z.string(),
   message: z.string().optional(),
 });
+
+const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
+  "HEADMAN",
+  "ASSISTANT_HEADMAN",
+  "COMMITTEE",
+];
+
+function formatThaiShortDate(date: Date): string {
+  return date.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+async function getVillageAdminUserIds(villageId: string): Promise<string[]> {
+  const admins = await prisma.villageMembership.findMany({
+    where: {
+      villageId,
+      status: "ACTIVE",
+      role: { in: ADMIN_MEMBERSHIP_ROLES },
+    },
+    select: { userId: true },
+  });
+
+  return Array.from(new Set(admins.map((item) => item.userId)));
+}
+
+async function notifyVillageAdmins(
+  villageId: string,
+  title: string,
+  body: string,
+  metadata?: Prisma.InputJsonObject,
+  excludeUserId?: string
+) {
+  const adminUserIds = await getVillageAdminUserIds(villageId);
+  const recipients = excludeUserId
+    ? adminUserIds.filter((userId) => userId !== excludeUserId)
+    : adminUserIds;
+
+  if (recipients.length === 0) return;
+
+  await prisma.notification.createMany({
+    data: recipients.map((userId) => ({
+      userId,
+      villageId,
+      type: NotificationType.APPOINTMENT_UPDATE,
+      title,
+      body,
+      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+    })),
+  });
+}
+
+async function notifyUser(
+  userId: string,
+  villageId: string,
+  title: string,
+  body: string,
+  metadata?: Prisma.InputJsonObject
+) {
+  await prisma.notification.create({
+    data: {
+      userId,
+      villageId,
+      type: NotificationType.APPOINTMENT_UPDATE,
+      title,
+      body,
+      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+    },
+  });
+}
+
+function revalidateAppointmentViews(appointmentId: string) {
+  revalidatePath("/resident", "layout");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
+  revalidatePath("/resident/appointments");
+  revalidatePath("/admin/appointments");
+  revalidatePath(`/resident/appointments/${appointmentId}`);
+  revalidatePath(`/admin/appointments/${appointmentId}`);
+}
 
 export async function createAppointmentAction(formData: FormData): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
   "use server";
@@ -134,6 +219,19 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
     },
   });
 
+  await notifyVillageAdmins(
+    membership.villageId,
+    "อัปเดตนัดหมาย: คำขอใหม่",
+    `เรื่อง: ${parsed.data.title} | วันที่ที่ต้องการ: ${formatThaiShortDate(requestedDateObj)}${parsed.data.slotId ? " | ผู้ใช้เลือกช่วงเวลาแล้ว" : " | รอผู้บริหารกำหนดช่วงเวลา"}`,
+    {
+      appointmentId: appointment.id,
+      requestedDate: parsed.data.requestedDate,
+      requestedSlotId: parsed.data.slotId ?? null,
+    }
+  );
+
+  revalidateAppointmentViews(appointment.id);
+
   return { success: true, appointmentId: appointment.id };
 }
 
@@ -226,6 +324,16 @@ export async function approveAppointmentAction(
     },
   });
 
+  await notifyUser(
+    appointment.userId,
+    appointment.villageId,
+    "อัปเดตนัดหมาย: อนุมัติแล้ว",
+    `เรื่อง: ${appointment.title} | เวลา ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)}`,
+    { appointmentId: appointment.id }
+  );
+
+  revalidateAppointmentViews(appointment.id);
+
   return { success: true };
 }
 
@@ -288,6 +396,16 @@ export async function rejectAppointmentAction(
       description: `ผู้บริหารปฏิเสธนัดหมาย - ${parsed.data.reviewNote}`,
     },
   });
+
+  await notifyUser(
+    appointment.userId,
+    appointment.villageId,
+    "อัปเดตนัดหมาย: ไม่อนุมัติ",
+    `เรื่อง: ${appointment.title} | เหตุผล: ${parsed.data.reviewNote}`,
+    { appointmentId: appointment.id }
+  );
+
+  revalidateAppointmentViews(appointment.id);
 
   return { success: true };
 }
@@ -381,16 +499,15 @@ export async function suggestTimeAction(
   });
 
   // Notify the resident
-  await prisma.notification.create({
-    data: {
-      userId: appointment.userId,
-      villageId: appointment.villageId,
-      type: "APPOINTMENT_UPDATE",
-      title: "ผู้บริหารแนะนำเวลานัดหมาย",
-      body: `ผู้บริหารแนะนำเวลา ${slot.startTime}-${slot.endTime} น. วันที่ ${slot.date.toLocaleDateString("th-TH")} กรุณายืนยันหรือปฏิเสธ`,
-      metadata: { appointmentId: appointment.id },
-    },
-  });
+  await notifyUser(
+    appointment.userId,
+    appointment.villageId,
+    "อัปเดตนัดหมาย: มีการแนะนำเวลา",
+    `เรื่อง: ${appointment.title} | เวลาแนะนำ ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)} | กรุณายืนยันหรือปฏิเสธ`,
+    { appointmentId: appointment.id }
+  );
+
+  revalidateAppointmentViews(appointment.id);
 
   return { success: true };
 }
@@ -429,23 +546,15 @@ export async function confirmSuggestionAction(
     },
   });
 
-  // Notify the admin who suggested the time
-  const suggestionEntry = await prisma.appointmentTimeline.findFirst({
-    where: { appointmentId, action: "TIME_SUGGESTED" },
-    orderBy: { createdAt: "desc" },
-  });
-  if (suggestionEntry?.actorId) {
-    await prisma.notification.create({
-      data: {
-        userId: suggestionEntry.actorId,
-        villageId: appointment.villageId,
-        type: "APPOINTMENT_UPDATE",
-        title: "ลูกบ้านยืนยันนัดหมาย",
-        body: `ลูกบ้านยืนยันเวลานัดหมาย "${appointment.title}" แล้ว`,
-        metadata: { appointmentId },
-      },
-    });
-  }
+  await notifyVillageAdmins(
+    appointment.villageId,
+    "อัปเดตนัดหมาย: ลูกบ้านยืนยันเวลา",
+    `เรื่อง: ${appointment.title} | ลูกบ้านยืนยันเวลาที่แนะนำแล้ว`,
+    { appointmentId },
+    session.id
+  );
+
+  revalidateAppointmentViews(appointmentId);
 
   return { success: true };
 }
@@ -483,23 +592,15 @@ export async function rejectSuggestionAction(
     },
   });
 
-  // Notify the admin who suggested
-  const suggestionEntry = await prisma.appointmentTimeline.findFirst({
-    where: { appointmentId, action: "TIME_SUGGESTED" },
-    orderBy: { createdAt: "desc" },
-  });
-  if (suggestionEntry?.actorId) {
-    await prisma.notification.create({
-      data: {
-        userId: suggestionEntry.actorId,
-        villageId: appointment.villageId,
-        type: "APPOINTMENT_UPDATE",
-        title: "ลูกบ้านปฏิเสธเวลาที่แนะนำ",
-        body: `ลูกบ้านปฏิเสธเวลาที่แนะนำสำหรับนัดหมาย "${appointment.title}" แล้ว`,
-        metadata: { appointmentId },
-      },
-    });
-  }
+  await notifyVillageAdmins(
+    appointment.villageId,
+    "อัปเดตนัดหมาย: ลูกบ้านปฏิเสธเวลา",
+    `เรื่อง: ${appointment.title} | ลูกบ้านปฏิเสธเวลาที่แนะนำ`,
+    { appointmentId },
+    session.id
+  );
+
+  revalidateAppointmentViews(appointmentId);
 
   return { success: true };
 }
@@ -555,16 +656,15 @@ export async function adminCancelAppointmentAction(
   });
 
   // Notify resident
-  await prisma.notification.create({
-    data: {
-      userId: appointment.userId,
-      villageId: appointment.villageId,
-      type: "APPOINTMENT_UPDATE",
-      title: "นัดหมายถูกยกเลิก",
-      body: `ผู้บริหารยกเลิกนัดหมาย "${appointment.title}" ของคุณ${reason ? ` เหตุผล: ${reason}` : ""}`,
-      metadata: { appointmentId },
-    },
-  });
+  await notifyUser(
+    appointment.userId,
+    appointment.villageId,
+    "อัปเดตนัดหมาย: ถูกยกเลิก",
+    `เรื่อง: ${appointment.title}${reason ? ` | เหตุผล: ${reason}` : " | ผู้บริหารยกเลิกรายการนี้"}`,
+    { appointmentId }
+  );
+
+  revalidateAppointmentViews(appointmentId);
 
   return { success: true };
 }
@@ -653,19 +753,15 @@ export async function adminEditAppointmentAction(
     },
   });
 
-  // Notify resident if slot changed
-  if (newSlotId && newSlotId !== appointment.slotId) {
-    await prisma.notification.create({
-      data: {
-        userId: appointment.userId,
-        villageId: appointment.villageId,
-        type: "APPOINTMENT_UPDATE",
-        title: "ข้อมูลนัดหมายถูกแก้ไข",
-        body: `ผู้บริหารแก้ไขข้อมูลนัดหมาย "${newTitle}" ของคุณ`,
-        metadata: { appointmentId },
-      },
-    });
-  }
+  await notifyUser(
+    appointment.userId,
+    appointment.villageId,
+    "อัปเดตนัดหมาย: มีการแก้ไข",
+    `เรื่อง: ${newTitle} | ผู้บริหารแก้ไขข้อมูลนัดหมาย`,
+    { appointmentId }
+  );
+
+  revalidateAppointmentViews(appointmentId);
 
   return { success: true };
 }
@@ -719,6 +815,16 @@ export async function cancelAppointmentAction(
         description: `ลูกบ้านยกเลิกนัดหมาย - ${cleanedReason}`,
       },
     });
+
+    await notifyVillageAdmins(
+      appointment.villageId,
+      "อัปเดตนัดหมาย: ลูกบ้านยกเลิก",
+      `เรื่อง: ${appointment.title} | เหตุผลจากลูกบ้าน: ${cleanedReason}`,
+      { appointmentId },
+      session.id
+    );
+
+    revalidateAppointmentViews(appointmentId);
 
     return { success: true };
   } catch (error) {

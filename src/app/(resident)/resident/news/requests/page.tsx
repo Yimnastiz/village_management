@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { deletePendingNewsSubmissionAction } from "./actions";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
@@ -62,6 +63,30 @@ export default async function ResidentNewsRequestsPage() {
                     {request.targetNews?.title ? `อ้างอิงข่าว: ${request.targetNews.title}` : "คำขอเพิ่มข่าวใหม่"}
                   </p>
                   {request.reviewNote && <p className="text-sm text-gray-700 mt-2">หมายเหตุ: {request.reviewNote}</p>}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <Link href={`/resident/news/requests/${request.id}`}>
+                      <Button size="sm" variant="outline">ดูรายละเอียด</Button>
+                    </Link>
+
+                    {request.status === "PENDING" && (
+                      <>
+                        <Link href={`/resident/news/requests/${request.id}/edit`}>
+                          <Button size="sm" variant="outline">แก้ไขคำขอ</Button>
+                        </Link>
+                        <form
+                          action={async () => {
+                            "use server";
+                            await deletePendingNewsSubmissionAction(request.id);
+                          }}
+                        >
+                          <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700">
+                            ลบคำขอ
+                          </Button>
+                        </form>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-400 whitespace-nowrap">
                   {request.createdAt.toLocaleDateString("th-TH")}

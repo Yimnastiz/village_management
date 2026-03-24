@@ -56,6 +56,12 @@ export const NEWS_SUBMISSION_STATUS_LABELS: Record<string, string> = {
   REJECTED: "ไม่อนุมัติ",
 };
 
+export const NEWS_AUTHOR_SOURCE_LABELS: Record<string, string> = {
+  ADMIN: "โดยแอดมิน",
+  RESIDENT: "โดยลูกบ้าน",
+  UNKNOWN: "ไม่ระบุผู้สร้าง",
+};
+
 export const VILLAGE_EVENT_SUBMISSION_STATUS_LABELS: Record<string, string> = {
   PENDING: "รออนุมัติ",
   APPROVED: "อนุมัติแล้ว",

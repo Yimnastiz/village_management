@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { DeleteAlbumButton } from "./delete-album-button";
 import { DeleteGalleryItemButton } from "./delete-item-button";
+import { formatThaiDate } from "@/lib/utils";
 
 const db = prisma as any;
 
@@ -77,6 +78,7 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
             {album.allowResidentSubmissions ? "ลูกบ้านขอเพิ่มรูปได้" : "ปิดรับคำขอเพิ่มรูป"}
           </Badge>
         </div>
+        <p className="text-sm text-gray-600">วันที่อัลบั้ม: {formatThaiDate(album.albumDate)}</p>
         {album.description && <p className="text-sm text-gray-700 whitespace-pre-wrap">{album.description}</p>}
         {album.coverUrl && (
           // eslint-disable-next-line @next/next/no-img-element

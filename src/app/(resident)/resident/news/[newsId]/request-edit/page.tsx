@@ -25,6 +25,7 @@ export default async function ResidentEditNewsRequestPage({ params }: PageProps)
       villageId: membership.villageId,
       stage: "PUBLISHED",
       visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+      authorId: session.id,
     },
   });
   if (!news) notFound();

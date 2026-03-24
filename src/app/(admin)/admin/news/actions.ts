@@ -3,6 +3,7 @@
 import {
   NewsStage,
   NewsVisibility,
+  NotificationType,
   Prisma,
 } from "@prisma/client";
 import { z } from "zod";
@@ -241,6 +242,21 @@ export async function adminApproveNewsSubmissionAction(
         },
       });
 
+      await tx.notification.create({
+        data: {
+          villageId: ctx.villageId,
+          userId: submission.requesterId,
+          type: NotificationType.NEWS,
+          title: "คำขอข่าวของคุณได้รับการอนุมัติ",
+          body: `หัวข้อ: ${parsed.value.title}`,
+          metadata: {
+            submissionId: submission.id,
+            newsId: news.id,
+            status: "APPROVED",
+          },
+        },
+      });
+
       return news;
     });
 
@@ -286,6 +302,21 @@ export async function adminApproveNewsSubmissionAction(
         reviewNote: reviewNoteValue,
       },
     });
+
+    await tx.notification.create({
+      data: {
+        villageId: ctx.villageId,
+        userId: submission.requesterId,
+        type: NotificationType.NEWS,
+        title: "คำขอแก้ไขข่าวของคุณได้รับการอนุมัติ",
+        body: `หัวข้อ: ${parsed.value.title}`,
+        metadata: {
+          submissionId: submission.id,
+          newsId: target.id,
+          status: "APPROVED",
+        },
+      },
+    });
   });
 
   return { success: true, newsId: target.id };
@@ -300,7 +331,7 @@ export async function adminRejectNewsSubmissionAction(
 
   const existing = await prisma.newsSubmission.findFirst({
     where: { id: submissionId, villageId: ctx.villageId, status: "PENDING" },
-    select: { id: true },
+    select: { id: true, requesterId: true },
   });
   if (!existing) {
     return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
@@ -313,6 +344,20 @@ export async function adminRejectNewsSubmissionAction(
       reviewedBy: ctx.session.id,
       reviewedAt: new Date(),
       reviewNote: reviewNote?.trim() || null,
+    },
+  });
+
+  await prisma.notification.create({
+    data: {
+      villageId: ctx.villageId,
+      userId: existing.requesterId,
+      type: NotificationType.NEWS,
+      title: "คำขอข่าวของคุณไม่ได้รับการอนุมัติ",
+      body: reviewNote?.trim() || "โปรดตรวจสอบหมายเหตุจากผู้ดูแล",
+      metadata: {
+        submissionId,
+        status: "REJECTED",
+      },
     },
   });
 

@@ -52,8 +52,10 @@ export const auth = betterAuth({
     },
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
+    // Keep session state in DB only. Cookie cache can exceed header limits
+    // when profile image or other user fields become large, causing HTTP 431.
     cookieCache: {
-      enabled: true,
+      enabled: false,
       maxAge: 60 * 60 * 24 * 7,
     },
   },

@@ -3,8 +3,11 @@ import { ArrowLeft, ImagePlus } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SaveButton } from "@/components/ui/save-button";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { formatThaiDate } from "@/lib/utils";
+import { toggleSaveAlbumAction } from "@/app/(resident)/resident/saved/actions";
 import { AlbumGalleryViewer } from "./album-gallery-viewer";
 
 const db = prisma as any;
@@ -42,6 +45,11 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
   });
 
   if (!album) notFound();
+
+  const saved = await prisma.savedItem.findFirst({
+    where: { userId: session.id, galleryAlbumId: album.id },
+    select: { id: true },
+  });
 
   const myRecentSubmissions = await db.galleryItemSubmission.findMany({
     where: {
@@ -81,9 +89,16 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
           <Badge variant={album.allowResidentSubmissions ? "warning" : "default"}>
             {album.allowResidentSubmissions ? "อัลบั้มนี้เปิดรับคำขอเพิ่มรูป" : "อัลบั้มนี้ไม่เปิดรับคำขอเพิ่มรูป"}
           </Badge>
+          <SaveButton
+            itemId={album.id}
+            initialSaved={Boolean(saved)}
+            toggleAction={toggleSaveAlbumAction}
+            label="บันทึกอัลบั้ม"
+          />
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900">{album.title}</h1>
+    <p className="text-sm text-gray-500">วันที่อัลบั้ม {formatThaiDate(album.albumDate)}</p>
         {album.description && <p className="text-sm text-gray-600">{album.description}</p>}
 
         {query.submitted === "1" && (

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -163,6 +164,7 @@ export default async function HouseholdPage() {
                   <th className="px-3 py-2">ชื่อ</th>
                   <th className="px-3 py-2">เบอร์โทร</th>
                   <th className="px-3 py-2">แหล่งข้อมูล</th>
+                  <th className="px-3 py-2"></th>
                 </tr>
               </thead>
               <tbody>
@@ -171,6 +173,14 @@ export default async function HouseholdPage() {
                     <td className="px-3 py-2 text-gray-900">{member.name || "-"}</td>
                     <td className="px-3 py-2 text-gray-700">{member.phone || "-"}</td>
                     <td className="px-3 py-2 text-gray-600">{member.source}</td>
+                    <td className="px-3 py-2">
+                      <Link
+                        href={`/resident/household/members/${member.key}`}
+                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                      >
+                        ดูรายละเอียด →
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

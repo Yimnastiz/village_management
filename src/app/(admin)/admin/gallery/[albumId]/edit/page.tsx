@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { AlbumForm } from "../../album-form";
+import { formatDateInputValue } from "@/lib/utils";
 
 const db = prisma as any;
 
@@ -39,6 +40,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
         defaultValues={{
           title: album.title,
           description: album.description || "",
+          albumDate: formatDateInputValue(album.albumDate),
           coverUrl: album.coverUrl || "",
           isPublic: album.isPublic ? "PUBLIC" : "RESIDENT",
           allowResidentSubmissions: album.allowResidentSubmissions ? "ALLOW" : "DISALLOW",

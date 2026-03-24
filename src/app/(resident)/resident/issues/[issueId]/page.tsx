@@ -4,9 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Timeline } from "@/components/ui/timeline";
+import { ImageCarousel } from "@/components/ui/image-carousel";
+import { SaveButton } from "@/components/ui/save-button";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { toggleSaveIssueAction } from "@/app/(resident)/resident/saved/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
 
 interface PageProps { params: Promise<{ issueId: string }> }
@@ -38,8 +41,11 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const issue = await prisma.issue.findUnique({
-    where: { id: issueId },
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/auth/binding");
+
+  const issue = await prisma.issue.findFirst({
+    where: { id: issueId, villageId: membership.villageId },
     include: {
       timeline: { orderBy: { createdAt: "asc" } },
       messages: { where: { isInternal: false }, orderBy: { createdAt: "asc" } },
@@ -47,9 +53,20 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   });
   if (!issue) notFound();
 
+  const saved = await prisma.savedItem.findFirst({
+    where: { userId: session.id, issueId: issue.id },
+    select: { id: true },
+  });
+
   const isOwner = issue.reporterId === session.id;
+  if (!isOwner && !issue.isPublic) notFound();
+
+  const imageUrls = Array.isArray(issue.imageUrls)
+    ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
+    : [];
   const canEdit = isOwner && issue.stage === "OPEN";
-  const canMessage = issue.stage !== "CLOSED" && issue.stage !== "REJECTED";
+  const canMessage =
+    issue.stage !== "CLOSED" && issue.stage !== "REJECTED" && (isOwner || issue.isPublic);
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -75,9 +92,17 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
             <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
           </div>
-          <Badge variant={stageVariant[issue.stage] ?? "default"}>
-            {ISSUE_STAGE_LABELS[issue.stage]}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={stageVariant[issue.stage] ?? "default"}>
+              {ISSUE_STAGE_LABELS[issue.stage]}
+            </Badge>
+            <SaveButton
+              itemId={issue.id}
+              initialSaved={Boolean(saved)}
+              toggleAction={toggleSaveIssueAction}
+              label="บันทึกปัญหา"
+            />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-4 text-sm mb-4">
           <div>
@@ -106,11 +131,30 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
               <span className="font-medium">{formatDate(issue.resolvedAt)}</span>
             </div>
           )}
+          <div className="col-span-2">
+            <span className="text-gray-500">การมองเห็น: </span>
+            <span className="font-medium">
+              {issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}
+            </span>
+          </div>
+          {!isOwner && (
+            <div className="col-span-2">
+              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                ปัญหาของลูกบ้านคนอื่น
+              </span>
+            </div>
+          )}
         </div>
         <div className="border-t pt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
           <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
         </div>
+        {imageUrls.length > 0 && (
+          <div className="border-t pt-4 mt-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">รูปภาพประกอบ</p>
+            <ImageCarousel images={imageUrls} altPrefix={issue.title} />
+          </div>
+        )}
       </div>
 
       {issue.timeline.length > 0 && (

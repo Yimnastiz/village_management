@@ -111,10 +111,12 @@ export default async function AdminAppointmentsPage() {
                       <p className="text-xs text-gray-400">หมู่บ้าน</p>
                       <p>{apt.village?.name}</p>
                     </div>
-                    {apt.slot && (
+                    {(apt.slot || apt.scheduledAt) && (
                       <div>
-                        <p className="text-xs text-gray-400">วันที่</p>
-                        <p>{formatThaiDate(apt.slot.date)}</p>
+                        <p className="text-xs text-gray-400">
+                          {apt.slot ? "วันที่" : "วันที่ที่ลูกบ้านต้องการ"}
+                        </p>
+                        <p>{formatThaiDate(apt.slot?.date ?? apt.scheduledAt!)}</p>
                       </div>
                     )}
                     {apt.slot && (

@@ -21,6 +21,8 @@ export default async function EditIssuePage({ params }: PageProps) {
       id: true,
       title: true,
       description: true,
+      imageUrls: true,
+      isPublic: true,
       category: true,
       priority: true,
       location: true,
@@ -41,6 +43,9 @@ export default async function EditIssuePage({ params }: PageProps) {
     value: v,
     label: l,
   }));
+  const imageUrls = Array.isArray(issue.imageUrls)
+    ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
+    : [];
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -59,6 +64,8 @@ export default async function EditIssuePage({ params }: PageProps) {
         defaultValues={{
           title: issue.title,
           description: issue.description,
+          imageUrls,
+          isPublic: issue.isPublic,
           category: issue.category,
           priority: issue.priority,
           location: issue.location ?? "",

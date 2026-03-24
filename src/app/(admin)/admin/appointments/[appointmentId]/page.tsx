@@ -144,7 +144,11 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
 
   const handleSuggestTime = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!appointmentId || !selectedSlotId) return;
+    if (!appointmentId) return;
+    if (!selectedSlotId) {
+      setError("กรุณาเลือกช่วงเวลาก่อนแนะนำเวลา");
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -251,6 +255,8 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
   const mode: "approve" | "reject" | "suggest" | "waiting_confirm" | "view_only" =
     requestedAction === "reject"
       ? "reject"
+      : requestedAction === "suggest" && appointment.stage === "PENDING_APPROVAL"
+        ? "suggest"
       : appointment.stage === "TIME_SUGGESTED"
         ? "waiting_confirm"
         : appointment.stage !== "PENDING_APPROVAL"
@@ -329,16 +335,20 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
             <p className="text-xs text-gray-400">สร้างเมื่อ</p>
             <p className="font-medium">{formatThaiDate(appointment.createdAt)}</p>
           </div>
-          {appointment.slot && (
+          {(appointment.slot || appointment.scheduledAt) && (
             <>
               <div>
-                <p className="text-xs text-gray-400">วันที่นัด</p>
-                <p className="font-medium">{formatThaiDate(appointment.slot.date)}</p>
+                <p className="text-xs text-gray-400">
+                  {appointment.slot ? "วันที่นัด" : "วันที่ที่ลูกบ้านต้องการ"}
+                </p>
+                <p className="font-medium">{formatThaiDate(appointment.slot?.date ?? appointment.scheduledAt!)}</p>
               </div>
-              <div>
-                <p className="text-xs text-gray-400">เวลา</p>
-                <p className="font-medium">{appointment.slot.startTime} - {appointment.slot.endTime}</p>
-              </div>
+              {appointment.slot && (
+                <div>
+                  <p className="text-xs text-gray-400">เวลา</p>
+                  <p className="font-medium">{appointment.slot.startTime} - {appointment.slot.endTime}</p>
+                </div>
+              )}
             </>
           )}
           {appointment.reviewNote && (
@@ -437,7 +447,13 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
             <p className="text-sm text-gray-600">
               ช่วงเวลาที่ลูกบ้านเลือก: {formatThaiDate(appointment.slot.date)} {appointment.slot.startTime} - {appointment.slot.endTime}
             </p>
-          ) : null}
+          ) : (
+            appointment.scheduledAt && (
+              <p className="text-sm text-gray-600">
+                วันที่ที่ลูกบ้านต้องการ: {formatThaiDate(appointment.scheduledAt)} (ยังไม่ได้เลือกช่วงเวลา)
+              </p>
+            )
+          )}
           <form onSubmit={handleApprove} className="space-y-3">
             <Textarea
               label="หมายเหตุ (ไม่บังคับ)"
@@ -456,25 +472,39 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
       {appointment.stage === "PENDING_APPROVAL" && mode === "suggest" && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">แนะนำเวลาใหม่</h3>
-          <form onSubmit={handleSuggestTime} className="space-y-3">
-            <Select
-              label="เลือกเวลาแนะนำ"
-              value={selectedSlotId}
-              onChange={(e) => setSelectedSlotId(e.target.value)}
-              options={allSlotOptions}
-              required
-            />
-            <Textarea
-              label="ข้อความถึงลูกบ้าน"
-              value={reviewNote}
-              onChange={(e) => setReviewNote(e.target.value)}
-              placeholder="เช่น วันที่นี้ผู้ใหญ่ไม่สะดวก ขอเป็นช่วงเวลานี้แทน"
-              rows={3}
-            />
-            <Button type="submit" isLoading={isSubmitting} className="w-full">
-              แนะนำเวลา (แจ้งเตือนลูกบ้าน)
-            </Button>
-          </form>
+          {appointment.scheduledAt && (
+            <p className="text-sm text-gray-600">
+              วันที่ที่ลูกบ้านต้องการ: {formatThaiDate(appointment.scheduledAt)}
+            </p>
+          )}
+          {allSlotOptions.length === 0 ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              ยังไม่มีช่วงเวลาว่างสำหรับการแนะนำ
+              <Link href="/admin/appointments/slots" className="ml-1 font-medium underline">
+                ไปจัดการช่วงเวลา
+              </Link>
+            </div>
+          ) : (
+            <form onSubmit={handleSuggestTime} className="space-y-3">
+              <Select
+                label="เลือกเวลาแนะนำ"
+                value={selectedSlotId}
+                onChange={(e) => setSelectedSlotId(e.target.value)}
+                options={allSlotOptions}
+                required
+              />
+              <Textarea
+                label="ข้อความถึงลูกบ้าน"
+                value={reviewNote}
+                onChange={(e) => setReviewNote(e.target.value)}
+                placeholder="เช่น วันที่นี้ผู้ใหญ่ไม่สะดวก ขอเป็นช่วงเวลานี้แทน"
+                rows={3}
+              />
+              <Button type="submit" isLoading={isSubmitting} className="w-full">
+                แนะนำเวลา (แจ้งเตือนลูกบ้าน)
+              </Button>
+            </form>
+          )}
         </div>
       )}
 

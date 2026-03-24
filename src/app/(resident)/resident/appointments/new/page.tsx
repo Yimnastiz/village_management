@@ -46,6 +46,13 @@ function toDateStr(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+function formatThaiShortDayMonth(date: Date): string {
+  return date.toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
 export default function NewAppointmentPage() {
   const router = useRouter();
   const [slots, setSlots] = useState<AppointmentSlot[]>([]);
@@ -56,6 +63,10 @@ export default function NewAppointmentPage() {
   const todayStr = toDateStr(new Date());
   const [displayYear, setDisplayYear] = useState(new Date().getFullYear());
   const [displayMonth, setDisplayMonth] = useState(new Date().getMonth());
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 6 }, (_, i) => currentYear - 1 + i);
+  }, []);
 
   const {
     register,
@@ -121,15 +132,15 @@ export default function NewAppointmentPage() {
   }, [availableDateSet, daysInMonth, displayMonth, displayYear, firstDayOfWeek, todayStr]);
 
   const dailyStatus = useMemo(() => {
-    const rows: Array<{ dateStr: string; isAvailable: boolean; label: string }> = [];
+    const rows: Array<{ dateStr: string; label: string }> = [];
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(displayYear, displayMonth, day);
       const dateStr = toDateStr(date);
       if (dateStr < todayStr) continue;
+      if (!availableDateSet.has(dateStr)) continue;
       rows.push({
         dateStr,
-        isAvailable: availableDateSet.has(dateStr),
-        label: `${day} ${THAI_MONTHS[displayMonth].slice(0, 3)}`,
+        label: formatThaiShortDayMonth(date),
       });
     }
     return rows;
@@ -228,9 +239,32 @@ export default function NewAppointmentPage() {
                 <ChevronLeft className="h-4 w-4 text-gray-700" />
               </button>
 
-              <p className="text-sm font-semibold text-gray-800">
-                {THAI_MONTHS[displayMonth]} พ.ศ. {displayYear + 543}
-              </p>
+              <div className="flex items-center gap-2">
+                <select
+                  value={displayMonth}
+                  onChange={(e) => setDisplayMonth(Number(e.target.value))}
+                  className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  aria-label="เลือกเดือน"
+                >
+                  {THAI_MONTHS.map((monthName, idx) => (
+                    <option key={monthName} value={idx}>
+                      {monthName}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={displayYear}
+                  onChange={(e) => setDisplayYear(Number(e.target.value))}
+                  className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  aria-label="เลือกปี"
+                >
+                  {yearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      พ.ศ. {year + 543}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               <button
                 type="button"
@@ -301,21 +335,17 @@ export default function NewAppointmentPage() {
           )}
 
           <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs font-medium text-gray-600 mb-2">สถานะรายวัน (เดือนนี้)</p>
+            <p className="text-xs font-medium text-gray-600 mb-2">วันที่ว่างในเดือนนี้</p>
             <div className="flex flex-wrap gap-2">
               {dailyStatus.length === 0 ? (
-                <span className="text-xs text-gray-400">ไม่มีวันให้จองในเดือนนี้</span>
+                <span className="text-xs text-gray-400">ไม่มีวันที่ว่างให้จองในเดือนนี้</span>
               ) : (
                 dailyStatus.map((d) => (
                   <span
                     key={d.dateStr}
-                    className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium ${
-                      d.isAvailable
-                        ? "bg-green-100 text-green-700 border border-green-200"
-                        : "bg-red-100 text-red-700 border border-red-200"
-                    }`}
+                    className="inline-flex items-center rounded-full px-2 py-1 text-[11px] font-medium bg-green-100 text-green-700 border border-green-200"
                   >
-                    {d.label}: {d.isAvailable ? "ว่าง" : "ไม่ว่าง"}
+                    {d.label}: ว่าง
                   </span>
                 ))
               )}

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { formatThaiShortDate } from "@/lib/utils";
 
 const db = prisma as any;
 
@@ -21,11 +22,12 @@ export default async function AdminGalleryPage() {
 
   const albums = await db.galleryAlbum.findMany({
     where: { villageId: membership.villageId },
-    orderBy: [{ createdAt: "desc" }],
+    orderBy: [{ albumDate: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
       title: true,
       coverUrl: true,
+      albumDate: true,
       isPublic: true,
       allowResidentSubmissions: true,
       _count: { select: { items: true } },
@@ -92,6 +94,7 @@ export default async function AdminGalleryPage() {
                   <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>
                 <p className="font-medium text-gray-900 line-clamp-1">{album.title}</p>
+                <p className="text-xs text-gray-500">วันที่อัลบั้ม {formatThaiShortDate(album.albumDate)}</p>
               </div>
             </Link>
           ))}

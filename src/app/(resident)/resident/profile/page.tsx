@@ -1,20 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { Shield } from "lucide-react";
-import { z } from "zod";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-
-const profileUpdateSchema = z.object({
-  name: z.string().trim().min(2, "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร").max(120),
-  email: z
-    .union([z.literal(""), z.string().trim().email("รูปแบบอีเมลไม่ถูกต้อง")])
-    .transform((value) => (value === "" ? null : value)),
-  image: z
-    .union([z.literal(""), z.string().trim().url("รูปโปรไฟล์ต้องเป็น URL ที่ถูกต้อง")])
-    .transform((value) => (value === "" ? null : value)),
-});
+import { ProfileEditForm } from "./profile-edit-form";
 
 function splitDisplayName(fullName: string): { firstName: string; lastName: string } {
   const trimmed = fullName.trim();
@@ -43,64 +32,9 @@ function formatDate(value: Date | null | undefined): string {
   });
 }
 
-export async function updateProfileAction(formData: FormData) {
-  "use server";
-
-  const session = await getSessionContextFromServerCookies();
-  if (!session) {
-    redirect("/auth/login?callbackUrl=/resident/profile");
-  }
-
-  const parsed = profileUpdateSchema.safeParse({
-    name: (formData.get("name") ?? "").toString(),
-    email: (formData.get("email") ?? "").toString(),
-    image: (formData.get("image") ?? "").toString(),
-  });
-
-  if (!parsed.success) {
-    const message = parsed.error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง";
-    redirect(`/resident/profile?error=${encodeURIComponent(message)}`);
-  }
-
-  const { name, email, image } = parsed.data;
-
-  if (email) {
-    const emailOwner = await prisma.user.findFirst({
-      where: {
-        email,
-        id: { not: session.id },
-      },
-      select: { id: true },
-    });
-
-    if (emailOwner) {
-      redirect("/resident/profile?error=%E0%B8%AD%E0%B8%B5%E0%B9%80%E0%B8%A1%E0%B8%A5%E0%B8%99%E0%B8%B5%E0%B9%89%E0%B8%96%E0%B8%B9%E0%B8%81%E0%B9%83%E0%B8%8A%E0%B9%89%E0%B8%87%E0%B8%B2%E0%B8%99%E0%B9%81%E0%B8%A5%E0%B9%89%E0%B8%A7");
-    }
-  }
-
-  await prisma.user.update({
-    where: { id: session.id },
-    data: {
-      name,
-      email,
-      image,
-    },
-  });
-
-  revalidatePath("/resident/profile");
-  redirect("/resident/profile?saved=1");
-}
-
 export const dynamic = "force-dynamic";
 
-type ProfilePageProps = {
-  searchParams?: Promise<{ saved?: string; error?: string }>;
-};
-
-export default async function ProfilePage({ searchParams }: ProfilePageProps) {
-  const params = (searchParams ? await searchParams : {}) ?? {};
-  const saved = params.saved === "1";
-  const errorMessage = params.error ? decodeURIComponent(params.error) : null;
+export default async function ProfilePage() {
 
   const session = await getSessionContextFromServerCookies();
   if (!session) {
@@ -159,18 +93,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">โปรไฟล์</h1>
 
-      {saved && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          บันทึกข้อมูลโปรไฟล์เรียบร้อยแล้ว
-        </div>
-      )}
-
-      {errorMessage && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorMessage}
-        </div>
-      )}
-
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -203,63 +125,12 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-lg font-semibold text-gray-900">แก้ไขโปรไฟล์</h2>
-        <form action={updateProfileAction} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="md:col-span-2">
-            <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-700">
-              ชื่อผู้ใช้งาน
-            </label>
-            <input
-              id="name"
-              name="name"
-              defaultValue={user.name ?? ""}
-              suppressHydrationWarning
-              required
-              minLength={2}
-              maxLength={120}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-700">
-              อีเมล
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              defaultValue={user.email ?? ""}
-              suppressHydrationWarning
-              placeholder="example@email.com"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="image" className="mb-1 block text-sm font-medium text-gray-700">
-              รูปโปรไฟล์ (URL)
-            </label>
-            <input
-              id="image"
-              name="image"
-              type="url"
-              defaultValue={user.image ?? ""}
-              suppressHydrationWarning
-              placeholder="https://example.com/avatar.jpg"
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              suppressHydrationWarning
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-            >
-              บันทึกข้อมูลโปรไฟล์
-            </button>
-          </div>
-        </form>
+        <ProfileEditForm
+          defaultName={user.name ?? ""}
+          defaultEmail={user.email ?? ""}
+          defaultImage={user.image ?? null}
+          avatarText={avatarText}
+        />
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-6">

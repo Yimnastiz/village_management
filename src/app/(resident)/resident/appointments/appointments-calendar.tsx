@@ -141,7 +141,6 @@ export function AppointmentsCalendar({
           const dateStr = toDateStr(year, month, day);
           const isBlocked = blocked.has(dateStr);
           const hasUserApt = userDates.has(dateStr);
-          const hasOverlap = isBlocked && hasUserApt;
           const isToday = dateStr === todayStr;
           const isWeekend = dow === 0 || dow === 6;
 
@@ -149,18 +148,19 @@ export function AppointmentsCalendar({
             <div
               key={dateStr}
               className={cn(
-                "aspect-square flex flex-col items-center justify-center text-sm border-b border-r border-gray-50",
-                hasOverlap && "bg-amber-50",
-                isBlocked && !hasOverlap && "bg-red-50",
+                "relative aspect-square flex flex-col items-center justify-center text-sm border-b border-r border-gray-50",
+                isBlocked && "bg-red-50",
                 !isBlocked && hasUserApt && "bg-green-50"
               )}
             >
+              {hasUserApt && (
+                <span className="pointer-events-none absolute inset-1 rounded-sm border border-dashed border-green-500" />
+              )}
               <span
                 className={cn(
                   "w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium",
                   isToday && "bg-green-600 text-white font-bold",
-                  hasOverlap && !isToday && "text-amber-700 font-semibold",
-                  isBlocked && !hasOverlap && !isToday && "text-red-600 font-semibold",
+                  isBlocked && !isToday && "text-red-600 font-semibold",
                   !isBlocked && hasUserApt && !isToday && "text-green-700 font-semibold",
                   !isBlocked && !hasUserApt && !isToday && isWeekend && "text-red-400",
                   !isBlocked && !hasUserApt && !isToday && !isWeekend && "text-gray-700"
@@ -168,13 +168,7 @@ export function AppointmentsCalendar({
               >
                 {day}
               </span>
-              {hasOverlap && (
-                <>
-                  <span className="text-[9px] leading-none mt-0.5 text-amber-600">ไม่ว่าง</span>
-                  <span className="text-[9px] leading-none mt-0.5 text-green-700">มีนัดหมาย</span>
-                </>
-              )}
-              {isBlocked && !hasOverlap && (
+              {isBlocked && (
                 <span className="text-[9px] leading-none mt-0.5 text-red-500">
                   ไม่ว่าง
                 </span>
@@ -196,12 +190,8 @@ export function AppointmentsCalendar({
           <span>ผู้ใหญ่บ้านไม่ว่าง</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <div className="w-4 h-4 rounded bg-green-50 border border-green-200 flex-shrink-0" />
+          <div className="w-4 h-4 rounded bg-green-50 border border-dashed border-green-500 flex-shrink-0" />
           <span>มีนัดหมายของคุณ</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-600">
-          <div className="w-4 h-4 rounded bg-amber-50 border border-amber-200 flex-shrink-0" />
-          <span>ผู้ใหญ่บ้านไม่ว่างและมีนัดหมายของคุณ</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-gray-600">
           <div className="w-4 h-4 rounded-full bg-green-600 flex-shrink-0" />

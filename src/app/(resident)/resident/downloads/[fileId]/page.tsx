@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { SaveButton } from "@/components/ui/save-button";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/utils";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { toggleSaveDownloadAction } from "@/app/(resident)/resident/saved/actions";
 
 interface PageProps {
   params: Promise<{ fileId: string }>;
@@ -29,6 +31,11 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
   });
   if (!file) notFound();
 
+  const saved = await prisma.savedItem.findFirst({
+    where: { userId: session.id, downloadId: file.id },
+    select: { id: true },
+  });
+
   await prisma.downloadFile.update({
     where: { id: file.id },
     data: { downloadCount: { increment: 1 } },
@@ -41,7 +48,15 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
       </Link>
 
       <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-4">
-        <h1 className="text-2xl font-bold text-gray-900">{file.title}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">{file.title}</h1>
+          <SaveButton
+            itemId={file.id}
+            initialSaved={Boolean(saved)}
+            toggleAction={toggleSaveDownloadAction}
+            label="บันทึกเอกสาร"
+          />
+        </div>
         <p className="text-sm text-gray-500">{NEWS_VISIBILITY_LABELS[file.visibility]}</p>
         {file.description && <p className="text-gray-600">{file.description}</p>}
 

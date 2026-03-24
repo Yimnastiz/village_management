@@ -1,6 +1,7 @@
 "use server";
 
-import { DownloadStage, NewsVisibility } from "@prisma/client";
+import { DownloadStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
@@ -23,6 +24,7 @@ type DownloadInput = z.infer<typeof schema>;
 
 const VALID_STAGE: DownloadStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
+const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
@@ -95,6 +97,55 @@ function normalizeInput(data: DownloadInput, requireFile: boolean) {
   };
 }
 
+async function getResidentRecipientIds(villageId: string) {
+  const residents = await prisma.villageMembership.findMany({
+    where: {
+      villageId,
+      status: "ACTIVE",
+      role: { in: RESIDENT_MEMBERSHIP_ROLES },
+    },
+    select: { userId: true },
+    distinct: ["userId"],
+  });
+
+  return residents.map((item) => item.userId);
+}
+
+async function notifyResidents(
+  villageId: string,
+  title: string,
+  body: string,
+  metadata?: Prisma.InputJsonObject
+) {
+  const recipientIds = await getResidentRecipientIds(villageId);
+  if (recipientIds.length === 0) return;
+
+  await prisma.notification.createMany({
+    data: recipientIds.map((userId) => ({
+      userId,
+      villageId,
+      type: NotificationType.SYSTEM,
+      title,
+      body,
+      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+    })),
+  });
+}
+
+function revalidateDownloadViews(fileId?: string) {
+  revalidatePath("/resident", "layout");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/resident/downloads");
+  revalidatePath("/admin/downloads");
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
+
+  if (fileId) {
+    revalidatePath(`/resident/downloads/${fileId}`);
+    revalidatePath(`/admin/downloads/${fileId}`);
+  }
+}
+
 export async function createDownloadAction(
   data: DownloadInput
 ): Promise<{ success: true; id: string } | { success: false; error: string }> {
@@ -120,6 +171,17 @@ export async function createDownloadAction(
     },
     select: { id: true },
   });
+
+  if (normalized.value.stage === "PUBLISHED") {
+    await notifyResidents(
+      ctx.villageId,
+      "เอกสารดาวน์โหลด: มีเอกสารใหม่",
+      `เอกสาร ${normalized.value.title} พร้อมให้ดาวน์โหลดแล้ว`,
+      { fileId: created.id, actionUrl: `/resident/downloads/${created.id}` }
+    );
+  }
+
+  revalidateDownloadViews(created.id);
 
   return { success: true, id: created.id };
 }
@@ -170,6 +232,19 @@ export async function updateDownloadAction(
     },
   });
 
+  if (normalized.value.stage === "PUBLISHED") {
+    await notifyResidents(
+      ctx.villageId,
+      existing.stage === "PUBLISHED" ? "เอกสารดาวน์โหลด: มีการอัปเดต" : "เอกสารดาวน์โหลด: เผยแพร่แล้ว",
+      existing.stage === "PUBLISHED"
+        ? `เอกสาร ${normalized.value.title} มีการอัปเดตข้อมูล`
+        : `เอกสาร ${normalized.value.title} พร้อมให้ดาวน์โหลดแล้ว`,
+      { fileId, actionUrl: `/resident/downloads/${fileId}` }
+    );
+  }
+
+  revalidateDownloadViews(fileId);
+
   return { success: true };
 }
 
@@ -188,5 +263,6 @@ export async function deleteDownloadAction(
   }
 
   await prisma.downloadFile.delete({ where: { id: fileId } });
+  revalidateDownloadViews(fileId);
   return { success: true };
 }

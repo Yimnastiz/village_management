@@ -552,6 +552,8 @@ model Issue {
   reporterId  String
   title       String
   description String        @db.Text
+  imageUrls   Json?
+  isPublic    Boolean       @default(false)
   category    IssueCategory @default(OTHER)
   priority    IssuePriority @default(MEDIUM)
   stage       IssueStage    @default(OPEN)
@@ -568,11 +570,13 @@ model Issue {
   messages IssueMessage[]
   timeline IssueTimeline[]
   feedback IssueFeedback?
+  savedItems SavedItem[]
 
   @@index([villageId])
   @@index([reporterId])
   @@index([stage])
   @@index([category])
+  @@index([isPublic])
 }
 
 model IssueMessage {
@@ -737,6 +741,7 @@ model TransparencyRecord {
   updatedAt   DateTime          @updatedAt
 
   village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  savedItems SavedItem[]
 
   @@index([villageId])
   @@index([stage])
@@ -794,6 +799,7 @@ model GalleryAlbum {
   title       String
   description String?
   coverUrl    String?
+  albumDate   DateTime
   isPublic    Boolean  @default(true)
   allowResidentSubmissions Boolean @default(false)
   createdAt   DateTime @default(now())
@@ -802,8 +808,10 @@ model GalleryAlbum {
   village         Village                 @relation(fields: [villageId], references: [id], onDelete: Cascade)
   items           GalleryItem[]
   itemSubmissions GalleryItemSubmission[]
+  savedItems      SavedItem[]
 
   @@index([villageId])
+  @@index([albumDate])
 }
 
 model GalleryItem {
@@ -846,6 +854,7 @@ model GalleryItemSubmission {
 
 model ContactDirectory {
   id        String   @id @default(cuid())
+    savedItems SavedItem[]
   villageId String
   name      String
   role      String?
@@ -1038,17 +1047,29 @@ model PhoneRoleSeed {
 }
 
 model SavedItem {
-  id         String   @id @default(cuid())
-  userId     String
-  newsId     String?
-  downloadId String?
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  userId         String
+  newsId         String?
+  downloadId     String?
+  issueId        String?
+  galleryAlbumId String?
+  transparencyId String?
+  contactId      String?
+  createdAt      DateTime @default(now())
 
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  news     News?         @relation(fields: [newsId], references: [id])
-  download DownloadFile? @relation(fields: [downloadId], references: [id])
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  news               News?               @relation(fields: [newsId], references: [id])
+  download           DownloadFile?       @relation(fields: [downloadId], references: [id])
+  issue              Issue?              @relation(fields: [issueId], references: [id])
+  galleryAlbum       GalleryAlbum?       @relation(fields: [galleryAlbumId], references: [id])
+  transparencyRecord TransparencyRecord? @relation(fields: [transparencyId], references: [id])
+  contact            ContactDirectory?   @relation(fields: [contactId], references: [id])
 
   @@unique([userId, newsId])
   @@unique([userId, downloadId])
+  @@unique([userId, issueId])
+  @@unique([userId, galleryAlbumId])
+  @@unique([userId, transparencyId])
+  @@unique([userId, contactId])
   @@index([userId])
 }

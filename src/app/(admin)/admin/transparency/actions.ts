@@ -1,6 +1,7 @@
 "use server";
 
-import { NewsVisibility, TransparencyStage } from "@prisma/client";
+import { MembershipStatus, NewsVisibility, NotificationType, Prisma, TransparencyStage } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
@@ -27,6 +28,47 @@ type TransparencyInput = {
 
 const VALID_STAGES: TransparencyStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
+
+async function getResidentRecipientIds(villageId: string): Promise<string[]> {
+  const residents = await prisma.villageMembership.findMany({
+    where: { villageId, status: MembershipStatus.ACTIVE },
+    select: { userId: true },
+  });
+  return residents.map((r) => r.userId);
+}
+
+async function notifyResidents(
+  villageId: string,
+  title: string,
+  body: string,
+  metadata?: Prisma.InputJsonObject
+) {
+  const recipientIds = await getResidentRecipientIds(villageId);
+  if (recipientIds.length === 0) return;
+  await prisma.notification.createMany({
+    data: recipientIds.map((userId) => ({
+      userId,
+      villageId,
+      type: NotificationType.SYSTEM,
+      title,
+      body,
+      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+    })),
+  });
+}
+
+function revalidateTransparencyViews(recordId?: string) {
+  revalidatePath("/resident", "layout");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/resident/transparency");
+  revalidatePath("/admin/transparency");
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
+  if (recordId) {
+    revalidatePath(`/resident/transparency/${recordId}`);
+    revalidatePath(`/admin/transparency/${recordId}`);
+  }
+}
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
@@ -104,6 +146,18 @@ export async function createTransparencyAction(
     select: { id: true },
   });
 
+  if (normalized.value.stage === "PUBLISHED") {
+    await notifyResidents(
+      ctx.villageId,
+      `ความโปร่งใสใหม่: ${normalized.value.title}`,
+      normalized.value.category
+        ? `หมวดหมู่: ${normalized.value.category}`
+        : "มีรายการความโปร่งใสใหม่ในหมู่บ้าน",
+      { transparencyId: created.id }
+    );
+  }
+  revalidateTransparencyViews(created.id);
+
   return { success: true, id: created.id };
 }
 
@@ -125,7 +179,7 @@ export async function updateTransparencyAction(
     return { success: false, error: "ไม่พบรายการนี้หรือไม่มีสิทธิ์แก้ไข" };
   }
 
-  const shouldSetPublishedAt =
+  const isFirstPublish =
     normalized.value.stage === "PUBLISHED" &&
     (existing.stage !== "PUBLISHED" || !existing.publishedAt);
 
@@ -139,9 +193,21 @@ export async function updateTransparencyAction(
       fiscalYear: normalized.value.fiscalYear,
       stage: normalized.value.stage,
       visibility: normalized.value.visibility,
-      publishedAt: shouldSetPublishedAt ? new Date() : existing.publishedAt,
+      publishedAt: isFirstPublish ? new Date() : existing.publishedAt,
     },
   });
+
+  if (isFirstPublish) {
+    await notifyResidents(
+      ctx.villageId,
+      `ความโปร่งใสใหม่: ${normalized.value.title}`,
+      normalized.value.category
+        ? `หมวดหมู่: ${normalized.value.category}`
+        : "มีรายการความโปร่งใสใหม่ในหมู่บ้าน",
+      { transparencyId: id }
+    );
+  }
+  revalidateTransparencyViews(id);
 
   return { success: true };
 }
@@ -161,6 +227,7 @@ export async function deleteTransparencyAction(
   }
 
   await prisma.transparencyRecord.delete({ where: { id } });
+  revalidateTransparencyViews();
   return { success: true };
 }
 

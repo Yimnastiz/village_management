@@ -2,9 +2,11 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { toggleSaveTransparencyAction } from "@/app/(resident)/resident/saved/actions";
 
 interface PageProps {
   params: Promise<{ transparencyId: string }>;
@@ -29,6 +31,11 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
   });
   if (!record) notFound();
 
+  const saved = await prisma.savedItem.findFirst({
+    where: { userId: session.id, transparencyId: record.id },
+    select: { id: true },
+  });
+
   return (
     <div className="max-w-3xl space-y-6">
       <Link
@@ -42,7 +49,15 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
         <div className="mb-3">
           <Badge variant="outline">{NEWS_VISIBILITY_LABELS[record.visibility]}</Badge>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">{record.title}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="text-2xl font-bold text-gray-900">{record.title}</h1>
+          <SaveButton
+            itemId={record.id}
+            initialSaved={Boolean(saved)}
+            toggleAction={toggleSaveTransparencyAction}
+            label="บันทึกความโปร่งใส"
+          />
+        </div>
 
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
           <div>
