@@ -38,14 +38,14 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-green-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href={base} className="font-bold text-lg">หมู่บ้าน {villageSlug}</Link>
-            <div className="flex items-center gap-3">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-2">
+            <Link href={base} className="min-w-0 font-bold text-base sm:text-lg truncate">หมู่บ้าน {villageSlug}</Link>
+            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
               <VillageSwitcher villages={villages} currentSlug={villageSlug} />
-              <Link href="/" className="text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
+              <Link href="/" className="text-xs sm:text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
                 หน้าค้นหาหมู่บ้าน
               </Link>
-              <Link href="/auth/login" className="text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
+              <Link href="/auth/login" className="text-xs sm:text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
                 เข้าสู่ระบบ
               </Link>
             </div>
@@ -68,7 +68,7 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
           </div>
         </nav>
       </header>
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {children}
       </main>
       <footer className="bg-green-900 text-green-100 py-6 text-center text-sm">

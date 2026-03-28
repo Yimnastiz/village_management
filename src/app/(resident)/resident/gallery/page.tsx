@@ -3,13 +3,13 @@ import { Images } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { formatThaiShortDate } from "@/lib/utils";
+import { ResidentGalleryToolbar } from "./resident-gallery-toolbar";
 
 type ResidentGalleryPageProps = {
-  searchParams?: Promise<{ q?: string; sort?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string; visibility?: string; allowSubmissions?: string }>;
 };
 
 export default async function ResidentGalleryPage({ searchParams }: ResidentGalleryPageProps) {
@@ -22,6 +22,18 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
+  const visibilityParam = (query.visibility ?? "").trim();
+  const selectedVisibilities = Array.from(
+    new Set(
+      visibilityParam
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is "PUBLIC" | "RESIDENT_ONLY" =>
+          value === "PUBLIC" || value === "RESIDENT_ONLY"
+        )
+    )
+  );
+  const allowSubmissionsOnly = query.allowSubmissions === "1";
 
   const village = await prisma.village.findUnique({
     where: { id: membership.villageId },
@@ -32,6 +44,10 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const albums = await prisma.galleryAlbum.findMany({
     where: {
       villageId: village.id,
+      ...(selectedVisibilities.length === 1
+        ? { isPublic: selectedVisibilities[0] === "PUBLIC" }
+        : {}),
+      ...(allowSubmissionsOnly ? { allowResidentSubmissions: true } : {}),
       ...(keyword
         ? {
             title: {
@@ -79,48 +95,14 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แกลเลอรีภาพ</h1>
-        <p className="mt-1 text-sm text-gray-500">ภาพกิจกรรมและบรรยากาศของ {village.name}</p>
-      </div>
-
-      <form className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Input
-            name="q"
-            label="ค้นหาชื่ออัลบั้ม"
-            placeholder="พิมพ์ชื่ออัลบั้ม"
-            defaultValue={keyword}
-            list="resident-gallery-title-suggestions"
-          />
-          <datalist id="resident-gallery-title-suggestions">
-            {suggestionTitles.map((title) => (
-              <option key={title} value={title} />
-            ))}
-          </datalist>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">เรียงตามวันที่อัลบั้ม</label>
-            <select
-              name="sort"
-              defaultValue={sort}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="newest">ใหม่ไปเก่า</option>
-              <option value="oldest">เก่าไปใหม่</option>
-            </select>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <button type="submit" className="inline-flex rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-              ค้นหา
-            </button>
-            <Link href="/resident/gallery" className="inline-flex rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              ล้างตัวกรอง
-            </Link>
-          </div>
-        </div>
-      </form>
+      <ResidentGalleryToolbar
+        keyword={keyword}
+        sort={sort}
+        villageName={village.name}
+        selectedVisibilities={selectedVisibilities}
+        allowSubmissionsOnly={allowSubmissionsOnly}
+        suggestionTitles={suggestionTitles}
+      />
 
       {albums.length === 0 ? (
         <EmptyState

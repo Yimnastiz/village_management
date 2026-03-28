@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { Newspaper, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+
+type PageProps = {
+  searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
+};
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   DRAFT: "warning",
@@ -13,7 +19,8 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   ARCHIVED: "default",
 };
 
-export default async function AdminNewsPage() {
+export default async function AdminNewsPage({ searchParams }: PageProps) {
+  const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
@@ -24,9 +31,34 @@ export default async function AdminNewsPage() {
   });
   if (!membership) redirect("/auth/login");
 
+  const keyword = params.q?.trim() ?? "";
+  const activeStage = params.stage ?? "ALL";
+  const activeVisibility = params.visibility ?? "ALL";
+  const activeSort = params.sort ?? "newest";
+
+  const where: Prisma.NewsWhereInput = { villageId: membership.villageId };
+  if (keyword) {
+    where.OR = [
+      { title: { contains: keyword, mode: "insensitive" } },
+      { summary: { contains: keyword, mode: "insensitive" } },
+      { content: { contains: keyword, mode: "insensitive" } },
+    ];
+  }
+  if (activeStage !== "ALL") {
+    where.stage = activeStage as "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  }
+  if (activeVisibility !== "ALL") {
+    where.visibility = activeVisibility as "PUBLIC" | "RESIDENT_ONLY";
+  }
+
+  const orderBy =
+    activeSort === "oldest"
+      ? [{ isPinned: "desc" as const }, { createdAt: "asc" as const }]
+      : [{ isPinned: "desc" as const }, { createdAt: "desc" as const }];
+
   const newsList = await prisma.news.findMany({
-    where: { villageId: membership.villageId },
-    orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
+    where,
+    orderBy,
     select: {
       id: true,
       title: true,
@@ -43,21 +75,73 @@ export default async function AdminNewsPage() {
     },
   });
 
+  const suggestionTitles = Array.from(new Set(newsList.map((news) => news.title))).slice(0, 12);
+
+  function buildNewsHref(next: { q?: string; stage?: string; visibility?: string; sort?: string }) {
+    const query = new URLSearchParams();
+    const q = next.q?.trim() ?? "";
+    const stage = next.stage ?? "ALL";
+    const visibility = next.visibility ?? "ALL";
+    const sort = next.sort ?? "newest";
+
+    if (q) query.set("q", q);
+    if (stage !== "ALL") query.set("stage", stage);
+    if (visibility !== "ALL") query.set("visibility", visibility);
+    if (sort !== "newest") query.set("sort", sort);
+
+    const queryString = query.toString();
+    return queryString ? `/admin/news?${queryString}` : "/admin/news";
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">จัดการข่าว</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/admin/news/requests">
-            <Button size="sm" variant="outline">คำขอข่าวจากลูกบ้าน</Button>
-          </Link>
-          <Link href="/admin/news/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> เพิ่มข่าว
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <AdminListToolbar
+        title="จัดการข่าว"
+        description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น"
+        searchAction="/admin/news"
+        keyword={keyword}
+        searchPlaceholder="ค้นหาชื่อข่าวหรือสรุปข่าว"
+        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "newest" ? "" : activeSort }}
+        suggestionTitles={suggestionTitles}
+        groups={[
+          {
+            label: "สถานะ",
+            options: [
+              { label: "ทั้งหมด", href: buildNewsHref({ q: keyword, stage: "ALL", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ALL" },
+              { label: "ร่าง", href: buildNewsHref({ q: keyword, stage: "DRAFT", visibility: activeVisibility, sort: activeSort }), active: activeStage === "DRAFT" },
+              { label: "เผยแพร่", href: buildNewsHref({ q: keyword, stage: "PUBLISHED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "PUBLISHED" },
+              { label: "เก็บถาวร", href: buildNewsHref({ q: keyword, stage: "ARCHIVED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ARCHIVED" },
+            ],
+          },
+          {
+            label: "การมองเห็น",
+            options: [
+              { label: "ทั้งหมด", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: "ALL", sort: activeSort }), active: activeVisibility === "ALL" },
+              { label: "สาธารณะ", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: "PUBLIC", sort: activeSort }), active: activeVisibility === "PUBLIC" },
+              { label: "ลูกบ้าน", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: "RESIDENT_ONLY", sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
+            ],
+          },
+          {
+            label: "เรียง",
+            options: [
+              { label: "ล่าสุดก่อน", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest" },
+              { label: "เก่าก่อน", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "oldest" }), active: activeSort === "oldest" },
+            ],
+          },
+        ]}
+        actions={
+          <>
+            <Link href="/admin/news/requests">
+              <Button size="sm" variant="outline">คำขอข่าวจากลูกบ้าน</Button>
+            </Link>
+            <Link href="/admin/news/new">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" /> เพิ่มข่าว
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {newsList.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">

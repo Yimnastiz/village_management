@@ -23,24 +23,24 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero */}
-      <section className="bg-gradient-to-br from-green-700 to-green-900 text-white py-20">
+      <section className="bg-gradient-to-br from-green-700 to-green-900 text-white py-14 sm:py-16 lg:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 leading-tight">
             ระบบบริหารจัดการหมู่บ้านอัจฉริยะ
           </h1>
-          <p className="text-lg text-green-100 mb-8 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-green-100 mb-8 max-w-2xl mx-auto">
             เชื่อมต่อชุมชน บริหารหมู่บ้านอย่างมีประสิทธิภาพ โปร่งใส และทันสมัย
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="mx-auto flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:w-auto sm:flex-row sm:gap-4 sm:justify-center">
             <Link
               href="/auth/login"
-              className="px-8 py-3 bg-white text-green-700 font-semibold rounded-xl hover:bg-green-50 transition-colors"
+              className="w-full sm:w-auto px-8 py-3 bg-white text-green-700 font-semibold rounded-xl hover:bg-green-50 transition-colors"
             >
               เข้าสู่ระบบ
             </Link>
             <Link
               href="/auth/register"
-              className="px-8 py-3 border-2 border-white text-white font-semibold rounded-xl hover:bg-white/10 transition-colors"
+              className="w-full sm:w-auto px-8 py-3 border-2 border-white text-white font-semibold rounded-xl hover:bg-white/10 transition-colors"
             >
               สมัครสมาชิก
             </Link>
@@ -51,12 +51,12 @@ export default async function HomePage() {
       </section>
 
       {/* Features */}
-      <section className="py-16 bg-white">
+      <section className="py-12 sm:py-14 lg:py-16 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold text-center text-gray-900 mb-12">
+          <h2 className="text-2xl font-bold text-center text-gray-900 mb-8 sm:mb-12">
             ฟีเจอร์หลักของระบบ
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 lg:gap-8">
             {[
               { icon: MapPin, title: "ข้อมูลหมู่บ้าน", desc: "เข้าถึงข้อมูลหมู่บ้าน ข่าวสาร และกิจกรรมต่างๆ" },
               { icon: Users, title: "ทะเบียนครัวเรือน", desc: "จัดการข้อมูลประชากรและครัวเรือนอย่างมีระบบ" },
@@ -76,13 +76,13 @@ export default async function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="py-16 bg-gray-50">
+      <section className="py-12 sm:py-14 lg:py-16 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">พร้อมใช้งานระบบแล้วหรือยัง?</h2>
           <p className="text-gray-500 mb-8">ค้นหาหมู่บ้านของคุณหรือสมัครเข้าใช้งานระบบวันนี้</p>
           <Link
             href="/auth/register"
-            className="inline-block px-8 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-colors"
+            className="inline-flex w-full max-w-xs items-center justify-center px-8 py-3 bg-green-600 text-white font-semibold rounded-xl hover:bg-green-700 transition-colors sm:w-auto"
           >
             เริ่มต้นใช้งาน
           </Link>

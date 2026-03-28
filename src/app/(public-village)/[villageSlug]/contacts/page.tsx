@@ -2,14 +2,18 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { PublicContactsToolbar } from "./public-contacts-toolbar";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
+  searchParams?: Promise<{ q?: string }>;
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function Page({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = query.q?.trim() ?? "";
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) } },
@@ -18,16 +22,28 @@ export default async function Page({ params }: PageProps) {
   if (!village) notFound();
 
   const contacts = await prisma.contactDirectory.findMany({
-    where: { villageId: village.id, isPublic: true },
+    where: {
+      villageId: village.id,
+      isPublic: true,
+      ...(keyword
+        ? {
+            OR: [
+              { name: { contains: keyword, mode: "insensitive" as const } },
+              { phone: { contains: keyword, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
   });
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">รายชื่อผู้ติดต่อ</h1>
-        <p className="text-sm text-gray-500 mt-1">ช่องทางติดต่อหน่วยงานและผู้ประสานงานของ {village.name}</p>
-      </div>
+      <PublicContactsToolbar
+        villageSlug={villageSlug}
+        villageName={village.name}
+        keyword={keyword}
+      />
 
       {contacts.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">

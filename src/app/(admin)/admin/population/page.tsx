@@ -1,9 +1,11 @@
 "use server";
 
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { BindingRequestStatus, MembershipStatus, NotificationType, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
+import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 
 const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
@@ -504,7 +506,12 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
   revalidatePath("/admin/population");
 }
 
-export default async function Page() {
+type PageProps = {
+  searchParams?: Promise<{ q?: string; occupancy?: string }>;
+};
+
+export default async function Page({ searchParams }: PageProps) {
+  const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
   if (!session) {
     redirect("/auth/login?callbackUrl=/admin/population");
@@ -518,15 +525,70 @@ export default async function Page() {
     .filter((m) => ADMIN_MEMBERSHIP_ROLES.has(m.role))
     .map((m) => m.villageId);
 
+  const isSuperAdmin = session.systemRole === SystemRole.SUPERADMIN;
+  const houseKeyword = params.q?.trim() ?? "";
+  const activeOccupancy = params.occupancy ?? "ALL";
+
+  const villageFilterForHomes = isSuperAdmin ? {} : { villageId: { in: villageIds } };
+  const occupancyFilterForHomes =
+    activeOccupancy !== "ALL"
+      ? {
+          occupancyStatus:
+            activeOccupancy as "OCCUPIED" | "VACANT" | "UNDER_CONSTRUCTION" | "DEMOLISHED",
+        }
+      : {};
+
   const pendingRequests = await getPendingBindingRequests(
-    session.systemRole === SystemRole.SUPERADMIN,
+    isSuperAdmin,
     villageIds
   );
 
   const historyRequests = await getBindingRequestHistory(
-    session.systemRole === SystemRole.SUPERADMIN,
+    isSuperAdmin,
     villageIds
   );
+
+  const [houses, totalHouses, occupiedHouses] = await Promise.all([
+    prisma.house.findMany({
+      where: {
+        ...villageFilterForHomes,
+        ...occupancyFilterForHomes,
+        ...(houseKeyword
+          ? {
+              houseNumber: {
+                contains: houseKeyword,
+                mode: "insensitive",
+              },
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        houseNumber: true,
+        occupancyStatus: true,
+        village: { select: { name: true } },
+        _count: {
+          select: {
+            persons: true,
+            memberships: true,
+          },
+        },
+      },
+      orderBy: [{ houseNumber: "asc" }],
+      take: 120,
+    }),
+    prisma.house.count({
+      where: {
+        ...villageFilterForHomes,
+      },
+    }),
+    prisma.house.count({
+      where: {
+        ...villageFilterForHomes,
+        occupancyStatus: "OCCUPIED",
+      },
+    }),
+  ]);
 
   const reviewerIds = historyRequests
     .map((req) => req.reviewedBy)
@@ -549,8 +611,108 @@ export default async function Page() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">ทะเบียนครัวเรือน</h1>
         <p className="text-gray-500 text-sm mt-1">
-          รายการคำร้องผูกบ้านและประวัติการอนุมัติ
+          ค้นหาเลขบ้าน เปิดดูรายละเอียดครัวเรือน และจัดการคำร้องผูกบ้าน
         </p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">บ้านทั้งหมด</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{totalHouses.toLocaleString("th-TH")}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">บ้านที่มีผู้อยู่อาศัย</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{occupiedHouses.toLocaleString("th-TH")}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">คำร้องรอพิจารณา</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{pendingRequests.length.toLocaleString("th-TH")}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-4">
+          <p className="text-xs text-gray-500">ประวัติที่มีการตัดสินใจแล้ว</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">{historyRequests.length.toLocaleString("th-TH")}</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900">ค้นหาเลขบ้าน</h2>
+          <Link
+            href="/admin/population/houses"
+            className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            เปิดหน้าทะเบียนบ้านแบบเต็ม
+          </Link>
+        </div>
+
+        <form method="get" className="mt-4 grid gap-3 md:grid-cols-4">
+          <input
+            name="q"
+            defaultValue={houseKeyword}
+            placeholder="ค้นหาเลขบ้าน เช่น 12/8"
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+          <select
+            name="occupancy"
+            defaultValue={activeOccupancy}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          >
+            <option value="ALL">ทุกสถานะ</option>
+            <option value="OCCUPIED">มีผู้อยู่อาศัย</option>
+            <option value="VACANT">ว่าง</option>
+            <option value="UNDER_CONSTRUCTION">กำลังก่อสร้าง</option>
+            <option value="DEMOLISHED">รื้อถอนแล้ว</option>
+          </select>
+          <button
+            type="submit"
+            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            ค้นหา
+          </button>
+          <Link
+            href="/admin/population"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+          >
+            ล้างตัวกรอง
+          </Link>
+        </form>
+
+        <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
+          <table className="min-w-full text-sm">
+            <thead className="bg-gray-50 text-left text-gray-600">
+              <tr>
+                <th className="px-4 py-3">บ้านเลขที่</th>
+                <th className="px-4 py-3">หมู่บ้าน</th>
+                <th className="px-4 py-3">สถานะ</th>
+                <th className="px-4 py-3">จำนวนคน</th>
+                <th className="px-4 py-3">รายละเอียด</th>
+              </tr>
+            </thead>
+            <tbody>
+              {houses.map((house) => (
+                <tr key={house.id} className="border-t border-gray-100">
+                  <td className="px-4 py-3 font-medium text-gray-900">{house.houseNumber}</td>
+                  <td className="px-4 py-3 text-gray-700">{house.village.name}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {OCCUPANCY_STATUS_LABELS[house.occupancyStatus] ?? house.occupancyStatus}
+                  </td>
+                  <td className="px-4 py-3 text-gray-700">{house._count.persons.toLocaleString("th-TH")}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/population/houses/${house.id}`}
+                      className="text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                    >
+                      ดูรายละเอียด
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {houses.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-gray-500">ไม่พบบ้านตามคำค้นหรือเงื่อนไขที่เลือก</p>
+          ) : null}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -640,7 +802,7 @@ export default async function Page() {
               <div key={request.id} className="rounded-xl border border-gray-200 p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <div className="text-xs text-gray-500">ผู้ร้องไห้</div>
+                    <div className="text-xs text-gray-500">ผู้ร้อง</div>
                     <div className="text-sm font-medium text-gray-900">
                       {request.user.name || request.user.phoneNumber}
                     </div>

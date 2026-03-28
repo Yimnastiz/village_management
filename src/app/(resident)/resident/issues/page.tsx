@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { AlertCircle, Plus } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { IssueCategory, IssuePriority, Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { ResidentIssuesToolbar } from "./resident-issues-toolbar";
 
 interface PageProps {
   searchParams: Promise<{
@@ -61,7 +60,15 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
 
   const params = await searchParams;
   const keyword = params.q?.trim() ?? "";
-  const scope = params.scope === "mine" || params.scope === "others" ? params.scope : "all";
+  const scopeParam = (params.scope ?? "").trim();
+  const selectedScopes = Array.from(
+    new Set(
+      scopeParam
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is "mine" | "others" => value === "mine" || value === "others")
+    )
+  );
   const maybePriority = params.priority as IssuePriority | undefined;
   const maybeCategory = params.category as IssueCategory | undefined;
   const priorityFilter =
@@ -83,9 +90,9 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
       : {}),
     ...(priorityFilter !== "ALL" ? { priority: priorityFilter } : {}),
     ...(categoryFilter !== "ALL" ? { category: categoryFilter } : {}),
-    ...(scope === "mine"
+    ...(selectedScopes.length === 1 && selectedScopes[0] === "mine"
       ? { reporterId: session.id }
-      : scope === "others"
+      : selectedScopes.length === 1 && selectedScopes[0] === "others"
         ? { reporterId: { not: session.id }, isPublic: true }
         : {
             OR: [{ reporterId: session.id }, { reporterId: { not: session.id }, isPublic: true }],
@@ -140,80 +147,14 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">ปัญหา/คำร้อง</h1>
-          <p className="text-sm text-gray-500 mt-1">คำร้องทั้งหมดของคุณ ({issues.length} รายการ)</p>
-        </div>
-        <Link href="/resident/issues/new">
-          <Button size="sm">
-            <Plus className="h-4 w-4 mr-1" /> แจ้งปัญหาใหม่
-          </Button>
-        </Link>
-      </div>
-
-      <form className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
-          <Input
-            name="q"
-            list="resident-issue-title-suggestions"
-            label="ค้นหาหัวข้อปัญหา"
-            placeholder="พิมพ์ชื่อปัญหา"
-            defaultValue={keyword}
-          />
-          <datalist id="resident-issue-title-suggestions">
-            {suggestionTitles.map((title) => (
-              <option key={title} value={title} />
-            ))}
-          </datalist>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">ระดับความสำคัญ</label>
-            <select name="priority" defaultValue={priorityFilter} className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-              <option value="ALL">ทั้งหมด</option>
-              {Object.entries(ISSUE_PRIORITY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">หมวดหมู่</label>
-            <select name="category" defaultValue={categoryFilter} className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-              <option value="ALL">ทั้งหมด</option>
-              {Object.entries(ISSUE_CATEGORY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">ขอบเขต</label>
-            <select name="scope" defaultValue={scope} className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-              <option value="all">ของฉัน + ปัญหาที่ชุมชนเปิดเผย</option>
-              <option value="mine">เฉพาะของฉัน</option>
-              <option value="others">เฉพาะของลูกบ้านคนอื่น (ที่เปิดเผย)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">เรียงลำดับ</label>
-            <select name="sort" defaultValue={sort} className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-              <option value="date_desc">วันที่: ใหม่ไปเก่า</option>
-              <option value="date_asc">วันที่: เก่าไปใหม่</option>
-              <option value="priority_desc">ความสำคัญ: เร่งด่วนไปต่ำ</option>
-              <option value="priority_asc">ความสำคัญ: ต่ำไปเร่งด่วน</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
-          <Button type="submit" size="sm">กรองข้อมูล</Button>
-          <Link href="/resident/issues">
-            <Button type="button" variant="outline" size="sm">ล้างตัวกรอง</Button>
-          </Link>
-        </div>
-      </form>
+      <ResidentIssuesToolbar
+        keyword={keyword}
+        selectedScopes={selectedScopes}
+        priorityFilter={priorityFilter}
+        categoryFilter={categoryFilter}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {sortedIssues.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">

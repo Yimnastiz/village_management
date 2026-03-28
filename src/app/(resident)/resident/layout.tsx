@@ -5,6 +5,7 @@ import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
 import {
   computeLandingPath,
+  getResidentMembership,
   getSessionContextFromServerCookies,
   isAdminUser,
   isResidentUser,
@@ -25,7 +26,9 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     redirect("/auth/binding");
   }
 
-  const [userProfile, unreadNotificationCount] = await Promise.all([
+  const residentMembership = getResidentMembership(session);
+
+  const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.id },
       select: { name: true, image: true },
@@ -36,6 +39,12 @@ export default async function ResidentLayout({ children }: { children: React.Rea
         status: NotificationStatus.UNREAD,
       },
     }),
+    residentMembership
+      ? prisma.village.findUnique({
+          where: { id: residentMembership.villageId },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -47,6 +56,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           userName={userProfile?.name || session.name}
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
+          villageName={villageProfile?.name ?? null}
         />
         <main className="flex-1 p-6">{children}</main>
       </div>

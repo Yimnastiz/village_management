@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { ShieldCheck, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS, TRANSPARENCY_STAGE_LABELS } from "@/lib/constants";
 import { SeedMockTransparencyButton } from "./seed-mock-button";
+
+type PageProps = {
+  searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
+};
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   DRAFT: "warning",
@@ -14,7 +20,8 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   ARCHIVED: "default",
 };
 
-export default async function TransparencyPage() {
+export default async function TransparencyPage({ searchParams }: PageProps) {
+  const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
@@ -25,9 +32,37 @@ export default async function TransparencyPage() {
   });
   if (!membership) redirect("/auth/login");
 
+  const keyword = params.q?.trim() ?? "";
+  const activeStage = params.stage ?? "ALL";
+  const activeVisibility = params.visibility ?? "ALL";
+  const activeSort = params.sort ?? "newest";
+
+  const where: Prisma.TransparencyRecordWhereInput = { villageId: membership.villageId };
+  if (activeStage !== "ALL") {
+    where.stage = activeStage as Prisma.TransparencyRecordWhereInput["stage"];
+  }
+  if (activeVisibility !== "ALL") {
+    where.visibility = activeVisibility as Prisma.TransparencyRecordWhereInput["visibility"];
+  }
+  if (keyword) {
+    where.OR = [
+      { title: { contains: keyword, mode: "insensitive" } },
+      { description: { contains: keyword, mode: "insensitive" } },
+      { category: { contains: keyword, mode: "insensitive" } },
+      { fiscalYear: { contains: keyword, mode: "insensitive" } },
+    ];
+  }
+
+  const orderBy =
+    activeSort === "oldest"
+      ? [{ publishedAt: "asc" as const }, { createdAt: "asc" as const }]
+      : activeSort === "amount"
+        ? [{ amount: "desc" as const }, { createdAt: "desc" as const }]
+        : [{ publishedAt: "desc" as const }, { createdAt: "desc" as const }];
+
   let records = await prisma.transparencyRecord.findMany({
-    where: { villageId: membership.villageId },
-    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    where,
+    orderBy,
     select: {
       id: true,
       title: true,
@@ -70,8 +105,8 @@ export default async function TransparencyPage() {
     });
 
     records = await prisma.transparencyRecord.findMany({
-      where: { villageId: membership.villageId },
-      orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+      where,
+      orderBy,
       select: {
         id: true,
         title: true,
@@ -86,22 +121,70 @@ export default async function TransparencyPage() {
     });
   }
 
+  const suggestionTitles = Array.from(new Set(records.map((record) => record.title))).slice(0, 12);
+
+  function buildTransparencyHref(next: { q?: string; stage?: string; visibility?: string; sort?: string }) {
+    const query = new URLSearchParams();
+    const q = next.q?.trim() ?? "";
+    const stage = next.stage ?? "ALL";
+    const visibility = next.visibility ?? "ALL";
+    const sort = next.sort ?? "newest";
+    if (q) query.set("q", q);
+    if (stage !== "ALL") query.set("stage", stage);
+    if (visibility !== "ALL") query.set("visibility", visibility);
+    if (sort !== "newest") query.set("sort", sort);
+    const queryString = query.toString();
+    return queryString ? `/admin/transparency?${queryString}` : "/admin/transparency";
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">ความโปร่งใส</h1>
-          <p className="text-sm text-gray-500 mt-1">จัดการรายการงบประมาณ โครงการ และข้อมูลการเปิดเผย</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <SeedMockTransparencyButton />
-          <Link href="/admin/transparency/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> เพิ่มรายการ
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <AdminListToolbar
+        title="ความโปร่งใส"
+        description="จัดการรายการงบประมาณ โครงการ และข้อมูลการเปิดเผย"
+        searchAction="/admin/transparency"
+        keyword={keyword}
+        searchPlaceholder="ค้นหาชื่อรายการ หมวดหมู่ หรือปีงบประมาณ"
+        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "newest" ? "" : activeSort }}
+        suggestionTitles={suggestionTitles}
+        groups={[
+          {
+            label: "สถานะ",
+            options: [
+              { label: "ทั้งหมด", href: buildTransparencyHref({ q: keyword, stage: "ALL", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ALL" },
+              { label: "ร่าง", href: buildTransparencyHref({ q: keyword, stage: "DRAFT", visibility: activeVisibility, sort: activeSort }), active: activeStage === "DRAFT" },
+              { label: "เผยแพร่", href: buildTransparencyHref({ q: keyword, stage: "PUBLISHED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "PUBLISHED" },
+              { label: "เก็บถาวร", href: buildTransparencyHref({ q: keyword, stage: "ARCHIVED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ARCHIVED" },
+            ],
+          },
+          {
+            label: "การมองเห็น",
+            options: [
+              { label: "ทั้งหมด", href: buildTransparencyHref({ q: keyword, stage: activeStage, visibility: "ALL", sort: activeSort }), active: activeVisibility === "ALL" },
+              { label: "สาธารณะ", href: buildTransparencyHref({ q: keyword, stage: activeStage, visibility: "PUBLIC", sort: activeSort }), active: activeVisibility === "PUBLIC" },
+              { label: "ลูกบ้าน", href: buildTransparencyHref({ q: keyword, stage: activeStage, visibility: "RESIDENT_ONLY", sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
+            ],
+          },
+          {
+            label: "เรียง",
+            options: [
+              { label: "ล่าสุดก่อน", href: buildTransparencyHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest" },
+              { label: "เก่าก่อน", href: buildTransparencyHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "oldest" }), active: activeSort === "oldest" },
+              { label: "งบสูงก่อน", href: buildTransparencyHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "amount" }), active: activeSort === "amount" },
+            ],
+          },
+        ]}
+        actions={
+          <>
+            <SeedMockTransparencyButton />
+            <Link href="/admin/transparency/new">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" /> เพิ่มรายการ
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {records.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">

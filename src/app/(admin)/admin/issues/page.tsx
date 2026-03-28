@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Prisma } from "@prisma/client";
 import { AlertCircle, Plus, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
 interface PageProps {
-  searchParams: Promise<{ stage?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string }>;
 }
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
@@ -32,7 +34,7 @@ function formatDate(date: Date): string {
 }
 
 export default async function AdminIssuesPage({ searchParams }: PageProps) {
-  const { stage, category } = await searchParams;
+  const { q, stage, category, sort } = await searchParams;
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
@@ -42,14 +44,33 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   });
   if (!membership) redirect("/auth/login");
 
-  const whereClause: Record<string, unknown> = { villageId: membership.villageId };
-  if (stage && stage !== "ALL") whereClause.stage = stage;
-  if (category && category !== "ALL") whereClause.category = category;
+  const keyword = q?.trim() ?? "";
+  const activeStage = stage ?? "ALL";
+  const activeCategory = category ?? "ALL";
+  const activeSort = sort ?? "newest";
+
+  const whereClause: Prisma.IssueWhereInput = { villageId: membership.villageId };
+  if (activeStage !== "ALL") whereClause.stage = activeStage as Prisma.IssueWhereInput["stage"];
+  if (activeCategory !== "ALL") whereClause.category = activeCategory as Prisma.IssueWhereInput["category"];
+  if (keyword) {
+    whereClause.OR = [
+      { title: { contains: keyword, mode: "insensitive" } },
+      { location: { contains: keyword, mode: "insensitive" } },
+      { description: { contains: keyword, mode: "insensitive" } },
+    ];
+  }
+
+  const orderBy =
+    activeSort === "oldest"
+      ? [{ createdAt: "asc" as const }]
+      : activeSort === "priority"
+        ? [{ priority: "desc" as const }, { createdAt: "desc" as const }]
+        : [{ createdAt: "desc" as const }];
 
   const [issues, stageCounts] = await Promise.all([
     prisma.issue.findMany({
       where: whereClause,
-      orderBy: [{ createdAt: "desc" }],
+      orderBy,
       select: {
         id: true,
         title: true,
@@ -81,47 +102,76 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
     { value: "REJECTED", label: "ปฏิเสธ" },
   ];
 
-  const activeStage = stage ?? "ALL";
+  const suggestionTitles = Array.from(new Set(issues.map((issue) => issue.title))).slice(0, 12);
+
+  function buildIssuesHref(next: { q?: string; stage?: string; category?: string; sort?: string }) {
+    const query = new URLSearchParams();
+    const qValue = next.q?.trim() ?? "";
+    const stageValue = next.stage ?? "ALL";
+    const categoryValue = next.category ?? "ALL";
+    const sortValue = next.sort ?? "newest";
+
+    if (qValue) query.set("q", qValue);
+    if (stageValue !== "ALL") query.set("stage", stageValue);
+    if (categoryValue !== "ALL") query.set("category", categoryValue);
+    if (sortValue !== "newest") query.set("sort", sortValue);
+
+    const queryString = query.toString();
+    return queryString ? `/admin/issues?${queryString}` : "/admin/issues";
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">จัดการปัญหา/คำร้อง</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            เปิด {counts["OPEN"] ?? 0} • กำลังดำเนินการ {counts["IN_PROGRESS"] ?? 0} • รอ {counts["WAITING"] ?? 0}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/admin/issues/board">
-            <Button variant="outline" size="sm">บอร์ด</Button>
-          </Link>
-          <Link href="/admin/issues/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> แจ้งปัญหาใหม่
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      <div className="flex gap-2 flex-wrap">
-        {stageFilters.map((filter) => (
-          <Link
-            key={filter.value}
-            href={filter.value === "ALL" ? "/admin/issues" : `/admin/issues?stage=${filter.value}`}
-            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              activeStage === filter.value
-                ? "bg-gray-900 text-white"
-                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
-            }`}
-          >
-            {filter.label}
-            {(filter.count ?? counts[filter.value] ?? 0) > 0 && (
-              <span className="text-xs opacity-70">({filter.count ?? counts[filter.value]})</span>
-            )}
-          </Link>
-        ))}
-      </div>
+      <AdminListToolbar
+        title="จัดการปัญหา/คำร้อง"
+        description={`เปิด ${counts["OPEN"] ?? 0} • กำลังดำเนินการ ${counts["IN_PROGRESS"] ?? 0} • รอ ${counts["WAITING"] ?? 0}`}
+        searchAction="/admin/issues"
+        keyword={keyword}
+        searchPlaceholder="ค้นหาหัวข้อ สถานที่ หรือรายละเอียด"
+        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, category: activeCategory === "ALL" ? "" : activeCategory, sort: activeSort === "newest" ? "" : activeSort }}
+        suggestionTitles={suggestionTitles}
+        groups={[
+          {
+            label: "สถานะ",
+            options: stageFilters.map((filter) => ({
+              label: `${filter.label}${(filter.count ?? counts[filter.value] ?? 0) > 0 ? ` (${filter.count ?? counts[filter.value]})` : ""}`,
+              href: buildIssuesHref({ q: keyword, stage: filter.value, category: activeCategory, sort: activeSort }),
+              active: activeStage === filter.value,
+            })),
+          },
+          {
+            label: "หมวด",
+            options: [
+              { label: "ทั้งหมด", href: buildIssuesHref({ q: keyword, stage: activeStage, category: "ALL", sort: activeSort }), active: activeCategory === "ALL" },
+              ...Object.entries(ISSUE_CATEGORY_LABELS).map(([value, label]) => ({
+                label,
+                href: buildIssuesHref({ q: keyword, stage: activeStage, category: value, sort: activeSort }),
+                active: activeCategory === value,
+              })),
+            ],
+          },
+          {
+            label: "เรียง",
+            options: [
+              { label: "ล่าสุดก่อน", href: buildIssuesHref({ q: keyword, stage: activeStage, category: activeCategory, sort: "newest" }), active: activeSort === "newest" },
+              { label: "เก่าก่อน", href: buildIssuesHref({ q: keyword, stage: activeStage, category: activeCategory, sort: "oldest" }), active: activeSort === "oldest" },
+              { label: "เร่งด่วนก่อน", href: buildIssuesHref({ q: keyword, stage: activeStage, category: activeCategory, sort: "priority" }), active: activeSort === "priority" },
+            ],
+          },
+        ]}
+        actions={
+          <>
+            <Link href="/admin/issues/board">
+              <Button variant="outline" size="sm">บอร์ด</Button>
+            </Link>
+            <Link href="/admin/issues/new">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" /> แจ้งปัญหาใหม่
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {issues.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">

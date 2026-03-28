@@ -1,11 +1,11 @@
-import { AlertCircle, Calendar, Newspaper, Bell } from "lucide-react";
+import { AlertCircle, Calendar, CalendarDays, Home, Newspaper, Bell } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { ISSUE_STAGE_LABELS } from "@/lib/constants";
+import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -25,12 +25,42 @@ export default async function ResidentDashboard() {
     redirect("/auth/binding");
   }
 
+  const primaryMembership = await prisma.villageMembership.findFirst({
+    where: {
+      userId: session.id,
+      villageId: membership.villageId,
+      role: "RESIDENT",
+      status: "ACTIVE",
+    },
+    select: {
+      houseId: true,
+      house: {
+        select: {
+          houseNumber: true,
+          address: true,
+        },
+      },
+    },
+  });
+
+  const effectiveHouseId = membership.houseId ?? primaryMembership?.houseId ?? null;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setDate(endOfToday.getDate() + 1);
+
   const [
     issueStats,
     upcomingAppointments,
     unreadNotifications,
     latestNews,
     latestIssues,
+    villageEventsTodayCount,
+    householdCount,
+    villageEventsToday,
+    housePersons,
+    houseMemberships,
   ] = await Promise.all([
     prisma.issue.groupBy({
       by: ["stage"],
@@ -65,7 +95,103 @@ export default async function ResidentDashboard() {
       orderBy: { createdAt: "desc" },
       take: 5,
     }),
+    prisma.villageEvent.count({
+      where: {
+        villageId: membership.villageId,
+        startsAt: {
+          gte: startOfToday,
+          lt: endOfToday,
+        },
+      },
+    }),
+    prisma.house.count({
+      where: {
+        villageId: membership.villageId,
+      },
+    }),
+    prisma.villageEvent.findMany({
+      where: {
+        villageId: membership.villageId,
+        startsAt: {
+          gte: startOfToday,
+          lt: endOfToday,
+        },
+      },
+      select: {
+        id: true,
+        title: true,
+        startsAt: true,
+        location: true,
+      },
+      orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }],
+      take: 5,
+    }),
+    effectiveHouseId
+      ? prisma.person.findMany({
+          where: {
+            houseId: effectiveHouseId,
+          },
+          orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        })
+      : Promise.resolve([]),
+    effectiveHouseId
+      ? prisma.villageMembership.findMany({
+          where: {
+            houseId: effectiveHouseId,
+            status: "ACTIVE",
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                phoneNumber: true,
+              },
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
+
+  const personEntries = housePersons.map((person) => ({
+    key: `person-${person.id}`,
+    name: `${person.firstName} ${person.lastName}`.trim(),
+    phone: person.phone ?? "-",
+    source: "ทะเบียนบุคคล",
+  }));
+
+  const membershipEntries = houseMemberships.map((houseMembership) => ({
+    key: `membership-${houseMembership.id}`,
+    name: houseMembership.user.name,
+    phone: houseMembership.user.phoneNumber,
+    source: "ผู้ใช้งานระบบ",
+  }));
+
+  const ownHouseMembers = [...personEntries, ...membershipEntries].reduce<
+    Array<{ key: string; name: string; phone: string; source: string }>
+  >((accumulator, member) => {
+    const normalizedName = member.name.trim().toLowerCase();
+    const normalizedPhone = member.phone.trim();
+
+    const duplicate = accumulator.some(
+      (item) =>
+        item.name.trim().toLowerCase() === normalizedName &&
+        item.phone.trim() === normalizedPhone
+    );
+
+    if (!duplicate) {
+      accumulator.push(member);
+    }
+
+    return accumulator;
+  }, []);
 
   const totalIssues = issueStats.reduce((sum, row) => sum + row._count._all, 0);
   const inProgressIssues = issueStats
@@ -84,35 +210,164 @@ export default async function ResidentDashboard() {
         <p className="text-gray-500 text-sm mt-1">ภาพรวมข้อมูลของคุณ</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="ปัญหาที่แจ้ง"
-          value={String(totalIssues)}
-          icon={AlertCircle}
-          color="blue"
-          trend={`${inProgressIssues} รายการกำลังดำเนินการ`}
-        />
-        <StatCard
-          title="นัดหมาย"
-          value={String(upcomingAppointments.length)}
-          icon={Calendar}
-          color="green"
-          trend={nextAppointmentText}
-        />
-        <StatCard
-          title="ข่าวล่าสุดหมู่บ้าน"
-          value={String(latestNews.length)}
-          icon={Newspaper}
-          color="yellow"
-          trend="แสดง 5 ข่าวล่าสุด"
-        />
-        <StatCard
-          title="การแจ้งเตือน"
-          value={String(unreadNotifications)}
-          icon={Bell}
-          color="red"
-          trend={unreadNotifications > 0 ? "ยังไม่ได้อ่าน" : "อ่านครบแล้ว"}
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <Link href="/resident/issues" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+          <StatCard
+            title="ปัญหาที่แจ้ง"
+            value={String(totalIssues)}
+            icon={AlertCircle}
+            color="blue"
+            trend={`${inProgressIssues} รายการกำลังดำเนินการ`}
+            className="h-full transition-shadow hover:shadow-md"
+          />
+        </Link>
+        <Link href="/resident/appointments" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+          <StatCard
+            title="นัดหมาย"
+            value={String(upcomingAppointments.length)}
+            icon={Calendar}
+            color="green"
+            trend={nextAppointmentText}
+            className="h-full transition-shadow hover:shadow-md"
+          />
+        </Link>
+        <Link href="/resident/news" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+          <StatCard
+            title="ข่าวล่าสุดหมู่บ้าน"
+            value={String(latestNews.length)}
+            icon={Newspaper}
+            color="yellow"
+            trend="แสดง 5 ข่าวล่าสุด"
+            className="h-full transition-shadow hover:shadow-md"
+          />
+        </Link>
+        <Link href="/resident/notifications" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+          <StatCard
+            title="การแจ้งเตือน"
+            value={String(unreadNotifications)}
+            icon={Bell}
+            color="red"
+            trend={unreadNotifications > 0 ? "ยังไม่ได้อ่าน" : "อ่านครบแล้ว"}
+            className="h-full transition-shadow hover:shadow-md"
+          />
+        </Link>
+        <Link href="/resident/calendar" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+          <StatCard
+            title="กิจกรรมหมู่บ้านวันนี้"
+            value={String(villageEventsTodayCount)}
+            icon={CalendarDays}
+            color="purple"
+            trend={toThaiDate(startOfToday)}
+            className="h-full transition-shadow hover:shadow-md"
+          />
+        </Link>
+        <Link href="/resident/household" className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+          <StatCard
+            title="จำนวนครัวเรือน"
+            value={String(householdCount)}
+            icon={Home}
+            color="green"
+            trend="ครัวเรือนทั้งหมดในหมู่บ้าน"
+            className="h-full transition-shadow hover:shadow-md"
+          />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="font-semibold text-gray-900 mb-4">นัดหมายของฉัน</h2>
+          <div className="space-y-3">
+            {upcomingAppointments.length === 0 ? (
+              <p className="text-sm text-gray-500 py-2">ยังไม่มีนัดหมายที่กำลังดำเนินการ</p>
+            ) : (
+              upcomingAppointments.map((appointment) => (
+                <Link
+                  key={appointment.id}
+                  href={`/resident/appointments/${appointment.id}`}
+                  className="flex items-center justify-between gap-3 py-2 border-b last:border-0"
+                >
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-700 line-clamp-1">{appointment.title}</span>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {appointment.slot?.date
+                        ? `${toThaiDate(appointment.slot.date)} ${appointment.slot.startTime}-${appointment.slot.endTime}`
+                        : "รอจัดคิวเวลา"}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700 whitespace-nowrap">
+                    {APPOINTMENT_STAGE_LABELS[appointment.stage] ?? appointment.stage}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+          <Link href="/resident/appointments" className="text-sm text-green-600 hover:underline mt-3 block">
+            ดูทั้งหมด →
+          </Link>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="font-semibold text-gray-900 mb-4">กิจกรรมหมู่บ้านวันนี้</h2>
+          <div className="space-y-3">
+            {villageEventsToday.length === 0 ? (
+              <p className="text-sm text-gray-500 py-2">วันนี้ยังไม่มีกิจกรรมในหมู่บ้าน</p>
+            ) : (
+              villageEventsToday.map((event) => (
+                <Link
+                  key={event.id}
+                  href={`/resident/calendar/${event.id}`}
+                  className="flex items-center justify-between gap-3 py-2 border-b last:border-0"
+                >
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-700 line-clamp-1">{event.title}</span>
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                      {event.location || "ไม่ระบุสถานที่"}
+                    </p>
+                  </div>
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    {event.startsAt.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+          <Link href="/resident/calendar" className="text-sm text-green-600 hover:underline mt-3 block">
+            ดูทั้งหมด →
+          </Link>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="font-semibold text-gray-900 mb-4">สมาชิกในบ้านของฉัน</h2>
+          <div className="space-y-3">
+            {!effectiveHouseId ? (
+              <p className="text-sm text-gray-500 py-2">ยังไม่พบเลขบ้านที่ผูกกับบัญชีของคุณ</p>
+            ) : ownHouseMembers.length === 0 ? (
+              <p className="text-sm text-gray-500 py-2">ยังไม่พบข้อมูลสมาชิกในบ้านนี้</p>
+            ) : (
+              ownHouseMembers.map((householdMember) => (
+                <div key={householdMember.key} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
+                  <div className="min-w-0">
+                    <span className="text-sm text-gray-700 line-clamp-1">{householdMember.name || "-"}</span>
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
+                      {householdMember.source}
+                    </p>
+                  </div>
+                  <span className="text-xs px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700 whitespace-nowrap">
+                    {householdMember.phone || "-"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+          {effectiveHouseId && (
+            <p className="mt-3 text-xs text-gray-500">
+              บ้านเลขที่ {primaryMembership?.house?.houseNumber ?? "-"} {primaryMembership?.house?.address ? `• ${primaryMembership.house.address}` : ""}
+            </p>
+          )}
+          <Link href="/resident/household" className="text-sm text-green-600 hover:underline mt-3 block">
+            ดูทั้งหมด →
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

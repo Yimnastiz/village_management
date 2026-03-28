@@ -79,6 +79,35 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
     },
   });
 
+  const userAppointments = await prisma.appointment.findMany({
+    where: {
+      userId: session.id,
+      stage: { notIn: ["CANCELLED", "REJECTED"] },
+      slot: {
+        date: {
+          gte: monthStart,
+          lt: nextMonthStart,
+        },
+      },
+    },
+    select: {
+      slot: {
+        select: {
+          date: true,
+        },
+      },
+    },
+  });
+
+  const userAppointmentDateKeys = new Set(
+    userAppointments
+      .map((appointment) => appointment.slot?.date)
+      .filter((date): date is Date => date instanceof Date)
+      .map((date) => toDateKey(date))
+  );
+
+  const todayKey = toDateKey(new Date());
+
   const eventsByDay = new Map<string, typeof events>();
   for (const event of events) {
     const key = toDateKey(event.startsAt);
@@ -150,18 +179,22 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
               const dayKey = toDateKey(cellDate);
               const dayEvents = eventsByDay.get(dayKey) ?? [];
               const isSelected = selectedDateKey === dayKey;
+              const isToday = dayKey === todayKey;
+              const hasMyAppointment = userAppointmentDateKeys.has(dayKey);
 
               return (
                 <div
                   key={dayKey}
-                  className={`min-h-28 border-b border-r border-gray-100 p-2 ${
-                    isSelected ? "bg-green-50" : "bg-white"
+                  className={`min-h-28 border-b border-r border-gray-100 p-2 ${isSelected ? "bg-green-50" : "bg-white"} ${
+                    hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
                   }`}
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <Link
                       href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
-                      className="text-sm font-medium text-gray-800 hover:text-green-700"
+                      className={`text-sm font-medium hover:text-green-700 ${
+                        isToday ? "text-red-600" : "text-gray-800"
+                      }`}
                     >
                       {day}
                     </Link>
@@ -173,6 +206,11 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                   </div>
 
                   <div className="space-y-1">
+                    {hasMyAppointment && (
+                      <span className="inline-flex w-fit items-center rounded-md bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                        มีนัดหมายของคุณ
+                      </span>
+                    )}
                     {dayEvents.slice(0, 2).map((event) => (
                       <Link
                         key={event.id}
@@ -194,6 +232,16 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                 </div>
               );
             })}
+          </div>
+          <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-red-500" /> วันนี้
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2 w-2 rounded-full bg-sky-500" /> มีนัดหมายของคุณ
+              </span>
+            </div>
           </div>
         </section>
       )}

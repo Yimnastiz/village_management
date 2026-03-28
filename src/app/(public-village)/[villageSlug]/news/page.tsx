@@ -6,14 +6,19 @@ import { Newspaper } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { PublicNewsToolbar } from "./public-news-toolbar";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string }>;
 }
 
-export default async function VillageNewsPage({ params }: PageProps) {
+export default async function VillageNewsPage({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = query.q?.trim() ?? "";
+  const sort = query.sort === "oldest" ? "oldest" : "newest";
   const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
   const village = await prisma.village.findFirst({
@@ -27,8 +32,19 @@ export default async function VillageNewsPage({ params }: PageProps) {
       villageId: village.id,
       stage: "PUBLISHED",
       visibility: "PUBLIC",
+      ...(keyword
+        ? {
+            title: {
+              contains: keyword,
+              mode: "insensitive" as const,
+            },
+          }
+        : {}),
     },
-    orderBy: [{ isPinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+    orderBy:
+      sort === "oldest"
+        ? [{ isPinned: "desc" }, { publishedAt: "asc" }, { createdAt: "asc" }]
+        : [{ isPinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
       title: true,
@@ -51,9 +67,28 @@ export default async function VillageNewsPage({ params }: PageProps) {
     },
   });
 
+  const titleSuggestions = await prisma.news.findMany({
+    where: {
+      villageId: village.id,
+      stage: "PUBLISHED",
+      visibility: "PUBLIC",
+    },
+    select: { title: true },
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    take: 50,
+  });
+
+  const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">ข่าวสารหมู่บ้าน {village.name}</h1>
+      <PublicNewsToolbar
+        villageSlug={villageSlug}
+        villageName={village.name}
+        keyword={keyword}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {newsList.length === 0 ? (
         <EmptyState icon={Newspaper} title="ยังไม่มีข่าวสาธารณะ" description="ข่าวสาธารณะของหมู่บ้านจะแสดงที่นี่" />

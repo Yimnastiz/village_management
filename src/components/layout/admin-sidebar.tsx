@@ -12,14 +12,19 @@ import {
   Download,
   Eye,
   Phone,
-  Siren,
   Settings,
   Shield,
   Bell,
   Upload,
 } from "lucide-react";
 
-const navItems = [
+export type AdminMenuItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
   { href: "/admin/calendar", label: "ปฏิทินกิจกรรม", icon: Calendar },
@@ -31,7 +36,6 @@ const navItems = [
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: Upload },
   { href: "/admin/transparency", label: "ความโปร่งใส", icon: Eye },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: Download },
-  { href: "/admin/emergency", label: "ฉุกเฉิน", icon: Siren },
   { href: "/admin/notifications", label: "การแจ้งเตือน", icon: Bell },
   { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
   { href: "/admin/security", label: "ความปลอดภัย", icon: Shield },
@@ -40,10 +44,10 @@ const navItems = [
 export function AdminSidebar() {
   const pathname = usePathname();
   return (
-    <aside className="w-64 bg-gray-900 text-gray-300 flex-shrink-0 flex flex-col min-h-screen">
+    <aside className="sticky top-0 hidden h-screen w-64 overflow-y-auto bg-gray-900 text-gray-300 flex-shrink-0 md:flex flex-col">
       <div className="p-4 border-b border-gray-700">
         <Link href="/admin" className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
             <LayoutDashboard className="h-4 w-4 text-white" />
           </div>
           <div>
@@ -52,7 +56,7 @@ export function AdminSidebar() {
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
-        {navItems.map((item) => {
+        {adminMenuItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link

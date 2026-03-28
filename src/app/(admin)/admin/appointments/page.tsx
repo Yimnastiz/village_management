@@ -3,13 +3,19 @@ import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isAdminUser } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
 import { Check, X, AlertCircle } from "lucide-react";
 
-async function fetchPendingAppointments() {
+type PageProps = {
+  searchParams?: Promise<{ q?: string; stage?: string; sort?: string }>;
+};
+
+async function fetchPendingAppointments(params: { q?: string; stage?: string; sort?: string }) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id || !isAdminUser(session)) {
     redirect("/auth/login?error=unauthorized");
@@ -30,11 +36,35 @@ async function fetchPendingAppointments() {
     return [];
   }
 
+  const keyword = params.q?.trim() ?? "";
+  const activeStage = params.stage ?? "ALL";
+  const activeSort = params.sort ?? "pending";
+
+  const where: Prisma.AppointmentWhereInput = {
+    villageId: { in: villageIds },
+  };
+  if (keyword) {
+    where.OR = [
+      { title: { contains: keyword, mode: "insensitive" } },
+      { description: { contains: keyword, mode: "insensitive" } },
+      { user: { name: { contains: keyword, mode: "insensitive" } } },
+      { user: { email: { contains: keyword, mode: "insensitive" } } },
+    ];
+  }
+  if (activeStage !== "ALL") {
+    where.stage = activeStage as Prisma.AppointmentWhereInput["stage"];
+  }
+
+  const orderBy =
+    activeSort === "oldest"
+      ? [{ createdAt: "asc" as const }]
+      : activeSort === "newest"
+        ? [{ createdAt: "desc" as const }]
+        : [{ stage: "asc" as const }, { createdAt: "desc" as const }];
+
   // Fetch appointments from admin's villages, prioritize pending
   const appointments = await prisma.appointment.findMany({
-    where: {
-      villageId: { in: villageIds },
-    },
+    where,
     include: {
       user: {
         select: {
@@ -51,10 +81,7 @@ async function fetchPendingAppointments() {
         take: 1,
       },
     },
-    orderBy: [
-      { stage: "asc" }, // PENDING_APPROVAL first
-      { createdAt: "desc" },
-    ],
+    orderBy,
   });
 
   return appointments;
@@ -69,17 +96,68 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   COMPLETED: "info",
 };
 
-export default async function AdminAppointmentsPage() {
-  const appointments = await fetchPendingAppointments();
+export default async function AdminAppointmentsPage({ searchParams }: PageProps) {
+  const params = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = params.q?.trim() ?? "";
+  const activeStage = params.stage ?? "ALL";
+  const activeSort = params.sort ?? "pending";
+  const appointments = await fetchPendingAppointments(params);
+
+  const suggestionTitles = Array.from(new Set(appointments.map((appointment) => appointment.title))).slice(0, 12);
+
+  function buildAppointmentsHref(next: { q?: string; stage?: string; sort?: string }) {
+    const query = new URLSearchParams();
+    const q = next.q?.trim() ?? "";
+    const stage = next.stage ?? "ALL";
+    const sort = next.sort ?? "pending";
+    if (q) query.set("q", q);
+    if (stage !== "ALL") query.set("stage", stage);
+    if (sort !== "pending") query.set("sort", sort);
+    const queryString = query.toString();
+    return queryString ? `/admin/appointments?${queryString}` : "/admin/appointments";
+  }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">จัดการนัดหมาย</h1>
-        <Link href="/admin/appointments/slots">
-          <Button size="sm">จัดการเวลาว่าง</Button>
-        </Link>
-      </div>
+      <AdminListToolbar
+        title="จัดการนัดหมาย"
+        description="ตรวจสอบคำขอนัดหมาย กรองตามสถานะ และค้นหาจากชื่อเรื่องหรือผู้ขอ"
+        searchAction="/admin/appointments"
+        keyword={keyword}
+        searchPlaceholder="ค้นหาจากหัวข้อหรือชื่อผู้ขอ"
+        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, sort: activeSort === "pending" ? "" : activeSort }}
+        suggestionTitles={suggestionTitles}
+        groups={[
+          {
+            label: "สถานะ",
+            options: [
+              { label: "ทั้งหมด", href: buildAppointmentsHref({ q: keyword, stage: "ALL", sort: activeSort }), active: activeStage === "ALL" },
+              { label: "รออนุมัติ", href: buildAppointmentsHref({ q: keyword, stage: "PENDING_APPROVAL", sort: activeSort }), active: activeStage === "PENDING_APPROVAL" },
+              { label: "รอยืนยันเวลา", href: buildAppointmentsHref({ q: keyword, stage: "TIME_SUGGESTED", sort: activeSort }), active: activeStage === "TIME_SUGGESTED" },
+              { label: "อนุมัติแล้ว", href: buildAppointmentsHref({ q: keyword, stage: "APPROVED", sort: activeSort }), active: activeStage === "APPROVED" },
+              { label: "เสร็จสิ้น", href: buildAppointmentsHref({ q: keyword, stage: "COMPLETED", sort: activeSort }), active: activeStage === "COMPLETED" },
+            ],
+          },
+          {
+            label: "เรียง",
+            options: [
+              { label: "รออนุมัติก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "pending" }), active: activeSort === "pending" },
+              { label: "ล่าสุดก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "newest" }), active: activeSort === "newest" },
+              { label: "เก่าก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "oldest" }), active: activeSort === "oldest" },
+            ],
+          },
+        ]}
+        actions={
+          <>
+            <Link href="/admin/appointments/calendar">
+              <Button size="sm" variant="outline">ปฏิทินนัดหมาย</Button>
+            </Link>
+            <Link href="/admin/appointments/slots">
+              <Button size="sm">จัดการเวลาว่าง</Button>
+            </Link>
+          </>
+        }
+      />
 
       {appointments.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">

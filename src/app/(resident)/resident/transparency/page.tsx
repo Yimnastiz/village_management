@@ -3,11 +3,11 @@ import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { ResidentTransparencyToolbar } from "./resident-transparency-toolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -24,14 +24,19 @@ export default async function ResidentTransparencyPage({
   const membership = getResidentMembership(session);
   if (!membership) redirect("/auth/login");
 
-  const { q = "", sort = "date_desc", visibility = "ALL" } = await searchParams;
+  const { q = "", sort = "date_desc", visibility = "" } = await searchParams;
+
+  const visibilityTokens = visibility
+    .split(",")
+    .map((token) => token.trim())
+    .filter((token): token is "PUBLIC" | "RESIDENT_ONLY" => token === "PUBLIC" || token === "RESIDENT_ONLY");
+
+  const selectedVisibilities = Array.from(new Set(visibilityTokens));
 
   const allowedVisibility: NewsVisibility[] =
-    visibility === "PUBLIC"
-      ? ["PUBLIC"]
-      : visibility === "RESIDENT_ONLY"
-        ? ["RESIDENT_ONLY"]
-        : ["PUBLIC", "RESIDENT_ONLY"];
+    selectedVisibilities.length === 1
+      ? [selectedVisibilities[0]]
+      : ["PUBLIC", "RESIDENT_ONLY"];
 
   const [records, suggestions] = await Promise.all([
     prisma.transparencyRecord.findMany({
@@ -70,72 +75,16 @@ export default async function ResidentTransparencyPage({
     }),
   ]);
 
-  const hasFilter = q !== "" || sort !== "date_desc" || visibility !== "ALL";
+  const hasFilter = q !== "" || sort !== "date_desc" || selectedVisibilities.length > 0;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">ความโปร่งใส</h1>
-
-      {/* Search & filter */}
-      <form method="GET" className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="min-w-[180px] flex-1">
-          <label className="mb-1 block text-xs text-gray-500">ค้นหาหัวข้อ</label>
-          <Input
-            name="q"
-            defaultValue={q}
-            placeholder="พิมพ์หัวข้อความโปร่งใส..."
-            list="transparency-suggestions"
-            autoComplete="off"
-          />
-          <datalist id="transparency-suggestions">
-            {suggestions.map((s) => (
-              <option key={s.title} value={s.title} />
-            ))}
-          </datalist>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs text-gray-500">การมองเห็น</label>
-          <select
-            name="visibility"
-            defaultValue={visibility}
-            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="ALL">ทั้งหมด</option>
-            <option value="PUBLIC">สาธารณะ</option>
-            <option value="RESIDENT_ONLY">เฉพาะลูกบ้าน</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-1 block text-xs text-gray-500">เรียงตาม</label>
-          <select
-            name="sort"
-            defaultValue={sort}
-            className="h-9 rounded-lg border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="date_desc">วันที่ล่าสุด</option>
-            <option value="date_asc">วันที่เก่าสุด</option>
-          </select>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="h-9 rounded-lg bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            ค้นหา
-          </button>
-          {hasFilter && (
-            <Link
-              href="/resident/transparency"
-              className="flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-600 hover:bg-gray-50"
-            >
-              ล้าง
-            </Link>
-          )}
-        </div>
-      </form>
+      <ResidentTransparencyToolbar
+        keyword={q}
+        sort={sort === "date_asc" ? "date_asc" : "date_desc"}
+        selectedVisibilities={selectedVisibilities}
+        suggestionTitles={suggestions.map((item) => item.title)}
+      />
 
       {records.length === 0 ? (
         <EmptyState
@@ -158,7 +107,16 @@ export default async function ResidentTransparencyPage({
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="mb-1">
-                    <Badge variant="outline">{NEWS_VISIBILITY_LABELS[record.visibility]}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={
+                          record.visibility === "PUBLIC"
+                            ? "border-sky-200 bg-sky-50 text-sky-700"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        }
+                      >
+                        {NEWS_VISIBILITY_LABELS[record.visibility]}
+                      </Badge>
                   </div>
                   <p className="font-medium text-gray-900 line-clamp-1">{record.title}</p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">

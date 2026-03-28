@@ -7,13 +7,12 @@ import {
   Newspaper,
   AlertCircle,
   Calendar,
-  CalendarDays,
+  FileText,
   Users,
   Bell,
   User,
   BookmarkCheck,
   Eye,
-  FileClock,
   Download,
   Images,
   Phone,
@@ -32,8 +31,8 @@ export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/news", label: "ข่าว/ประกาศ", icon: Newspaper, desktopPriority: 2, mobilePriority: 3 },
   { href: "/resident/notifications", label: "การแจ้งเตือน", icon: Bell, desktopPriority: 3, mobilePriority: 4 },
   { href: "/resident/issues", label: "แจ้งปัญหา", icon: AlertCircle, desktopPriority: 4, mobilePriority: 5 },
-  { href: "/resident/appointments", label: "นัดหมาย", icon: Calendar, desktopPriority: 5, mobilePriority: 6 },
-  { href: "/resident/calendar", label: "กิจกรรมหมู่บ้าน", icon: CalendarDays, desktopPriority: 6, mobilePriority: 7 },
+  { href: "/resident/appointments", label: "นัดหมาย", icon: FileText, desktopPriority: 5, mobilePriority: 6 },
+  { href: "/resident/calendar", label: "ปฏิทิน", icon: Calendar, desktopPriority: 6, mobilePriority: 7 },
   { href: "/resident/household", label: "ข้อมูลครัวเรือน", icon: Users, desktopPriority: 7, mobilePriority: 8 },
   { href: "/resident/downloads", label: "เอกสารดาวน์โหลด", icon: Download, desktopPriority: 8, mobilePriority: 9 },
   { href: "/resident/transparency", label: "ความโปร่งใส", icon: Eye, desktopPriority: 9, mobilePriority: 10 },
@@ -41,7 +40,6 @@ export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone, desktopPriority: 11, mobilePriority: 12 },
   { href: "/resident/saved", label: "รายการที่บันทึก", icon: BookmarkCheck, desktopPriority: 12, mobilePriority: 13 },
   { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 13, mobilePriority: 14 },
-  { href: "/resident/news/requests", label: "คำขอข่าว", icon: FileClock, desktopPriority: 14, mobilePriority: 15 },
 ];
 
 const desktopNavItems = [...residentMenuItems].sort(
@@ -51,7 +49,7 @@ const desktopNavItems = [...residentMenuItems].sort(
 export function ResidentSidebar() {
   const pathname = usePathname();
   return (
-    <aside className="hidden w-64 bg-white border-r border-gray-200 flex-shrink-0 md:flex flex-col min-h-screen">
+    <aside className="sticky top-0 hidden h-screen w-64 overflow-y-auto bg-white border-r border-gray-200 flex-shrink-0 md:flex flex-col">
       <div className="p-4 border-b border-gray-200">
         <Link href="/resident" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">

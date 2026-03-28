@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { FilePlus2, Newspaper } from "lucide-react";
+import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
+import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { NEWS_AUTHOR_SOURCE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { ResidentNewsToolbar } from "./resident-news-toolbar";
 
 interface PageProps {
-  searchParams: Promise<{ sort?: string; source?: string; q?: string }>;
+  searchParams: Promise<{ sort?: string; source?: string; visibility?: string; q?: string }>;
 }
 
 const ADMIN_MEMBERSHIP_ROLES = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
@@ -24,7 +24,32 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
 
   const query = await searchParams;
   const sort = query.sort === "oldest" ? "oldest" : "newest";
-  const source = query.source === "admin" || query.source === "resident" ? query.source : "all";
+  const sourceParam = (query.source ?? "").trim();
+  const selectedSources = Array.from(
+    new Set(
+      sourceParam
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is "resident" | "admin" => value === "resident" || value === "admin")
+    )
+  );
+  const visibilityParam = (query.visibility ?? "").trim();
+  const selectedVisibilities = Array.from(
+    new Set(
+      visibilityParam
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is "PUBLIC" | "RESIDENT_ONLY" =>
+          value === "PUBLIC" || value === "RESIDENT_ONLY"
+        )
+    )
+  );
+
+  const visibilityWhereClause: NewsVisibility | { in: NewsVisibility[] } =
+    selectedVisibilities.length === 1
+      ? selectedVisibilities[0]
+      : { in: ["PUBLIC", "RESIDENT_ONLY"] };
+
   const keyword = query.q?.trim() ?? "";
 
   const orderBy =
@@ -36,7 +61,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
     where: {
       villageId: membership.villageId,
       stage: "PUBLISHED",
-      visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+      visibility: visibilityWhereClause,
       ...(keyword
         ? {
             title: {
@@ -72,13 +97,13 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   });
 
   const filteredNewsList = newsList.filter((newsItem) => {
-    if (source === "all") return true;
+    if (selectedSources.length === 0 || selectedSources.length === 2) return true;
     const roles = newsItem.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
     const isAdminSource = roles.some((role) =>
       ADMIN_MEMBERSHIP_ROLES.includes(role as (typeof ADMIN_MEMBERSHIP_ROLES)[number])
     );
-    if (source === "admin") return isAdminSource;
-    return !isAdminSource;
+    const sourceType = isAdminSource ? "admin" : "resident";
+    return selectedSources.includes(sourceType);
   });
 
   const titleSuggestions = await prisma.news.findMany({
@@ -96,68 +121,13 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">ข่าว/ประกาศ</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/resident/news/requests">
-            <Button size="sm" variant="outline">คำขอของฉัน</Button>
-          </Link>
-          <Link href="/resident/news/requests/new">
-            <Button size="sm">
-              <FilePlus2 className="h-4 w-4 mr-1" /> ขอเพิ่มข่าว
-            </Button>
-          </Link>
-        </div>
-      </div>
-
-      <form className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <Input
-            name="q"
-            list="resident-news-title-suggestions"
-            label="ค้นหาหัวข้อข่าว"
-            placeholder="พิมพ์ชื่อข่าว"
-            defaultValue={keyword}
-          />
-          <datalist id="resident-news-title-suggestions">
-            {suggestionTitles.map((title) => (
-              <option key={title} value={title} />
-            ))}
-          </datalist>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">ผู้สร้างข่าว</label>
-            <select
-              name="source"
-              defaultValue={source}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="all">ทั้งหมด</option>
-              <option value="resident">เฉพาะข่าวลูกบ้าน</option>
-              <option value="admin">เฉพาะข่าวแอดมิน</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">เรียงตามวันที่</label>
-            <select
-              name="sort"
-              defaultValue={sort}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="newest">ใหม่ไปเก่า</option>
-              <option value="oldest">เก่าไปใหม่</option>
-            </select>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <Button type="submit" size="sm">ค้นหา</Button>
-            <Link href="/resident/news">
-              <Button type="button" variant="outline" size="sm">ล้างตัวกรอง</Button>
-            </Link>
-          </div>
-        </div>
-      </form>
+      <ResidentNewsToolbar
+        keyword={keyword}
+        selectedSources={selectedSources}
+        selectedVisibilities={selectedVisibilities}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {filteredNewsList.length === 0 ? (
         <EmptyState
@@ -181,8 +151,38 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
                         ปักหมุด
                       </span>
                     )}
-                    <Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>
-                    <Badge variant="outline">
+                    <Badge
+                      variant="outline"
+                      className={
+                        news.visibility === "PUBLIC"
+                          ? "border-sky-200 bg-sky-50 text-sky-700"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      }
+                    >
+                      {NEWS_VISIBILITY_LABELS[news.visibility]}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={
+                        (() => {
+                          if (!news.authorId) {
+                            return "border-gray-300 bg-gray-50 text-gray-700";
+                          }
+
+                          const roles = news.author?.memberships.map(
+                            (membershipItem: { role: string }) => membershipItem.role
+                          ) ?? [];
+
+                          const isAdminSource = roles.some((role: string) =>
+                            ADMIN_MEMBERSHIP_ROLES.includes(role as (typeof ADMIN_MEMBERSHIP_ROLES)[number])
+                          );
+
+                          return isAdminSource
+                            ? "border-violet-200 bg-violet-50 text-violet-700"
+                            : "border-amber-200 bg-amber-50 text-amber-700";
+                        })()
+                      }
+                    >
                       {(() => {
                         if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN;
                         const roles = news.author?.memberships.map(

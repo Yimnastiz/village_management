@@ -3,14 +3,19 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { PublicGalleryToolbar } from "./public-gallery-toolbar";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string }>;
 }
 
-export default async function Page({ params }: PageProps) {
+export default async function Page({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = query.q?.trim() ?? "";
+  const sort = query.sort === "oldest" ? "oldest" : "newest";
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) } },
@@ -19,12 +24,25 @@ export default async function Page({ params }: PageProps) {
   if (!village) notFound();
 
   const albums = await prisma.galleryAlbum.findMany({
-    where: { villageId: village.id, isPublic: true },
+    where: {
+      villageId: village.id,
+      isPublic: true,
+      ...(keyword
+        ? {
+            title: {
+              contains: keyword,
+              mode: "insensitive" as const,
+            },
+          }
+        : {}),
+    },
     select: {
       id: true,
       title: true,
       description: true,
       coverUrl: true,
+      allowResidentSubmissions: true,
+      albumDate: true,
       items: {
         select: {
           id: true,
@@ -39,15 +57,32 @@ export default async function Page({ params }: PageProps) {
         },
       },
     },
-    orderBy: [{ createdAt: "desc" }],
+    orderBy:
+      sort === "oldest"
+        ? [{ albumDate: "asc" }, { createdAt: "asc" }]
+        : [{ albumDate: "desc" }, { createdAt: "desc" }],
   });
+
+  const titleSuggestions = await prisma.galleryAlbum.findMany({
+    where: {
+      villageId: village.id,
+      isPublic: true,
+    },
+    select: { title: true },
+    orderBy: [{ albumDate: "desc" }, { createdAt: "desc" }],
+    take: 50,
+  });
+  const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แกลเลอรีภาพ</h1>
-        <p className="text-sm text-gray-500 mt-1">ภาพกิจกรรมและบรรยากาศของ {village.name}</p>
-      </div>
+      <PublicGalleryToolbar
+        villageSlug={villageSlug}
+        villageName={village.name}
+        keyword={keyword}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {albums.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
@@ -76,6 +111,7 @@ export default async function Page({ params }: PageProps) {
               <div className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge variant="success">สาธารณะ</Badge>
+                  {album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
                   <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>
                 <p className="font-medium text-gray-900 line-clamp-1">{album.title}</p>

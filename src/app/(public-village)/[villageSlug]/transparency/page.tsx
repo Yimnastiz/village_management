@@ -4,14 +4,19 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { PublicTransparencyToolbar } from "./public-transparency-toolbar";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string }>;
 }
 
-export default async function TransparencyPage({ params }: PageProps) {
+export default async function TransparencyPage({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = query.q?.trim() ?? "";
+  const sort = query.sort === "date_asc" ? "date_asc" : "date_desc";
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) } },
@@ -24,14 +29,42 @@ export default async function TransparencyPage({ params }: PageProps) {
       villageId: village.id,
       stage: "PUBLISHED",
       visibility: "PUBLIC",
+      ...(keyword
+        ? {
+            title: {
+              contains: keyword,
+              mode: "insensitive" as const,
+            },
+          }
+        : {}),
     },
-    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    orderBy:
+      sort === "date_asc"
+        ? [{ publishedAt: "asc" }, { createdAt: "asc" }]
+        : [{ publishedAt: "desc" }, { createdAt: "desc" }],
   });
+
+  const titleSuggestions = await prisma.transparencyRecord.findMany({
+    where: {
+      villageId: village.id,
+      stage: "PUBLISHED",
+      visibility: "PUBLIC",
+    },
+    select: { title: true },
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    take: 50,
+  });
+  const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">ความโปร่งใสหมู่บ้าน {village.name}</h1>
-      <p className="text-gray-500">โครงการ งบประมาณ การจัดซื้อจัดจ้าง และการบริจาค</p>
+      <PublicTransparencyToolbar
+        villageSlug={villageSlug}
+        villageName={village.name}
+        keyword={keyword}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {records.length === 0 ? (
         <EmptyState

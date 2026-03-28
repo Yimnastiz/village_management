@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Files } from "lucide-react";
 import { redirect } from "next/navigation";
+import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { ResidentDownloadsToolbar } from "./resident-downloads-toolbar";
 
 type ResidentDownloadsPageProps = {
   searchParams?: Promise<{ q?: string; sort?: string; visibility?: string }>;
@@ -23,15 +23,28 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
-  const visibility = query.visibility === "PUBLIC" || query.visibility === "RESIDENT_ONLY"
-    ? query.visibility
-    : "ALL";
+  const visibilityParam = (query.visibility ?? "").trim();
+  const selectedVisibilities = Array.from(
+    new Set(
+      visibilityParam
+        .split(",")
+        .map((value) => value.trim())
+        .filter((value): value is "PUBLIC" | "RESIDENT_ONLY" =>
+          value === "PUBLIC" || value === "RESIDENT_ONLY"
+        )
+    )
+  );
+
+  const visibilityWhereClause: NewsVisibility | { in: NewsVisibility[] } =
+    selectedVisibilities.length === 1
+      ? selectedVisibilities[0]
+      : { in: ["PUBLIC", "RESIDENT_ONLY"] };
 
   const files = await prisma.downloadFile.findMany({
     where: {
       villageId: membership.villageId,
       stage: "PUBLISHED",
-      visibility: visibility === "ALL" ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : visibility,
+      visibility: visibilityWhereClause,
       ...(keyword
         ? {
             title: {
@@ -70,56 +83,12 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">เอกสารดาวน์โหลด</h1>
-
-      <form className="rounded-xl border border-gray-200 bg-white p-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <Input
-            name="q"
-            label="ค้นหาชื่อเอกสาร"
-            placeholder="พิมพ์ชื่อเอกสาร"
-            defaultValue={keyword}
-            list="resident-download-title-suggestions"
-          />
-          <datalist id="resident-download-title-suggestions">
-            {suggestionTitles.map((title) => (
-              <option key={title} value={title} />
-            ))}
-          </datalist>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">การมองเห็น</label>
-            <select
-              name="visibility"
-              defaultValue={visibility}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="ALL">ทั้งหมด</option>
-              <option value="RESIDENT_ONLY">เฉพาะเอกสารในหมู่บ้าน</option>
-              <option value="PUBLIC">เฉพาะเอกสารสาธารณะ</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">เรียงตามวันที่เอกสาร</label>
-            <select
-              name="sort"
-              defaultValue={sort}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="newest">ใหม่ไปเก่า</option>
-              <option value="oldest">เก่าไปใหม่</option>
-            </select>
-          </div>
-
-          <div className="flex items-end gap-2">
-            <Button type="submit" size="sm">ค้นหา</Button>
-            <Link href="/resident/downloads">
-              <Button type="button" variant="outline" size="sm">ล้างตัวกรอง</Button>
-            </Link>
-          </div>
-        </div>
-      </form>
+      <ResidentDownloadsToolbar
+        keyword={keyword}
+        selectedVisibilities={selectedVisibilities}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {files.length === 0 ? (
         <EmptyState
@@ -138,7 +107,16 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="mb-1">
-                    <Badge variant="outline">{NEWS_VISIBILITY_LABELS[file.visibility]}</Badge>
+                    <Badge
+                      variant="outline"
+                      className={
+                        file.visibility === "PUBLIC"
+                          ? "border-sky-200 bg-sky-50 text-sky-700"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      }
+                    >
+                      {NEWS_VISIBILITY_LABELS[file.visibility]}
+                    </Badge>
                   </div>
                   <p className="font-medium text-gray-900">{file.title}</p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{file.description || "-"}</p>

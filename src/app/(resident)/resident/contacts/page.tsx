@@ -6,19 +6,37 @@ import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { toggleSaveContactAction } from "@/app/(resident)/resident/saved/actions";
+import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 
 export const dynamic = "force-dynamic";
 
-export default async function ResidentContactsPage() {
+type ResidentContactsPageProps = {
+  searchParams?: Promise<{ q?: string }>;
+};
+
+export default async function ResidentContactsPage({ searchParams }: ResidentContactsPageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
   if (!membership) redirect("/auth/login");
 
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = query.q?.trim() ?? "";
+
   const [contacts, savedContacts] = await Promise.all([
     prisma.contactDirectory.findMany({
-      where: { villageId: membership.villageId },
+      where: {
+        villageId: membership.villageId,
+        ...(keyword
+          ? {
+              OR: [
+                { name: { contains: keyword, mode: "insensitive" as const } },
+                { phone: { contains: keyword, mode: "insensitive" as const } },
+              ],
+            }
+          : {}),
+      },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
     prisma.savedItem.findMany({
@@ -31,10 +49,7 @@ export default async function ResidentContactsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">รายชื่อผู้ติดต่อ</h1>
-        <p className="mt-1 text-sm text-gray-500">ช่องทางติดต่อหน่วยงานและผู้ประสานงานในหมู่บ้าน</p>
-      </div>
+      <ResidentContactsToolbar keyword={keyword} />
 
       {contacts.length === 0 ? (
         <EmptyState

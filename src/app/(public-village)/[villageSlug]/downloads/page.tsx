@@ -4,14 +4,19 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { PublicDownloadsToolbar } from "./public-downloads-toolbar";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string }>;
 }
 
-export default async function DownloadsPage({ params }: PageProps) {
+export default async function DownloadsPage({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const keyword = query.q?.trim() ?? "";
+  const sort = query.sort === "oldest" ? "oldest" : "newest";
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) } },
@@ -24,8 +29,19 @@ export default async function DownloadsPage({ params }: PageProps) {
       villageId: village.id,
       stage: "PUBLISHED",
       visibility: "PUBLIC",
+      ...(keyword
+        ? {
+            title: {
+              contains: keyword,
+              mode: "insensitive" as const,
+            },
+          }
+        : {}),
     },
-    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    orderBy:
+      sort === "oldest"
+        ? [{ publishedAt: "asc" }, { createdAt: "asc" }]
+        : [{ publishedAt: "desc" }, { createdAt: "desc" }],
     select: {
       id: true,
       title: true,
@@ -36,9 +52,27 @@ export default async function DownloadsPage({ params }: PageProps) {
     },
   });
 
+  const titleSuggestions = await prisma.downloadFile.findMany({
+    where: {
+      villageId: village.id,
+      stage: "PUBLISHED",
+      visibility: "PUBLIC",
+    },
+    select: { title: true },
+    orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
+    take: 50,
+  });
+  const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">ศูนย์ดาวน์โหลดเอกสาร</h1>
+      <PublicDownloadsToolbar
+        villageSlug={villageSlug}
+        villageName={village.name}
+        keyword={keyword}
+        sort={sort}
+        suggestionTitles={suggestionTitles}
+      />
 
       {files.length === 0 ? (
         <EmptyState
