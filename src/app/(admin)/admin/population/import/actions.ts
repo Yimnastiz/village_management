@@ -12,7 +12,7 @@ import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { POPULATION_IMPORT_HEADER_ALIASES } from "./import-template";
+import { POPULATION_IMPORT_COLUMNS, POPULATION_IMPORT_HEADER_ALIASES } from "./import-template";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
@@ -42,7 +42,7 @@ type CanonicalColumnKey =
   | "is_citizen_verified"
   | "note";
 
-type ImportActionState = {
+export type ImportActionState = {
   success: boolean;
   message: string;
   summary?: {
@@ -53,6 +53,22 @@ type ImportActionState = {
     stage: PopulationImportStage;
   };
   errors?: string[];
+};
+
+type ImportJobDetailsPayload = {
+  errors: string[];
+  sourceHeaders: string[];
+  previewColumns: string[];
+  previewRows: Array<Record<string, string>>;
+  importedPersonIds: string[];
+  importedHouseIds: string[];
+  importedUserIds: string[];
+};
+
+type RowImportResult = {
+  resolvedUserId: string | null;
+  resolvedPersonId: string;
+  resolvedHouseId: string;
 };
 
 type AdminVillageContext = {
@@ -340,21 +356,90 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
   };
 }
 
-function extractRowsFromWorkbook(buffer: Buffer) {
-  const workbook = read(buffer, { type: "buffer", cellDates: true });
+function scoreDecodedText(value: string) {
+  const thaiChars = (value.match(/[\u0E00-\u0E7F]/g) ?? []).length;
+  const replacementChars = (value.match(/�/g) ?? []).length;
+  const mojibakeFragments = (value.match(/à¸|à¹|Ã|Â/g) ?? []).length;
+
+  return thaiChars * 2 - replacementChars * 4 - mojibakeFragments * 3;
+}
+
+function decodeCsvText(buffer: Buffer) {
+  const utf8Text = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
+  const cp874Text = new TextDecoder("windows-874", { fatal: false }).decode(buffer);
+
+  return scoreDecodedText(cp874Text) > scoreDecodedText(utf8Text) ? cp874Text : utf8Text;
+}
+
+function extractRowsFromWorkbook(buffer: Buffer, fileName: string) {
+  const isCsv = /\.csv$/i.test(fileName);
+  const workbook = isCsv
+    ? read(decodeCsvText(buffer), { type: "string", cellDates: true })
+    : read(buffer, { type: "buffer", cellDates: true });
   const firstSheetName = workbook.SheetNames[0];
   if (!firstSheetName) {
     throw new Error("ไม่พบ worksheet ในไฟล์ที่อัปโหลด");
   }
 
   const sheet = workbook.Sheets[firstSheetName];
-  const rows = utils.sheet_to_json<SpreadsheetRow>(sheet, {
+  const rawRows = utils.sheet_to_json<SpreadsheetRow>(sheet, {
     defval: "",
     raw: true,
   });
 
-  ensureRequiredHeaders(rows);
-  return rows.map(canonicalizeSpreadsheetRow);
+  ensureRequiredHeaders(rawRows);
+
+  const sourceHeaders = rawRows[0] ? Object.keys(rawRows[0]) : [];
+  const rows = rawRows.map(canonicalizeSpreadsheetRow);
+
+  return {
+    rows,
+    sourceHeaders,
+  };
+}
+
+function buildImportJobDetailsPayload(params: {
+  rows: Array<Partial<Record<CanonicalColumnKey, unknown>>>;
+  sourceHeaders: string[];
+  errors: string[];
+  importedPersonIds?: string[];
+  importedHouseIds?: string[];
+  importedUserIds?: string[];
+}): ImportJobDetailsPayload {
+  const {
+    rows,
+    sourceHeaders,
+    errors,
+    importedPersonIds = [],
+    importedHouseIds = [],
+    importedUserIds = [],
+  } = params;
+
+  const previewColumns = POPULATION_IMPORT_COLUMNS
+    .map((column) => column.key)
+    .filter((key) => rows.some((row) => toTrimmedString(row[key as CanonicalColumnKey]) !== null));
+
+  const effectiveColumns =
+    previewColumns.length > 0 ? previewColumns : POPULATION_IMPORT_COLUMNS.map((column) => column.key).slice(0, 8);
+
+  const previewRows = rows.slice(0, 20).map((row) => {
+    const normalizedRow: Record<string, string> = {};
+    for (const column of effectiveColumns) {
+      const value = row[column as CanonicalColumnKey];
+      normalizedRow[column] = toTrimmedString(value) ?? "";
+    }
+    return normalizedRow;
+  });
+
+  return {
+    errors,
+    sourceHeaders,
+    previewColumns: effectiveColumns,
+    previewRows,
+    importedPersonIds,
+    importedHouseIds,
+    importedUserIds,
+  };
 }
 
 async function getAdminVillageContext(): Promise<AdminVillageContext> {
@@ -431,7 +516,7 @@ async function importRowIntoVillage(
   tx: Prisma.TransactionClient,
   ctx: AdminVillageContext,
   row: NormalizedImportRow,
-) {
+): Promise<RowImportResult> {
   const zoneId = await resolveZoneId(tx, ctx.villageId, row.zoneName);
 
   const house = await tx.house.upsert({
@@ -585,18 +670,27 @@ async function importRowIntoVillage(
     status: row.personStatus ?? PersonStatus.ACTIVE,
   };
 
+  let resolvedPersonId: string;
   if (existingPerson) {
-    await tx.person.update({
+    const updatedPerson = await tx.person.update({
       where: { id: existingPerson.id },
       data: personData,
+      select: { id: true },
     });
+    resolvedPersonId = updatedPerson.id;
   } else {
-    await tx.person.create({
+    const createdPerson = await tx.person.create({
       data: personData,
+      select: { id: true },
     });
+    resolvedPersonId = createdPerson.id;
   }
 
-  return { resolvedUserId };
+  return {
+    resolvedUserId,
+    resolvedPersonId,
+    resolvedHouseId: house.id,
+  };
 }
 
 function formatError(error: unknown) {
@@ -642,7 +736,7 @@ export async function importPopulationWorkbookAction(
     jobId = job.id;
 
     const buffer = Buffer.from(await fileEntry.arrayBuffer());
-    const spreadsheetRows = extractRowsFromWorkbook(buffer);
+    const { rows: spreadsheetRows, sourceHeaders } = extractRowsFromWorkbook(buffer, fileEntry.name);
 
     if (spreadsheetRows.length === 0) {
       await prisma.populationImportJob.update({
@@ -653,7 +747,11 @@ export async function importPopulationWorkbookAction(
           importedRows: 0,
           failedRows: 0,
           completedAt: new Date(),
-          errors: ["ไม่พบข้อมูลใน worksheet แรก"],
+          errors: buildImportJobDetailsPayload({
+            rows: [],
+            sourceHeaders,
+            errors: ["ไม่พบข้อมูลใน worksheet แรก"],
+          }),
         },
       });
 
@@ -670,15 +768,25 @@ export async function importPopulationWorkbookAction(
     let importedRows = 0;
     let failedRows = 0;
     const errors: string[] = [];
+    const importedPersonIds = new Set<string>();
+    const importedHouseIds = new Set<string>();
+    const importedUserIds = new Set<string>();
 
     for (const [index, rawRow] of spreadsheetRows.entries()) {
       const rowNumber = index + 2;
 
       try {
         const parsedRow = parseImportRow(rawRow);
-        await prisma.$transaction(async (tx) => {
-          await importRowIntoVillage(tx, ctx, parsedRow);
+        const rowResult = await prisma.$transaction(async (tx) => {
+          return importRowIntoVillage(tx, ctx, parsedRow);
         });
+
+        importedPersonIds.add(rowResult.resolvedPersonId);
+        importedHouseIds.add(rowResult.resolvedHouseId);
+        if (rowResult.resolvedUserId) {
+          importedUserIds.add(rowResult.resolvedUserId);
+        }
+
         importedRows += 1;
       } catch (error) {
         failedRows += 1;
@@ -702,7 +810,14 @@ export async function importPopulationWorkbookAction(
         importedRows,
         failedRows,
         completedAt: new Date(),
-        errors: errors.length > 0 ? errors : Prisma.JsonNull,
+        errors: buildImportJobDetailsPayload({
+          rows: spreadsheetRows,
+          sourceHeaders,
+          errors,
+          importedPersonIds: Array.from(importedPersonIds),
+          importedHouseIds: Array.from(importedHouseIds),
+          importedUserIds: Array.from(importedUserIds),
+        }),
       },
     });
 
@@ -736,7 +851,15 @@ export async function importPopulationWorkbookAction(
         data: {
           stage: PopulationImportStage.FAILED,
           completedAt: new Date(),
-          errors: [message],
+          errors: {
+            errors: [message],
+            sourceHeaders: [],
+            previewColumns: [],
+            previewRows: [],
+            importedPersonIds: [],
+            importedHouseIds: [],
+            importedUserIds: [],
+          },
         },
       });
     }
@@ -748,4 +871,3 @@ export async function importPopulationWorkbookAction(
   }
 }
 
-export type { ImportActionState };

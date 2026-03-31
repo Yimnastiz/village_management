@@ -1,11 +1,29 @@
+function decodeUriSafe(raw: string) {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function repairMojibakeThai(raw: string) {
+  const candidate = raw;
+  const hasCommonMojibake = /à¸|à¹|Ã|Â/.test(candidate);
+  if (!hasCommonMojibake) {
+    return candidate;
+  }
+
+  try {
+    const repaired = Buffer.from(candidate, "latin1").toString("utf8");
+    return repaired.normalize("NFC");
+  } catch {
+    return candidate;
+  }
+}
+
 export function normalizeVillageSlugInput(raw: string): string {
   // Try URL-decoding first so pasted/stored percent-encoded slugs are handled
-  let decoded = raw.trim();
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch {
-    // malformed %-sequence — use the trimmed original
-  }
+  const decoded = repairMojibakeThai(decodeUriSafe(raw.trim()));
 
   const normalized = decoded
     .normalize("NFC")
@@ -21,7 +39,9 @@ export function normalizeVillageSlugInput(raw: string): string {
 }
 
 export function normalizeVillageSlugParam(raw: string): string {
-  return raw.trim().normalize("NFC").replace(/[\u200b-\u200d\ufeff]/g, "");
+  return repairMojibakeThai(decodeUriSafe(raw.trim()))
+    .normalize("NFC")
+    .replace(/[\u0000-\u001f\u007f\u200b-\u200d\ufeff]/g, "");
 }
 
 /**

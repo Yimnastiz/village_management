@@ -52,7 +52,7 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
         className={cn(
           "sticky top-0 z-40 backdrop-blur border-b h-16 flex items-center justify-between px-4 md:px-6 flex-shrink-0 transition-shadow",
           isAdminArea
-            ? "bg-blue-700/95 border-blue-800"
+            ? "bg-gray-900/95 border-gray-700"
             : "bg-white/95 border-gray-200",
           isScrolled ? "shadow-sm" : "shadow-none"
         )}
@@ -63,7 +63,7 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
           className={cn(
             "inline-flex cursor-pointer items-center justify-center rounded-md p-2 md:hidden",
             isAdminArea
-              ? "text-blue-100 hover:bg-blue-800"
+              ? "text-gray-200 hover:bg-gray-800"
               : "text-gray-600 hover:bg-gray-100"
           )}
           onClick={() => setMobileMenuOpen(true)}
@@ -89,7 +89,7 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
           className={cn(
             "relative p-2",
             isAdminArea
-              ? "text-blue-100 hover:text-white"
+              ? "text-gray-200 hover:text-white"
               : "text-gray-400 hover:text-gray-600"
           )}
         >
@@ -103,7 +103,7 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
         <details className="relative">
           <summary className={cn(
             "list-none flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 md:px-2",
-            isAdminArea ? "hover:bg-blue-800" : "hover:bg-gray-100"
+            isAdminArea ? "hover:bg-gray-800" : "hover:bg-gray-100"
           )}>
             <div className={cn(
               "h-8 w-8 overflow-hidden rounded-full flex items-center justify-center",
@@ -120,11 +120,11 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
             </div>
             <span className={cn(
               "hidden max-w-32 truncate text-sm font-medium md:block",
-              isAdminArea ? "text-blue-50" : "text-gray-700"
+              isAdminArea ? "text-gray-100" : "text-gray-700"
             )}>{userName}</span>
             <ChevronDown className={cn(
               "hidden h-4 w-4 md:block",
-              isAdminArea ? "text-blue-200" : "text-gray-400"
+              isAdminArea ? "text-gray-300" : "text-gray-400"
             )} />
           </summary>
           <div className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">

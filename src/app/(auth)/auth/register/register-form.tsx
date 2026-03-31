@@ -28,15 +28,14 @@ type RegisterFormProps = {
   callbackUrl?: string;
 };
 
-function unique(values: Array<string | null | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value))))
-    .sort((a, b) => a.localeCompare(b));
-}
+type RegistrationMode = "resident" | "headman";
 
 export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
   const router = useRouter();
+  const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [nationalId, setNationalId] = useState("");
   const [province, setProvince] = useState("");
   const [district, setDistrict] = useState("");
   const [subdistrict, setSubdistrict] = useState("");
@@ -97,13 +96,19 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
     const normalizedName = name.trim();
     const normalizedPhone = normalizePhone10(phone);
-    if (!normalizedName || !normalizedPhone || !province || !district || !subdistrict || !villageId) {
-      setError("Please complete all required fields.");
+    const normalizedNationalId = nationalId.replace(/\D/g, "").slice(0, 13);
+    if (!normalizedName || !normalizedPhone || !normalizedNationalId || !province || !district || !subdistrict || !villageId) {
+      setError("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
       return;
     }
 
     if (!/^\d{10}$/.test(normalizedPhone)) {
-      setError("Phone number must be exactly 10 digits.");
+      setError("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก");
+      return;
+    }
+
+    if (!/^\d{13}$/.test(normalizedNationalId)) {
+      setError("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก");
       return;
     }
 
@@ -118,13 +123,15 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       if ((result as { error?: { message?: string } | null })?.error) {
         throw new Error(
           (result as { error?: { message?: string } | null }).error?.message ??
-            "Failed to send OTP."
+            "ส่ง OTP ไม่สำเร็จ"
         );
       }
 
       const params = new URLSearchParams({
         mode: "signup",
+        registrationMode,
         phone: normalizedPhone,
+        nationalId: normalizedNationalId,
         name: normalizedName,
         province,
         district,
@@ -138,7 +145,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
       router.push(`/auth/verify-otp?${params.toString()}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send OTP.");
+      setError(err instanceof Error ? err.message : "ส่ง OTP ไม่สำเร็จ");
     } finally {
       setIsLoading(false);
     }
@@ -146,23 +153,55 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">Create Account</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        Verify your phone and select your location before joining the village system.
+      <h2 className="text-xl font-bold text-gray-900 mb-2">สมัครสมาชิก</h2>
+      <p className="text-sm text-gray-500 mb-4">
+        ยืนยันเบอร์โทรศัพท์และระบุข้อมูลพื้นที่ของคุณเพื่อเข้าใช้งานระบบหมู่บ้าน
       </p>
+
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => setRegistrationMode("resident")}
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            registrationMode === "resident"
+              ? "border-green-600 bg-green-50 text-green-700"
+              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          สมัครลูกบ้านทั่วไป
+        </button>
+        <button
+          type="button"
+          onClick={() => setRegistrationMode("headman")}
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            registrationMode === "headman"
+              ? "border-blue-600 bg-blue-50 text-blue-700"
+              : "border-gray-300 text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          สมัครผู้ใหญ่บ้าน/กรรมการ
+        </button>
+      </div>
+
+      {registrationMode === "headman" && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+          โหมดผู้ใหญ่บ้าน: ระบบจะตรวจสอบข้อมูลกับทะเบียนหมู่บ้านและข้อมูลบุคคลกลาง (จังหวัด/อำเภอ/ตำบล/หมู่บ้าน + เลขบัตร + เบอร์โทร)
+          หากข้อมูลตรงกันจะเปิดสิทธิ์ผู้ใหญ่บ้านให้อัตโนมัติ โดยไม่ต้องตั้งค่าผ่าน /dev
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Full Name"
+          label={registrationMode === "headman" ? "ชื่อ-นามสกุลผู้สมัคร (ผู้ใหญ่บ้าน/กรรมการ)" : "ชื่อ-นามสกุล"}
           name="name"
-          placeholder="John Doe"
+          placeholder="เช่น สมชาย ใจดี"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
         />
 
         <Input
-          label="Phone Number"
+          label="เบอร์โทรศัพท์"
           name="phone"
           type="tel"
           placeholder="0812345678"
@@ -171,12 +210,26 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           inputMode="numeric"
           maxLength={10}
           pattern="[0-9]{10}"
-          title="Phone number must be exactly 10 digits"
+          title="เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก"
+          required
+        />
+
+        <Input
+          label="เลขบัตรประจำตัวประชาชน"
+          name="nationalId"
+          type="text"
+          placeholder="1234567890123"
+          value={nationalId}
+          onChange={(e) => setNationalId(e.target.value.replace(/\D/g, "").slice(0, 13))}
+          inputMode="numeric"
+          maxLength={13}
+          pattern="[0-9]{13}"
+          title="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก"
           required
         />
 
         <Select
-          label="Province"
+          label="จังหวัด"
           value={province}
           onChange={(e) => {
             setProvince(e.target.value);
@@ -185,12 +238,12 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setVillageId("");
           }}
           options={provinceOptions}
-          placeholder="Select province"
+          placeholder="เลือกจังหวัด"
           required
         />
 
         <Select
-          label="District"
+          label="อำเภอ"
           value={district}
           onChange={(e) => {
             setDistrict(e.target.value);
@@ -198,30 +251,30 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setVillageId("");
           }}
           options={districtOptions}
-          placeholder={province ? "Select district" : "Select province first"}
+          placeholder={province ? "เลือกอำเภอ" : "เลือกจังหวัดก่อน"}
           required
           disabled={!province}
         />
 
         <Select
-          label="Subdistrict"
+          label="ตำบล"
           value={subdistrict}
           onChange={(e) => {
             setSubdistrict(e.target.value);
             setVillageId("");
           }}
           options={subdistrictOptions}
-          placeholder={district ? "Select subdistrict" : "Select district first"}
+          placeholder={district ? "เลือกตำบล" : "เลือกอำเภอก่อน"}
           required
           disabled={!district}
         />
 
         <Select
-          label="Village"
+          label={registrationMode === "headman" ? "หมู่บ้านตามทะเบียนกลาง" : "หมู่บ้าน"}
           value={villageId}
           onChange={(e) => setVillageId(e.target.value)}
           options={villageOptions}
-          placeholder={subdistrict ? "Select village" : "Select subdistrict first"}
+          placeholder={subdistrict ? "เลือกหมู่บ้าน" : "เลือกตำบลก่อน"}
           required
           disabled={!subdistrict}
         />
@@ -229,25 +282,25 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         <div className="flex items-start gap-3">
           <input type="checkbox" required className="mt-1" id="consent" />
           <label htmlFor="consent" className="text-sm text-gray-600">
-            I accept the{" "}
+            ฉันยอมรับ{" "}
             <Link href="/consent" className="text-green-600 hover:underline">
-              privacy policy
+              นโยบายความเป็นส่วนตัว
             </Link>
-            .
+            
           </label>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
-          Register
+          สมัครสมาชิก
         </Button>
       </form>
 
       <div className="mt-6 text-center text-sm text-gray-600">
-        Already have an account?{" "}
+        มีบัญชีอยู่แล้ว?{" "}
         <Link href={loginHref} className="text-green-600 font-medium hover:underline">
-          Sign In
+          เข้าสู่ระบบ
         </Link>
       </div>
     </div>

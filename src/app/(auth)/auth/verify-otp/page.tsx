@@ -19,6 +19,9 @@ function VerifyOTPContent() {
 
   const mode = (searchParams.get("mode") ?? "signin") as VerifyMode;
   const phone = (searchParams.get("phone") ?? "").trim();
+  const nationalId = (searchParams.get("nationalId") ?? "").trim();
+  const registrationModeRaw = (searchParams.get("registrationMode") ?? "resident").trim();
+  const registrationMode = registrationModeRaw === "headman" ? "headman" : "resident";
   const name = (searchParams.get("name") ?? "").trim();
   const province = (searchParams.get("province") ?? "").trim();
   const district = (searchParams.get("district") ?? "").trim();
@@ -48,7 +51,7 @@ function VerifyOTPContent() {
 
   const handleResend = async () => {
     if (!phone) {
-      setError("Phone number not found. Please go back and try again.");
+      setError("ไม่พบเบอร์โทรศัพท์ กรุณากลับไปเริ่มใหม่");
       return;
     }
 
@@ -62,13 +65,13 @@ function VerifyOTPContent() {
       if ((result as { error?: { message?: string } | null })?.error) {
         throw new Error(
           (result as { error?: { message?: string } | null }).error?.message ??
-            "Failed to resend OTP."
+            "ส่ง OTP ซ้ำไม่สำเร็จ"
         );
       }
 
-      setSuccessMessage("A new OTP has been sent. Check your server logs.");
+      setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to resend OTP.");
+      setError(err instanceof Error ? err.message : "ส่ง OTP ซ้ำไม่สำเร็จ");
     } finally {
       setIsResending(false);
     }
@@ -78,13 +81,13 @@ function VerifyOTPContent() {
     e.preventDefault();
 
     if (!phone) {
-      setError("Phone number not found. Please go back and try again.");
+      setError("ไม่พบเบอร์โทรศัพท์ กรุณากลับไปเริ่มใหม่");
       return;
     }
 
     const code = otp.join("");
     if (code.length !== 6) {
-      setError("Please enter the full 6-digit OTP.");
+      setError("กรุณากรอก OTP ให้ครบ 6 หลัก");
       return;
     }
 
@@ -114,8 +117,8 @@ function VerifyOTPContent() {
       let resolvedLandingPath: string | null = null;
 
       if (mode === "signup") {
-        if (!name || !province || !district || !subdistrict || !villageId) {
-          throw new Error("Missing registration info. Please restart signup.");
+        if (!name || !nationalId || !province || !district || !subdistrict || !villageId) {
+          throw new Error("ข้อมูลสมัครสมาชิกไม่ครบถ้วน กรุณาเริ่มสมัครใหม่");
         }
 
         const completeSignupResponse = await fetch("/api/auth/complete-signup", {
@@ -126,6 +129,8 @@ function VerifyOTPContent() {
           credentials: "include",
           body: JSON.stringify({
             name,
+            nationalId,
+            registrationMode,
             province,
             district,
             subdistrict,
@@ -165,25 +170,18 @@ function VerifyOTPContent() {
 
       router.push(callbackUrl ?? resolvedLandingPath ?? "/auth/binding");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "OTP verification failed.");
+      setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">Verify OTP</h2>
+    <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
+      <h2 className="text-xl font-bold text-gray-900 mb-2">ยืนยันรหัส OTP</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Enter the 6-digit OTP sent to {phone || "your phone number"}.
+        กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {phone || "ของคุณ"}
       </p>
-
-      {/* Dev mode hint */}
-      <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-xs text-blue-700">
-          💡 <strong>Dev Mode:</strong> Check your terminal/server logs for the OTP code. Or enter any 6-digit code.
-        </p>
-      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="flex gap-2 justify-center">
@@ -199,7 +197,7 @@ function VerifyOTPContent() {
               value={digit}
               onChange={(e) => handleChange(i, e.target.value)}
               onKeyDown={(e) => handleKeyDown(i, e)}
-              className="w-12 h-12 text-center text-xl font-bold border-2 rounded-xl focus:outline-none focus:border-green-500"
+              className="h-11 w-11 text-center text-xl font-bold border-2 rounded-xl focus:outline-none focus:border-green-500 sm:h-12 sm:w-12"
             />
           ))}
         </div>
@@ -208,19 +206,19 @@ function VerifyOTPContent() {
         {successMessage && <p className="text-sm text-green-600 text-center">{successMessage}</p>}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
-          Verify OTP
+          ยืนยัน OTP
         </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-gray-500">
-        Did not receive OTP?{" "}
+        ยังไม่ได้รับ OTP?{" "}
         <button
           type="button"
           onClick={handleResend}
           disabled={isResending}
           className="text-green-600 hover:underline disabled:opacity-50"
         >
-          {isResending ? "Sending..." : "Resend"}
+          {isResending ? "กำลังส่ง..." : "ส่งอีกครั้ง"}
         </button>
       </p>
     </div>
