@@ -17,8 +17,8 @@ interface ResidentDownloadsToolbarProps {
 }
 
 const visibilityOptions: Array<{ value: VisibilityValue; label: string }> = [
-  { value: "RESIDENT_ONLY", label: "เอกสารในหมู่บ้าน" },
-  { value: "PUBLIC", label: "เอกสารสาธารณะ" },
+  { value: "RESIDENT_ONLY", label: "ลูกบ้าน" },
+  { value: "PUBLIC", label: "สาธารณะ" },
 ];
 
 const sortOptions: Array<{ value: SortValue; label: string }> = [
@@ -160,7 +160,7 @@ export function ResidentDownloadsToolbar({
             </Link>
           ))}
 
-          <span className="ml-1 text-xs font-medium text-gray-500">เรียงตามวันที่:</span>
+          <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
           {sortOptions.map((option) => (
             <Link
               key={option.value}
@@ -179,6 +179,13 @@ export function ResidentDownloadsToolbar({
               {option.label}
             </Link>
           ))}
+
+          <Link
+            href="/resident/downloads"
+            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+          >
+            ล้างตัวกรอง
+          </Link>
         </div>
       </div>
     </div>

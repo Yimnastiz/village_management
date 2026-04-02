@@ -60,7 +60,7 @@ function LoginContent() {
           const bypassData = (await headmanBypassResponse.json()) as {
             landingPath?: string;
           };
-          router.push(bypassData.landingPath ?? "/admin/settings/village");
+          router.push(bypassData.landingPath ?? "/admin/dashboard");
           return;
         }
 

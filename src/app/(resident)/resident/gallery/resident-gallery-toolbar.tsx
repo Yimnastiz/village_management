@@ -20,7 +20,7 @@ interface ResidentGalleryToolbarProps {
 
 const visibilityOptions: Array<{ value: VisibilityValue; label: string }> = [
   { value: "PUBLIC", label: "สาธารณะ" },
-  { value: "RESIDENT_ONLY", label: "ในหมู่บ้าน" },
+  { value: "RESIDENT_ONLY", label: "ลูกบ้าน" },
 ];
 
 const sortOptions: Array<{ value: SortValue; label: string }> = [
@@ -165,7 +165,7 @@ export function ResidentGalleryToolbar({
             ))}
           </datalist>
 
-          <span className="ml-1 text-xs font-medium text-gray-500">เรียงตามวันที่:</span>
+          <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
           {sortOptions.map((option) => (
             <Link
               key={option.value}
@@ -185,6 +185,13 @@ export function ResidentGalleryToolbar({
               {option.label}
             </Link>
           ))}
+
+          <Link
+            href="/resident/gallery"
+            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+          >
+            ล้างตัวกรอง
+          </Link>
 
           <span className="ml-1 text-xs font-medium text-gray-500">การมองเห็น:</span>
           {visibilityOptions.map((option) => (

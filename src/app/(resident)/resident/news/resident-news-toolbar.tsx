@@ -9,18 +9,20 @@ import { cn } from "@/lib/utils";
 type NewsSource = "resident" | "admin";
 type NewsVisibilityValue = "PUBLIC" | "RESIDENT_ONLY";
 type NewsSort = "newest" | "oldest";
+type SourceValue = "all" | NewsSource;
 
 interface ResidentNewsToolbarProps {
   keyword: string;
-  selectedSources: NewsSource[];
+  source: SourceValue;
   selectedVisibilities: NewsVisibilityValue[];
   sort: NewsSort;
   suggestionTitles: string[];
 }
 
-const sourceOptions: Array<{ value: NewsSource; label: string }> = [
-  { value: "resident", label: "ลูกบ้าน" },
-  { value: "admin", label: "แอดมิน" },
+const sourceOptions: Array<{ value: SourceValue; label: string }> = [
+  { value: "all", label: "ทั้งหมด" },
+  { value: "admin", label: "จากแอดมิน" },
+  { value: "resident", label: "จากลูกบ้าน" },
 ];
 
 const sortOptions: Array<{ value: NewsSort; label: string }> = [
@@ -34,18 +36,17 @@ const visibilityOptions: Array<{ value: NewsVisibilityValue; label: string }> = 
 ];
 
 function buildNewsHref(
-  nextSources: NewsSource[],
+  nextSource: SourceValue,
   nextVisibilities: NewsVisibilityValue[],
   nextSort: NewsSort,
   nextKeyword: string
 ) {
   const params = new URLSearchParams();
   const trimmedKeyword = nextKeyword.trim();
-  const normalizedSources = Array.from(new Set(nextSources)).sort();
   const normalizedVisibilities = Array.from(new Set(nextVisibilities)).sort();
 
-  if (normalizedSources.length > 0) {
-    params.set("source", normalizedSources.join(","));
+  if (nextSource !== "all") {
+    params.set("source", nextSource);
   }
 
   if (normalizedVisibilities.length > 0) {
@@ -66,27 +67,14 @@ function buildNewsHref(
 
 export function ResidentNewsToolbar({
   keyword,
-  selectedSources,
+  source,
   selectedVisibilities,
   sort,
   suggestionTitles,
 }: ResidentNewsToolbarProps) {
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
 
-  const sourceSet = useMemo(() => new Set(selectedSources), [selectedSources]);
   const visibilitySet = useMemo(() => new Set(selectedVisibilities), [selectedVisibilities]);
-
-  const getSourceToggleHref = (sourceToToggle: NewsSource) => {
-    const nextSet = new Set(sourceSet);
-
-    if (nextSet.has(sourceToToggle)) {
-      nextSet.delete(sourceToToggle);
-    } else {
-      nextSet.add(sourceToToggle);
-    }
-
-    return buildNewsHref(Array.from(nextSet), selectedVisibilities, sort, keyword);
-  };
 
   const getVisibilityToggleHref = (visibilityToToggle: NewsVisibilityValue) => {
     const nextSet = new Set(visibilitySet);
@@ -97,7 +85,7 @@ export function ResidentNewsToolbar({
       nextSet.add(visibilityToToggle);
     }
 
-    return buildNewsHref(selectedSources, Array.from(nextSet), sort, keyword);
+    return buildNewsHref(source, Array.from(nextSet), sort, keyword);
   };
 
   return (
@@ -120,7 +108,7 @@ export function ResidentNewsToolbar({
             <input
               type="hidden"
               name="source"
-              value={selectedSources.join(",")}
+              value={source === "all" ? "" : source}
             />
             <input type="hidden" name="visibility" value={selectedVisibilities.join(",")} />
             <input type="hidden" name="sort" value={sort} />
@@ -166,14 +154,14 @@ export function ResidentNewsToolbar({
             ))}
           </datalist>
 
-          <span className="ml-1 text-xs font-medium text-gray-500">ผู้สร้างข่าว:</span>
+          <span className="ml-1 text-xs font-medium text-gray-500">แหล่งข่าว:</span>
           {sourceOptions.map((option) => (
             <Link
               key={option.value}
-              href={getSourceToggleHref(option.value)}
+              href={buildNewsHref(option.value, selectedVisibilities, sort, keyword)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                sourceSet.has(option.value)
+                source === option.value
                   ? "bg-green-600 text-white"
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               )}
@@ -196,11 +184,11 @@ export function ResidentNewsToolbar({
               {option.label}
             </Link>
           ))}
-          <span className="ml-1 text-xs font-medium text-gray-500">เรียงตามวันที่:</span>
+          <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
           {sortOptions.map((option) => (
             <Link
               key={option.value}
-              href={buildNewsHref(selectedSources, selectedVisibilities, option.value, keyword)}
+              href={buildNewsHref(source, selectedVisibilities, option.value, keyword)}
               className={cn(
                 "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
                 sort === option.value
@@ -211,6 +199,12 @@ export function ResidentNewsToolbar({
               {option.label}
             </Link>
           ))}
+          <Link
+            href="/resident/news"
+            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+          >
+            ล้างตัวกรอง
+          </Link>
         </div>
       </div>
     </div>

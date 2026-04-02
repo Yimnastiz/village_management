@@ -22,7 +22,76 @@ export default async function ResidentDashboard() {
 
   const membership = getResidentMembership(session);
   if (!membership) {
-    redirect("/auth/binding");
+    const [pendingBindingRequest, unreadNotifications] = await Promise.all([
+      prisma.bindingRequest.findFirst({
+        where: {
+          userId: session.id,
+          status: "PENDING",
+        },
+        select: {
+          id: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+      prisma.notification.count({
+        where: { userId: session.id, status: NotificationStatus.UNREAD },
+      }),
+    ]);
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">สวัสดี, {session.name || "ลูกบ้าน"}!</h1>
+          <p className="text-gray-500 text-sm mt-1">เริ่มต้นใช้งานด้วยการยืนยันสิทธิ์และผูกบัญชีกับหมู่บ้านของคุณ</p>
+        </div>
+
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+          <p className="text-sm font-semibold text-amber-900">บัญชีของคุณยังไม่ผูกกับครัวเรือน</p>
+          <p className="mt-1 text-sm text-amber-800">
+            คุณยังเข้าใช้งานบางเมนูไม่ได้จนกว่าจะผูกบัญชีเรียบร้อย
+            {pendingBindingRequest
+              ? ` (ส่งคำขอแล้วเมื่อ ${toThaiDate(pendingBindingRequest.createdAt)})`
+              : ""}
+          </p>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Link
+              href={pendingBindingRequest ? "/auth/binding/pending" : "/auth/binding"}
+              className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+            >
+              {pendingBindingRequest ? "ดูสถานะคำขอผูกบัญชี" : "ไปผูกบัญชีตอนนี้"}
+            </Link>
+            <Link
+              href="/resident/notifications"
+              className="inline-flex items-center justify-center rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+            >
+              ดูการแจ้งเตือน ({unreadNotifications})
+            </Link>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <h2 className="text-sm font-semibold text-gray-900">ขั้นตอนต่อไป</h2>
+            <ul className="mt-2 space-y-2 text-sm text-gray-600">
+              <li>1. ส่งคำขอผูกบัญชีและยืนยันข้อมูลบ้าน</li>
+              <li>2. รอเจ้าหน้าที่หมู่บ้านอนุมัติคำขอ</li>
+              <li>3. กลับมาที่แดชบอร์ดเพื่อเข้าใช้งานครบทุกเมนู</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+            <h2 className="text-sm font-semibold text-gray-900">เมนูที่เข้าใช้งานได้ทันที</h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link href="/resident/profile" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">โปรไฟล์</Link>
+              <Link href="/resident/notifications" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">การแจ้งเตือน</Link>
+              <Link href="/resident/news" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">ข่าวหมู่บ้าน</Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const primaryMembership = await prisma.villageMembership.findFirst({
@@ -274,7 +343,7 @@ export default async function ResidentDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">นัดหมายของฉัน</h2>
           <div className="space-y-3">
             {upcomingAppointments.length === 0 ? (
@@ -306,7 +375,7 @@ export default async function ResidentDashboard() {
           </Link>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">กิจกรรมหมู่บ้านวันนี้</h2>
           <div className="space-y-3">
             {villageEventsToday.length === 0 ? (
@@ -336,7 +405,7 @@ export default async function ResidentDashboard() {
           </Link>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">สมาชิกในบ้านของฉัน</h2>
           <div className="space-y-3">
             {!effectiveHouseId ? (
@@ -371,7 +440,7 @@ export default async function ResidentDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">ข่าวล่าสุด</h2>
           <div className="space-y-3">
             {latestNews.length === 0 ? (
@@ -399,7 +468,7 @@ export default async function ResidentDashboard() {
           </Link>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4">ปัญหาล่าสุด</h2>
           <div className="space-y-3">
             {latestIssues.length === 0 ? (

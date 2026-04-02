@@ -43,7 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
         />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

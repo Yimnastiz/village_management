@@ -100,6 +100,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
         title="แกลเลอรี"
         description="จัดการอัลบั้มและรูปภาพของหมู่บ้าน"
         searchAction="/admin/gallery"
+        clearHref="/admin/gallery"
         keyword={keyword}
         searchPlaceholder="ค้นหาชื่ออัลบั้มหรือคำอธิบาย"
         hiddenInputs={{ visibility: activeVisibility === "ALL" ? "" : activeVisibility, submissions: activeSubmissions === "ALL" ? "" : activeSubmissions, sort: activeSort === "newest" ? "" : activeSort }}
@@ -121,7 +122,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
             ],
           },
           {
-            label: "เรียง",
+            label: "เรียงลำดับ",
             options: [
               { label: "ล่าสุดก่อน", href: buildGalleryHref({ q: keyword, visibility: activeVisibility, submissions: activeSubmissions, sort: "newest" }), active: activeSort === "newest" },
               { label: "เก่าก่อน", href: buildGalleryHref({ q: keyword, visibility: activeVisibility, submissions: activeSubmissions, sort: "oldest" }), active: activeSort === "oldest" },

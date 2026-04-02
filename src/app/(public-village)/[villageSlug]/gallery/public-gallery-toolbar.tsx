@@ -120,7 +120,7 @@ export function PublicGalleryToolbar({
           ))}
         </datalist>
 
-        <span className="ml-1 text-xs font-medium text-gray-500">เรียงตามวันที่:</span>
+        <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
         {sortOptions.map((option) => (
           <Link
             key={option.value}
@@ -139,6 +139,13 @@ export function PublicGalleryToolbar({
             {option.label}
           </Link>
         ))}
+
+        <Link
+          href={buildPublicGalleryHref({ villageSlug, keyword: "", sort: "newest" })}
+          className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+        >
+          ล้างตัวกรอง
+        </Link>
       </div>
     </div>
   );

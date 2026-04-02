@@ -35,14 +35,14 @@ export default async function AppointmentsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-gray-900">นัดหมาย</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
           <Link href="/resident/calendar">
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" className="w-full sm:w-auto">
               <CalendarDays className="h-4 w-4 mr-1" /> ดูในปฏิทิน
             </Button>
           </Link>
           <Link href="/resident/appointments/new">
-            <Button size="sm">
+            <Button size="sm" className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-1" /> ขอจองนัด
             </Button>
           </Link>

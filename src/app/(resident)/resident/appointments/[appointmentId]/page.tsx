@@ -71,10 +71,10 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
       </Link>
 
       {/* Main Details */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-        <div className="flex items-start justify-between mb-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <h1 className="text-xl font-bold text-gray-900">{appointment.title}</h1>
-          <Badge variant={stageVariant[appointment.stage] ?? "default"}>
+          <Badge className="self-start" variant={stageVariant[appointment.stage] ?? "default"}>
             {APPOINTMENT_STAGE_LABELS[appointment.stage]}
           </Badge>
         </div>
@@ -89,23 +89,23 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
         <div className="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
           {appointment.slot && (
             <>
-              <div className="flex justify-between">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-gray-500">วันที่นัด</span>
                 <span className="font-medium">{formatThaiDate(appointment.slot.date)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-gray-500">เวลา</span>
                 <span className="font-medium">{appointment.slot.startTime} - {appointment.slot.endTime}</span>
               </div>
             </>
           )}
           {!appointment.slot && appointment.stage !== "CANCELLED" && appointment.stage !== "REJECTED" && (
-            <div className="flex justify-between">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-gray-500">สถานะ</span>
               <span className="font-medium text-orange-600">รอการแนะนำเวลา</span>
             </div>
           )}
-          <div className="flex justify-between pt-2 border-t border-gray-200">
+          <div className="flex flex-col gap-1 border-t border-gray-200 pt-2 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-gray-500">สร้างเมื่อ</span>
             <span className="font-medium">{formatThaiDate(appointment.createdAt)}</span>
           </div>
@@ -129,8 +129,8 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
 
       {/* Timeline */}
       {appointment.timeline && appointment.timeline.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">ประวัติการอนุมัติ</h2>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
+          <h2 className="font-semibold text-gray-900">ประวัติการดำเนินการ</h2>
           <div className="space-y-3">
             {appointment.timeline.map((entry, idx) => (
               <div key={entry.id} className="flex gap-4">

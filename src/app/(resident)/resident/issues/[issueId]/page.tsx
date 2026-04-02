@@ -70,12 +70,12 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/resident/issues" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> กลับรายการปัญหา
         </Link>
         {canEdit && (
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
             <Link href={`/resident/issues/${issueId}/edit`}>
               <Button size="sm" variant="outline">
                 <Edit className="h-4 w-4 mr-1" /> แก้ไข
@@ -86,13 +86,13 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="flex items-start justify-between mb-4">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
             <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={stageVariant[issue.stage] ?? "default"}>
               {ISSUE_STAGE_LABELS[issue.stage]}
             </Badge>
@@ -104,7 +104,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+        <div className="mb-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
           <div>
             <span className="text-gray-500">หมวดหมู่: </span>
             <span className="font-medium">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
@@ -158,7 +158,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
       </div>
 
       {issue.timeline.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-400" /> ความคืบหน้า
           </h2>
@@ -166,7 +166,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="font-semibold text-gray-900 mb-4">ข้อความ/ความคิดเห็น</h2>
         {issue.messages.length === 0 ? (
           <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความ</p>

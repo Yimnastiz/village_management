@@ -84,6 +84,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
         title="รายชื่อผู้ติดต่อ"
         description="เพิ่ม แก้ไข และลบข้อมูลติดต่อหมู่บ้าน"
         searchAction="/admin/contacts"
+        clearHref="/admin/contacts"
         keyword={keyword}
         searchPlaceholder="ค้นหาชื่อ ตำแหน่ง เบอร์โทร หรือหมวดหมู่"
         hiddenInputs={{ visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "sort" ? "" : activeSort }}
@@ -98,7 +99,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
             ],
           },
           {
-            label: "เรียง",
+            label: "เรียงลำดับ",
             options: [
               { label: "ตามลำดับ", href: buildContactsHref({ q: keyword, visibility: activeVisibility, sort: "sort" }), active: activeSort === "sort" },
               { label: "ชื่อตาม ก-ฮ", href: buildContactsHref({ q: keyword, visibility: activeVisibility, sort: "name" }), active: activeSort === "name" },

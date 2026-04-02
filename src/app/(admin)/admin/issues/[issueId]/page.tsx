@@ -66,7 +66,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/admin/issues"
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -79,17 +79,17 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Issue details + edit */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-start justify-between mb-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
                 <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
               </div>
-              <Badge variant={stageVariant[issue.stage] ?? "default"}>
+              <Badge className="self-start" variant={stageVariant[issue.stage] ?? "default"}>
                 {ISSUE_STAGE_LABELS[issue.stage]}
               </Badge>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+            <div className="mb-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
                 <span className="text-gray-500">หมวดหมู่: </span>
                 <span className="font-medium">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
@@ -130,7 +130,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
           </div>
 
           {/* Messages */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
             <h2 className="font-semibold text-gray-900 mb-4">ข้อความสาธารณะ</h2>
             {publicMessages.length === 0 ? (
               <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความสาธารณะ</p>
@@ -179,7 +179,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
           </div>
 
           {issue.timeline.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
               <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-gray-400" /> ความคืบหน้า
               </h2>

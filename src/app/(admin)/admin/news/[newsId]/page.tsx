@@ -48,11 +48,11 @@ export default async function AdminNewsDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/admin/news" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> กลับรายการข่าว
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <Link href={`/admin/news/${newsId}/edit`}>
             <Button size="sm" variant="outline">
               <Pencil className="h-4 w-4 mr-1" /> แก้ไข
@@ -62,8 +62,8 @@ export default async function AdminNewsDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
-        <div className="mb-4 flex items-center gap-2">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-8">
+        <div className="mb-4 flex flex-wrap items-center gap-2">
           {news.isPinned && (
             <span className="text-xs rounded-full bg-yellow-100 text-yellow-700 px-2 py-1">ปักหมุด</span>
           )}

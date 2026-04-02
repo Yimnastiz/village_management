@@ -93,6 +93,28 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
     },
   });
 
+  const appointments = await prisma.appointment.findMany({
+    where: {
+      villageId: membership.villageId,
+      stage: { notIn: ["CANCELLED", "REJECTED"] },
+      scheduledAt: {
+        gte: monthStart,
+        lt: nextMonthStart,
+      },
+    },
+    select: {
+      id: true,
+      title: true,
+      scheduledAt: true,
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: [{ scheduledAt: "asc" }],
+  });
+
   const todayKey = toDateKey(new Date());
   const selectedDateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
 
@@ -104,7 +126,17 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
     eventsByDay.set(key, existing);
   }
 
+  const appointmentsByDay = new Map<string, typeof appointments>();
+  for (const apt of appointments) {
+    if (!apt.scheduledAt) continue;
+    const key = toDateKey(apt.scheduledAt);
+    const existing = appointmentsByDay.get(key) ?? [];
+    existing.push(apt);
+    appointmentsByDay.set(key, existing);
+  }
+
   const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
+  const selectedDayAppointments = selectedDateKey ? appointmentsByDay.get(selectedDateKey) ?? [] : [];
   const prevMonth = new Date(year, monthIndex - 1, 1);
   const nextMonth = new Date(year, monthIndex + 1, 1);
   const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
@@ -142,6 +174,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         title="ปฏิทินกิจกรรม"
         description="เพิ่ม แก้ไข และลบกิจกรรมของหมู่บ้าน"
         searchAction="/admin/calendar"
+        clearHref="/admin/calendar"
         keyword={keyword}
         searchPlaceholder="ค้นหาชื่อกิจกรรม สถานที่ หรือรายละเอียด"
         hiddenInputs={{ visibility: activeVisibility === "ALL" ? "" : activeVisibility, month: toMonthKey(monthStart), date: selectedDateKey ?? "" }}
@@ -214,8 +247,10 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
               const cellDate = new Date(year, monthIndex, day);
               const dayKey = toDateKey(cellDate);
               const dayEvents = eventsByDay.get(dayKey) ?? [];
+              const dayAppointments = appointmentsByDay.get(dayKey) ?? [];
               const isSelected = selectedDateKey === dayKey;
               const isToday = dayKey === todayKey;
+              const totalCount = dayEvents.length + dayAppointments.length;
 
               return (
                 <div key={dayKey} className={`min-h-28 border-b border-r border-gray-100 p-2 ${isSelected ? "bg-blue-50" : "bg-white"}`}>
@@ -226,15 +261,15 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
                     >
                       {day}
                     </Link>
-                    {dayEvents.length > 0 && (
+                    {totalCount > 0 && (
                       <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-100 px-1 text-xs font-medium text-blue-700">
-                        {dayEvents.length}
+                        {totalCount}
                       </span>
                     )}
                   </div>
 
                   <div className="space-y-1">
-                    {dayEvents.slice(0, 2).map((event) => (
+                    {dayEvents.slice(0, 1).map((event) => (
                       <Link
                         key={event.id}
                         href={`/admin/calendar/${event.id}`}
@@ -243,12 +278,21 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
                         {event.title}
                       </Link>
                     ))}
-                    {dayEvents.length > 2 && (
+                    {dayAppointments.slice(0, 1).map((apt) => (
+                                   <Link
+                                    href={`/admin/appointments/${apt.id}`}
+                        key={apt.id}
+                                    className="block truncate rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-800 hover:bg-purple-100"
+                      >
+                        <div className="font-medium truncate">{apt.title}</div>
+                                   </Link>
+                    ))}
+                    {totalCount > 2 && (
                       <Link
                         href={buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(monthStart), date: dayKey })}
                         className="block text-xs text-gray-500 hover:text-gray-700"
                       >
-                        + อีก {dayEvents.length - 2} รายการ
+                        + อีก {totalCount - 2} รายการ
                       </Link>
                     )}
                   </div>
@@ -268,15 +312,23 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-gray-900">
-              รายการกิจกรรมวันที่ {new Date(selectedDateKey).toLocaleDateString("th-TH")}
+              รายการในวันที่ {new Date(selectedDateKey).toLocaleDateString("th-TH")}
             </h2>
-            <Badge variant="outline">{selectedDayEvents.length} รายการ</Badge>
+            <Badge variant="outline">
+              {selectedDayEvents.length + selectedDayAppointments.length} รายการ
+            </Badge>
           </div>
 
-          {selectedDayEvents.length === 0 ? (
-            <p className="text-sm text-gray-500">ไม่มีกิจกรรมในวันนี้</p>
+          {selectedDayEvents.length === 0 && selectedDayAppointments.length === 0 ? (
+            <p className="text-sm text-gray-500">ไม่มีกิจกรรมหรือนัดหมายในวันนี้</p>
           ) : (
             <div className="space-y-2">
+              {selectedDayAppointments.map((apt) => (
+                <Link href={`/admin/appointments/${apt.id}`} className="block rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 hover:border-purple-300 hover:bg-purple-100/50">
+                  <p className="font-medium text-purple-900">{apt.title}</p>
+                  <p className="text-sm text-purple-700">{apt.user.name}</p>
+                </Link>
+              ))}
               {selectedDayEvents.map((event) => (
                 <Link
                   key={event.id}

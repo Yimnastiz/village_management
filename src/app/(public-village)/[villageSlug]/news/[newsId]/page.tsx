@@ -67,7 +67,7 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
         <ArrowLeft className="h-4 w-4" /> กลับรายการข่าว
       </Link>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-8">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
         <div className="mb-3">
           <Badge variant="outline">{sourceLabel}</Badge>
         </div>

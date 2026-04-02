@@ -98,6 +98,7 @@ export default async function Page({ searchParams }: PageProps) {
         title="เอกสารดาวน์โหลด"
         description="ค้นหาเอกสาร กรองตามสถานะและการมองเห็น และดูไฟล์ยอดดาวน์โหลดสูง"
         searchAction="/admin/downloads"
+        clearHref="/admin/downloads"
         keyword={keyword}
         searchPlaceholder="ค้นหาชื่อเอกสาร รายละเอียด หรือหมวดหมู่"
         hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "newest" ? "" : activeSort }}
@@ -121,7 +122,7 @@ export default async function Page({ searchParams }: PageProps) {
             ],
           },
           {
-            label: "เรียง",
+            label: "เรียงลำดับ",
             options: [
               { label: "ล่าสุดก่อน", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest" },
               { label: "เก่าก่อน", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "oldest" }), active: activeSort === "oldest" },

@@ -4,11 +4,9 @@ import { ResidentSidebar } from "@/components/layout/resident-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
 import {
-  computeLandingPath,
   getResidentMembership,
   getSessionContextFromServerCookies,
   isAdminUser,
-  isResidentUser,
 } from "@/lib/access-control";
 
 export default async function ResidentLayout({ children }: { children: React.ReactNode }) {
@@ -19,11 +17,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   }
 
   if (isAdminUser(session)) {
-    redirect(computeLandingPath(session));
-  }
-
-  if (!isResidentUser(session)) {
-    redirect("/auth/binding");
+    redirect("/admin/dashboard");
   }
 
   const residentMembership = getResidentMembership(session);
@@ -58,7 +52,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           unreadNotificationCount={unreadNotificationCount}
           villageName={villageProfile?.name ?? null}
         />
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

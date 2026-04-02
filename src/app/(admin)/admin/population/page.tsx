@@ -615,7 +615,7 @@ export default async function Page({ searchParams }: PageProps) {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-gray-200 bg-white p-4">
           <p className="text-xs text-gray-500">บ้านทั้งหมด</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{totalHouses.toLocaleString("th-TH")}</p>
@@ -634,7 +634,7 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-900">ค้นหาเลขบ้าน</h2>
           <Link
@@ -645,7 +645,7 @@ export default async function Page({ searchParams }: PageProps) {
           </Link>
         </div>
 
-        <form method="get" className="mt-4 grid gap-3 md:grid-cols-4">
+        <form method="get" className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <input
             name="q"
             defaultValue={houseKeyword}
@@ -715,7 +715,7 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">คำร้องรอยืนยัน</h2>
         {pendingRequests.length === 0 ? (
           <p className="text-gray-500 text-sm text-center">ไม่มีคำร้องรอยืนยันในตอนนี้</p>
@@ -792,7 +792,7 @@ export default async function Page({ searchParams }: PageProps) {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">ประวัติการอนุมัติ/ปฏิเสธ</h2>
         {historyRequests.length === 0 ? (
           <p className="text-gray-500 text-sm text-center">ยังไม่มีประวัติการอนุมัติหรือปฏิเสธ</p>

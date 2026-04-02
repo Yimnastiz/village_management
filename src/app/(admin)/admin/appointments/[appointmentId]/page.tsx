@@ -270,7 +270,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/admin/appointments" className="text-gray-400 hover:text-gray-600">
             <ArrowLeft className="h-5 w-5" />
@@ -278,7 +278,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
           <h1 className="text-2xl font-bold text-gray-900">รายละเอียดนัดหมาย</h1>
         </div>
         {/* Edit / Cancel quick-access buttons */}
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 sm:w-auto sm:flex-wrap sm:justify-end">
           {canEdit && (
             <Button
               size="sm"
@@ -315,18 +315,18 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
       )}
 
       {/* Appointment Details */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-        <div className="flex items-start justify-between">
-          <div>
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <h2 className="text-xl font-semibold text-gray-900">{appointment.title}</h2>
             <p className="text-sm text-gray-600 mt-1">{appointment.description}</p>
           </div>
-          <Badge variant={stageVariant[appointment.stage] ?? "default"}>
+          <Badge className="self-start" variant={stageVariant[appointment.stage] ?? "default"}>
             {APPOINTMENT_STAGE_LABELS[appointment.stage]}
           </Badge>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+        <div className="grid grid-cols-1 gap-4 border-t border-gray-200 pt-4 sm:grid-cols-2">
           <div>
             <p className="text-xs text-gray-400">ผู้ขอนัด</p>
             <p className="font-medium">{appointment.user?.name || appointment.user?.email}</p>
@@ -362,7 +362,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
 
       {/* Edit Form */}
       {showEditForm && canEdit && (
-        <div className="bg-white rounded-xl border border-blue-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-blue-200 p-4 sm:p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">แก้ไขนัดหมาย</h3>
           <form onSubmit={handleEdit} className="space-y-3">
             <div>
@@ -391,7 +391,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
               onChange={(e) => setEditSlotId(e.target.value)}
               options={slotOptions}
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="submit" isLoading={isSubmitting} className="flex-1">
                 บันทึก
               </Button>
@@ -405,7 +405,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
 
       {/* Cancel Form */}
       {showCancelForm && canCancel && (
-        <div className="bg-white rounded-xl border border-red-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-red-200 p-4 sm:p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">ยกเลิกนัดหมาย</h3>
           <form onSubmit={handleCancel} className="space-y-3">
             <Textarea
@@ -415,7 +415,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
               placeholder="ระบุเหตุผลที่ยกเลิก"
               rows={3}
             />
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Button type="submit" isLoading={isSubmitting} variant="outline" className="flex-1 border-red-300 text-red-700 hover:bg-red-50">
                 ยืนยันการยกเลิก
               </Button>
@@ -441,7 +441,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
 
       {/* Primary action forms (only when PENDING_APPROVAL) */}
       {appointment.stage === "PENDING_APPROVAL" && mode === "approve" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">อนุมัตินัดหมาย</h3>
           {appointment.slot ? (
             <p className="text-sm text-gray-600">
@@ -470,7 +470,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
       )}
 
       {appointment.stage === "PENDING_APPROVAL" && mode === "suggest" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">แนะนำเวลาใหม่</h3>
           {appointment.scheduledAt && (
             <p className="text-sm text-gray-600">
@@ -509,7 +509,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
       )}
 
       {appointment.stage === "PENDING_APPROVAL" && mode === "reject" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
           <h3 className="font-semibold text-gray-900">ปฏิเสธคำขอนัดหมาย</h3>
           <form onSubmit={handleReject} className="space-y-3">
             <Textarea
@@ -528,8 +528,8 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
 
       {/* Timeline */}
       {appointment.timeline && appointment.timeline.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <h2 className="font-semibold text-gray-900">ประวัติ</h2>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
+          <h2 className="font-semibold text-gray-900">ประวัติการดำเนินการ</h2>
           <div className="space-y-3">
             {appointment.timeline.map((entry: any, idx: number) => (
               <div key={entry.id} className="flex gap-4">

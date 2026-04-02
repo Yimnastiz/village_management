@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -79,6 +80,12 @@ export function ResidentContactsToolbar({ keyword }: ResidentContactsToolbarProp
               <X className="h-4 w-4" />
             </button>
           )}
+            <Link
+              href="/resident/contacts"
+              className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            >
+              ล้างตัวกรอง
+            </Link>
         </div>
       </div>
     </div>

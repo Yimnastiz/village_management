@@ -21,6 +21,7 @@ interface AdminListToolbarProps {
   title: string;
   description?: string;
   searchAction: string;
+  clearHref?: string;
   keyword: string;
   searchPlaceholder: string;
   hiddenInputs?: Record<string, string>;
@@ -33,6 +34,7 @@ export function AdminListToolbar({
   title,
   description,
   searchAction,
+  clearHref,
   keyword,
   searchPlaceholder,
   hiddenInputs,
@@ -125,6 +127,13 @@ export function AdminListToolbar({
               ))}
             </div>
           ))}
+
+          <Link
+            href={clearHref ?? searchAction}
+            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+          >
+            ล้างตัวกรอง
+          </Link>
         </div>
       </div>
     </div>

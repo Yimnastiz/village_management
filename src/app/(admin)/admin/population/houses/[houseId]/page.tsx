@@ -3,7 +3,7 @@ import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { OCCUPANCY_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
+import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, OCCUPANCY_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
@@ -67,7 +67,7 @@ export default async function Page({ params }: PageProps) {
         </Link>
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <p className="text-xs text-gray-500">สถานะการอยู่อาศัย</p>
           <div className="mt-2">
@@ -92,6 +92,7 @@ export default async function Page({ params }: PageProps) {
         {house.persons.length === 0 ? (
           <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีข้อมูลบุคคลในทะเบียนบ้านนี้</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
@@ -120,6 +121,7 @@ export default async function Page({ params }: PageProps) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
@@ -130,12 +132,13 @@ export default async function Page({ params }: PageProps) {
         {house.memberships.length === 0 ? (
           <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีบัญชีผู้ใช้ที่ผูกกับบ้านหลังนี้</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50 text-left text-gray-600">
               <tr>
                 <th className="px-4 py-3">ผู้ใช้งาน</th>
                 <th className="px-4 py-3">เบอร์โทร</th>
-                <th className="px-4 py-3">role</th>
+                <th className="px-4 py-3">บทบาท</th>
                 <th className="px-4 py-3">สถานะ</th>
               </tr>
             </thead>
@@ -144,14 +147,15 @@ export default async function Page({ params }: PageProps) {
                 <tr key={item.id} className="border-t border-gray-100">
                   <td className="px-4 py-3 font-medium text-gray-900">{item.user.name}</td>
                   <td className="px-4 py-3 text-gray-700">{item.user.phoneNumber}</td>
-                  <td className="px-4 py-3 text-gray-700">{item.role}</td>
+                  <td className="px-4 py-3 text-gray-700">{MEMBERSHIP_ROLE_LABELS[item.role] ?? item.role}</td>
                   <td className="px-4 py-3">
-                    <Badge variant={item.status === "ACTIVE" ? "success" : "warning"}>{item.status}</Badge>
+                    <Badge variant={item.status === "ACTIVE" ? "success" : "warning"}>{MEMBERSHIP_STATUS_LABELS[item.status] ?? item.status}</Badge>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
     </div>

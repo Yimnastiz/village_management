@@ -57,8 +57,8 @@ export function ResidentAppointmentCard(props: ResidentAppointmentCardProps) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        <div className="min-w-0">
           <Link href={`/resident/appointments/${props.id}`} className="font-medium text-gray-900 hover:underline">
             {props.title}
           </Link>
@@ -70,18 +70,18 @@ export function ResidentAppointmentCard(props: ResidentAppointmentCardProps) {
             <p className="text-xs text-gray-500 mt-0.5">รอการเลือกเวลา</p>
           )}
         </div>
-        <Badge variant={props.stageVariant}>{props.stageLabel}</Badge>
+        <Badge className="self-start" variant={props.stageVariant}>{props.stageLabel}</Badge>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
         <Link href={`/resident/appointments/${props.id}`}>
-          <Button size="sm" variant="outline">ดูรายละเอียด</Button>
+          <Button size="sm" variant="outline" className="w-full sm:w-auto">ดูรายละเอียด</Button>
         </Link>
         {canCancel && (
           <Button
             size="sm"
             variant="outline"
-            className="border-red-200 text-red-700 hover:bg-red-50"
+            className="w-full border-red-200 text-red-700 hover:bg-red-50 sm:w-auto"
             onClick={() => setShowCancelForm((v) => !v)}
           >
             ยกเลิกนัดหมาย
@@ -100,14 +100,15 @@ export function ResidentAppointmentCard(props: ResidentAppointmentCardProps) {
             required
           />
           {error && <p className="text-xs text-red-700">{error}</p>}
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="danger" isLoading={isSubmitting} type="submit">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <Button size="sm" variant="danger" isLoading={isSubmitting} type="submit" className="w-full sm:w-auto">
               ยืนยันยกเลิก
             </Button>
             <Button
               size="sm"
               variant="ghost"
               type="button"
+              className="w-full sm:w-auto"
               onClick={() => {
                 setShowCancelForm(false);
                 setError(null);

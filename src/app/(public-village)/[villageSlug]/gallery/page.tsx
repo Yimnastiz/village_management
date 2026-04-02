@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicGalleryToolbar } from "./public-gallery-toolbar";
@@ -110,9 +109,9 @@ export default async function Page({ params, searchParams }: PageProps) {
               </div>
               <div className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant="success">สาธารณะ</Badge>
-                  {album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
-                  <Badge variant="outline">{album._count.items} รูป</Badge>
+                  <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                    {album._count.items} รูป
+                  </span>
                 </div>
                 <p className="font-medium text-gray-900 line-clamp-1">{album.title}</p>
                 {album.description && <p className="text-sm text-gray-500 line-clamp-2">{album.description}</p>}

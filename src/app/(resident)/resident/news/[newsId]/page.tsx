@@ -68,14 +68,14 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/resident/news"
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" /> กลับรายการข่าว
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           {canRequestEdit && (
             <Link href={`/resident/news/${newsId}/request-edit`} className="text-sm text-green-700 hover:text-green-800">
               ขอแก้ไขข่าวของฉัน
@@ -85,9 +85,9 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-8">
         <div className="mb-6">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {news.isPinned && (
               <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">ปักหมุด</span>
             )}

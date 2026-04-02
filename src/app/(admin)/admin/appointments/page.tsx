@@ -170,9 +170,9 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
               key={apt.id}
               className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
                     <Link href={`/admin/appointments/${apt.id}`} className="font-medium text-gray-900 hover:underline">
                       {apt.title}
                     </Link>
@@ -180,14 +180,14 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                       {APPOINTMENT_STAGE_LABELS[apt.stage]}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                  <div className="grid grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-2 sm:gap-4">
                     <div>
                       <p className="text-xs text-gray-400">ผู้ขอ</p>
-                      <p>{apt.user?.name || apt.user?.email}</p>
+                      <p className="break-words">{apt.user?.name || apt.user?.email}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">หมู่บ้าน</p>
-                      <p>{apt.village?.name}</p>
+                      <p className="break-words">{apt.village?.name}</p>
                     </div>
                     {(apt.slot || apt.scheduledAt) && (
                       <div>
@@ -205,9 +205,9 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                     )}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-left lg:text-right">
                   {apt.stage === "PENDING_APPROVAL" && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
                       {apt.slotId ? (
                         <Link href={`/admin/appointments/${apt.id}?action=approve`}>
                           <Button size="sm" variant="primary">
@@ -229,7 +229,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                     </div>
                   )}
                   {apt.stage === "TIME_SUGGESTED" && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link href={`/admin/appointments/${apt.id}`}>
                         <Button size="sm" variant="secondary">
                           <AlertCircle className="h-4 w-4" /> รอยืนยัน
@@ -243,7 +243,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                     </div>
                   )}
                   {apt.stage === "APPROVED" && (
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link href={`/admin/appointments/${apt.id}`}>
                         <Button size="sm" variant="outline">
                           <X className="h-4 w-4" /> ยกเลิก

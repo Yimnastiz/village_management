@@ -10,8 +10,23 @@ import { PublicNewsToolbar } from "./public-news-toolbar";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
-  searchParams?: Promise<{ q?: string; sort?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string; source?: string }>;
 }
+
+const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; description: string }> = {
+  all: {
+    title: "ยังไม่มีข่าวสาธารณะ",
+    description: "ข่าวสาธารณะของหมู่บ้านจะแสดงที่นี่",
+  },
+  admin: {
+    title: "ยังไม่มีข่าวจากแอดมิน",
+    description: "เมื่อแอดมินเผยแพร่ข่าวสาธารณะ ข่าวจะแสดงที่นี่",
+  },
+  resident: {
+    title: "ยังไม่มีข่าวจากลูกบ้าน",
+    description: "เมื่อมีข่าวสาธารณะจากลูกบ้าน ข่าวจะแสดงที่นี่",
+  },
+};
 
 export default async function VillageNewsPage({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
@@ -19,6 +34,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
+  const source = query.source === "admin" || query.source === "resident" ? query.source : "all";
   const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
   const village = await prisma.village.findFirst({
@@ -79,6 +95,19 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   });
 
   const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
+  const filteredNewsList = newsList.filter((news) => {
+    if (source === "all") {
+      return true;
+    }
+
+    if (!news.authorId) {
+      return false;
+    }
+
+    const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
+    const isAdminSource = roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number]));
+    return source === "admin" ? isAdminSource : !isAdminSource;
+  });
 
   return (
     <div className="space-y-6">
@@ -87,22 +116,23 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
         villageName={village.name}
         keyword={keyword}
         sort={sort}
+        source={source}
         suggestionTitles={suggestionTitles}
       />
 
-      {newsList.length === 0 ? (
-        <EmptyState icon={Newspaper} title="ยังไม่มีข่าวสาธารณะ" description="ข่าวสาธารณะของหมู่บ้านจะแสดงที่นี่" />
+      {filteredNewsList.length === 0 ? (
+        <EmptyState icon={Newspaper} title={SOURCE_EMPTY_STATE[source].title} description={SOURCE_EMPTY_STATE[source].description} />
       ) : (
         <div className="space-y-3">
-          {newsList.map((news) => (
+          {filteredNewsList.map((news) => (
             <Link
               key={news.id}
               href={`/${villageSlug}/news/${news.id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow"
+              className="block rounded-xl border border-gray-200 bg-white p-4 sm:p-5 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="mb-1 flex flex-wrap items-center gap-2">
                     {news.isPinned && (
                       <span className="text-[11px] rounded-full bg-yellow-100 text-yellow-700 px-2 py-0.5">
                         ปักหมุด
@@ -120,7 +150,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
                   <p className="font-medium text-gray-900 line-clamp-1">{news.title}</p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{news.summary || "-"}</p>
                 </div>
-                <p className="text-xs text-gray-400 whitespace-nowrap">
+                <p className="text-xs text-gray-400 whitespace-nowrap self-start sm:self-auto">
                   {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
                 </p>
               </div>

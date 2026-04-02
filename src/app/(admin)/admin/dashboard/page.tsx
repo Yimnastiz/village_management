@@ -3,7 +3,6 @@ import {
   Newspaper,
   AlertCircle,
   Calendar,
-  Siren,
   Home,
   Bell,
 } from "lucide-react";
@@ -77,7 +76,6 @@ export default async function AdminDashboard() {
     publishedNewsCount,
     openIssueCount,
     pendingAppointmentCount,
-    todaySOSCount,
     unreadNotificationCount,
     recentIssues,
     todayAppointments,
@@ -113,15 +111,6 @@ export default async function AdminDashboard() {
       where: {
         villageId: membership.villageId,
         stage: "PENDING_APPROVAL",
-      },
-    }),
-    prisma.emergencySOS.count({
-      where: {
-        villageId: membership.villageId,
-        createdAt: {
-          gte: todayStart,
-          lt: todayEnd,
-        },
       },
     }),
     prisma.notification.count({
@@ -216,7 +205,7 @@ export default async function AdminDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="สมาชิกใช้งาน"
           value={activeResidents}
@@ -242,12 +231,11 @@ export default async function AdminDashboard() {
           icon={Calendar}
           color="purple"
         />
-        <StatCard title="SOS วันนี้" value={todaySOSCount} icon={Siren} color="red" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">ปัญหาล่าสุด</h2>
             <Link href="/admin/issues" className="text-sm text-green-600 hover:underline">
               ดูทั้งหมด
@@ -261,13 +249,13 @@ export default async function AdminDashboard() {
                 <Link
                   key={issue.id}
                   href={`/admin/issues/${issue.id}`}
-                  className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-gray-50 rounded px-2"
+                  className="flex items-center justify-between gap-3 rounded border-b py-2 last:border-0 hover:bg-gray-50 px-2"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-gray-700 line-clamp-1">{issue.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{formatThaiDateTime(issue.createdAt)}</p>
                   </div>
-                  <Badge variant={issueStageVariant[issue.stage] ?? "default"}>
+                  <Badge className="shrink-0" variant={issueStageVariant[issue.stage] ?? "default"}>
                     {ISSUE_STAGE_LABELS[issue.stage]}
                   </Badge>
                 </Link>
@@ -276,8 +264,8 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">นัดหมายวันนี้</h2>
             <Link href="/admin/appointments" className="text-sm text-green-600 hover:underline">
               ดูทั้งหมด
@@ -291,15 +279,15 @@ export default async function AdminDashboard() {
                 <Link
                   key={appointment.id}
                   href={`/admin/appointments/${appointment.id}`}
-                  className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-gray-50 rounded px-2"
+                  className="flex items-center justify-between gap-3 rounded border-b py-2 last:border-0 hover:bg-gray-50 px-2"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-gray-700 line-clamp-1">{appointment.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {appointment.scheduledAt ? formatThaiDateTime(appointment.scheduledAt) : "ยังไม่กำหนดเวลา"}
                     </p>
                   </div>
-                  <Badge variant={appointmentStageVariant[appointment.stage] ?? "default"}>
+                  <Badge className="shrink-0" variant={appointmentStageVariant[appointment.stage] ?? "default"}>
                     {APPOINTMENT_STAGE_LABELS[appointment.stage]}
                   </Badge>
                 </Link>
@@ -310,8 +298,8 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">ข่าวล่าสุด</h2>
             <Link href="/admin/news" className="text-sm text-green-600 hover:underline">
               จัดการข่าว
@@ -325,15 +313,15 @@ export default async function AdminDashboard() {
                 <Link
                   key={news.id}
                   href={`/admin/news/${news.id}`}
-                  className="flex items-center justify-between py-2 border-b last:border-0 hover:bg-gray-50 rounded px-2"
+                  className="flex flex-col gap-2 rounded border-b py-2 last:border-0 hover:bg-gray-50 px-2 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-gray-700 line-clamp-1">{news.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
                     <Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>
                     <Badge variant={news.stage === "PUBLISHED" ? "success" : "warning"}>
                       {NEWS_STAGE_LABELS[news.stage]}
@@ -345,8 +333,8 @@ export default async function AdminDashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">แจ้งเตือนและฉุกเฉิน</h2>
             <Link href="/admin/notifications" className="text-sm text-green-600 hover:underline">
               ดูแจ้งเตือน

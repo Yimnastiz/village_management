@@ -174,12 +174,12 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
       />
 
       {issues.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 sm:p-12 text-center">
           <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700">ไม่พบคำร้อง</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-gray-600">
@@ -223,7 +223,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <Link href={`/admin/issues/${issue.id}`}>
-                      <Button size="sm" variant="outline">
+                      <Button size="sm" variant="outline" className="whitespace-nowrap">
                         <Eye className="h-3.5 w-3.5 mr-1" /> จัดการ
                       </Button>
                     </Link>

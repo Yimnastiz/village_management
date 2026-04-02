@@ -7,12 +7,14 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type SortValue = "newest" | "oldest";
+type SourceValue = "all" | "admin" | "resident";
 
 interface PublicNewsToolbarProps {
   villageSlug: string;
   villageName: string;
   keyword: string;
   sort: SortValue;
+  source: SourceValue;
   suggestionTitles: string[];
 }
 
@@ -21,16 +23,27 @@ const sortOptions: Array<{ value: SortValue; label: string }> = [
   { value: "oldest", label: "เก่าก่อน" },
 ];
 
+const sourceOptions: Array<{ value: SourceValue; label: string }> = [
+  { value: "all", label: "ทั้งหมด" },
+  { value: "admin", label: "จากแอดมิน" },
+  { value: "resident", label: "จากลูกบ้าน" },
+];
+
 function buildPublicNewsHref(params: {
   villageSlug: string;
   keyword: string;
   sort: SortValue;
+  source: SourceValue;
 }) {
   const query = new URLSearchParams();
   const trimmedKeyword = params.keyword.trim();
 
   if (params.sort !== "newest") {
     query.set("sort", params.sort);
+  }
+
+  if (params.source !== "all") {
+    query.set("source", params.source);
   }
 
   if (trimmedKeyword) {
@@ -42,7 +55,7 @@ function buildPublicNewsHref(params: {
   return queryString ? `${basePath}?${queryString}` : basePath;
 }
 
-export function PublicNewsToolbar({ villageSlug, villageName, keyword, sort, suggestionTitles }: PublicNewsToolbarProps) {
+export function PublicNewsToolbar({ villageSlug, villageName, keyword, sort, source, suggestionTitles }: PublicNewsToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
   const [searchKeyword, setSearchKeyword] = useState(keyword);
@@ -60,12 +73,13 @@ export function PublicNewsToolbar({ villageSlug, villageName, keyword, sort, sug
           villageSlug,
           keyword: searchKeyword,
           sort,
+          source,
         })
       );
     }, 350);
 
     return () => clearTimeout(timeoutId);
-  }, [searchKeyword, searchOpen, villageSlug, sort, router]);
+  }, [searchKeyword, searchOpen, villageSlug, sort, source, router]);
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -111,7 +125,7 @@ export function PublicNewsToolbar({ villageSlug, villageName, keyword, sort, sug
           ))}
         </datalist>
 
-        <span className="ml-1 text-xs font-medium text-gray-500">เรียงตามวันที่:</span>
+        <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
         {sortOptions.map((option) => (
           <Link
             key={option.value}
@@ -119,6 +133,7 @@ export function PublicNewsToolbar({ villageSlug, villageName, keyword, sort, sug
               villageSlug,
               keyword: searchKeyword,
               sort: option.value,
+              source,
             })}
             className={cn(
               "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
@@ -130,6 +145,34 @@ export function PublicNewsToolbar({ villageSlug, villageName, keyword, sort, sug
             {option.label}
           </Link>
         ))}
+
+        <span className="ml-1 text-xs font-medium text-gray-500">แหล่งข่าว:</span>
+        {sourceOptions.map((option) => (
+          <Link
+            key={option.value}
+            href={buildPublicNewsHref({
+              villageSlug,
+              keyword: searchKeyword,
+              sort,
+              source: option.value,
+            })}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              source === option.value
+                ? "bg-green-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            )}
+          >
+            {option.label}
+          </Link>
+        ))}
+
+        <Link
+          href={buildPublicNewsHref({ villageSlug, keyword: "", sort: "newest", source: "all" })}
+          className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+        >
+          ล้างตัวกรอง
+        </Link>
       </div>
     </div>
   );

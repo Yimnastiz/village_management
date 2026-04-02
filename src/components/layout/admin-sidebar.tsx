@@ -27,7 +27,7 @@ export type AdminMenuItem = {
 export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
-  { href: "/admin/calendar", label: "ปฏิทินกิจกรรม", icon: Calendar },
+  { href: "/admin/calendar", label: "ปฏิทิน", icon: Calendar },
   { href: "/admin/gallery", label: "แกลเลอรี", icon: Image },
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
   { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },

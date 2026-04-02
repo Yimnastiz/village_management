@@ -157,7 +157,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
       />
 
       {sortedIssues.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+        <div className="bg-white rounded-xl border border-gray-200 p-8 sm:p-12 text-center">
           <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700">ยังไม่มีคำร้อง</p>
           <p className="text-sm text-gray-500 mt-1">กดปุ่มด้านบนเพื่อแจ้งปัญหาใหม่</p>
@@ -170,7 +170,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
               href={`/resident/issues/${issue.id}`}
               className="block bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
             >
-              <div className="flex items-center justify-between gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="flex items-center gap-3 min-w-0">
                   <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
                   <div className="min-w-0">
@@ -184,7 +184,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end">
                   {issue.reporterId !== session.id && (
                     <Badge variant="outline" className="hidden md:inline-flex">ชุมชน</Badge>
                   )}

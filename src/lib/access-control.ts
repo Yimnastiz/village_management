@@ -448,34 +448,12 @@ export function computeLandingPath(session: SessionContext): string {
     return "/dev";
   }
 
-  const headmanMembership = getHeadmanMembership(session);
-  if (headmanMembership) {
-    if (headmanMembership.villageSlug) {
-      return `/admin/settings/village?village=${encodeURIComponent(
-        headmanMembership.villageSlug
-      )}`;
-    }
-    return `/admin/settings/village?villageId=${encodeURIComponent(
-      headmanMembership.villageId
-    )}`;
-  }
-
   if (isAdminUser(session)) {
     return "/admin/dashboard";
   }
 
-  // For residents, only redirect to dashboard if they're verified and active
-  // Otherwise, send to binding page for account binding
   if (isResidentUser(session)) {
-    const hasActiveResidentMembership = session.memberships.some(
-      (membership) =>
-        membership.role === VillageMembershipRole.RESIDENT &&
-        membership.status === MembershipStatus.ACTIVE
-    );
-    
-    if (session.citizenVerifiedAt && hasActiveResidentMembership) {
-      return "/resident/dashboard";
-    }
+    return "/resident/dashboard";
   }
 
   return "/auth/binding";
