@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Home, Newspaper, Calendar, Image, Eye, Download, Phone } from "lucide-react";
+import { Home, Newspaper, Calendar, Image, Eye, Download, Phone, MapPin } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam } from "@/lib/village-slug";
 import { VillageSwitcher } from "./village-switcher";
+import { VillagePublicMobileNav } from "./village-mobile-nav";
 
 interface VillageLayoutProps {
   children: React.ReactNode;
@@ -29,29 +30,46 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
     { href: `${base}/news`, label: "ข่าวสาร", icon: Newspaper },
     { href: `${base}/calendar`, label: "ปฏิทิน", icon: Calendar },
     { href: `${base}/gallery`, label: "แกลเลอรี", icon: Image },
+    { href: `${base}/places`, label: "สถานที่", icon: MapPin },
     { href: `${base}/transparency`, label: "ความโปร่งใส", icon: Eye },
     { href: `${base}/downloads`, label: "ดาวน์โหลด", icon: Download },
     { href: `${base}/contacts`, label: "ติดต่อ", icon: Phone },
   ];
 
+  const villageName = villages.find((v) => v.slug === villageSlug)?.name ?? villageSlug;
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <header className="bg-green-700 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-2">
-            <Link href={base} className="min-w-0 font-bold text-base sm:text-lg truncate">หมู่บ้าน {villageSlug}</Link>
-            <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
+          <div className="flex h-16 items-center justify-between gap-3">
+            <Link href={base} className="min-w-0 font-bold text-base sm:text-lg truncate">
+              หมู่บ้าน {villageName}
+            </Link>
+
+            {/* Desktop: village switcher + action links */}
+            <div className="hidden md:flex items-center gap-3">
               <VillageSwitcher villages={villages} currentSlug={villageSlug} />
-              <Link href="/" className="text-xs sm:text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
+              <Link href="/" className="text-xs sm:text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg whitespace-nowrap">
                 หน้าค้นหาหมู่บ้าน
               </Link>
-              <Link href="/auth/login" className="text-xs sm:text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg">
+              <Link href="/auth/login" className="text-xs sm:text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg whitespace-nowrap">
                 เข้าสู่ระบบ
               </Link>
             </div>
+
+            {/* Mobile: hamburger button */}
+            <VillagePublicMobileNav
+              base={base}
+              villageName={villageName}
+              villages={villages}
+              currentSlug={villageSlug}
+            />
           </div>
         </div>
-        <nav className="bg-green-800">
+
+        {/* Desktop only: horizontal tab nav */}
+        <nav className="hidden md:block bg-green-800">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex overflow-x-auto">
               {navItems.map((item) => (
@@ -72,7 +90,7 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
         {children}
       </main>
       <footer className="bg-green-900 text-green-100 py-6 text-center text-sm">
-        <p>© {new Date().getFullYear()} ระบบหมู่บ้านอัจฉริยะ | หมู่บ้าน {villageSlug}</p>
+        <p>© {new Date().getFullYear()} ระบบหมู่บ้านอัจฉริยะ | หมู่บ้าน {villageName}</p>
       </footer>
     </div>
   );

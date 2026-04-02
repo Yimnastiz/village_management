@@ -135,3 +135,46 @@ export async function toggleSaveContactAction(contactId: string): Promise<Toggle
   revalidatePath("/resident/saved");
   return { success: true, saved: true };
 }
+
+export async function toggleSavePlaceAction(placeId: string): Promise<ToggleResult> {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
+  const membership = getResidentMembership(session);
+  if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
+
+  const placeDelegate = (prisma as unknown as {
+    villagePlace: { findFirst(args: unknown): Promise<{ id: string } | null> };
+  }).villagePlace;
+
+  const place = await placeDelegate.findFirst({
+    where: { id: placeId, villageId: membership.villageId },
+    select: { id: true },
+  });
+
+  if (!place) return { success: false, error: "ไม่พบสถานที่นี้" };
+
+  const savedItemDelegate = (prisma as unknown as {
+    savedItem: {
+      findFirst(args: unknown): Promise<{ id: string } | null>;
+      delete(args: unknown): Promise<{ id: string }>;
+      create(args: unknown): Promise<{ id: string }>;
+    };
+  }).savedItem;
+
+  const existing = await savedItemDelegate.findFirst({
+    where: { userId: session.id, placeId },
+    select: { id: true },
+  });
+
+  if (existing) {
+    await savedItemDelegate.delete({ where: { id: existing.id } });
+    revalidatePath("/resident/saved");
+    revalidatePath(`/resident/places/${placeId}`);
+    return { success: true, saved: false };
+  }
+
+  await savedItemDelegate.create({ data: { userId: session.id, placeId } });
+  revalidatePath("/resident/saved");
+  revalidatePath(`/resident/places/${placeId}`);
+  return { success: true, saved: true };
+}

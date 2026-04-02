@@ -74,7 +74,7 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
           )}
 
           {/* Metadata and Action */}
-          <div className="flex items-center gap-3 mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
             <p className={`text-xs ${isUnread ? "text-gray-500" : "text-gray-400"}`}>
               {new Date(notification.createdAt).toLocaleDateString("th-TH", {
                 year: "numeric",

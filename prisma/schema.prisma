@@ -62,6 +62,26 @@ enum VillageEventSubmissionStatus {
   REJECTED
 }
 
+enum VillagePlaceCategory {
+  TEMPLE
+  SHOP
+  SCHOOL
+  CLINIC
+  GOVERNMENT
+  OTHER
+}
+
+enum VillagePlaceSubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VillagePlaceSubmissionType {
+  CREATE
+  UPDATE
+}
+
 enum IssueStage {
   OPEN
   IN_PROGRESS
@@ -258,6 +278,8 @@ model User {
   newsSubmissions     NewsSubmission[]
   villageEventSubmissions VillageEventSubmission[]
   galleryItemSubmissions GalleryItemSubmission[]
+  villagePlacesCreated VillagePlace[]
+  villagePlaceSubmissions VillagePlaceSubmission[]
   appointments        Appointment[]
   appointmentActions  AppointmentTimeline[]
   registrationVillage Village?            @relation("UserRegistrationVillage", fields: [registrationVillageId], references: [id])
@@ -334,6 +356,8 @@ model Village {
   transparencyRecords TransparencyRecord[]
   villageEvents       VillageEvent[]
   villageEventSubmissions VillageEventSubmission[]
+  villagePlaces       VillagePlace[]
+  villagePlaceSubmissions VillagePlaceSubmission[]
   galleryAlbums       GalleryAlbum[]
   contactDirectories  ContactDirectory[]
   faqItems            FAQItem[]
@@ -793,6 +817,57 @@ model VillageEventSubmission {
   @@index([startsAt])
 }
 
+model VillagePlace {
+  id           String              @id @default(cuid())
+  villageId    String
+  name         String
+  category     VillagePlaceCategory @default(OTHER)
+  description  String?             @db.Text
+  address      String?
+  openingHours String?
+  contactPhone String?
+  mapUrl       String?
+  latitude     Float?
+  longitude    Float?
+  imageUrls    Json?
+  isPublic     Boolean             @default(true)
+  createdById  String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  savedItems SavedItem[]
+
+  @@index([villageId])
+  @@index([category])
+  @@index([isPublic])
+}
+
+model VillagePlaceSubmission {
+  id          String                       @id @default(cuid())
+  villageId   String
+  requesterId String
+  type        VillagePlaceSubmissionType   @default(CREATE)
+  targetPlaceId String?
+  payload     Json
+  status      VillagePlaceSubmissionStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+
+  village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  requester User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([villageId])
+  @@index([requesterId])
+  @@index([type])
+  @@index([targetPlaceId])
+  @@index([status])
+}
+
 model GalleryAlbum {
   id          String   @id @default(cuid())
   villageId   String
@@ -1055,6 +1130,7 @@ model SavedItem {
   galleryAlbumId String?
   transparencyId String?
   contactId      String?
+  placeId        String?
   createdAt      DateTime @default(now())
 
   user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1064,6 +1140,7 @@ model SavedItem {
   galleryAlbum       GalleryAlbum?       @relation(fields: [galleryAlbumId], references: [id])
   transparencyRecord TransparencyRecord? @relation(fields: [transparencyId], references: [id])
   contact            ContactDirectory?   @relation(fields: [contactId], references: [id])
+  place              VillagePlace?       @relation(fields: [placeId], references: [id])
 
   @@unique([userId, newsId])
   @@unique([userId, downloadId])
@@ -1071,5 +1148,6 @@ model SavedItem {
   @@unique([userId, galleryAlbumId])
   @@unique([userId, transparencyId])
   @@unique([userId, contactId])
+  @@unique([userId, placeId])
   @@index([userId])
 }

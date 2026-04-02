@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { BookmarkCheck, AlertCircle, Images, Download, ShieldCheck, PhoneCall, Newspaper } from "lucide-react";
+import { BookmarkCheck, AlertCircle, Images, Download, ShieldCheck, PhoneCall, Newspaper, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { NEWS_VISIBILITY_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
+import { NEWS_VISIBILITY_LABELS, ISSUE_STAGE_LABELS, VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
@@ -19,6 +19,7 @@ const TYPE_LABELS: Record<string, string> = {
   download: "เอกสาร",
   transparency: "ความโปร่งใส",
   contact: "ผู้ติดต่อ",
+  place: "สถานที่",
 };
 
 export default async function SavedPage({
@@ -41,19 +42,20 @@ export default async function SavedPage({
     select: {
       id: true,
       newsId: true, downloadId: true, issueId: true,
-      galleryAlbumId: true, transparencyId: true, contactId: true,
+      galleryAlbumId: true, transparencyId: true, contactId: true, placeId: true,
       news: { select: { id: true, title: true, summary: true, visibility: true, villageId: true } },
       download: { select: { id: true, title: true, description: true, visibility: true, category: true, villageId: true } },
       issue: { select: { id: true, title: true, stage: true, category: true, villageId: true } },
       galleryAlbum: { select: { id: true, title: true, villageId: true } },
       transparencyRecord: { select: { id: true, title: true, category: true, visibility: true, villageId: true } },
       contact: { select: { id: true, name: true, role: true, phone: true, category: true, villageId: true } },
+      place: { select: { id: true, name: true, address: true, category: true, villageId: true } },
     },
   });
 
   const filtered = savedItems.filter((item) => {
     const vid = item.news?.villageId ?? item.download?.villageId ?? item.issue?.villageId
-      ?? item.galleryAlbum?.villageId ?? item.transparencyRecord?.villageId ?? item.contact?.villageId;
+      ?? item.galleryAlbum?.villageId ?? item.transparencyRecord?.villageId ?? item.contact?.villageId ?? item.place?.villageId;
     if (vid && vid !== membership.villageId) return false;
     if (type === "news") return !!item.newsId;
     if (type === "issue") return !!item.issueId;
@@ -61,6 +63,7 @@ export default async function SavedPage({
     if (type === "download") return !!item.downloadId;
     if (type === "transparency") return !!item.transparencyId;
     if (type === "contact") return !!item.contactId;
+    if (type === "place") return !!item.placeId;
     return true;
   });
 
@@ -191,6 +194,21 @@ export default async function SavedPage({
                 </div>
                 {item.contact.category && <Badge variant="outline" className="shrink-0">{item.contact.category}</Badge>}
               </div>
+            );
+
+            if (item.place) return (
+              <Link key={item.id} href={`/resident/places/${item.place.id}`}
+                className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
+                <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-50">
+                  <MapPin className="h-4 w-4 text-emerald-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-gray-400 mb-0.5">สถานที่</p>
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.place.name}</p>
+                  {item.place.address && <p className="text-sm text-gray-500 line-clamp-1">{item.place.address}</p>}
+                </div>
+                <Badge variant="outline" className="shrink-0">{VILLAGE_PLACE_CATEGORY_LABELS[item.place.category] ?? item.place.category}</Badge>
+              </Link>
             );
 
             return null;

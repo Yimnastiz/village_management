@@ -73,6 +73,26 @@ export const VILLAGE_EVENT_VISIBILITY_LABELS: Record<string, string> = {
   RESIDENT: "เฉพาะลูกบ้าน",
 };
 
+export const VILLAGE_PLACE_CATEGORY_LABELS: Record<string, string> = {
+  TEMPLE: "วัด/ศาสนสถาน",
+  SHOP: "ร้านค้า/ตลาด",
+  SCHOOL: "โรงเรียน/การศึกษา",
+  CLINIC: "คลินิก/สุขภาพ",
+  GOVERNMENT: "หน่วยงานราชการ",
+  OTHER: "อื่นๆ",
+};
+
+export const VILLAGE_PLACE_SUBMISSION_STATUS_LABELS: Record<string, string> = {
+  PENDING: "รออนุมัติ",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ไม่อนุมัติ",
+};
+
+export const VILLAGE_PLACE_SUBMISSION_TYPE_LABELS: Record<string, string> = {
+  CREATE: "ขอเพิ่มสถานที่",
+  UPDATE: "ขอแก้ไขสถานที่",
+};
+
 export const MEMBERSHIP_ROLE_LABELS: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
   ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",

@@ -42,11 +42,13 @@ export function AlbumGalleryViewer({ items }: AlbumGalleryViewerProps) {
           className="block w-full"
           aria-label="ดูรูปภาพขนาดใหญ่"
         >
-          <img
-            src={selected?.fileUrl || ""}
-            alt={selected?.title || "ภาพในอัลบั้ม"}
-            className="h-[420px] w-full object-contain"
-          />
+          <div className="aspect-video">
+            <img
+              src={selected?.fileUrl || ""}
+              alt={selected?.title || "ภาพในอัลบั้ม"}
+              className="h-full w-full object-contain"
+            />
+          </div>
         </button>
 
         {canNavigate && (
@@ -79,10 +81,12 @@ export function AlbumGalleryViewer({ items }: AlbumGalleryViewerProps) {
               key={item.id}
               type="button"
               onClick={() => setSelectedIndex(index)}
-              className={`overflow-hidden rounded-lg border ${isActive ? "border-green-500" : "border-gray-200"}`}
+              className={`w-32 flex-shrink-0 overflow-hidden rounded-lg border ${isActive ? "border-green-500" : "border-gray-200"}`}
               aria-label={`เลือกรูปที่ ${index + 1}`}
             >
-              <img src={item.fileUrl} alt={item.title || "thumbnail"} className="h-20 w-28 object-cover" />
+              <div className="aspect-video">
+                <img src={item.fileUrl} alt={item.title || "thumbnail"} className="h-full w-full object-cover" />
+              </div>
             </button>
           );
         })}

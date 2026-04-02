@@ -27,11 +27,11 @@ export default async function AdminNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-gray-900">การแจ้งเตือน</h1>
           {unreadCount > 0 && (
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium">
+            <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
               {unreadCount} ข้อความใหม่
             </span>

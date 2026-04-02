@@ -16,6 +16,7 @@ import {
   Shield,
   Bell,
   Upload,
+  MapPin,
 } from "lucide-react";
 
 export type AdminMenuItem = {
@@ -29,6 +30,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
   { href: "/admin/calendar", label: "ปฏิทิน", icon: Calendar },
   { href: "/admin/gallery", label: "แกลเลอรี", icon: Image },
+  { href: "/admin/places", label: "สถานที่สำคัญ", icon: MapPin },
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
   { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
   { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
