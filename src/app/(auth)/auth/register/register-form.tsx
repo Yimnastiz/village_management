@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ type RegistrationMode = "resident" | "headman";
 
 export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
   const [firstName, setFirstName] = useState("");
@@ -46,6 +47,32 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const loginHref = callbackUrl
     ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/login";
+
+  // Populate form from URL params (when coming back from verify-otp)
+  useEffect(() => {
+    const modeParam = searchParams.get("mode");
+    const firstNameParam = searchParams.get("firstName");
+    const lastNameParam = searchParams.get("lastName");
+    const phoneParam = searchParams.get("phone");
+    const nationalIdParam = searchParams.get("nationalId");
+    const provinceParam = searchParams.get("province");
+    const districtParam = searchParams.get("district");
+    const subdistrictParam = searchParams.get("subdistrict");
+    const villageIdParam = searchParams.get("villageId");
+
+    if (modeParam === "headman") {
+      setRegistrationMode("headman");
+    }
+
+    if (firstNameParam) setFirstName(firstNameParam);
+    if (lastNameParam) setLastName(lastNameParam);
+    if (phoneParam) setPhone(phoneParam);
+    if (nationalIdParam) setNationalId(nationalIdParam);
+    if (provinceParam) setProvince(provinceParam);
+    if (districtParam) setDistrict(districtParam);
+    if (subdistrictParam) setSubdistrict(subdistrictParam);
+    if (villageIdParam) setVillageId(villageIdParam);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!isPrivacyModalOpen) {
@@ -139,6 +166,40 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     if (!/^\d{13}$/.test(normalizedNationalId)) {
       setError("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก");
       return;
+    }
+
+    // Validate headman data before sending OTP
+    if (registrationMode === "headman") {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const validateResponse = await fetch("/api/auth/validate-headman", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            phoneNumber: normalizedPhone,
+            nationalId: normalizedNationalId,
+            province,
+            district,
+            subdistrict,
+            villageId,
+          }),
+        });
+
+        if (!validateResponse.ok) {
+          const errorData = await validateResponse.json().catch(() => ({ error: "การตรวจสอบข้อมูลล้มเหลว" }));
+          setError(errorData.error || "ข้อมูลไม่ถูกต้องสำหรับผู้ใหญ่บ้าน");
+          setIsLoading(false);
+          return;
+        }
+      } catch (err) {
+        setError("ไม่สามารถตรวจสอบข้อมูลได้ กรุณาลองใหม่");
+        setIsLoading(false);
+        return;
+      }
     }
 
     setIsLoading(true);

@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect(computeLandingPath(session));
   }
 
-  const [userProfile, unreadNotificationCount] = await Promise.all([
+  const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.id },
       select: { name: true, image: true },
@@ -31,7 +31,20 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         status: NotificationStatus.UNREAD,
       },
     }),
+    prisma.villageMembership.findFirst({
+      where: { userId: session.id, status: "ACTIVE" },
+      select: {
+        village: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
+
+  const villageName = villageProfile?.village?.name ?? null;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -42,6 +55,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           userName={userProfile?.name || session.name}
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
+          villageName={villageName}
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>

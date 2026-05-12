@@ -1,5 +1,6 @@
 import { AlertCircle, Calendar, CalendarDays, Home, Newspaper, Bell } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
+import { WelcomeBanner } from "@/components/ui/welcome-banner";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
@@ -109,9 +110,15 @@ export default async function ResidentDashboard() {
           address: true,
         },
       },
+      village: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
+  const villageName = primaryMembership?.village?.name ?? "หมู่บ้าน";
   const effectiveHouseId = membership.houseId ?? primaryMembership?.houseId ?? null;
 
   const startOfToday = new Date();
@@ -274,9 +281,14 @@ export default async function ResidentDashboard() {
 
   return (
     <div className="space-y-6">
+      <WelcomeBanner
+        villageName={villageName}
+        userRole="resident"
+        userName={session.name}
+      />
+
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">สวัสดี, {session.name || "ลูกบ้าน"}!</h1>
-        <p className="text-gray-500 text-sm mt-1">ภาพรวมข้อมูลของคุณ</p>
+      <p className="text-gray-500 text-sm mt-1"> ภาพรวมข้อมูลของคุณ</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

@@ -31,7 +31,8 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
   }, [userArea]);
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
-  const adminVillageLabel = `แอดมิน${villageName?.trim() ? villageName.trim() : "หมู่บ้าน"}`;
+  const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
+  const adminVillageLabel = villageName?.trim() ? `แอดมินหมู่บ้าน ${villageName.trim()}` : "แอดมินหมู่บ้าน";
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 4);
@@ -73,13 +74,13 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
         </button>
         {isAdminArea ? (
           <div className="flex items-center gap-2">
-            <span className="max-w-36 truncate rounded-full bg-green-500 px-2.5 py-1 text-xs font-semibold text-white md:max-w-none">
+            <span className="max-w-[14rem] truncate rounded-full bg-green-500 px-2.5 py-1 text-sm font-semibold text-white md:max-w-none">
               {adminVillageLabel}
             </span>
           </div>
         ) : (
-          <p className="hidden text-sm font-semibold text-gray-800 md:block">
-            {villageName?.trim() || "-"}
+          <p className="text-sm font-semibold text-gray-800">
+            {residentVillageLabel}
           </p>
         )}
       </div>

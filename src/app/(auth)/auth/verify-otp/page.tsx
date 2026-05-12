@@ -183,6 +183,38 @@ function VerifyOTPContent() {
         กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {phone || "ของคุณ"}
       </p>
 
+      {mode === "signup" && name && nationalId && province && district && subdistrict && villageId && (
+        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+          <p className="text-sm text-gray-700 mb-2">ข้อมูลการสมัคร:</p>
+          <p className="text-sm text-gray-600">ชื่อ: {name}</p>
+          <p className="text-sm text-gray-600">เบอร์โทร: {phone}</p>
+          <p className="text-sm text-gray-600">หมู่บ้าน: {province} {district} {subdistrict}</p>
+          <button
+            type="button"
+            onClick={() => {
+              const params = new URLSearchParams({
+                mode: registrationMode,
+                firstName: name.split(' ')[0] || '',
+                lastName: name.split(' ').slice(1).join(' ') || '',
+                phone,
+                nationalId,
+                province,
+                district,
+                subdistrict,
+                villageId,
+              });
+              if (callbackUrl) {
+                params.set("callbackUrl", callbackUrl);
+              }
+              router.push(`/auth/register?${params.toString()}`);
+            }}
+            className="mt-2 text-sm text-green-600 hover:underline"
+          >
+            แก้ไขข้อมูลการสมัคร
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="flex gap-2 justify-center">
           {otp.map((digit, i) => (
