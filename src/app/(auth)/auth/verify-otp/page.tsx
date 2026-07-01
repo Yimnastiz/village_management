@@ -1,11 +1,63 @@
 "use client";
 
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
 type VerifyMode = "signin" | "signup";
+
+type RegistrationDraft = {
+  mode: VerifyMode;
+  phone?: string;
+  registrationMode?: string;
+  name?: string;
+  nationalId?: string;
+  province?: string;
+  district?: string;
+  subdistrict?: string;
+  villageId?: string;
+  callbackUrl?: string;
+  savedAt: number;
+};
+
+const REGISTRATION_DRAFT_KEY = "village_auth_registration_draft";
+
+function loadRegistrationDraft(): RegistrationDraft | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(REGISTRATION_DRAFT_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as RegistrationDraft;
+    if (!parsed?.savedAt || typeof parsed.savedAt !== "number") {
+      return null;
+    }
+
+    if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) {
+      window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearRegistrationDraft() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
+}
 
 function VerifyOTPContent() {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -17,17 +69,27 @@ function VerifyOTPContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const mode = (searchParams.get("mode") ?? "signin") as VerifyMode;
-  const phone = (searchParams.get("phone") ?? "").trim();
-  const nationalId = (searchParams.get("nationalId") ?? "").trim();
-  const registrationModeRaw = (searchParams.get("registrationMode") ?? "resident").trim();
+  const [draft, setDraft] = useState<RegistrationDraft | null>(null);
+
+  useEffect(() => {
+    const storedDraft = loadRegistrationDraft();
+    if (storedDraft) {
+      setDraft(storedDraft);
+    }
+  }, []);
+
+  const urlMode = searchParams.get("mode");
+  const mode = ((urlMode ?? draft?.mode ?? "signin") as VerifyMode);
+  const phone = (searchParams.get("phone") ?? (mode === "signup" ? draft?.phone : "") ?? "").trim();
+  const nationalId = (searchParams.get("nationalId") ?? (mode === "signup" ? draft?.nationalId : "") ?? "").trim();
+  const registrationModeRaw = (searchParams.get("registrationMode") ?? (mode === "signup" ? draft?.registrationMode : "") ?? "resident").trim();
   const registrationMode = registrationModeRaw === "headman" ? "headman" : "resident";
-  const name = (searchParams.get("name") ?? "").trim();
-  const province = (searchParams.get("province") ?? "").trim();
-  const district = (searchParams.get("district") ?? "").trim();
-  const subdistrict = (searchParams.get("subdistrict") ?? "").trim();
-  const villageId = (searchParams.get("villageId") ?? "").trim();
-  const callbackUrl = (searchParams.get("callbackUrl") ?? "").trim() || null;
+  const name = (searchParams.get("name") ?? (mode === "signup" ? draft?.name : "") ?? "").trim();
+  const province = (searchParams.get("province") ?? (mode === "signup" ? draft?.province : "") ?? "").trim();
+  const district = (searchParams.get("district") ?? (mode === "signup" ? draft?.district : "") ?? "").trim();
+  const subdistrict = (searchParams.get("subdistrict") ?? (mode === "signup" ? draft?.subdistrict : "") ?? "").trim();
+  const villageId = (searchParams.get("villageId") ?? (mode === "signup" ? draft?.villageId : "") ?? "").trim();
+  const callbackUrl = (searchParams.get("callbackUrl") ?? (mode === "signup" ? draft?.callbackUrl : "") ?? "").trim() || null;
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) {
@@ -169,6 +231,9 @@ function VerifyOTPContent() {
       }
 
       router.push(callbackUrl ?? resolvedLandingPath ?? "/auth/binding");
+      if (mode === "signup") {
+        clearRegistrationDraft();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
     } finally {
@@ -242,17 +307,24 @@ function VerifyOTPContent() {
         </Button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-gray-500">
-        ยังไม่ได้รับ OTP?{" "}
-        <button
-          type="button"
-          onClick={handleResend}
-          disabled={isResending}
-          className="text-green-600 hover:underline disabled:opacity-50"
-        >
-          {isResending ? "กำลังส่ง..." : "ส่งอีกครั้ง"}
-        </button>
-      </p>
+      <div className="mt-4 space-y-3 text-center text-sm text-gray-500">
+        <p>
+          ยังไม่ได้รับ OTP?{' '}
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={isResending}
+            className="text-green-600 hover:underline disabled:opacity-50"
+          >
+            {isResending ? "กำลังส่ง..." : "ส่งอีกครั้ง"}
+          </button>
+        </p>
+        <p>
+          <Link href="/" className="text-green-600 hover:underline">
+            กลับสู่หน้าเว็บไซต์สาธารณะ
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

@@ -12,6 +12,8 @@ function normalizePhone10(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 10);
 }
 
+const REGISTRATION_DRAFT_KEY = "village_auth_registration_draft";
+
 type VillageOption = {
   id: string;
   name: string;
@@ -29,6 +31,66 @@ type RegisterFormProps = {
 
 type RegistrationMode = "resident" | "headman";
 
+type RegistrationDraft = {
+  registrationMode: RegistrationMode;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  nationalId: string;
+  province: string;
+  district: string;
+  subdistrict: string;
+  villageId: string;
+  callbackUrl?: string;
+  savedAt: number;
+};
+
+function loadRegistrationDraft(): RegistrationDraft | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(REGISTRATION_DRAFT_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as RegistrationDraft;
+    if (!parsed?.savedAt || typeof parsed.savedAt !== "number") {
+      return null;
+    }
+
+    if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) {
+      window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
+      return null;
+    }
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(
+    REGISTRATION_DRAFT_KEY,
+    JSON.stringify({ ...draft, savedAt: Date.now() })
+  );
+}
+
+function clearRegistrationDraft() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
+}
+
 export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -44,6 +106,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const [villageId, setVillageId] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const loginHref = callbackUrl
     ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/login";
@@ -72,7 +135,42 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     if (districtParam) setDistrict(districtParam);
     if (subdistrictParam) setSubdistrict(subdistrictParam);
     if (villageIdParam) setVillageId(villageIdParam);
-  }, [searchParams]);
+
+    if (!draftLoaded && !phoneParam && !firstNameParam && !lastNameParam) {
+      const storedDraft = loadRegistrationDraft();
+      if (storedDraft) {
+        setRegistrationMode(storedDraft.registrationMode);
+        setFirstName(storedDraft.firstName);
+        setLastName(storedDraft.lastName);
+        setPhone(storedDraft.phone);
+        setNationalId(storedDraft.nationalId);
+        setProvince(storedDraft.province);
+        setDistrict(storedDraft.district);
+        setSubdistrict(storedDraft.subdistrict);
+        setVillageId(storedDraft.villageId);
+      }
+      setDraftLoaded(true);
+    }
+  }, [searchParams, draftLoaded]);
+
+  useEffect(() => {
+    if (!draftLoaded) {
+      return;
+    }
+
+    saveRegistrationDraft({
+      registrationMode,
+      firstName,
+      lastName,
+      phone,
+      nationalId,
+      province,
+      district,
+      subdistrict,
+      villageId,
+      callbackUrl,
+    });
+  }, [callbackUrl, draftLoaded, district, firstName, lastName, nationalId, phone, province, registrationMode, subdistrict, villageId]);
 
   useEffect(() => {
     if (!isPrivacyModalOpen) {
@@ -205,7 +303,37 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     setIsLoading(true);
     setError(null);
 
+    saveRegistrationDraft({
+      registrationMode,
+      firstName: normalizedFirstName,
+      lastName: normalizedLastName,
+      phone: normalizedPhone,
+      nationalId: normalizedNationalId,
+      province,
+      district,
+      subdistrict,
+      villageId,
+      callbackUrl,
+    });
+
     try {
+      const checkResponse = await fetch("/api/auth/check-phone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phoneNumber: normalizedPhone }),
+      });
+
+      if (!checkResponse.ok) {
+        const checkError = (await checkResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(
+          checkError?.error ?? "ไม่สามารถตรวจสอบเบอร์โทรศัพท์ได้ กรุณาลองใหม่"
+        );
+      }
+
       const result = await authClient.phoneNumber.sendOtp({
         phoneNumber: normalizedPhone,
       });
@@ -333,73 +461,92 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           required
         />
 
-        <Input
-          label="จังหวัด"
-          name="province"
-          list="register-province-options"
-          autoComplete="off"
-          value={province}
-          onChange={(e) => {
-            setProvince(e.target.value);
-            setDistrict("");
-            setSubdistrict("");
-            setVillageId("");
-            setError(null);
-          }}
-          placeholder="พิมพ์หรือเลือกจังหวัด"
-          helperText="พิมพ์ค้นหาได้ หรือเลือกจากรายการด้านล่าง"
-          required
-        />
-        <datalist id="register-province-options">
-          {provinceOptions.map((provinceName) => (
-            <option key={provinceName} value={provinceName} />
-          ))}
-        </datalist>
+        <div className="space-y-1">
+          <label htmlFor="province" className="text-sm font-medium text-gray-700">
+            จังหวัด
+          </label>
+          <select
+            id="province"
+            name="province"
+            value={province}
+            onChange={(e) => {
+              setProvince(e.target.value);
+              setDistrict("");
+              setSubdistrict("");
+              setVillageId("");
+              setError(null);
+            }}
+            required
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
+          >
+            <option value="">เลือกจังหวัด</option>
+            {provinceOptions.map((provinceName) => (
+              <option key={provinceName} value={provinceName}>
+                {provinceName}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">เลือกจังหวัดจากรายการ</p>
+        </div>
 
-        <Input
-          label="อำเภอ"
-          name="district"
-          list="register-district-options"
-          autoComplete="off"
-          value={district}
-          onChange={(e) => {
-            setDistrict(e.target.value);
-            setSubdistrict("");
-            setVillageId("");
-            setError(null);
-          }}
-          placeholder={province ? "พิมพ์หรือเลือกอำเภอ" : "เลือกจังหวัดก่อน"}
-          helperText={province ? "พิมพ์ค้นหาได้ หรือเลือกจากรายการด้านล่าง" : undefined}
-          required
-          disabled={!province}
-        />
-        <datalist id="register-district-options">
-          {districtOptions.map((districtName) => (
-            <option key={districtName} value={districtName} />
-          ))}
-        </datalist>
+        <div className="space-y-1">
+          <label htmlFor="district" className="text-sm font-medium text-gray-700">
+            อำเภอ
+          </label>
+          <select
+            id="district"
+            name="district"
+            value={district}
+            onChange={(e) => {
+              setDistrict(e.target.value);
+              setSubdistrict("");
+              setVillageId("");
+              setError(null);
+            }}
+            required
+            disabled={!province}
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            <option value="">{province ? "เลือกอำเภอ" : "เลือกจังหวัดก่อน"}</option>
+            {districtOptions.map((districtName) => (
+              <option key={districtName} value={districtName}>
+                {districtName}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">
+            {province ? "เลือกอำเภอจากรายการ" : "เลือกจังหวัดก่อนเพื่อเปิดอำเภอ"}
+          </p>
+        </div>
 
-        <Input
-          label="ตำบล"
-          name="subdistrict"
-          list="register-subdistrict-options"
-          autoComplete="off"
-          value={subdistrict}
-          onChange={(e) => {
-            setSubdistrict(e.target.value);
-            setVillageId("");
-            setError(null);
-          }}
-          placeholder={district ? "พิมพ์หรือเลือกตำบล" : "เลือกอำเภอก่อน"}
-          helperText={district ? "พิมพ์ค้นหาได้ หรือเลือกจากรายการด้านล่าง" : undefined}
-          required
-          disabled={!district}
-        />
-        <datalist id="register-subdistrict-options">
-          {subdistrictOptions.map((subdistrictName) => (
-            <option key={subdistrictName} value={subdistrictName} />
-          ))}
-        </datalist>
+        <div className="space-y-1">
+          <label htmlFor="subdistrict" className="text-sm font-medium text-gray-700">
+            ตำบล
+          </label>
+          <select
+            id="subdistrict"
+            name="subdistrict"
+            value={subdistrict}
+            onChange={(e) => {
+              setSubdistrict(e.target.value);
+              setVillageId("");
+              setError(null);
+            }}
+            required
+            disabled={!district}
+            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            <option value="">{district ? "เลือกตำบล" : "เลือกอำเภอก่อน"}</option>
+            {subdistrictOptions.map((subdistrictName) => (
+              <option key={subdistrictName} value={subdistrictName}>
+                {subdistrictName}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500">
+            {district ? "เลือกตำบลจากรายการ" : "เลือกอำเภอก่อนเพื่อเปิดตำบล"}
+          </p>
+        </div>
 
         <div className="w-full">
           <label htmlFor="register-village" className="mb-1 block text-sm font-medium text-gray-700">
