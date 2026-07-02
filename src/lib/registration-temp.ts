@@ -36,7 +36,7 @@ export function createRegistrationCookie(response: NextResponse, registrationId:
 }
 
 export function clearRegistrationCookie(response: NextResponse) {
-  response.cookies.delete(REGISTRATION_COOKIE_NAME, { path: "/" });
+  response.cookies.delete(REGISTRATION_COOKIE_NAME);
 }
 
 export async function getRegistrationFromRequest(

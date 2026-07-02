@@ -13,7 +13,10 @@ import {
 const startRegistrationSchema = z.object({
   phoneNumber: z.string().trim().min(1),
   registrationMode: z.enum(["resident", "headman"]).default("resident"),
-  name: z.string().trim().min(1),
+  // accept either `name` or `firstName`+`lastName` from different clients
+  name: z.string().trim().min(1).optional(),
+  firstName: z.string().trim().optional(),
+  lastName: z.string().trim().optional(),
   nationalId: z.string().trim().regex(/^\d{13}$/),
   province: z.string().trim().min(1),
   district: z.string().trim().min(1),
@@ -23,11 +26,24 @@ const startRegistrationSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const payload = await request.json().catch(() => null);
-  const parsed = startRegistrationSchema.safeParse(payload);
+  let payload: any = null;
+  try {
+    payload = await request.json();
+  } catch (err) {
+    try {
+      const raw = await request.text();
+      console.error("start-registration: failed json.parse, raw body:", raw);
+      payload = raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      console.error("start-registration: unable to parse body", e);
+      payload = null;
+    }
+  }
 
+  const parsed = startRegistrationSchema.safeParse(payload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
+    console.error("start-registration: validation failed", parsed.error.format());
+    return NextResponse.json({ error: "Invalid registration payload", details: parsed.error.format() }, { status: 400 });
   }
 
   const normalizedPhone = normalizePhone10(parsed.data.phoneNumber);
@@ -49,6 +65,12 @@ export async function POST(request: NextRequest) {
   const expiresAt = new Date(Date.now() + REGISTRATION_OTP_TTL_SECONDS * 1000);
 
   let registration;
+  // compute name if provided as firstName+lastName
+  const providedName = parsed.data.name ?? `${parsed.data.firstName ?? ""} ${parsed.data.lastName ?? ""}`.trim();
+  if (!providedName) {
+    return NextResponse.json({ error: "Invalid registration payload: name missing" }, { status: 400 });
+  }
+
   const registrationMode = parsed.data.registrationMode.toUpperCase() as "RESIDENT" | "HEADMAN";
 
   if (existingPending) {
@@ -56,7 +78,7 @@ export async function POST(request: NextRequest) {
       where: { id: existingPending.id },
       data: {
         registrationMode,
-        name: parsed.data.name,
+        name: providedName,
         nationalId: parsed.data.nationalId,
         province: parsed.data.province,
         district: parsed.data.district,
@@ -72,7 +94,7 @@ export async function POST(request: NextRequest) {
       data: {
         phoneNumber: normalizedPhone,
         registrationMode,
-        name: parsed.data.name,
+        name: providedName,
         nationalId: parsed.data.nationalId,
         province: parsed.data.province,
         district: parsed.data.district,
@@ -84,9 +106,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await auth.api.sendPhoneNumberOTP({
-    phoneNumber: normalizedPhone,
-  });
+  await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: normalizedPhone } });
 
   const response = NextResponse.json({ ok: true, registrationId: registration.id });
   createRegistrationCookie(response, registration.id);

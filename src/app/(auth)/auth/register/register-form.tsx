@@ -304,7 +304,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     setError(null);
 
     saveRegistrationDraft({
-      mode: "signup",
       registrationMode,
       firstName: normalizedFirstName,
       lastName: normalizedLastName,

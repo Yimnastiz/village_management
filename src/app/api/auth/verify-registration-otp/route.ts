@@ -40,10 +40,7 @@ export async function POST(request: NextRequest) {
 
   const phoneNumber = `+66${normalizedPhoneNumber.slice(1)}`;
 
-  const verifyResult = await auth.api.verifyPhoneNumber({
-    phoneNumber,
-    code: parsed.data.code,
-  });
+  const verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
 
   if (!verifyResult?.status) {
     return NextResponse.json({ error: "Invalid or expired OTP." }, { status: 401 });
