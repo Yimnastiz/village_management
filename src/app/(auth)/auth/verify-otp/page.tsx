@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useRouter, useSearchParams } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 
 type VerifyMode = "signin" | "signup";
 
@@ -65,11 +64,13 @@ function VerifyOTPContent() {
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [isServerDraftLoaded, setIsServerDraftLoaded] = useState(false);
+  const [draft, setDraft] = useState<RegistrationDraft | null>(null);
+  const [serverDraft, setServerDraft] = useState<RegistrationDraft | null>(null);
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const [draft, setDraft] = useState<RegistrationDraft | null>(null);
 
   useEffect(() => {
     const storedDraft = loadRegistrationDraft();
@@ -78,18 +79,55 @@ function VerifyOTPContent() {
     }
   }, []);
 
+  useEffect(() => {
+    const modeParam = searchParams.get("mode") as VerifyMode | null;
+    const initialMode = modeParam ?? draft?.mode ?? "signin";
+
+    if (initialMode !== "signup" || isServerDraftLoaded) {
+      return;
+    }
+
+    fetch("/api/auth/resume-registration", {
+      method: "GET",
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null) as { error?: string } | null;
+          throw new Error(errorBody?.error ?? "ไม่มีการสมัครสมาชิกที่รอดำเนินการหรือหมดเวลาแล้ว");
+        }
+
+        const data = (await response.json()) as {
+          ok: boolean;
+          data?: RegistrationDraft;
+        };
+
+        if (!data.ok || !data.data) {
+          throw new Error("ไม่มีการสมัครสมาชิกที่รอดำเนินการหรือหมดเวลาแล้ว");
+        }
+
+        setServerDraft(data.data);
+      })
+      .catch((err) => {
+        setResumeError(err instanceof Error ? err.message : "ไม่สามารถโหลดการสมัครสมาชิกที่ค้างอยู่ได้");
+      })
+      .finally(() => {
+        setIsServerDraftLoaded(true);
+      });
+  }, [draft, isServerDraftLoaded, searchParams]);
+
   const urlMode = searchParams.get("mode");
-  const mode = ((urlMode ?? draft?.mode ?? "signin") as VerifyMode);
-  const phone = (searchParams.get("phone") ?? (mode === "signup" ? draft?.phone : "") ?? "").trim();
-  const nationalId = (searchParams.get("nationalId") ?? (mode === "signup" ? draft?.nationalId : "") ?? "").trim();
-  const registrationModeRaw = (searchParams.get("registrationMode") ?? (mode === "signup" ? draft?.registrationMode : "") ?? "resident").trim();
+  const mode = ((urlMode ?? draft?.mode ?? serverDraft?.mode ?? "signin") as VerifyMode);
+  const phone = (searchParams.get("phone") ?? (mode === "signup" ? draft?.phone ?? serverDraft?.phone : "") ?? "").trim();
+  const nationalId = (searchParams.get("nationalId") ?? (mode === "signup" ? draft?.nationalId ?? serverDraft?.nationalId : "") ?? "").trim();
+  const registrationModeRaw = (searchParams.get("registrationMode") ?? (mode === "signup" ? draft?.registrationMode ?? serverDraft?.registrationMode : "") ?? "resident").trim();
   const registrationMode = registrationModeRaw === "headman" ? "headman" : "resident";
-  const name = (searchParams.get("name") ?? (mode === "signup" ? draft?.name : "") ?? "").trim();
-  const province = (searchParams.get("province") ?? (mode === "signup" ? draft?.province : "") ?? "").trim();
-  const district = (searchParams.get("district") ?? (mode === "signup" ? draft?.district : "") ?? "").trim();
-  const subdistrict = (searchParams.get("subdistrict") ?? (mode === "signup" ? draft?.subdistrict : "") ?? "").trim();
-  const villageId = (searchParams.get("villageId") ?? (mode === "signup" ? draft?.villageId : "") ?? "").trim();
-  const callbackUrl = (searchParams.get("callbackUrl") ?? (mode === "signup" ? draft?.callbackUrl : "") ?? "").trim() || null;
+  const name = (searchParams.get("name") ?? (mode === "signup" ? draft?.name ?? serverDraft?.name : "") ?? "").trim();
+  const province = (searchParams.get("province") ?? (mode === "signup" ? draft?.province ?? serverDraft?.province : "") ?? "").trim();
+  const district = (searchParams.get("district") ?? (mode === "signup" ? draft?.district ?? serverDraft?.district : "") ?? "").trim();
+  const subdistrict = (searchParams.get("subdistrict") ?? (mode === "signup" ? draft?.subdistrict ?? serverDraft?.subdistrict : "") ?? "").trim();
+  const villageId = (searchParams.get("villageId") ?? (mode === "signup" ? draft?.villageId ?? serverDraft?.villageId : "") ?? "").trim();
+  const callbackUrl = (searchParams.get("callbackUrl") ?? (mode === "signup" ? draft?.callbackUrl ?? serverDraft?.callbackUrl : "") ?? "").trim() || null;
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) {
@@ -122,13 +160,30 @@ function VerifyOTPContent() {
     setSuccessMessage(null);
 
     try {
-      const result = await authClient.phoneNumber.sendOtp({ phoneNumber: phone });
+      const resendResponse = await fetch("/api/auth/start-registration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          phoneNumber: phone,
+          registrationMode,
+          name,
+          nationalId,
+          province,
+          district,
+          subdistrict,
+          villageId,
+          callbackUrl,
+        }),
+      });
 
-      if ((result as { error?: { message?: string } | null })?.error) {
-        throw new Error(
-          (result as { error?: { message?: string } | null }).error?.message ??
-            "ส่ง OTP ซ้ำไม่สำเร็จ"
-        );
+      if (!resendResponse.ok) {
+        const resendError = (await resendResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(resendError?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
       }
 
       setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
@@ -158,82 +213,43 @@ function VerifyOTPContent() {
     setSuccessMessage(null);
 
     try {
-      const payload: Record<string, unknown> = {
-        phoneNumber: phone,
-        code,
-      };
+      const verifyResponse = await fetch("/api/auth/verify-registration-otp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          code,
+        }),
+      });
 
-      if (mode === "signup" && name) {
-        payload.name = name;
-      }
-
-      const verifyResult = await authClient.phoneNumber.verify(payload);
-
-      if ((verifyResult as { error?: { message?: string } | null })?.error) {
-        throw new Error(
-          (verifyResult as { error?: { message?: string } | null }).error?.message ??
-            "Invalid or expired OTP."
-        );
+      if (!verifyResponse.ok) {
+        const verifyError = (await verifyResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
+        throw new Error(verifyError?.error ?? "Invalid or expired OTP.");
       }
 
       let resolvedLandingPath: string | null = null;
 
-      if (mode === "signup") {
-        if (!name || !nationalId || !province || !district || !subdistrict || !villageId) {
-          throw new Error("ข้อมูลสมัครสมาชิกไม่ครบถ้วน กรุณาเริ่มสมัครใหม่");
-        }
+      const postLoginResponse = await fetch("/api/auth/post-login-route", {
+        method: "GET",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-        const completeSignupResponse = await fetch("/api/auth/complete-signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            name,
-            nationalId,
-            registrationMode,
-            province,
-            district,
-            subdistrict,
-            villageId,
-          }),
-        });
-
-        if (!completeSignupResponse.ok) {
-          const failure = (await completeSignupResponse.json().catch(() => null)) as
-            | { error?: string }
-            | null;
-          throw new Error(failure?.error ?? "Failed to complete signup flow.");
-        }
-
-        const completeSignupData = (await completeSignupResponse.json()) as {
+      if (postLoginResponse.ok) {
+        const postLoginData = (await postLoginResponse.json()) as {
           landingPath?: string;
         };
-        resolvedLandingPath = completeSignupData.landingPath ?? null;
-      }
-
-      if (!resolvedLandingPath) {
-        const postLoginResponse = await fetch("/api/auth/post-login-route", {
-          method: "GET",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (postLoginResponse.ok) {
-          const postLoginData = (await postLoginResponse.json()) as {
-            landingPath?: string;
-          };
-          resolvedLandingPath = postLoginData.landingPath ?? null;
-        }
+        resolvedLandingPath = postLoginData.landingPath ?? null;
       }
 
       router.push(callbackUrl ?? resolvedLandingPath ?? "/auth/binding");
-      if (mode === "signup") {
-        clearRegistrationDraft();
-      }
+      clearRegistrationDraft();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
     } finally {
@@ -248,35 +264,74 @@ function VerifyOTPContent() {
         กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {phone || "ของคุณ"}
       </p>
 
+      {resumeError && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {resumeError}
+        </div>
+      )}
+
       {mode === "signup" && name && nationalId && province && district && subdistrict && villageId && (
         <div className="mb-4 p-3 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-700 mb-2">ข้อมูลการสมัคร:</p>
           <p className="text-sm text-gray-600">ชื่อ: {name}</p>
           <p className="text-sm text-gray-600">เบอร์โทร: {phone}</p>
           <p className="text-sm text-gray-600">หมู่บ้าน: {province} {district} {subdistrict}</p>
-          <button
-            type="button"
-            onClick={() => {
-              const params = new URLSearchParams({
-                mode: registrationMode,
-                firstName: name.split(' ')[0] || '',
-                lastName: name.split(' ').slice(1).join(' ') || '',
-                phone,
-                nationalId,
-                province,
-                district,
-                subdistrict,
-                villageId,
-              });
-              if (callbackUrl) {
-                params.set("callbackUrl", callbackUrl);
-              }
-              router.push(`/auth/register?${params.toString()}`);
-            }}
-            className="mt-2 text-sm text-green-600 hover:underline"
-          >
-            แก้ไขข้อมูลการสมัคร
-          </button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const params = new URLSearchParams({
+                  mode: registrationMode,
+                  firstName: name.split(" ")[0] || "",
+                  lastName: name.split(" ").slice(1).join(" ") || "",
+                  phone,
+                  nationalId,
+                  province,
+                  district,
+                  subdistrict,
+                  villageId,
+                });
+                if (callbackUrl) {
+                  params.set("callbackUrl", callbackUrl);
+                }
+                router.push(`/auth/register?${params.toString()}`);
+              }}
+              className="text-sm text-green-600 hover:underline"
+            >
+              แก้ไขข้อมูลการสมัคร
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                setIsLoading(true);
+                setError(null);
+                try {
+                  const cancelResponse = await fetch("/api/auth/cancel-registration", {
+                    method: "POST",
+                    credentials: "include",
+                  });
+
+                  if (!cancelResponse.ok) {
+                    const cancelError = (await cancelResponse.json().catch(() => null)) as
+                      | { error?: string }
+                      | null;
+                    throw new Error(
+                      cancelError?.error ?? "ไม่สามารถยกเลิกการสมัครสมาชิกได้ กรุณาลองใหม่"
+                    );
+                  }
+
+                  router.push(`/auth/register${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "ไม่สามารถยกเลิกการสมัครสมาชิกได้");
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              className="text-sm text-red-600 hover:underline"
+            >
+              ยกเลิกการสมัคร
+            </button>
+          </div>
         </div>
       )}
 

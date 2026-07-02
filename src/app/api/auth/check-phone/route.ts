@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const candidates = toPhoneCandidates(parsed.data.phoneNumber);
   if (candidates.length === 0) {
     return NextResponse.json(
-      { error: "Phone number must be exactly 10 digits." }, 
+      { error: "Phone number must be exactly 10 digits." },
       { status: 400 }
     );
   }
@@ -48,25 +48,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบหรือใช้เบอร์อื่น" },
       { status: 409 }
-    );
-  }
-
-  const existingVerification = await prisma.authVerification.findFirst({
-    where: {
-      identifier: { in: candidates },
-      expiresAt: { gt: new Date() },
-    },
-    orderBy: { expiresAt: "desc" },
-    select: { id: true, identifier: true, expiresAt: true },
-  });
-
-  if (existingVerification) {
-    return NextResponse.json(
-      {
-        error:
-          "หมายเลขนี้มีรหัส OTP รอการยืนยันอยู่ โปรดลองอีกครั้งหลังจากรหัส OTP หมดอายุ หรือใช้เบอร์โทรศัพท์อื่น",
-      },
-      { status: 429 }
     );
   }
 

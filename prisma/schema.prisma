@@ -20,6 +20,17 @@ enum VillageMembershipRole {
   RESIDENT
 }
 
+enum RegistrationMode {
+  RESIDENT
+  HEADMAN
+}
+
+enum RegistrationTempStatus {
+  WAITING_OTP
+  VERIFIED
+  CANCELLED
+}
+
 enum MembershipStatus {
   PENDING
   ACTIVE
@@ -1103,6 +1114,27 @@ model AuthVerification {
   updatedAt  DateTime @updatedAt
 
   @@index([identifier])
+}
+
+model RegistrationTemp {
+  id               String                 @id @default(cuid())
+  phoneNumber      String
+  registrationMode RegistrationMode       @default(RESIDENT)
+  name             String
+  nationalId       String
+  province         String
+  district         String
+  subdistrict      String
+  villageId        String
+  callbackUrl      String?
+  status           RegistrationTempStatus @default(WAITING_OTP)
+  expiresAt        DateTime
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([phoneNumber])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 model PhoneRoleSeed {

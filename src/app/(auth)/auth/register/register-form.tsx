@@ -304,6 +304,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     setError(null);
 
     saveRegistrationDraft({
+      mode: "signup",
       registrationMode,
       firstName: normalizedFirstName,
       lastName: normalizedLastName,
@@ -334,14 +335,30 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         );
       }
 
-      const result = await authClient.phoneNumber.sendOtp({
-        phoneNumber: normalizedPhone,
+      const startResponse = await fetch("/api/auth/start-registration", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: normalizedPhone,
+          registrationMode,
+          name: normalizedName,
+          nationalId: normalizedNationalId,
+          province,
+          district,
+          subdistrict,
+          villageId,
+          callbackUrl,
+        }),
       });
 
-      if ((result as { error?: { message?: string } | null })?.error) {
+      if (!startResponse.ok) {
+        const startError = (await startResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
         throw new Error(
-          (result as { error?: { message?: string } | null }).error?.message ??
-            "ส่ง OTP ไม่สำเร็จ"
+          startError?.error ?? "ไม่สามารถเริ่มการสมัครสมาชิกได้ กรุณาลองใหม่"
         );
       }
 

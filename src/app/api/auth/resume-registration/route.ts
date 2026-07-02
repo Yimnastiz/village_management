@@ -1,0 +1,27 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getRegistrationFromRequest } from "@/lib/registration-temp";
+
+export async function GET(request: NextRequest) {
+  const registration = await getRegistrationFromRequest(request);
+
+  if (!registration) {
+    return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 404 });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    data: {
+      mode: "signup",
+      phoneNumber: registration.phoneNumber,
+      registrationMode: registration.registrationMode.toLowerCase(),
+      name: registration.name,
+      nationalId: registration.nationalId,
+      province: registration.province,
+      district: registration.district,
+      subdistrict: registration.subdistrict,
+      villageId: registration.villageId,
+      callbackUrl: registration.callbackUrl,
+      expiresAt: registration.expiresAt.toISOString(),
+    },
+  });
+}
