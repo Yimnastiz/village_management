@@ -22,7 +22,8 @@ const startRegistrationSchema = z.object({
   district: z.string().trim().min(1),
   subdistrict: z.string().trim().min(1),
   villageId: z.string().trim().min(1),
-  callbackUrl: z.string().trim().optional(),
+  // accept null from some clients or a trimmed string
+  callbackUrl: z.string().trim().nullable().optional(),
 });
 
 export async function POST(request: NextRequest) {

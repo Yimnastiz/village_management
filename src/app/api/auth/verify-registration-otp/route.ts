@@ -40,7 +40,14 @@ export async function POST(request: NextRequest) {
 
   const phoneNumber = `+66${normalizedPhoneNumber.slice(1)}`;
 
-  const verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
+  let verifyResult: any;
+  try {
+    verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
+  } catch (err: any) {
+    console.error("verify-registration-otp: verifyPhoneNumber error", err);
+    // Map upstream OTP not found / invalid to 401 for client
+    return NextResponse.json({ error: "Invalid or expired OTP." }, { status: 401 });
+  }
 
   if (!verifyResult?.status) {
     return NextResponse.json({ error: "Invalid or expired OTP." }, { status: 401 });
