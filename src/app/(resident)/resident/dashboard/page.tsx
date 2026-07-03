@@ -7,6 +7,7 @@ import { NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
+import { CheckCircle2, FileText } from "lucide-react";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -15,11 +16,17 @@ function toThaiDate(date: Date) {
   return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
 }
 
-export default async function ResidentDashboard() {
+type PageProps = {
+  searchParams?: Promise<{ signup?: string }>;
+};
+
+export default async function ResidentDashboard({ searchParams }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
     redirect("/auth/login?callbackUrl=/resident/dashboard");
   }
+  const query = searchParams ? await searchParams : {};
+  const querySignupSuccess = query.signup === "success";
 
   const membership = getResidentMembership(session);
   if (!membership) {
@@ -46,13 +53,25 @@ export default async function ResidentDashboard() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">สวัสดี, {session.name || "ลูกบ้าน"}!</h1>
-          <p className="text-gray-500 text-sm mt-1">เริ่มต้นใช้งานด้วยการยืนยันสิทธิ์และผูกบัญชีกับหมู่บ้านของคุณ</p>
+          <p className="text-gray-500 text-sm mt-1">คุณเข้าสู่โหมด guest ได้แล้ว ตอนนี้ยังไม่ผูกเลขบ้าน จึงเห็นได้เฉพาะข้อมูลสาธารณะ</p>
         </div>
+
+        {querySignupSuccess && (
+          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
+              <div>
+                <p className="text-sm font-semibold text-green-900">สมัครสมาชิกเรียบร้อยแล้ว</p>
+                <p className="mt-1 text-sm text-green-800">คุณสามารถเข้าใช้งานเว็บในโหมด guest และกดขอผูกเลขบ้านจากเมนูได้เลย</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
           <p className="text-sm font-semibold text-amber-900">บัญชีของคุณยังไม่ผูกกับครัวเรือน</p>
           <p className="mt-1 text-sm text-amber-800">
-            คุณยังเข้าใช้งานบางเมนูไม่ได้จนกว่าจะผูกบัญชีเรียบร้อย
+            คุณยังเข้าใช้งานข้อมูลภายในหมู่บ้านไม่ได้จนกว่าจะผูกเลขบ้านและได้รับการอนุมัติ
             {pendingBindingRequest
               ? ` (ส่งคำขอแล้วเมื่อ ${toThaiDate(pendingBindingRequest.createdAt)})`
               : ""}
@@ -60,9 +79,10 @@ export default async function ResidentDashboard() {
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
               href={pendingBindingRequest ? "/auth/binding/pending" : "/auth/binding"}
-              className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
             >
-              {pendingBindingRequest ? "ดูสถานะคำขอผูกบัญชี" : "ไปผูกบัญชีตอนนี้"}
+              <FileText className="h-4 w-4" />
+              {pendingBindingRequest ? "ดูสถานะคำขอผูกเลขบ้าน" : "ขอผูกเลขบ้าน"}
             </Link>
             <Link
               href="/resident/notifications"
@@ -83,11 +103,11 @@ export default async function ResidentDashboard() {
             </ul>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-gray-900">เมนูที่เข้าใช้งานได้ทันที</h2>
+            <h2 className="text-sm font-semibold text-gray-900">เมนู guest ที่ใช้งานได้ทันที</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href="/resident/profile" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">โปรไฟล์</Link>
               <Link href="/resident/notifications" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">การแจ้งเตือน</Link>
-              <Link href="/resident/news" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">ข่าวหมู่บ้าน</Link>
+              <Link href="/auth/binding" className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200">ขอผูกเลขบ้าน</Link>
             </div>
           </div>
         </div>

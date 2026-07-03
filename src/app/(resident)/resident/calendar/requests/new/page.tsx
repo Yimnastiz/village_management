@@ -1,6 +1,14 @@
+import { redirect } from "next/navigation";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { CalendarRequestForm } from "../request-form";
 
-export default function ResidentCalendarRequestNewPage() {
+export default async function ResidentCalendarRequestNewPage() {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) redirect("/auth/login");
+
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
+
   return (
     <div className="space-y-4">
       <div>

@@ -5,10 +5,10 @@ import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 const STATUS_TEXT: Record<BindingRequestStatus, string> = {
-  PENDING: "Pending review",
-  APPROVED: "Approved",
-  REJECTED: "Rejected",
-  CANCELLED: "Cancelled",
+  PENDING: "รอพิจารณา",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ปฏิเสธแล้ว",
+  CANCELLED: "ยกเลิกแล้ว",
 };
 
 export default async function BindingPendingPage() {
@@ -48,27 +48,27 @@ export default async function BindingPendingPage() {
       >
         <Clock className={`h-8 w-8 ${isApproved ? "text-green-500" : "text-yellow-500"}`} />
       </div>
-      <h2 className="text-xl font-bold text-gray-900 mb-2">Binding Request Status</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">สถานะคำขอผูกเลขบ้าน</h2>
 
       {latestRequest ? (
         <>
           {isApproved && (
             <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3">
               <p className="text-sm font-semibold text-green-800">
-                คุณได้รับการอนุมัติแล้ว
+                คำขอของคุณได้รับการอนุมัติแล้ว
               </p>
               <p className="mt-1 text-sm text-green-700">
-                ตอนนี้คุณสามารถเข้าใช้งานระบบลูกบ้านได้ตามปกติ
+                ตอนนี้คุณสามารถใช้งานข้อมูลภายในหมู่บ้านได้ตามสิทธิ์ของลูกบ้าน
               </p>
             </div>
           )}
           <p className="text-gray-500 text-sm mb-2">
-            Current status: <span className="font-semibold">{STATUS_TEXT[latestRequest.status]}</span>
+            สถานะปัจจุบัน: <span className="font-semibold">{STATUS_TEXT[latestRequest.status]}</span>
           </p>
           <p className="text-gray-500 text-sm mb-2">
-            House: {latestRequest.houseNumber ?? latestRequest.house?.houseNumber ?? "-"}
+            บ้านเลขที่: {latestRequest.houseNumber ?? latestRequest.house?.houseNumber ?? "-"}
           </p>
-          <p className="text-gray-500 text-sm mb-6">Note: {latestRequest.note ?? "-"}</p>
+          <p className="text-gray-500 text-sm mb-6">หมายเหตุ: {latestRequest.note ?? "-"}</p>
 
           {isApproved && (
             <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-sm">
@@ -76,7 +76,7 @@ export default async function BindingPendingPage() {
                 href="/resident/dashboard"
                 className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
               >
-                ไปที่หน้า Resident Dashboard
+                ไปที่หน้าแดชบอร์ดลูกบ้าน
               </Link>
               <Link
                 href={villageHomeHref}
@@ -88,15 +88,15 @@ export default async function BindingPendingPage() {
           )}
         </>
       ) : (
-        <p className="text-gray-500 text-sm mb-6">No binding request found yet.</p>
+        <p className="text-gray-500 text-sm mb-6">ยังไม่มีคำขอผูกเลขบ้าน</p>
       )}
 
       <div className="flex items-center justify-center gap-4 text-sm">
         <Link href="/auth/binding" className="text-green-600 hover:underline">
-          Edit request
+          แก้ไขคำขอ
         </Link>
         <Link href="/" className="text-gray-500 hover:underline">
-          Back to home
+          กลับหน้าหลัก
         </Link>
       </div>
     </div>

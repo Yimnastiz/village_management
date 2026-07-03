@@ -93,7 +93,9 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-900">พื้นที่ลูกบ้าน</p>
-            <p className="text-xs text-gray-500">เมนูใช้งานส่วนบุคคล</p>
+            <p className="text-xs text-gray-500">
+              {state.hasMembership ? "เมนูใช้งานส่วนบุคคล" : "โหมด guest: ยังไม่ผูกเลขบ้าน"}
+            </p>
           </div>
         </Link>
       </div>

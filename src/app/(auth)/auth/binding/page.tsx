@@ -45,18 +45,18 @@ export default async function BindingPage() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-lg p-8">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Bind Account to Village</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-2">ขอผูกเลขบ้าน</h2>
         <p className="text-sm text-gray-500 mb-6">
-          If your phone number is not pre-verified in dev phone seeds, submit a binding request for approval.
+          กรอกข้อมูลบ้านเพื่อส่งคำขอผูกเลขบ้านให้ผู้ใหญ่บ้านหรือแอดมินตรวจสอบและอนุมัติ
         </p>
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
           {session ? (
             <>
-              Logged in as <strong>{session.name || session.phoneNumber}</strong>.
-              You can submit a binding request below.
+              เข้าสู่ระบบแล้วในชื่อ <strong>{session.name || session.phoneNumber}</strong>
+              สามารถส่งคำขอผูกเลขบ้านได้จากฟอร์มด้านล่าง
             </>
           ) : (
-            <>You can view this page without login. To submit a binding request, please log in first.</>
+            <>หน้านี้ดูได้แม้ยังไม่ได้ล็อกอิน แต่ถ้าจะส่งคำขอผูกเลขบ้านต้องเข้าสู่ระบบก่อน</>
           )}
         </div>
 
@@ -69,7 +69,7 @@ export default async function BindingPage() {
         <form action={submitBindingRequestAction} className="space-y-4">
           <div>
             <label htmlFor="villageId" className="mb-1 block text-sm font-medium text-gray-700">
-              Village
+              หมู่บ้าน
             </label>
             {hasPending && latestRequest?.villageId && (
               <input type="hidden" name="villageId" value={latestRequest.villageId} />
@@ -82,7 +82,7 @@ export default async function BindingPage() {
               disabled={hasPending}
               className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Select village</option>
+              <option value="">เลือกหมู่บ้าน</option>
               {villages.map((village) => (
                 <option key={village.id} value={village.id}>
                   {village.name} ({[village.subdistrict, village.district, village.province]
@@ -95,27 +95,27 @@ export default async function BindingPage() {
 
           <div>
             <label htmlFor="houseNumber" className="mb-1 block text-sm font-medium text-gray-700">
-              House Number
+              บ้านเลขที่
             </label>
             <input
               id="houseNumber"
               name="houseNumber"
               defaultValue={latestRequest?.houseNumber ?? latestRequest?.house?.houseNumber ?? ""}
-              placeholder="e.g. 123/4"
+              placeholder="เช่น 123/4"
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
 
           <div>
             <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700">
-              Note
+              หมายเหตุ
             </label>
             <textarea
               id="note"
               name="note"
               defaultValue={latestRequest?.note ?? ""}
               rows={3}
-              placeholder="Additional details for approval"
+              placeholder="รายละเอียดเพิ่มเติมสำหรับการพิจารณา"
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
@@ -124,19 +124,19 @@ export default async function BindingPage() {
             type="submit"
             className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
           >
-            {hasPending ? "อัปเดตคำขอผูกบ้านเดิม" : "Submit Binding Request"}
+            {hasPending ? "อัปเดตคำขอผูกเลขบ้านเดิม" : "ส่งคำขอผูกเลขบ้าน"}
           </button>
 
           {!session && (
             <p className="mt-2 text-sm text-gray-600">
-              You must {" "}
+              คุณต้อง {" "}
               <Link
                 href={`/auth/login?callbackUrl=${encodeURIComponent("/auth/binding")}`}
                 className="text-green-600 font-medium hover:underline"
               >
-                log in
+                เข้าสู่ระบบ
               </Link>{" "}
-              to submit a binding request.
+              เพื่อส่งคำขอผูกเลขบ้าน
             </p>
           )}
         </form>

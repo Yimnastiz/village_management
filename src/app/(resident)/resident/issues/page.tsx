@@ -56,7 +56,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const params = await searchParams;
   const keyword = params.q?.trim() ?? "";

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarDays, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ResidentAppointmentCard } from "./resident-appointment-card";
@@ -23,6 +23,8 @@ function slotDateToStr(date: Date): string {
 export default async function AppointmentsPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
 
   // Full appointment list (all time) for the list section below
   const allAppointments = await prisma.appointment.findMany({

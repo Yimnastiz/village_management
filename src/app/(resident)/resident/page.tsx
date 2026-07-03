@@ -14,7 +14,7 @@ export default async function ResidentRootPage() {
   );
 
   if (residentMemberships.length === 0) {
-    redirect("/auth/binding");
+    redirect("/resident/dashboard");
   }
 
   if (residentMemberships.length === 1) {

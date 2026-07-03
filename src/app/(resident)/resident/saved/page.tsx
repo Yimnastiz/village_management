@@ -31,7 +31,7 @@ export default async function SavedPage({
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const { sort = "date_desc", type = "all" } = await searchParams;
   const orderDir = sort === "date_asc" ? "asc" : "desc";

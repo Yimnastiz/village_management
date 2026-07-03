@@ -43,6 +43,7 @@ export function TopBar({
   const isAdminArea = userArea === "admin";
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
   const adminVillageLabel = villageName?.trim() ? `แอดมินหมู่บ้าน ${villageName.trim()}` : "แอดมินหมู่บ้าน";
+  const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 4);
@@ -89,9 +90,16 @@ export function TopBar({
             </span>
           </div>
         ) : (
-          <p className="text-sm font-semibold text-gray-800">
-            {residentVillageLabel}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-800">
+              {residentVillageLabel}
+            </p>
+            {isResidentGuest && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                ยังไม่ผูกบ้าน
+              </span>
+            )}
+          </div>
         )}
       </div>
       <div className="flex items-center gap-4">
@@ -141,7 +149,13 @@ export function TopBar({
           <div className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
             <div className="px-3 py-2">
               <p className="truncate text-sm font-semibold text-gray-900">{userName}</p>
-              <p className="text-xs text-gray-500">{userArea === "resident" ? "ลูกบ้าน" : "ผู้ดูแลระบบ"}</p>
+              <p className="text-xs text-gray-500">
+                {userArea === "resident"
+                  ? residentNavigationState?.hasMembership
+                    ? "ลูกบ้าน"
+                    : "guest ลูกบ้าน"
+                  : "ผู้ดูแลระบบ"}
+              </p>
             </div>
             <div className="my-1 h-px bg-gray-100" />
             <Link href={profileHref} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">

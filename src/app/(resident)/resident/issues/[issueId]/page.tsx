@@ -42,7 +42,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const issue = await prisma.issue.findFirst({
     where: { id: issueId, villageId: membership.villageId },

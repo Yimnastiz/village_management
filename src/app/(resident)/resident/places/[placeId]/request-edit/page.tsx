@@ -34,7 +34,7 @@ export default async function ResidentPlaceRequestEditPage({ params }: PageProps
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
   const place = await villagePlace.findFirst({

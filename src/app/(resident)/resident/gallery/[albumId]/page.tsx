@@ -25,7 +25,7 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const album = await db.galleryAlbum.findFirst({
     where: {

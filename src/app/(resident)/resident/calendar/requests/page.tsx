@@ -7,7 +7,7 @@ import {
   VILLAGE_EVENT_SUBMISSION_STATUS_LABELS,
   VILLAGE_EVENT_VISIBILITY_LABELS,
 } from "@/lib/constants";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 type RequestItem = {
@@ -40,13 +40,15 @@ export default async function ResidentCalendarRequestsPage({ searchParams }: Res
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
 
   const villageEventSubmission = (
     prisma as unknown as { villageEventSubmission: VillageEventSubmissionListDelegate }
   ).villageEventSubmission;
 
   const requests = await villageEventSubmission.findMany({
-    where: { requesterId: session.id },
+    where: { requesterId: session.id, villageId: membership.villageId },
     orderBy: [{ createdAt: "desc" }],
   });
 

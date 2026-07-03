@@ -34,7 +34,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const query = await searchParams;
   const sort = query.sort === "oldest" ? "oldest" : "newest";

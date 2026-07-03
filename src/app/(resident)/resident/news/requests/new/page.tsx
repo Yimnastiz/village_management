@@ -1,6 +1,14 @@
+import { redirect } from "next/navigation";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NewsRequestForm } from "../request-form";
 
-export default function ResidentCreateNewsRequestPage() {
+export default async function ResidentCreateNewsRequestPage() {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) redirect("/auth/login");
+
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
+
   return (
     <div className="max-w-3xl space-y-4">
       <div>

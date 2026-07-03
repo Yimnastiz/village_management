@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { EditIssueForm } from "./edit-form";
 
@@ -14,6 +14,8 @@ export default async function EditIssuePage({ params }: PageProps) {
   const { issueId } = await params;
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
 
   const issue = await prisma.issue.findUnique({
     where: { id: issueId },

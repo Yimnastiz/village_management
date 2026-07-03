@@ -168,8 +168,9 @@ async function hydrateResidentMembershipFromImportedData(session: AuthSessionWit
       }),
     ]);
 
-    const resolvedVillageId =
-      phoneSeed?.villageId ?? person?.villageId ?? session.user.registrationVillageId ?? null;
+    const resolvedVillageId = phoneSeed?.villageId ?? person?.villageId ?? null;
+    const resolvedRole = phoneSeed?.membershipRole ?? VillageMembershipRole.RESIDENT;
+    const resolvedHouseId = person?.houseId ?? null;
 
     if (!resolvedVillageId) {
       if (process.env.NODE_ENV === "development") {
@@ -187,6 +188,18 @@ async function hydrateResidentMembershipFromImportedData(session: AuthSessionWit
       return;
     }
 
+    // Resident access to internal village data requires a bound house.
+    // Only hydrate resident membership when imported data has a houseId.
+    if (resolvedRole === VillageMembershipRole.RESIDENT && !resolvedHouseId) {
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          "[hydration] skip resident hydration because no house binding for phone:",
+          session.user.phoneNumber
+        );
+      }
+      return;
+    }
+
     await prisma.villageMembership.upsert({
       where: {
         userId_villageId: {
@@ -195,17 +208,17 @@ async function hydrateResidentMembershipFromImportedData(session: AuthSessionWit
         },
       },
       update: {
-        role: phoneSeed?.membershipRole ?? VillageMembershipRole.RESIDENT,
+        role: resolvedRole,
         status: MembershipStatus.ACTIVE,
-        houseId: person?.houseId ?? null,
+        houseId: resolvedHouseId,
         joinedAt: new Date(),
       },
       create: {
         userId: session.user.id,
         villageId: resolvedVillageId,
-        role: phoneSeed?.membershipRole ?? VillageMembershipRole.RESIDENT,
+        role: resolvedRole,
         status: MembershipStatus.ACTIVE,
-        houseId: person?.houseId ?? null,
+        houseId: resolvedHouseId,
         joinedAt: new Date(),
       },
     });
@@ -382,7 +395,8 @@ export function getResidentMembership(session: SessionContext) {
   const residentMemberships = session.memberships.filter(
     (membership) =>
       membership.role === VillageMembershipRole.RESIDENT &&
-      membership.status === MembershipStatus.ACTIVE
+      membership.status === MembershipStatus.ACTIVE &&
+      Boolean(membership.houseId)
   );
 
   if (residentMemberships.length === 0) {
@@ -456,5 +470,5 @@ export function computeLandingPath(session: SessionContext): string {
     return "/resident/dashboard";
   }
 
-  return "/auth/binding";
+  return "/resident/dashboard";
 }

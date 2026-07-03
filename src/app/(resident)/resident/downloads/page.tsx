@@ -18,7 +18,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";

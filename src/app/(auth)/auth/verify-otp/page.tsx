@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { authClient } from "@/lib/auth-client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type VerifyMode = "signin" | "signup";
@@ -93,7 +94,7 @@ function VerifyOTPContent() {
     })
       .then(async (response) => {
         if (!response.ok) {
-          const errorBody = await response.json().catch(() => null) as { error?: string } | null;
+          const errorBody = (await response.json().catch(() => null)) as { error?: string } | null;
           throw new Error(errorBody?.error ?? "ไม่มีการสมัครสมาชิกที่รอดำเนินการหรือหมดเวลาแล้ว");
         }
 
@@ -155,35 +156,53 @@ function VerifyOTPContent() {
       return;
     }
 
+    if (mode === "signup" && (!name || !nationalId || !province || !district || !subdistrict || !villageId)) {
+      setError("ไม่พบข้อมูลการสมัครสมาชิก กรุณากลับไปเริ่มสมัครใหม่");
+      return;
+    }
+
     setIsResending(true);
     setError(null);
     setSuccessMessage(null);
 
     try {
-      const resendResponse = await fetch("/api/auth/start-registration", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          phoneNumber: phone,
-          registrationMode,
-          name,
-          nationalId,
-          province,
-          district,
-          subdistrict,
-          villageId,
-          callbackUrl,
-        }),
-      });
+      if (mode === "signup") {
+        const resendResponse = await fetch("/api/auth/start-registration", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            phoneNumber: phone,
+            registrationMode,
+            name,
+            nationalId,
+            province,
+            district,
+            subdistrict,
+            villageId,
+            callbackUrl,
+          }),
+        });
 
-      if (!resendResponse.ok) {
-        const resendError = (await resendResponse.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(resendError?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
+        if (!resendResponse.ok) {
+          const resendError = (await resendResponse.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(resendError?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
+        }
+      } else {
+        const resendResult = await authClient.phoneNumber.sendOtp({
+          phoneNumber: phone,
+        });
+
+        if ((resendResult as { error?: { message?: string } | null })?.error) {
+          throw new Error(
+            (resendResult as { error?: { message?: string } | null }).error?.message ??
+              "ส่ง OTP ซ้ำไม่สำเร็จ"
+          );
+        }
       }
 
       setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
@@ -213,42 +232,60 @@ function VerifyOTPContent() {
     setSuccessMessage(null);
 
     try {
-      const verifyResponse = await fetch("/api/auth/verify-registration-otp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
+      if (mode === "signup") {
+        const verifyResponse = await fetch("/api/auth/verify-registration-otp", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            code,
+          }),
+        });
+
+        if (!verifyResponse.ok) {
+          const verifyError = (await verifyResponse.json().catch(() => null)) as
+            | { error?: string }
+            | null;
+          throw new Error(verifyError?.error ?? "Invalid or expired OTP.");
+        }
+      } else {
+        const verifyResult = await authClient.phoneNumber.verify({
+          phoneNumber: phone,
           code,
-        }),
-      });
+        });
 
-      if (!verifyResponse.ok) {
-        const verifyError = (await verifyResponse.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(verifyError?.error ?? "Invalid or expired OTP.");
+        if ((verifyResult as { error?: { message?: string } | null })?.error) {
+          throw new Error(
+            (verifyResult as { error?: { message?: string } | null }).error?.message ??
+              "Invalid or expired OTP."
+          );
+        }
       }
 
-      let resolvedLandingPath: string | null = null;
+      if (mode === "signup") {
+        router.push("/resident/dashboard?signup=success");
+      } else {
+        let resolvedLandingPath: string | null = null;
 
-      const postLoginResponse = await fetch("/api/auth/post-login-route", {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+        const postLoginResponse = await fetch("/api/auth/post-login-route", {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        });
 
-      if (postLoginResponse.ok) {
-        const postLoginData = (await postLoginResponse.json()) as {
-          landingPath?: string;
-        };
-        resolvedLandingPath = postLoginData.landingPath ?? null;
+        if (postLoginResponse.ok) {
+          const postLoginData = (await postLoginResponse.json()) as {
+            landingPath?: string;
+          };
+          resolvedLandingPath = postLoginData.landingPath ?? null;
+        }
+
+        router.push(resolvedLandingPath ?? "/resident/dashboard");
       }
-
-      router.push(callbackUrl ?? resolvedLandingPath ?? "/auth/binding");
       clearRegistrationDraft();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
@@ -364,7 +401,7 @@ function VerifyOTPContent() {
 
       <div className="mt-4 space-y-3 text-center text-sm text-gray-500">
         <p>
-          ยังไม่ได้รับ OTP?{' '}
+          ยังไม่ได้รับ OTP?{" "}
           <button
             type="button"
             onClick={handleResend}

@@ -8,7 +8,7 @@ import {
   VILLAGE_PLACE_SUBMISSION_STATUS_LABELS,
   VILLAGE_PLACE_SUBMISSION_TYPE_LABELS,
 } from "@/lib/constants";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { parseVillagePlacePayload } from "@/lib/village-place";
 
@@ -40,12 +40,14 @@ export default async function ResidentPlaceRequestsPage({ searchParams }: PagePr
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
 
   const villagePlaceSubmission =
     (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionListDelegate }).villagePlaceSubmission;
 
   const requests = await villagePlaceSubmission.findMany({
-    where: { requesterId: session.id },
+    where: { requesterId: session.id, villageId: membership.villageId },
     orderBy: [{ createdAt: "desc" }],
     select: {
       id: true,

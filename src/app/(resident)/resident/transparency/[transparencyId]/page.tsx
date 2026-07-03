@@ -19,7 +19,7 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/binding");
+  if (!membership) redirect("/resident/dashboard");
 
   const record = await prisma.transparencyRecord.findFirst({
     where: {

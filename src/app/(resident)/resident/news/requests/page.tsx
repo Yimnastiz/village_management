@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { deletePendingNewsSubmissionAction } from "./actions";
 
@@ -17,9 +17,11 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
 export default async function ResidentNewsRequestsPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
 
   const requests = await prisma.newsSubmission.findMany({
-    where: { requesterId: session.id },
+    where: { requesterId: session.id, villageId: membership.villageId },
     orderBy: [{ createdAt: "desc" }],
     include: {
       targetNews: {

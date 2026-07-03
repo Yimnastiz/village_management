@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 import { AppointmentActions } from "./appointment-actions";
 
@@ -26,6 +26,10 @@ async function fetchAppointment(appointmentId: string) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
     redirect("/auth/login");
+  }
+  const membership = getResidentMembership(session);
+  if (!membership) {
+    redirect("/resident/dashboard");
   }
 
   const appointment = await prisma.appointment.findUnique({

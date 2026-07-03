@@ -14,12 +14,16 @@ export default async function HouseholdPage() {
   }
 
   const residentMembership = getResidentMembership(session);
+  if (!residentMembership) {
+    redirect("/resident/dashboard");
+  }
 
   const primaryMembership = await prisma.villageMembership.findFirst({
     where: {
       userId: session.id,
       role: VillageMembershipRole.RESIDENT,
       status: MembershipStatus.ACTIVE,
+      houseId: { not: null },
     },
     orderBy: { updatedAt: "desc" },
     include: {
