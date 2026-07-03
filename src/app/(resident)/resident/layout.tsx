@@ -21,6 +21,21 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   }
 
   const residentMembership = getResidentMembership(session);
+  const pendingBindingRequest = residentMembership
+    ? null
+    : await prisma.bindingRequest.findFirst({
+        where: {
+          userId: session.id,
+          status: "PENDING",
+        },
+        select: { id: true },
+        orderBy: { createdAt: "desc" },
+      });
+
+  const residentNavigationState = {
+    hasMembership: Boolean(residentMembership),
+    pendingBindingRequestHref: pendingBindingRequest ? "/auth/binding/pending" : "/auth/binding",
+  };
 
   const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
     prisma.user.findUnique({
@@ -43,7 +58,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <ResidentSidebar />
+      <ResidentSidebar state={residentNavigationState} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           userArea="resident"
@@ -51,6 +66,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
           villageName={villageProfile?.name ?? null}
+          residentNavigationState={residentNavigationState}
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>

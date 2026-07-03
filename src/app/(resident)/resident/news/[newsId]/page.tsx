@@ -20,7 +20,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const [news, savedItem] = await Promise.all([
     prisma.news.findFirst({

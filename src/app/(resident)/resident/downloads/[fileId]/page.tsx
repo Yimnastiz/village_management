@@ -19,7 +19,7 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const file = await prisma.downloadFile.findFirst({
     where: {

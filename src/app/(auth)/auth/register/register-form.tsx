@@ -29,7 +29,7 @@ type RegisterFormProps = {
   callbackUrl?: string;
 };
 
-type RegistrationMode = "resident" | "headman";
+type RegistrationMode = "resident";
 
 type RegistrationDraft = {
   registrationMode: RegistrationMode;
@@ -113,7 +113,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
   // Populate form from URL params (when coming back from verify-otp)
   useEffect(() => {
-    const modeParam = searchParams.get("mode");
     const firstNameParam = searchParams.get("firstName");
     const lastNameParam = searchParams.get("lastName");
     const phoneParam = searchParams.get("phone");
@@ -122,10 +121,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     const districtParam = searchParams.get("district");
     const subdistrictParam = searchParams.get("subdistrict");
     const villageIdParam = searchParams.get("villageId");
-
-    if (modeParam === "headman") {
-      setRegistrationMode("headman");
-    }
 
     if (firstNameParam) setFirstName(firstNameParam);
     if (lastNameParam) setLastName(lastNameParam);
@@ -266,40 +261,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       return;
     }
 
-    // Validate headman data before sending OTP
-    if (registrationMode === "headman") {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const validateResponse = await fetch("/api/auth/validate-headman", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            phoneNumber: normalizedPhone,
-            nationalId: normalizedNationalId,
-            province,
-            district,
-            subdistrict,
-            villageId,
-          }),
-        });
-
-        if (!validateResponse.ok) {
-          const errorData = await validateResponse.json().catch(() => ({ error: "การตรวจสอบข้อมูลล้มเหลว" }));
-          setError(errorData.error || "ข้อมูลไม่ถูกต้องสำหรับผู้ใหญ่บ้าน");
-          setIsLoading(false);
-          return;
-        }
-      } catch (err) {
-        setError("ไม่สามารถตรวจสอบข้อมูลได้ กรุณาลองใหม่");
-        setIsLoading(false);
-        return;
-      }
-    }
-
     setIsLoading(true);
     setError(null);
 
@@ -361,17 +322,17 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         );
       }
 
-      const params = new URLSearchParams({
-        mode: "signup",
-        registrationMode,
-        phone: normalizedPhone,
-        nationalId: normalizedNationalId,
-        name: normalizedName,
-        province,
-        district,
-        subdistrict,
-        villageId,
-      });
+        const params = new URLSearchParams({
+          mode: "signup",
+          registrationMode,
+          phone: normalizedPhone,
+          nationalId: normalizedNationalId,
+          name: normalizedName,
+          province,
+          district,
+          subdistrict,
+          villageId,
+        });
 
       if (callbackUrl) {
         params.set("callbackUrl", callbackUrl);
@@ -397,37 +358,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         ยืนยันเบอร์โทรศัพท์และระบุข้อมูลพื้นที่ของคุณเพื่อเข้าใช้งานระบบหมู่บ้าน
       </p>
 
-      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => setRegistrationMode("resident")}
-          className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-            registrationMode === "resident"
-              ? "border-green-600 bg-green-50 text-green-700"
-              : "border-gray-300 text-gray-700 hover:bg-gray-50"
-          }`}
-        >
-          สมัครลูกบ้านทั่วไป
-        </button>
-        <button
-          type="button"
-          onClick={() => setRegistrationMode("headman")}
-          className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
-            registrationMode === "headman"
-              ? "border-blue-600 bg-blue-50 text-blue-700"
-              : "border-gray-300 text-gray-700 hover:bg-gray-50"
-          }`}
-        >
-          สมัครผู้ใหญ่บ้าน/กรรมการ
-        </button>
+      <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-800">
+        สมัครสมาชิกสำหรับลูกบ้านทั่วไปเท่านั้น หลังสมัครแล้วถ้ายังไม่ผูกเลขบ้าน จะใช้งานได้เฉพาะข้อมูลสาธารณะและหน้าขอผูกเลขบ้าน
       </div>
-
-      {registrationMode === "headman" && (
-        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
-          โหมดผู้ใหญ่บ้าน: ระบบจะตรวจสอบข้อมูลกับทะเบียนหมู่บ้านและข้อมูลบุคคลกลาง (จังหวัด/อำเภอ/ตำบล/หมู่บ้าน + เลขบัตร + เบอร์โทร)
-          หากข้อมูลตรงกันจะเปิดสิทธิ์ผู้ใหญ่บ้านให้อัตโนมัติ โดยไม่ต้องตั้งค่าผ่าน /dev
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -566,7 +499,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
         <div className="w-full">
           <label htmlFor="register-village" className="mb-1 block text-sm font-medium text-gray-700">
-            {registrationMode === "headman" ? "หมู่บ้านตามทะเบียนกลาง" : "หมู่บ้าน"}
+            หมู่บ้าน
           </label>
           <select
             id="register-village"

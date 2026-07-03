@@ -17,7 +17,7 @@ export default async function ResidentEditNewsRequestPage({ params }: PageProps)
     where: { userId: session.id, status: "ACTIVE" },
     select: { villageId: true },
   });
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const news = await prisma.news.findFirst({
     where: {

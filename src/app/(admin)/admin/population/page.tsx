@@ -715,7 +715,7 @@ export default async function Page({ searchParams }: PageProps) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+      <div id="binding-requests" className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">คำร้องรอยืนยัน</h2>
         {pendingRequests.length === 0 ? (
           <p className="text-gray-500 text-sm text-center">ไม่มีคำร้องรอยืนยันในตอนนี้</p>

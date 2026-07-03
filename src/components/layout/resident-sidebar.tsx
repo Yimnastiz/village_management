@@ -44,12 +44,46 @@ export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 14, mobilePriority: 15 },
 ];
 
+const residentGuestMenuItems: ResidentMenuItem[] = [
+  { href: "/resident/dashboard", label: "หน้าหลัก", icon: Home, desktopPriority: 1, mobilePriority: 1 },
+  { href: "/auth/binding", label: "ขอผูกเลขบ้าน", icon: FileText, desktopPriority: 2, mobilePriority: 2 },
+  { href: "/resident/notifications", label: "การแจ้งเตือน", icon: Bell, desktopPriority: 3, mobilePriority: 3 },
+  { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 4, mobilePriority: 4 },
+  { href: "/", label: "หน้าเว็บหมู่บ้าน", icon: Eye, desktopPriority: 5, mobilePriority: 5 },
+];
+
+export type ResidentNavigationState = {
+  hasMembership: boolean;
+  pendingBindingRequestHref?: string | null;
+};
+
+export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
+  if (state.hasMembership) {
+    return residentMenuItems;
+  }
+
+  const bindingItem = residentGuestMenuItems.find((item) => item.href === "/auth/binding");
+  if (!bindingItem) {
+    return residentGuestMenuItems;
+  }
+
+  const bindingHref = state.pendingBindingRequestHref ?? "/auth/binding";
+
+  return residentGuestMenuItems.map((item) =>
+    item.href === "/auth/binding"
+      ? { ...item, href: bindingHref, label: bindingHref === "/auth/binding/pending" ? "ดูสถานะคำขอผูกเลขบ้าน" : item.label }
+      : item
+  );
+}
+
 const desktopNavItems = [...residentMenuItems].sort(
   (left, right) => left.desktopPriority - right.desktopPriority
 );
 
-export function ResidentSidebar() {
+export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
   const pathname = usePathname();
+  const navItems = getResidentNavigationItems(state);
+  const desktopItems = [...navItems].sort((left, right) => left.desktopPriority - right.desktopPriority);
   return (
     <aside className="sticky top-0 hidden h-screen w-64 overflow-y-auto bg-white border-r border-gray-200 flex-shrink-0 md:flex flex-col">
       <div className="p-4 border-b border-gray-200">
@@ -64,7 +98,7 @@ export function ResidentSidebar() {
         </Link>
       </div>
       <nav className="flex-1 p-4 space-y-1">
-        {desktopNavItems.map((item) => {
+        {desktopItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link

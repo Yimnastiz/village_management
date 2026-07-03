@@ -17,7 +17,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";

@@ -23,9 +23,6 @@ function LoginContent() {
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/register";
 
-  const isDevHeadmanBypassEnabled =
-    process.env.NEXT_PUBLIC_DEV_BYPASS_OTP_HEADMAN === "true";
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -44,39 +41,6 @@ function LoginContent() {
     setError(null);
 
     try {
-      if (isDevHeadmanBypassEnabled) {
-        const headmanBypassResponse = await fetch("/api/auth/dev-headman-login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            phoneNumber: normalizedPhone,
-          }),
-        });
-
-        if (headmanBypassResponse.ok) {
-          const bypassData = (await headmanBypassResponse.json()) as {
-            landingPath?: string;
-          };
-          router.push(bypassData.landingPath ?? "/admin/dashboard");
-          return;
-        }
-
-        if (
-          headmanBypassResponse.status !== 403 &&
-          headmanBypassResponse.status !== 404
-        ) {
-          const bypassError = (await headmanBypassResponse.json().catch(() => null)) as
-            | { error?: string }
-            | null;
-          throw new Error(
-            bypassError?.error ?? "Headman login bypass failed."
-          );
-        }
-      }
-
       const registrationResponse = await fetch("/api/auth/check-registration", {
         method: "POST",
         headers: {
@@ -89,10 +53,9 @@ function LoginContent() {
       });
 
       if (!registrationResponse.ok) {
-        const registrationError =
-          (await registrationResponse.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+        const registrationError = (await registrationResponse.json().catch(() => null)) as
+          | { error?: string }
+          | null;
         throw new Error(
           registrationError?.error ??
             "This phone number is not registered yet. Please register first."
@@ -133,7 +96,9 @@ function LoginContent() {
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8">
       <h2 className="text-xl font-bold text-gray-900 mb-2">Sign In</h2>
-      <p className="text-sm text-gray-500 mb-6">Enter your phone number to receive an OTP.</p>
+      <p className="text-sm text-gray-500 mb-6">
+        Enter your phone number to receive an OTP. This form is for resident and admin users who already have an account.
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input

@@ -38,7 +38,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบหรือใช้เบอร์อื่น" }, { status: 409 });
   }
 
-  const phoneNumber = `+66${normalizedPhoneNumber.slice(1)}`;
+  // Use the exact same identifier format used when sending the OTP.
+  const phoneNumber = normalizedPhoneNumber;
 
   let verifyResult: any;
   try {
@@ -53,8 +54,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid or expired OTP." }, { status: 401 });
   }
 
-  const createdUser = await prisma.user.create({
-    data: {
+  const verifiedAt = new Date();
+  const createdUser = await prisma.user.upsert({
+    where: { phoneNumber: normalizedPhoneNumber },
+    update: {
+      phoneNumberVerified: true,
+      name: registration.name,
+      systemRole: "USER",
+      registrationProvince: registration.province,
+      registrationDistrict: registration.district,
+      registrationSubdistrict: registration.subdistrict,
+      registrationVillageId: registration.villageId,
+      citizenVerifiedAt: registration.registrationMode === "HEADMAN" ? verifiedAt : null,
+      consentAt: verifiedAt,
+    },
+    create: {
       phoneNumber: normalizedPhoneNumber,
       phoneNumberVerified: true,
       name: registration.name,
@@ -63,8 +77,8 @@ export async function POST(request: NextRequest) {
       registrationDistrict: registration.district,
       registrationSubdistrict: registration.subdistrict,
       registrationVillageId: registration.villageId,
-      citizenVerifiedAt: registration.registrationMode === "HEADMAN" ? new Date() : null,
-      consentAt: new Date(),
+      citizenVerifiedAt: registration.registrationMode === "HEADMAN" ? verifiedAt : null,
+      consentAt: verifiedAt,
     },
   });
 

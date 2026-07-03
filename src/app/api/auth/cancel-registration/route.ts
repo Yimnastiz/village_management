@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
   const registration = await getRegistrationFromRequest(request);
   if (!registration) {
-    return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 404 });
+    return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 200 });
   }
 
   await prisma.registrationTemp.update({

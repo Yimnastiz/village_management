@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "./logout-button";
-import { residentMenuItems } from "./resident-sidebar";
+import { getResidentNavigationItems, type ResidentNavigationState } from "./resident-sidebar";
 import { adminMenuItems } from "./admin-sidebar";
 import { cn } from "@/lib/utils";
 
@@ -14,9 +14,17 @@ interface TopBarProps {
   userImageUrl?: string | null;
   unreadNotificationCount: number;
   villageName?: string | null;
+  residentNavigationState?: ResidentNavigationState;
 }
 
-export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCount, villageName }: TopBarProps) {
+export function TopBar({
+  userArea,
+  userName,
+  userImageUrl,
+  unreadNotificationCount,
+  villageName,
+  residentNavigationState,
+}: TopBarProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -27,8 +35,10 @@ export function TopBar({ userArea, userName, userImageUrl, unreadNotificationCou
       return adminMenuItems;
     }
 
-    return [...residentMenuItems].sort((left, right) => left.mobilePriority - right.mobilePriority);
-  }, [userArea]);
+    return getResidentNavigationItems(
+      residentNavigationState ?? { hasMembership: true }
+    ).sort((left, right) => left.mobilePriority - right.mobilePriority);
+  }, [residentNavigationState, userArea]);
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";

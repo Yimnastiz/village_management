@@ -17,6 +17,7 @@ import {
   Bell,
   Upload,
   MapPin,
+  ClipboardList,
 } from "lucide-react";
 
 export type AdminMenuItem = {
@@ -35,6 +36,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
   { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
   { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: Users },
+  { href: "/admin/population#binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardList },
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: Upload },
   { href: "/admin/transparency", label: "ความโปร่งใส", icon: Eye },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: Download },

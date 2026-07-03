@@ -22,7 +22,7 @@ export default async function ResidentTransparencyPage({
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const { q = "", sort = "date_desc", visibility = "" } = await searchParams;
 

@@ -16,7 +16,7 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const village = await prisma.village.findUnique({
     where: { id: membership.villageId },

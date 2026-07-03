@@ -46,7 +46,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
   if (!session?.id) redirect("/auth/login");
 
   const membership = getResidentMembership(session);
-  if (!membership) redirect("/auth/login");
+  if (!membership) redirect("/auth/binding");
 
   const village = await prisma.village.findUnique({
     where: { id: membership.villageId },
