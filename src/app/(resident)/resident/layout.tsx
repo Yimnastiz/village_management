@@ -34,7 +34,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
 
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
-    pendingBindingRequestHref: pendingBindingRequest ? "/auth/binding/pending" : "/auth/binding",
+    pendingBindingRequestHref: pendingBindingRequest ? "/resident/binding/pending" : "/resident/binding",
   };
 
   const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([

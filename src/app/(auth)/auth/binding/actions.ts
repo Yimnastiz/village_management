@@ -70,9 +70,9 @@ export async function submitBindingRequestAction(formData: FormData) {
       },
     });
 
-    revalidatePath("/auth/binding");
-    revalidatePath("/auth/binding/pending");
-    redirect("/auth/binding/pending");
+    revalidatePath("/resident/binding");
+    revalidatePath("/resident/binding/pending");
+    redirect("/resident/binding/pending");
   } else {
     const createdBinding = await prisma.bindingRequest.create({
       data: {
@@ -136,8 +136,8 @@ export async function submitBindingRequestAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/auth/binding");
-  revalidatePath("/auth/binding/pending");
-  redirect("/auth/binding/pending");
+  revalidatePath("/resident/binding");
+  revalidatePath("/resident/binding/pending");
+  redirect("/resident/binding/pending");
 }
 

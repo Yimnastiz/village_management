@@ -78,7 +78,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           </p>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
-              href={pendingBindingRequest ? "/auth/binding/pending" : "/auth/binding"}
+              href={pendingBindingRequest ? "/resident/binding/pending" : "/resident/binding"}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
             >
               <FileText className="h-4 w-4" />
@@ -107,7 +107,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href="/resident/profile" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">โปรไฟล์</Link>
               <Link href="/resident/notifications" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">การแจ้งเตือน</Link>
-              <Link href="/auth/binding" className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200">ขอผูกเลขบ้าน</Link>
+              <Link href="/resident/binding" className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200">ขอผูกเลขบ้าน</Link>
             </div>
           </div>
         </div>

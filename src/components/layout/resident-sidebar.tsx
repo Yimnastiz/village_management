@@ -29,27 +29,20 @@ export type ResidentMenuItem = {
 
 export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/dashboard", label: "หน้าหลัก", icon: Home, desktopPriority: 1, mobilePriority: 1 },
-  { href: "/resident/news", label: "ข่าว/ประกาศ", icon: Newspaper, desktopPriority: 2, mobilePriority: 3 },
-  { href: "/resident/notifications", label: "การแจ้งเตือน", icon: Bell, desktopPriority: 3, mobilePriority: 4 },
-  { href: "/resident/issues", label: "แจ้งปัญหา", icon: AlertCircle, desktopPriority: 4, mobilePriority: 5 },
-  { href: "/resident/appointments", label: "นัดหมาย", icon: FileText, desktopPriority: 5, mobilePriority: 6 },
-  { href: "/resident/calendar", label: "ปฏิทิน", icon: Calendar, desktopPriority: 6, mobilePriority: 7 },
-  { href: "/resident/household", label: "ข้อมูลครัวเรือน", icon: Users, desktopPriority: 7, mobilePriority: 8 },
-  { href: "/resident/downloads", label: "เอกสารดาวน์โหลด", icon: Download, desktopPriority: 8, mobilePriority: 9 },
-  { href: "/resident/transparency", label: "ความโปร่งใส", icon: Eye, desktopPriority: 9, mobilePriority: 10 },
-  { href: "/resident/gallery", label: "แกลเลอรี", icon: Images, desktopPriority: 10, mobilePriority: 11 },
-  { href: "/resident/places", label: "สถานที่สำคัญ", icon: MapPin, desktopPriority: 11, mobilePriority: 12 },
-  { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone, desktopPriority: 12, mobilePriority: 13 },
-  { href: "/resident/saved", label: "รายการที่บันทึก", icon: BookmarkCheck, desktopPriority: 13, mobilePriority: 14 },
-  { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 14, mobilePriority: 15 },
-];
-
-const residentGuestMenuItems: ResidentMenuItem[] = [
-  { href: "/resident/dashboard", label: "หน้าหลัก", icon: Home, desktopPriority: 1, mobilePriority: 1 },
-  { href: "/auth/binding", label: "ขอผูกเลขบ้าน", icon: FileText, desktopPriority: 2, mobilePriority: 2 },
-  { href: "/resident/notifications", label: "การแจ้งเตือน", icon: Bell, desktopPriority: 3, mobilePriority: 3 },
-  { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 4, mobilePriority: 4 },
-  { href: "/", label: "หน้าเว็บหมู่บ้าน", icon: Eye, desktopPriority: 5, mobilePriority: 5 },
+  { href: "/resident/binding", label: "ขอผูกเลขบ้าน", icon: FileText, desktopPriority: 2, mobilePriority: 2 },
+  { href: "/resident/news", label: "ข่าว/ประกาศ", icon: Newspaper, desktopPriority: 3, mobilePriority: 3 },
+  { href: "/resident/notifications", label: "การแจ้งเตือน", icon: Bell, desktopPriority: 4, mobilePriority: 4 },
+  { href: "/resident/issues", label: "แจ้งปัญหา", icon: AlertCircle, desktopPriority: 5, mobilePriority: 5 },
+  { href: "/resident/appointments", label: "นัดหมาย", icon: FileText, desktopPriority: 6, mobilePriority: 6 },
+  { href: "/resident/calendar", label: "ปฏิทิน", icon: Calendar, desktopPriority: 7, mobilePriority: 7 },
+  { href: "/resident/household", label: "ข้อมูลครัวเรือน", icon: Users, desktopPriority: 8, mobilePriority: 8 },
+  { href: "/resident/downloads", label: "เอกสารดาวน์โหลด", icon: Download, desktopPriority: 9, mobilePriority: 9 },
+  { href: "/resident/transparency", label: "ความโปร่งใส", icon: Eye, desktopPriority: 10, mobilePriority: 10 },
+  { href: "/resident/gallery", label: "แกลเลอรี", icon: Images, desktopPriority: 11, mobilePriority: 11 },
+  { href: "/resident/places", label: "สถานที่สำคัญ", icon: MapPin, desktopPriority: 12, mobilePriority: 12 },
+  { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone, desktopPriority: 13, mobilePriority: 13 },
+  { href: "/resident/saved", label: "รายการที่บันทึก", icon: BookmarkCheck, desktopPriority: 14, mobilePriority: 14 },
+  { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 15, mobilePriority: 15 },
 ];
 
 export type ResidentNavigationState = {
@@ -58,22 +51,23 @@ export type ResidentNavigationState = {
 };
 
 export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
-  if (state.hasMembership) {
-    return residentMenuItems;
-  }
+  const bindingHref = state.pendingBindingRequestHref ?? "/resident/binding";
 
-  const bindingItem = residentGuestMenuItems.find((item) => item.href === "/auth/binding");
-  if (!bindingItem) {
-    return residentGuestMenuItems;
-  }
+  return residentMenuItems.map((item) => {
+    if (item.href !== "/resident/binding") {
+      return item;
+    }
 
-  const bindingHref = state.pendingBindingRequestHref ?? "/auth/binding";
+    if (state.hasMembership) {
+      return item;
+    }
 
-  return residentGuestMenuItems.map((item) =>
-    item.href === "/auth/binding"
-      ? { ...item, href: bindingHref, label: bindingHref === "/auth/binding/pending" ? "ดูสถานะคำขอผูกเลขบ้าน" : item.label }
-      : item
-  );
+    return {
+      ...item,
+      href: bindingHref,
+      label: bindingHref === "/resident/binding/pending" ? "ดูสถานะคำขอผูกเลขบ้าน" : item.label,
+    };
+  });
 }
 
 const desktopNavItems = [...residentMenuItems].sort(

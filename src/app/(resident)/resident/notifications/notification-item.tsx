@@ -57,7 +57,7 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
     }
 
     if (notification.type === NotificationType.CORRECTION_REQUEST) return "/resident/household/corrections";
-    if (notification.type === NotificationType.BINDING_REQUEST) return "/auth/binding/pending";
+    if (notification.type === NotificationType.BINDING_REQUEST) return "/resident/binding/pending";
     if (notification.type === NotificationType.SYSTEM) return "/resident/dashboard";
 
     return null;
