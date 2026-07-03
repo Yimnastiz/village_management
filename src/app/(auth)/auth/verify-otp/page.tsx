@@ -265,9 +265,9 @@ function VerifyOTPContent() {
       }
 
       if (mode === "signup") {
-        setSuccessMessage("สมัครสมาชิกสำเร็จแล้ว กำลังพาเข้าสู่เว็บไซต์...");
+        setSuccessMessage("สมัครลงทะเบียนเสร็จสิ้นแล้ว สามารถล็อกอินเข้าเว็บไซต์ได้");
         setTimeout(() => {
-          router.push("/resident/dashboard?signup=success");
+          router.push("/auth/login?registered=success");
         }, 700);
       } else {
         let resolvedLandingPath: string | null = null;

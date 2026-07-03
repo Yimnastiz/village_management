@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getSessionContextFromServerCookies, isResidentUser } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
@@ -10,8 +10,13 @@ import { MarkAllReadButton } from "./mark-all-read-button";
 
 export default async function ResidentNotificationsPage() {
   const session = await getSessionContextFromServerCookies();
-  if (!session || !isResidentUser(session)) {
-    redirect("/auth/login");
+  if (!session?.id) {
+    redirect("/auth/login?callbackUrl=/resident/dashboard");
+  }
+
+  const membership = getResidentMembership(session);
+  if (!membership) {
+    redirect("/resident/dashboard");
   }
 
   const notifications = await prisma.notification.findMany({

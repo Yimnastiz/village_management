@@ -19,6 +19,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
 
   const callbackUrl = (searchParams.get("callbackUrl") ?? "").trim() || null;
+  const registered = (searchParams.get("registered") ?? "").trim() === "success";
   const registerHref = callbackUrl
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/register";
@@ -95,14 +96,20 @@ function LoginContent() {
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">Sign In</h2>
+      <h2 className="text-xl font-bold text-gray-900 mb-2">เข้าสู่ระบบ</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Enter your phone number to receive an OTP. This form is for resident and admin users who already have an account.
+        กรอกเบอร์โทรศัพท์เพื่อรับรหัส OTP สำหรับผู้ใช้ที่มีบัญชีแล้ว
       </p>
+
+      {registered && (
+        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          สมัครลงทะเบียนเสร็จสิ้นแล้ว สามารถล็อกอินเข้าเว็บไซต์ได้
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
-          label="Phone Number"
+          label="เบอร์โทรศัพท์"
           type="tel"
           placeholder="0812345678"
           value={phone}
@@ -117,20 +124,20 @@ function LoginContent() {
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
-          Send OTP
+          ส่งรหัส OTP
         </Button>
       </form>
 
       <div className="mt-6 text-center text-sm text-gray-600">
-        No account yet?{" "}
+        ยังไม่มีบัญชี?{" "}
         <Link href={registerHref} className="text-green-600 font-medium hover:underline">
-          Register
+          สมัครสมาชิก
         </Link>
       </div>
 
       <div className="mt-2 text-center text-sm text-gray-600">
         <Link href="/auth/forgot" className="text-green-600 hover:underline">
-          Forgot password?
+          ลืมรหัสผ่าน?
         </Link>
       </div>
     </div>

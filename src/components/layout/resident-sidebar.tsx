@@ -51,14 +51,13 @@ export type ResidentNavigationState = {
 };
 
 export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
+  const baseItems = state.hasMembership
+    ? residentMenuItems.filter((item) => item.href !== "/resident/binding")
+    : residentMenuItems;
   const bindingHref = state.pendingBindingRequestHref ?? "/resident/binding";
 
-  return residentMenuItems.map((item) => {
+  return baseItems.map((item) => {
     if (item.href !== "/resident/binding") {
-      return item;
-    }
-
-    if (state.hasMembership) {
       return item;
     }
 
