@@ -27,6 +27,14 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  if (pathname.startsWith("/superadmin")) {
+    if (!sessionToken) {
+      const loginUrl = new URL("/auth/login", request.url);
+      loginUrl.searchParams.set("callbackUrl", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   if (pathname === "/auth/register" && sessionToken) {
     return NextResponse.redirect(new URL("/auth/landing", request.url));
   }
@@ -38,6 +46,7 @@ export const config = {
   matcher: [
     "/resident/:path*",
     "/admin/:path*",
+    "/superadmin/:path*",
     "/auth/register",
   ],
 };

@@ -385,6 +385,10 @@ export function isAdminUser(session: SessionContext): boolean {
   );
 }
 
+export function isSuperAdminUser(session: SessionContext): boolean {
+  return session.systemRole === SystemRole.SUPERADMIN;
+}
+
 export function isResidentUser(session: SessionContext): boolean {
   return session.memberships.some(
     (membership) => membership.role === VillageMembershipRole.RESIDENT
@@ -459,7 +463,7 @@ export function getHeadmanMembership(session: SessionContext) {
 
 export function computeLandingPath(session: SessionContext): string {
   if (session.systemRole === SystemRole.SUPERADMIN) {
-    return "/dev";
+    return "/superadmin/dashboard";
   }
 
   if (isAdminUser(session)) {
