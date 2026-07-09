@@ -1,6 +1,6 @@
 interface WelcomeBannerProps {
   villageName: string;
-  userRole: "resident" | "headman" | "admin";
+  userRole: "resident" | "headman" | "admin" | "superadmin";
   userName?: string;
 }
 
@@ -11,6 +11,8 @@ export function WelcomeBanner({ villageName, userRole, userName }: WelcomeBanner
         return `ยินดีต้อนรับผู้ใหญ่บ้านหมู่บ้าน ${villageName}`;
       case "admin":
         return `ยินดีต้อนรับผู้ดูแลระบบหมู่บ้าน ${villageName}`;
+      case "superadmin":
+        return `ยินดีต้อนรับซูเปอร์แอดมินหมู่บ้าน ${villageName}`;
       default:
         return `ยินดีต้อนรับเข้าสู่หมู่บ้าน ${villageName}`;
     }
