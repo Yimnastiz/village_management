@@ -27,6 +27,14 @@ function unique(values: Array<string | null | undefined>): string[] {
   );
 }
 
+function normalizeForSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/\s+/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "");
+}
+
 export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSearchProps) {
   const router = useRouter();
   const [province, setProvince] = useState("");
@@ -72,19 +80,30 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
   );
 
   const villageSuggestions = useMemo(() => {
-    const keyword = villageName.trim().toLowerCase();
+    const keyword = normalizeForSearch(villageName.trim());
     return filteredVillages
-      .filter((village) => !keyword || village.name.toLowerCase().includes(keyword))
-      .slice(0, 8);
+      .filter((village) => {
+        if (!keyword) {
+          return true;
+        }
+
+        const haystack = [village.name, village.subdistrict, village.district, village.province]
+          .filter(Boolean)
+          .join(" ");
+        return normalizeForSearch(haystack).includes(keyword);
+      })
+      .sort((left, right) => left.name.localeCompare(right.name, "th"));
   }, [filteredVillages, villageName]);
 
   const matchedVillage = useMemo(() => {
-    const keyword = villageName.trim().toLowerCase();
+    const keyword = normalizeForSearch(villageName.trim());
     if (!keyword) {
       return null;
     }
 
-    return filteredVillages.find((village) => village.name.toLowerCase() === keyword) ?? null;
+    return (
+      filteredVillages.find((village) => normalizeForSearch(village.name) === keyword) ?? null
+    );
   }, [filteredVillages, villageName]);
 
   const isProvinceValid = useMemo(
@@ -192,7 +211,9 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             helperText={
               villageSuggestions.length > 0
                 ? `มีคำแนะนำ ${villageSuggestions.length} รายการจากฐานข้อมูล`
-                : "ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
+                : villageName.trim()
+                  ? "ไม่พบชื่อหมู่บ้านที่ตรงกับคำค้นในเงื่อนไขที่เลือก"
+                  : "ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
             }
             emptyMessage="ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
             onChange={(nextValue) => {

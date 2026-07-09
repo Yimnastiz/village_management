@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,14 @@ type SuggestComboboxProps = {
   onChange: (value: string) => void;
 };
 
+function normalizeSearchValue(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/\s+/g, "")
+    .replace(/[\u200B-\u200D\uFEFF]/g, "");
+}
+
 export function SuggestCombobox({
   id,
   label,
@@ -36,26 +44,79 @@ export function SuggestCombobox({
   onChange,
 }: SuggestComboboxProps) {
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const filteredOptions = useMemo(() => {
-    const keyword = value.trim().toLowerCase();
+    const keyword = normalizeSearchValue(value.trim());
     if (!keyword) {
-      return options.slice(0, 12);
+      return options;
     }
 
-    return options
-      .filter((option) => {
-        const haystacks = [option.value, option.label, option.description]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return haystacks.includes(keyword);
-      })
-      .slice(0, 12);
+    return options.filter((option) => {
+      const haystacks = [option.value, option.label, option.description]
+        .filter(Boolean)
+        .join(" ");
+      return normalizeSearchValue(haystacks).includes(keyword);
+    });
   }, [options, value]);
 
+  const selectedIndex = useMemo(
+    () => filteredOptions.findIndex((option) => option.value === value),
+    [filteredOptions, value]
+  );
+
+  useEffect(() => {
+    if (!open) {
+      setActiveIndex(-1);
+      return;
+    }
+
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : filteredOptions.length > 0 ? 0 : -1);
+  }, [filteredOptions.length, open, selectedIndex]);
+
+  useEffect(() => {
+    if (activeIndex < 0) {
+      return;
+    }
+
+    optionRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  useEffect(() => {
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (!rootRef.current) {
+        return;
+      }
+
+      if (event.target instanceof Node && !rootRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, []);
+
+  const listboxId = `${id}-listbox`;
+  const activeDescendantId =
+    open && activeIndex >= 0 && filteredOptions[activeIndex]
+      ? `${id}-option-${filteredOptions[activeIndex].value}`
+      : undefined;
+
+  const selectOption = (nextValue: string) => {
+    onChange(nextValue);
+    setOpen(false);
+  };
+
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" ref={rootRef}>
       <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">
         {label}
       </label>
@@ -66,12 +127,56 @@ export function SuggestCombobox({
           disabled={disabled}
           placeholder={placeholder}
           onFocus={() => setOpen(true)}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={activeDescendantId}
+          aria-autocomplete="list"
           onChange={(event) => {
             onChange(event.target.value);
             setOpen(true);
           }}
-          onBlur={() => {
-            window.setTimeout(() => setOpen(false), 120);
+          onKeyDown={(event) => {
+            if (event.key === "ArrowDown") {
+              event.preventDefault();
+              if (!open) {
+                setOpen(true);
+                return;
+              }
+              if (filteredOptions.length > 0) {
+                setActiveIndex((prev) => (prev + 1) % filteredOptions.length);
+              }
+              return;
+            }
+
+            if (event.key === "ArrowUp") {
+              event.preventDefault();
+              if (!open) {
+                setOpen(true);
+                return;
+              }
+              if (filteredOptions.length > 0) {
+                setActiveIndex((prev) =>
+                  prev <= 0 ? filteredOptions.length - 1 : prev - 1
+                );
+              }
+              return;
+            }
+
+            if (event.key === "Enter") {
+              if (open && activeIndex >= 0 && filteredOptions[activeIndex]) {
+                event.preventDefault();
+                selectOption(filteredOptions[activeIndex].value);
+              }
+              return;
+            }
+
+            if (event.key === "Escape") {
+              if (open) {
+                event.preventDefault();
+                setOpen(false);
+              }
+            }
           }}
           className={cn(
             "block w-full rounded-lg border px-3 py-2 pr-10 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500",
@@ -82,20 +187,35 @@ export function SuggestCombobox({
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
       </div>
       {open && !disabled ? (
-        <div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl"
+        >
           {filteredOptions.length === 0 ? (
             <div className="px-3 py-2 text-sm text-gray-500">{emptyMessage}</div>
           ) : (
-            filteredOptions.map((option) => (
+            filteredOptions.map((option, index) => (
               <button
                 key={`${id}-${option.value}`}
                 type="button"
+                id={`${id}-option-${option.value}`}
+                role="option"
+                aria-selected={option.value === value}
+                ref={(element) => {
+                  optionRefs.current[index] = element;
+                }}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
-                  onChange(option.value);
-                  setOpen(false);
+                  selectOption(option.value);
                 }}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+                onMouseEnter={() => setActiveIndex(index)}
+                className={cn(
+                  "block w-full px-3 py-2 text-left text-sm",
+                  option.value === value && "bg-green-50",
+                  activeIndex === index && "bg-gray-100",
+                  activeIndex !== index && option.value !== value && "hover:bg-gray-50"
+                )}
               >
                 <div className="font-medium text-gray-800">{option.label ?? option.value}</div>
                 {option.description ? <div className="text-xs text-gray-500">{option.description}</div> : null}
