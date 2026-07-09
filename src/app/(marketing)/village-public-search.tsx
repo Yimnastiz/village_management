@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPinned, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import type { ThaiProvince } from "@/lib/thai-geography";
 
 type VillageOption = {
@@ -133,97 +134,72 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <div>
-          <Input
-            label="จังหวัด"
-            value={province}
-            onChange={(event) => {
-              setProvince(event.target.value);
-              setDistrict("");
-              setSubdistrict("");
-              setVillageName("");
-              setError(null);
-            }}
-            list="public-province-suggestions"
-            placeholder="เลือกหรือพิมพ์จังหวัด"
-            className="border-white/20 bg-white text-gray-900"
-          />
-          <datalist id="public-province-suggestions">
-            {provinceOptions.map((provinceOption) => (
-              <option key={provinceOption.value} value={provinceOption.value} />
-            ))}
-          </datalist>
-        </div>
+        <SuggestCombobox
+          id="public-province"
+          label="จังหวัด"
+          value={province}
+          options={provinceOptions}
+          placeholder="เลือกหรือพิมพ์จังหวัด"
+          onChange={(nextValue) => {
+            setProvince(nextValue);
+            setDistrict("");
+            setSubdistrict("");
+            setVillageName("");
+            setError(null);
+          }}
+        />
 
-        <div>
-          <Input
-            label="อำเภอ"
-            value={district}
-            onChange={(event) => {
-              setDistrict(event.target.value);
-              setSubdistrict("");
-              setVillageName("");
-              setError(null);
-            }}
-            list="public-district-suggestions"
-            placeholder={province ? "เลือกหรือพิมพ์อำเภอ" : "เลือกจังหวัดก่อน"}
-            disabled={!province}
-            className="border-white/20 bg-white text-gray-900"
-          />
-          <datalist id="public-district-suggestions">
-            {districtOptions.map((districtOption) => (
-              <option key={districtOption} value={districtOption} />
-            ))}
-          </datalist>
-        </div>
+        <SuggestCombobox
+          id="public-district"
+          label="อำเภอ"
+          value={district}
+          options={districtOptions.map((districtOption) => ({ value: districtOption }))}
+          placeholder={province ? "เลือกหรือพิมพ์อำเภอ" : "เลือกจังหวัดก่อน"}
+          disabled={!province}
+          onChange={(nextValue) => {
+            setDistrict(nextValue);
+            setSubdistrict("");
+            setVillageName("");
+            setError(null);
+          }}
+        />
 
-        <div>
-          <Input
-            label="ตำบล"
-            value={subdistrict}
-            onChange={(event) => {
-              setSubdistrict(event.target.value);
-              setVillageName("");
-              setError(null);
-            }}
-            list="public-subdistrict-suggestions"
-            placeholder={district ? "เลือกหรือพิมพ์ตำบล" : "เลือกอำเภอก่อน"}
-            disabled={!district}
-            className="border-white/20 bg-white text-gray-900"
-          />
-          <datalist id="public-subdistrict-suggestions">
-            {subdistrictOptions.map((subdistrictOption) => (
-              <option key={subdistrictOption} value={subdistrictOption} />
-            ))}
-          </datalist>
-        </div>
+        <SuggestCombobox
+          id="public-subdistrict"
+          label="ตำบล"
+          value={subdistrict}
+          options={subdistrictOptions.map((subdistrictOption) => ({ value: subdistrictOption }))}
+          placeholder={district ? "เลือกหรือพิมพ์ตำบล" : "เลือกอำเภอก่อน"}
+          disabled={!district}
+          onChange={(nextValue) => {
+            setSubdistrict(nextValue);
+            setVillageName("");
+            setError(null);
+          }}
+        />
 
         <div className="xl:col-span-2">
-          <Input
+          <SuggestCombobox
+            id="public-village"
             label="ชื่อหมู่บ้าน"
             value={villageName}
-            onChange={(event) => {
-              setVillageName(event.target.value);
-              setError(null);
-            }}
-            list="public-village-suggestions"
+            options={villageSuggestions.map((village) => ({
+              value: village.name,
+              label: village.name,
+              description: [village.subdistrict, village.district, village.province].filter(Boolean).join(" / "),
+            }))}
             placeholder="พิมพ์ชื่อหมู่บ้าน เช่น Kontai"
             helperText={
               villageSuggestions.length > 0
                 ? `มีคำแนะนำ ${villageSuggestions.length} รายการจากฐานข้อมูล`
                 : "ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
             }
-            className="border-white/20 bg-white text-gray-900"
+            emptyMessage="ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
+            onChange={(nextValue) => {
+              setVillageName(nextValue);
+              setError(null);
+            }}
           />
-          <datalist id="public-village-suggestions">
-            {villageSuggestions.map((village) => (
-              <option key={village.id} value={village.name}>
-                {`${village.name} - ${[village.subdistrict, village.district, village.province]
-                  .filter(Boolean)
-                  .join(" / ")}`}
-              </option>
-            ))}
-          </datalist>
         </div>
 
         <div className="xl:col-span-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">

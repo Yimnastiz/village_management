@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
-import { broadcastAnnouncementAction } from "./actions";
+import { BroadcastForm } from "./broadcast-form";
 
 export default async function SuperAdminBroadcastsPage() {
   await requireSuperAdminPageSession();
@@ -41,24 +41,7 @@ export default async function SuperAdminBroadcastsPage() {
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">สร้างประกาศใหม่</h2>
-        <form action={broadcastAnnouncementAction} className="mt-3 space-y-3">
-          <input
-            name="title"
-            placeholder="หัวข้อประกาศ"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            required
-          />
-          <textarea
-            name="body"
-            placeholder="เนื้อหาประกาศ"
-            rows={4}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            required
-          />
-          <button type="submit" className="rounded-md bg-cyan-600 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-700">
-            ส่งประกาศทั่วระบบ
-          </button>
-        </form>
+        <BroadcastForm />
       </section>
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
