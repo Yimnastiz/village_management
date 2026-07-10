@@ -12,6 +12,7 @@ const appointmentSchema = z.object({
   description: z.string().optional(),
   slotId: z.string().optional(),
   requestedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "กรุณาเลือกวันที่นัดหมาย"),
+  targetAdminUserId: z.string().optional(),
 });
 
 const approveAppointmentSchema = z.object({
@@ -56,6 +57,36 @@ async function getVillageAdminUserIds(villageId: string): Promise<string[]> {
   });
 
   return Array.from(new Set(admins.map((item) => item.userId)));
+}
+
+async function getAdminResponderSummary(villageId: string, userId: string): Promise<{ userId: string; name: string; phoneNumber: string; role: VillageMembershipRole } | null> {
+  const membership = await prisma.villageMembership.findFirst({
+    where: {
+      villageId,
+      userId,
+      status: "ACTIVE",
+      role: { in: ADMIN_MEMBERSHIP_ROLES },
+    },
+    include: {
+      user: {
+        select: {
+          name: true,
+          phoneNumber: true,
+        },
+      },
+    },
+  });
+
+  if (!membership) {
+    return null;
+  }
+
+  return {
+    userId,
+    name: membership.user.name,
+    phoneNumber: membership.user.phoneNumber,
+    role: membership.role,
+  };
 }
 
 async function notifyVillageAdmins(
@@ -125,8 +156,9 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
   const description = (formData.get("description") as string | null) || undefined;
   const slotId = (formData.get("slotId") as string | null) || undefined;
   const requestedDate = (formData.get("requestedDate") as string | null) || "";
+  const targetAdminUserId = (formData.get("targetAdminUserId") as string | null) || undefined;
 
-  const parsed = appointmentSchema.safeParse({ title, description, slotId, requestedDate });
+  const parsed = appointmentSchema.safeParse({ title, description, slotId, requestedDate, targetAdminUserId });
   if (!parsed.success) {
     return {
       success: false,
@@ -143,6 +175,14 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
   const requestedDateObj = new Date(`${parsed.data.requestedDate}T00:00:00.000Z`);
   const nextDateObj = new Date(requestedDateObj);
   nextDateObj.setUTCDate(nextDateObj.getUTCDate() + 1);
+
+  const selectedTargetAdmin = parsed.data.targetAdminUserId
+    ? await getAdminResponderSummary(membership.villageId, parsed.data.targetAdminUserId)
+    : null;
+
+  if (parsed.data.targetAdminUserId && !selectedTargetAdmin) {
+    return { success: false, error: "ผู้ที่เลือกนัดหมายไม่ถูกต้อง" };
+  }
 
   // Check whether the selected date has any available slots.
   const slotsOnDate = await prisma.appointmentSlot.findMany({
@@ -216,19 +256,40 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
       actorId: session.id,
       action: "CREATED",
       description: "ลูกบ้านขอจองนัดหมาย",
+      metadata: {
+        targetAdminUserId: selectedTargetAdmin?.userId ?? null,
+        targetAdminName: selectedTargetAdmin?.name ?? null,
+        targetAdminPhone: selectedTargetAdmin?.phoneNumber ?? null,
+        targetAdminRole: selectedTargetAdmin?.role ?? null,
+      },
     },
   });
 
-  await notifyVillageAdmins(
-    membership.villageId,
-    "อัปเดตนัดหมาย: คำขอใหม่",
-    `เรื่อง: ${parsed.data.title} | วันที่ที่ต้องการ: ${formatThaiShortDate(requestedDateObj)}${parsed.data.slotId ? " | ผู้ใช้เลือกช่วงเวลาแล้ว" : " | รอผู้บริหารกำหนดช่วงเวลา"}`,
-    {
-      appointmentId: appointment.id,
-      requestedDate: parsed.data.requestedDate,
-      requestedSlotId: parsed.data.slotId ?? null,
-    }
-  );
+  if (selectedTargetAdmin) {
+    await notifyUser(
+      selectedTargetAdmin.userId,
+      membership.villageId,
+      "อัปเดตนัดหมาย: คำขอใหม่ที่ระบุผู้รับนัด",
+      `เรื่อง: ${parsed.data.title} | วันที่ที่ต้องการ: ${formatThaiShortDate(requestedDateObj)} | ผู้ใช้นัดกับ ${selectedTargetAdmin.name}`,
+      {
+        appointmentId: appointment.id,
+        requestedDate: parsed.data.requestedDate,
+        requestedSlotId: parsed.data.slotId ?? null,
+        targetAdminUserId: selectedTargetAdmin.userId,
+      }
+    );
+  } else {
+    await notifyVillageAdmins(
+      membership.villageId,
+      "อัปเดตนัดหมาย: คำขอใหม่",
+      `เรื่อง: ${parsed.data.title} | วันที่ที่ต้องการ: ${formatThaiShortDate(requestedDateObj)}${parsed.data.slotId ? " | ผู้ใช้เลือกช่วงเวลาแล้ว" : " | รอผู้บริหารกำหนดช่วงเวลา"}`,
+      {
+        appointmentId: appointment.id,
+        requestedDate: parsed.data.requestedDate,
+        requestedSlotId: parsed.data.slotId ?? null,
+      }
+    );
+  }
 
   revalidateAppointmentViews(appointment.id);
 
@@ -273,6 +334,8 @@ export async function approveAppointmentAction(
   if (!adminMembership) {
     return { success: false, error: "ไม่มีสิทธิ์อนุมัตินัดหมายนี้" };
   }
+
+  const responder = await getAdminResponderSummary(appointment.villageId, session.id);
 
   const effectiveSlotId = parsed.data.slotId ?? appointment.slotId ?? undefined;
   if (!effectiveSlotId) {
@@ -321,6 +384,11 @@ export async function approveAppointmentAction(
       actorId: session.id,
       action: "APPROVED",
       description: `ผู้บริหารอนุมัตินัดหมาย${parsed.data.reviewNote ? ` - ${parsed.data.reviewNote}` : ""}`,
+      metadata: {
+        responderName: responder?.name ?? null,
+        responderPhone: responder?.phoneNumber ?? null,
+        responderRole: responder?.role ?? null,
+      },
     },
   });
 
@@ -328,8 +396,13 @@ export async function approveAppointmentAction(
     appointment.userId,
     appointment.villageId,
     "อัปเดตนัดหมาย: อนุมัติแล้ว",
-    `เรื่อง: ${appointment.title} | เวลา ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)}`,
-    { appointmentId: appointment.id }
+    `เรื่อง: ${appointment.title} | เวลา ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)}${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    {
+      appointmentId: appointment.id,
+      responderName: responder?.name ?? null,
+      responderPhone: responder?.phoneNumber ?? null,
+      responderRole: responder?.role ?? null,
+    }
   );
 
   revalidateAppointmentViews(appointment.id);
@@ -378,6 +451,8 @@ export async function rejectAppointmentAction(
     return { success: false, error: "ไม่มีสิทธิ์ปฏิเสธนัดหมายนี้" };
   }
 
+  const responder = await getAdminResponderSummary(appointment.villageId, session.id);
+
   await prisma.appointment.update({
     where: { id: appointment.id },
     data: {
@@ -394,6 +469,11 @@ export async function rejectAppointmentAction(
       actorId: session.id,
       action: "REJECTED",
       description: `ผู้บริหารปฏิเสธนัดหมาย - ${parsed.data.reviewNote}`,
+      metadata: {
+        responderName: responder?.name ?? null,
+        responderPhone: responder?.phoneNumber ?? null,
+        responderRole: responder?.role ?? null,
+      },
     },
   });
 
@@ -401,8 +481,13 @@ export async function rejectAppointmentAction(
     appointment.userId,
     appointment.villageId,
     "อัปเดตนัดหมาย: ไม่อนุมัติ",
-    `เรื่อง: ${appointment.title} | เหตุผล: ${parsed.data.reviewNote}`,
-    { appointmentId: appointment.id }
+    `เรื่อง: ${appointment.title} | เหตุผล: ${parsed.data.reviewNote}${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    {
+      appointmentId: appointment.id,
+      responderName: responder?.name ?? null,
+      responderPhone: responder?.phoneNumber ?? null,
+      responderRole: responder?.role ?? null,
+    }
   );
 
   revalidateAppointmentViews(appointment.id);
@@ -449,6 +534,8 @@ export async function suggestTimeAction(
     return { success: false, error: "ไม่มีสิทธิ์แนะนำเวลาสำหรับนัดหมายนี้" };
   }
 
+  const responder = await getAdminResponderSummary(appointment.villageId, session.id);
+
   const slot = await prisma.appointmentSlot.findUnique({
     where: { id: parsed.data.slotId },
     include: {
@@ -481,6 +568,9 @@ export async function suggestTimeAction(
         slotDate: slot.date,
         slotTime: `${slot.startTime}-${slot.endTime}`,
         adminMessage: parsed.data.message || null,
+        responderName: responder?.name ?? null,
+        responderPhone: responder?.phoneNumber ?? null,
+        responderRole: responder?.role ?? null,
       },
     },
   });
@@ -503,8 +593,13 @@ export async function suggestTimeAction(
     appointment.userId,
     appointment.villageId,
     "อัปเดตนัดหมาย: มีการแนะนำเวลา",
-    `เรื่อง: ${appointment.title} | เวลาแนะนำ ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)} | กรุณายืนยันหรือปฏิเสธ`,
-    { appointmentId: appointment.id }
+    `เรื่อง: ${appointment.title} | เวลาแนะนำ ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)} | กรุณายืนยันหรือปฏิเสธ${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    {
+      appointmentId: appointment.id,
+      responderName: responder?.name ?? null,
+      responderPhone: responder?.phoneNumber ?? null,
+      responderRole: responder?.role ?? null,
+    }
   );
 
   revalidateAppointmentViews(appointment.id);

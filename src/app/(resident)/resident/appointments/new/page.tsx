@@ -19,6 +19,7 @@ const schema = z.object({
   requestedDate: z.string().min(1, "กรุณาเลือกวันที่นัดหมาย"),
   description: z.string().optional(),
   slotId: z.string().optional(),
+  targetAdminUserId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -59,6 +60,8 @@ export default function NewAppointmentPage() {
   const [isLoadingSlots, setIsLoadingSlots] = useState(true);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [recipients, setRecipients] = useState<Array<{ id: string; name: string; phoneNumber: string; roleLabel: string }>>([]);
+  const [isLoadingRecipients, setIsLoadingRecipients] = useState(true);
 
   const todayStr = toDateStr(new Date());
   const [displayYear, setDisplayYear] = useState(new Date().getFullYear());
@@ -79,10 +82,21 @@ export default function NewAppointmentPage() {
     defaultValues: {
       requestedDate: "",
       slotId: "",
+      targetAdminUserId: "",
     },
   });
 
   const selectedDate = watch("requestedDate");
+  const selectedRecipientId = watch("targetAdminUserId");
+  const selectedRecipient = recipients.find((item) => item.id === selectedRecipientId);
+
+  useEffect(() => {
+    fetch("/api/appointments/admin-recipients")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => setRecipients(Array.isArray(data) ? data : []))
+      .catch(() => {})
+      .finally(() => setIsLoadingRecipients(false));
+  }, []);
 
   useEffect(() => {
     fetch("/api/appointments/available-slots")
@@ -178,6 +192,7 @@ export default function NewAppointmentPage() {
     formData.append("requestedDate", data.requestedDate);
     if (data.description) formData.append("description", data.description);
     if (data.slotId) formData.append("slotId", data.slotId);
+    if (data.targetAdminUserId) formData.append("targetAdminUserId", data.targetAdminUserId);
 
     const result = await createAppointmentAction(formData);
     if (!result.success) {
@@ -222,6 +237,33 @@ export default function NewAppointmentPage() {
           error={errors.title?.message}
           placeholder="เช่น ขอทำทะเบียนบ้าน, ยื่นเรื่องขอความช่วยเหลือ"
         />
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            ต้องการนัดกับ <span className="font-normal text-gray-400">(ไม่บังคับ)</span>
+          </label>
+          {isLoadingRecipients ? (
+            <div className="text-sm text-gray-400 py-2">กำลังโหลดรายชื่อผู้รับนัด…</div>
+          ) : (
+            <Select
+              {...register("targetAdminUserId")}
+              options={recipients.map((recipient) => ({
+                value: recipient.id,
+                label: `${recipient.name} (${recipient.roleLabel})${recipient.phoneNumber ? ` - ${recipient.phoneNumber}` : ""}`,
+              }))}
+              placeholder="— ไม่ระบุ (แจ้งผู้บริหารทุกคน) —"
+              error={errors.targetAdminUserId?.message}
+            />
+          )}
+          {selectedRecipient ? (
+            <p className="mt-1 text-xs text-gray-500">
+              คุณเลือกนัดกับ: {selectedRecipient.name} ({selectedRecipient.roleLabel})
+              {selectedRecipient.phoneNumber ? ` • ${selectedRecipient.phoneNumber}` : ""}
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-gray-400">หากไม่เลือก ระบบจะแจ้งผู้บริหารที่เกี่ยวข้องทุกคน</p>
+          )}
+        </div>
 
         <input type="hidden" {...register("requestedDate")} />
 

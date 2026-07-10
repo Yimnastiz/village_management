@@ -34,6 +34,8 @@ const ADMIN_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.COMMITTEE,
 ];
 
+const RESIDENT_ALLOWED_PLACE_CATEGORIES = new Set(["SHOP", "OTHER"]);
+
 export async function createVillagePlaceSubmissionAction(
   data: PlaceRequestInput
 ): Promise<{ success: true; requestId: string } | { success: false; error: string }> {
@@ -49,6 +51,9 @@ export async function createVillagePlaceSubmissionAction(
 
   const normalized = normalizeVillagePlaceInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  if (!RESIDENT_ALLOWED_PLACE_CATEGORIES.has(normalized.value.category)) {
+    return { success: false, error: "ลูกบ้านสามารถเลือกได้เฉพาะหมวด ร้านค้า/ตลาด หรือ อื่นๆ" };
+  }
 
   const villagePlaceSubmission =
     (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionCreateDelegate }).villagePlaceSubmission;
@@ -110,6 +115,9 @@ export async function createVillagePlaceUpdateSubmissionAction(
 
   const normalized = normalizeVillagePlaceInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  if (!RESIDENT_ALLOWED_PLACE_CATEGORIES.has(normalized.value.category)) {
+    return { success: false, error: "ลูกบ้านสามารถเลือกได้เฉพาะหมวด ร้านค้า/ตลาด หรือ อื่นๆ" };
+  }
 
   const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
   const place = await villagePlace.findFirst({

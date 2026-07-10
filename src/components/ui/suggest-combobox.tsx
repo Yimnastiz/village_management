@@ -20,6 +20,9 @@ type SuggestComboboxProps = {
   error?: string;
   disabled?: boolean;
   emptyMessage?: string;
+  labelClassName?: string;
+  helperClassName?: string;
+  inputClassName?: string;
   onChange: (value: string) => void;
 };
 
@@ -41,6 +44,9 @@ export function SuggestCombobox({
   error,
   disabled,
   emptyMessage = "ไม่พบข้อมูล",
+  labelClassName,
+  helperClassName,
+  inputClassName,
   onChange,
 }: SuggestComboboxProps) {
   const [open, setOpen] = useState(false);
@@ -117,7 +123,7 @@ export function SuggestCombobox({
 
   return (
     <div className="relative w-full" ref={rootRef}>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className={cn("mb-1 block text-sm font-medium text-gray-700", labelClassName)}>
         {label}
       </label>
       <div className="relative">
@@ -179,9 +185,10 @@ export function SuggestCombobox({
             }
           }}
           className={cn(
-            "block w-full rounded-lg border px-3 py-2 pr-10 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500",
+            "block w-full rounded-lg border px-3 py-2 pr-10 text-sm text-gray-900 placeholder:text-gray-400 shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500",
             error ? "border-red-300 bg-red-50" : "border-gray-300 bg-white",
-            disabled ? "cursor-not-allowed bg-gray-100 text-gray-400" : ""
+            disabled ? "cursor-not-allowed bg-gray-100 text-gray-400" : "",
+            inputClassName
           )}
         />
         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -225,7 +232,7 @@ export function SuggestCombobox({
         </div>
       ) : null}
       {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
-      {!error && helperText ? <p className="mt-1 text-xs text-gray-500">{helperText}</p> : null}
+      {!error && helperText ? <p className={cn("mt-1 text-xs text-gray-500", helperClassName)}>{helperText}</p> : null}
     </div>
   );
 }

@@ -187,17 +187,22 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                   key={dayKey}
                   className={`min-h-28 border-b border-r border-gray-100 p-2 ${isSelected ? "bg-green-50" : "bg-white"} ${
                     hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
-                  }`}
+                  } ${isToday ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300" : ""}`}
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <Link
                       href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
                       className={`text-sm font-medium hover:text-green-700 ${
-                        isToday ? "text-red-600" : "text-gray-800"
+                        isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
                       }`}
                     >
                       {day}
                     </Link>
+                    {isToday && (
+                      <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                        TODAY
+                      </span>
+                    )}
                     {dayEvents.length > 0 && (
                       <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-green-100 px-1 text-xs font-medium text-green-700">
                         {dayEvents.length}
@@ -236,7 +241,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
           <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
             <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
               <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-red-500" /> วันนี้
+                <span className="h-2 w-2 rounded-full bg-rose-600" /> วันนี้ (ขอบแดง + ป้าย TODAY)
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-sky-500" /> มีนัดหมายของคุณ

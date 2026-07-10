@@ -8,6 +8,7 @@ import {
   Users,
   Shield,
   Megaphone,
+  MessageSquare,
   ScrollText,
   Settings,
 } from "lucide-react";
@@ -25,6 +26,7 @@ export const superAdminMenuItems: SuperAdminMenuItem[] = [
   { href: "/superadmin/users", label: "จัดการผู้ใช้", icon: Users },
   { href: "/superadmin/roles", label: "บทบาทและสิทธิ์", icon: Shield },
   { href: "/superadmin/broadcasts", label: "ประกาศทุกหมู่บ้าน", icon: Megaphone },
+  { href: "/superadmin/feedback", label: "Feedback ผู้ใช้งาน", icon: MessageSquare },
   { href: "/superadmin/logs", label: "บันทึกกิจกรรมระบบ", icon: ScrollText },
   { href: "/superadmin/settings", label: "ตั้งค่ากลางระบบ", icon: Settings },
 ];

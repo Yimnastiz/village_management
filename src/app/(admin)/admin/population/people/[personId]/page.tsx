@@ -2,9 +2,11 @@ import Link from "next/link";
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { DeletePersonButton } from "../delete-person-button";
 
 interface PageProps { params: Promise<{ personId: string }> }
 
@@ -99,12 +101,18 @@ export default async function Page({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-gray-900">ข้อมูลบุคคล</h1>
           <p className="mt-1 text-sm text-gray-500">รายละเอียดข้อมูลทะเบียน ประวัติการย้าย และบัญชีผู้ใช้ที่เกี่ยวข้อง</p>
         </div>
-        <Link
-          href="/admin/population/people"
-          className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          กลับไปหน้ารายการบุคคล
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/population/people"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            กลับไปหน้ารายการบุคคล
+          </Link>
+          <Link href={`/admin/population/people/${person.id}/edit`}>
+            <Button variant="outline">แก้ไข</Button>
+          </Link>
+          <DeletePersonButton personId={person.id} />
+        </div>
       </div>
 
       <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6">

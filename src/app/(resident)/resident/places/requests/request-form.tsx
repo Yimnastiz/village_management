@@ -17,6 +17,8 @@ import {
   createVillagePlaceUpdateSubmissionAction,
 } from "./actions";
 
+const RESIDENT_ALLOWED_PLACE_CATEGORIES = ["SHOP", "OTHER"] as const;
+
 const schema = z.object({
   name: z.string().min(2, "กรุณาระบุชื่อสถานที่"),
   category: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
@@ -124,7 +126,10 @@ export function PlaceRequestForm({ mode = "create", targetPlaceId, defaultValues
         <Select
           label="หมวดหมู่"
           {...register("category")}
-          options={Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))}
+          options={RESIDENT_ALLOWED_PLACE_CATEGORIES.map((value) => ({
+            value,
+            label: VILLAGE_PLACE_CATEGORY_LABELS[value] ?? value,
+          }))}
           error={errors.category?.message}
         />
         <Input label="เบอร์โทรติดต่อ" {...register("contactPhone")} error={errors.contactPhone?.message} />

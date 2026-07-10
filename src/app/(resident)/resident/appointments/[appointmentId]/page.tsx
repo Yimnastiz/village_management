@@ -60,6 +60,12 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
   // Find the latest TIME_SUGGESTED timeline entry for admin message
   const suggestionEntry = appointment.timeline.find((t) => t.action === "TIME_SUGGESTED");
   const suggestionMetadata = suggestionEntry?.metadata as any;
+  const createdEntry = appointment.timeline.find((t) => t.action === "CREATED");
+  const createdMetadata = createdEntry?.metadata as any;
+  const responderEntry = appointment.timeline.find((t) =>
+    t.action === "APPROVED" || t.action === "REJECTED" || t.action === "TIME_SUGGESTED"
+  );
+  const responderMetadata = responderEntry?.metadata as any;
 
   // Find if last rejection was a rejected suggestion
   const lastTimeline = appointment.timeline[0];
@@ -91,6 +97,16 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
         )}
 
         <div className="bg-gray-50 rounded-lg p-4 space-y-3 text-sm">
+          {createdMetadata?.targetAdminName && (
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-gray-500">ผู้รับนัดที่เลือก</span>
+              <span className="font-medium">
+                {createdMetadata.targetAdminName}
+                {createdMetadata.targetAdminRole ? ` (${createdMetadata.targetAdminRole})` : ""}
+                {createdMetadata.targetAdminPhone ? ` • ${createdMetadata.targetAdminPhone}` : ""}
+              </span>
+            </div>
+          )}
           {appointment.slot && (
             <>
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
@@ -113,6 +129,16 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
             <span className="text-gray-500">สร้างเมื่อ</span>
             <span className="font-medium">{formatThaiDate(appointment.createdAt)}</span>
           </div>
+          {responderMetadata?.responderName && (
+            <div className="flex flex-col gap-1 border-t border-gray-200 pt-2 sm:flex-row sm:items-center sm:justify-between">
+              <span className="text-gray-500">ผู้ตอบกลับล่าสุด</span>
+              <span className="font-medium">
+                {responderMetadata.responderName}
+                {responderMetadata.responderRole ? ` (${responderMetadata.responderRole})` : ""}
+                {responderMetadata.responderPhone ? ` • ${responderMetadata.responderPhone}` : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         {appointment.reviewNote && appointment.stage !== "TIME_SUGGESTED" && (

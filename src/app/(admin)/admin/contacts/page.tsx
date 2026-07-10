@@ -108,11 +108,16 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
           },
         ]}
         actions={
-          <Link href="/admin/contacts/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> เพิ่มผู้ติดต่อ
-            </Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/admin/contacts/requests">
+              <Button size="sm" variant="outline">คำขอจากลูกบ้าน</Button>
+            </Link>
+            <Link href="/admin/contacts/new">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1" /> เพิ่มผู้ติดต่อ
+              </Button>
+            </Link>
+          </div>
         }
       />
 
