@@ -185,14 +185,16 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
               return (
                 <div
                   key={dayKey}
-                  className={`min-h-28 border-b border-r border-gray-100 p-2 ${isSelected ? "bg-green-50" : "bg-white"} ${
+                  className={`min-h-28 border-b border-r border-gray-100 p-2 transition-colors duration-200 ${
+                    isSelected ? "bg-green-50" : "bg-white hover:bg-gray-50/80"
+                  } ${
                     hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
                   } ${isToday ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300" : ""}`}
                 >
                   <div className="mb-2 flex items-center justify-between">
                     <Link
                       href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
-                      className={`text-sm font-medium hover:text-green-700 ${
+                      className={`text-sm font-medium hover:text-green-700 transition-colors focus-visible:outline-none focus-visible:underline ${
                         isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
                       }`}
                     >

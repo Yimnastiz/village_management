@@ -85,6 +85,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const selectedDateKey = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
   const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
 
+  const todayKey = toDateKey(new Date());
   const prevMonth = new Date(year, monthIndex - 1, 1);
   const nextMonth = new Date(year, monthIndex + 1, 1);
   const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
@@ -134,21 +135,33 @@ export default async function Page({ params, searchParams }: PageProps) {
             const dayKey = toDateKey(cellDate);
             const dayEvents = eventsByDay.get(dayKey) ?? [];
             const isSelected = selectedDateKey === dayKey;
+            const isToday = dayKey === todayKey;
 
             return (
               <div
                 key={dayKey}
-                className={`min-h-28 border-r border-b border-gray-100 p-2 ${
-                  isSelected ? "bg-green-50" : "bg-white"
+                className={`min-h-28 border-r border-b border-gray-100 p-2 transition-colors duration-200 ${
+                  isSelected
+                    ? "bg-green-50"
+                    : isToday
+                      ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300"
+                      : "bg-white hover:bg-gray-50/80"
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <Link
                     href={`/${villageSlug}/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
-                    className="text-sm font-medium text-gray-800 hover:text-green-700"
+                    className={`text-sm font-medium hover:text-green-700 transition-colors focus-visible:outline-none focus-visible:underline ${
+                      isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
+                    }`}
                   >
                     {day}
                   </Link>
+                  {isToday && (
+                    <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                      TODAY
+                    </span>
+                  )}
                   {dayEvents.length > 0 && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-green-100 px-1 text-xs font-medium text-green-700">
                       {dayEvents.length}
@@ -178,6 +191,13 @@ export default async function Page({ params, searchParams }: PageProps) {
               </div>
             );
           })}
+        </div>
+        <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-rose-600" /> วันนี้ (ขอบแดง + ป้าย TODAY)
+            </span>
+          </div>
         </div>
       </section>
 

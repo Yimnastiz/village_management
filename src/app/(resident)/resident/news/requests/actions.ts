@@ -281,3 +281,79 @@ export async function deletePendingNewsSubmissionAction(
   revalidatePath("/resident/news/requests");
   return { success: true };
 }
+
+export async function createNewsDeleteRequestAction(
+  targetNewsId: string
+): Promise<{ success: true; requestId?: string } | { success: false; error: string }> {
+  const ctx = await requireResidentVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+
+  const targetNews = await prisma.news.findFirst({
+    where: {
+      id: targetNewsId,
+      villageId: ctx.villageId,
+      stage: "PUBLISHED",
+    },
+    select: {
+      id: true,
+      authorId: true,
+      title: true,
+      summary: true,
+      content: true,
+      imageUrls: true,
+      visibility: true,
+      stage: true,
+      isPinned: true,
+    },
+  });
+  if (!targetNews) {
+    return { success: false, error: "ไม่พบข่าวปลายทางหรือข่าวนี้ไม่ได้เผยแพร่อยู่" };
+  }
+
+  if (!targetNews.authorId || targetNews.authorId !== ctx.userId) {
+    return { success: false, error: "คุณสามารถขอแก้ไขหรือลบได้เฉพาะข่าวที่คุณสร้างเอง" };
+  }
+
+  // Check if there is already a pending request for this news
+  const existingPending = await prisma.newsSubmission.findFirst({
+    where: {
+      targetNewsId,
+      status: "PENDING",
+    },
+  });
+  if (existingPending) {
+    return { success: false, error: "มีคำขอที่อยู่ระหว่างดำเนินการสำหรับข่าวนี้แล้ว" };
+  }
+
+  const created = await prisma.newsSubmission.create({
+    data: {
+      villageId: ctx.villageId,
+      requesterId: ctx.userId,
+      type: "UPDATE",
+      targetNewsId,
+      payload: {
+        title: targetNews.title,
+        summary: targetNews.summary || "",
+        content: targetNews.content,
+        imageUrls: targetNews.imageUrls || [],
+        visibility: targetNews.visibility,
+        stage: targetNews.stage,
+        isPinned: targetNews.isPinned,
+        isDeleteRequest: true,
+      },
+    },
+    select: { id: true },
+  });
+
+  await notifyVillageAdmins(
+    ctx.villageId,
+    "มีคำขอลบข่าวจากลูกบ้าน",
+    `หัวข้อ: ${targetNews.title}`,
+    { requestId: created.id, type: "UPDATE", targetNewsId }
+  );
+
+  revalidatePath("/resident/news/requests");
+
+  return { success: true, requestId: created.id };
+}
+

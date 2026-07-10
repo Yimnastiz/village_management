@@ -213,6 +213,46 @@ export async function adminApproveNewsSubmissionAction(
   const reviewedBy = ctx.session.id;
   const reviewNoteValue = reviewNote?.trim() || null;
 
+  const isDeleteRequest = Boolean(payload.isDeleteRequest);
+
+  if (isDeleteRequest) {
+    if (!submission.targetNewsId) {
+      return { success: false, error: "คำขอลบนี้ไม่มีข่าวปลายทาง" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.news.delete({
+        where: { id: submission.targetNewsId! },
+      });
+
+      await tx.newsSubmission.update({
+        where: { id: submission.id },
+        data: {
+          status: "APPROVED",
+          reviewedBy,
+          reviewedAt: now,
+          reviewNote: reviewNoteValue,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          villageId: ctx.villageId,
+          userId: submission.requesterId,
+          type: NotificationType.NEWS,
+          title: "คำขอลบข่าวของคุณได้รับการอนุมัติ",
+          body: `หัวข้อ: ${String(payload.title ?? "")}`,
+          metadata: {
+            submissionId: submission.id,
+            status: "APPROVED",
+          },
+        },
+      });
+    });
+
+    return { success: true, newsId: submission.targetNewsId };
+  }
+
   if (submission.type === "CREATE") {
     const created = await prisma.$transaction(async (tx) => {
       const news = await tx.news.create({

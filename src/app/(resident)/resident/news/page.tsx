@@ -257,11 +257,11 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
                   <p className="font-medium text-gray-900 line-clamp-1">{news.title}</p>
                   <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{news.summary || "-"}</p>
                   <p className="text-xs text-gray-400 mt-1 sm:hidden">
-                    {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
+                    {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} {(news.publishedAt ?? news.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
                   </p>
                 </div>
                 <p className="text-xs text-gray-400 whitespace-nowrap hidden sm:block">
-                  {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
+                  {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} {(news.publishedAt ?? news.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
                 </p>
               </div>
             </Link>

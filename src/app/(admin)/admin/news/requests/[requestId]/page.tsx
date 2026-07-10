@@ -59,11 +59,19 @@ export default async function AdminNewsRequestDetailPage({ params }: PageProps) 
 
       <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Badge variant="outline">{NEWS_SUBMISSION_TYPE_LABELS[request.type]}</Badge>
+          <Badge variant="outline">
+            {Boolean(payload.isDeleteRequest) ? "คำขอลบข่าว" : NEWS_SUBMISSION_TYPE_LABELS[request.type]}
+          </Badge>
           <Badge variant={request.status === "PENDING" ? "warning" : request.status === "APPROVED" ? "success" : "danger"}>
             {NEWS_SUBMISSION_STATUS_LABELS[request.status]}
           </Badge>
         </div>
+
+        {Boolean(payload.isDeleteRequest) && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-800 text-sm font-medium">
+            ⚠️ คำเตือน: ลูกบ้านต้องการลบข่าวนี้ หากแอดมินอนุมัติ ข่าวนี้จะถูกลบออกจากฐานข้อมูลและหน้าเว็บของหมู่บ้านทันทีอย่างถาวร
+          </div>
+        )}
 
         <p className="text-sm text-gray-600">ผู้ส่งคำขอ: {request.requester.name}</p>
         {request.targetNews?.title && (

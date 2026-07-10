@@ -55,7 +55,13 @@ export default async function AdminNewsRequestListPage() {
                     <Badge variant={statusVariant[request.status] ?? "default"}>
                       {NEWS_SUBMISSION_STATUS_LABELS[request.status]}
                     </Badge>
-                    <Badge variant="outline">{NEWS_SUBMISSION_TYPE_LABELS[request.type]}</Badge>
+                    <Badge variant="outline">
+                      {(() => {
+                        const payload = request.payload as any;
+                        if (payload?.isDeleteRequest) return "ขอลบข่าว";
+                        return NEWS_SUBMISSION_TYPE_LABELS[request.type];
+                      })()}
+                    </Badge>
                   </div>
                   <p className="text-sm text-gray-700">ผู้ส่งคำขอ: {request.requester.name}</p>
                   <p className="text-sm text-gray-500 mt-1">
