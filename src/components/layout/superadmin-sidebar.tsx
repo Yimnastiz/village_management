@@ -13,7 +13,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const menuItems = [
+export type SuperAdminMenuItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+export const superAdminMenuItems: SuperAdminMenuItem[] = [
   { href: "/superadmin/dashboard", label: "ภาพรวมระบบ", icon: LayoutDashboard },
   { href: "/superadmin/villages", label: "จัดการหมู่บ้าน", icon: Building2 },
   { href: "/superadmin/users", label: "จัดการผู้ใช้", icon: Users },
@@ -41,7 +47,7 @@ export function SuperAdminSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 p-3">
-        {menuItems.map((item) => {
+        {superAdminMenuItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link

@@ -23,7 +23,13 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
   };
 
   const metadata = getMetadata();
-  const actionUrl = metadata?.actionUrl ? (metadata.actionUrl as string) : null;
+  const source = typeof metadata?.source === "string" ? metadata.source : null;
+  const actionUrl =
+    source === "SUPERADMIN_BROADCAST"
+      ? `/admin/notifications/${notification.id}`
+      : metadata?.actionUrl
+        ? (metadata.actionUrl as string)
+        : null;
   const actionLabel = metadata?.actionLabel ? (metadata.actionLabel as string) : "ไปยังหน้าต่อไป";
 
   const handleClick = async () => {

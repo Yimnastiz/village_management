@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -64,9 +65,14 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
           <p className="text-base font-semibold text-slate-900">{user.name}</p>
           <p className="text-xs text-slate-500">{user.phoneNumber} • {user.id}</p>
         </div>
-        <span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.systemRole === "SUPERADMIN" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
-          {user.systemRole}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.systemRole === "SUPERADMIN" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
+            {user.systemRole}
+          </span>
+          <Link href={`/superadmin/users/${user.id}`} className="inline-flex items-center rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            ดูรายละเอียด
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">

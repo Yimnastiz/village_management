@@ -2,6 +2,21 @@ import { QueryPagination } from "@/components/ui/query-pagination";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 
+const ESSENTIAL_ACTIONS = ["CREATE", "UPDATE", "DELETE", "APPROVE", "REJECT", "EXPORT", "LOGIN", "LOGOUT"] as const;
+const ESSENTIAL_RESOURCES = [
+  "Village",
+  "VillageStatus",
+  "UserSystemRole",
+  "VillageAdminRoleAssignment",
+  "VillageAdminRoleRemoval",
+  "UserMembershipSuspension",
+  "UserProfile",
+  "UserMembership",
+  "UserAccount",
+  "GlobalSetting",
+  "SystemWideBroadcast",
+] as const;
+
 type PageProps = {
   searchParams?: Promise<{ q?: string; action?: string; page?: string }>;
 };
@@ -15,7 +30,8 @@ export default async function SuperAdminLogsPage({ searchParams }: PageProps) {
   const pageSize = 25;
 
   const where = {
-    ...(action !== "all" ? { action: action as any } : {}),
+    action: action !== "all" ? (action as any) : { in: [...ESSENTIAL_ACTIONS] },
+    resource: { in: [...ESSENTIAL_RESOURCES] },
     ...(keyword
       ? {
           OR: [
@@ -63,13 +79,12 @@ export default async function SuperAdminLogsPage({ searchParams }: PageProps) {
       <form method="GET" className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
         <input name="q" defaultValue={keyword} placeholder="ค้นหา resource, resource id, ผู้กระทำ, หมู่บ้าน" className="rounded-md border border-slate-300 px-3 py-2 text-sm md:col-span-3" />
         <select name="action" defaultValue={action} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
-          <option value="all">ทุก Action</option>
+          <option value="all">ทุก Action สำคัญ</option>
           <option value="CREATE">CREATE</option>
           <option value="UPDATE">UPDATE</option>
           <option value="DELETE">DELETE</option>
           <option value="APPROVE">APPROVE</option>
           <option value="REJECT">REJECT</option>
-          <option value="VIEW_SENSITIVE">VIEW_SENSITIVE</option>
           <option value="EXPORT">EXPORT</option>
           <option value="LOGIN">LOGIN</option>
           <option value="LOGOUT">LOGOUT</option>

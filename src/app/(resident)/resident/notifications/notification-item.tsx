@@ -30,6 +30,11 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
   };
 
   const getActionUrl = (): string | null => {
+    const source = getStringFromMetadata("source");
+    if (notification.type === NotificationType.SYSTEM && source === "SUPERADMIN_BROADCAST") {
+      return `/resident/notifications/${notification.id}`;
+    }
+
     const explicitUrl = getStringFromMetadata("actionUrl");
     if (explicitUrl) return explicitUrl;
 
@@ -58,7 +63,7 @@ export function NotificationItem({ notification, onMarkRead }: NotificationItemP
 
     if (notification.type === NotificationType.CORRECTION_REQUEST) return "/resident/household/corrections";
     if (notification.type === NotificationType.BINDING_REQUEST) return "/resident/binding/pending";
-    if (notification.type === NotificationType.SYSTEM) return "/resident/dashboard";
+    if (notification.type === NotificationType.SYSTEM) return "/resident/notifications";
 
     return null;
   };

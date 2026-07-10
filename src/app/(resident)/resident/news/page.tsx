@@ -63,43 +63,78 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
       ? [{ isPinned: "desc" as const }, { publishedAt: "asc" as const }, { createdAt: "asc" as const }]
       : [{ isPinned: "desc" as const }, { publishedAt: "desc" as const }, { createdAt: "desc" as const }];
 
-  const newsList = await prisma.news.findMany({
-    where: {
-      villageId: membership.villageId,
-      stage: "PUBLISHED",
-      visibility: visibilityWhereClause,
-      ...(keyword
-        ? {
-            title: {
-              contains: keyword,
-              mode: "insensitive" as const,
+  const now = new Date();
+
+  const [newsList, superAdminAnnouncements] = await Promise.all([
+    prisma.news.findMany({
+      where: {
+        villageId: membership.villageId,
+        stage: "PUBLISHED",
+        visibility: visibilityWhereClause,
+        ...(keyword
+          ? {
+              title: {
+                contains: keyword,
+                mode: "insensitive" as const,
+              },
+            }
+          : {}),
+      },
+      orderBy,
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        visibility: true,
+        isPinned: true,
+        publishedAt: true,
+        createdAt: true,
+        authorId: true,
+        author: {
+          select: {
+            memberships: {
+              where: {
+                villageId: membership.villageId,
+                status: "ACTIVE",
+              },
+              select: { role: true },
             },
-          }
-        : {}),
-    },
-    orderBy,
-    select: {
-      id: true,
-      title: true,
-      summary: true,
-      visibility: true,
-      isPinned: true,
-      publishedAt: true,
-      createdAt: true,
-      authorId: true,
-      author: {
-        select: {
-          memberships: {
-            where: {
-              villageId: membership.villageId,
-              status: "ACTIVE",
-            },
-            select: { role: true },
           },
         },
       },
-    },
-    take: 100,
+      take: 100,
+    }),
+    prisma.notification.findMany({
+      where: {
+        userId: session.id,
+        type: "SYSTEM",
+        status: { in: ["UNREAD", "READ"] },
+        metadata: {
+          path: ["source"],
+          equals: "SUPERADMIN_BROADCAST",
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 40,
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        metadata: true,
+        createdAt: true,
+      },
+    }),
+  ]);
+
+  const visibleSuperAdminAnnouncements = superAdminAnnouncements.filter((item) => {
+    const metadata = item.metadata as Record<string, unknown> | null;
+    const expiresAtRaw = typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null;
+    if (!expiresAtRaw) {
+      return true;
+    }
+
+    const expiresAt = new Date(expiresAtRaw);
+    return expiresAt > now;
   });
 
   const filteredNewsList = newsList.filter((newsItem) => {
@@ -133,6 +168,25 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         sort={sort}
         suggestionTitles={suggestionTitles}
       />
+
+      {source !== "resident" && visibleSuperAdminAnnouncements.length > 0 ? (
+        <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 sm:p-5">
+          <p className="text-sm font-semibold text-cyan-900">ประกาศจาก Super Admin</p>
+          <div className="mt-3 space-y-2">
+            {visibleSuperAdminAnnouncements.map((announcement) => (
+              <Link
+                key={announcement.id}
+                href={`/resident/notifications/${announcement.id}`}
+                className="block rounded-lg border border-cyan-100 bg-white px-3 py-2 hover:bg-cyan-50"
+              >
+                <p className="text-sm font-medium text-gray-900">{announcement.title}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{announcement.body || "-"}</p>
+                <p className="mt-1 text-xs text-gray-400">{announcement.createdAt.toLocaleString("th-TH")}</p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {filteredNewsList.length === 0 ? (
         <EmptyState

@@ -102,17 +102,17 @@ export function NewsForm({ mode, newsId, defaultValues }: NewsFormProps) {
         setError("root", { message: result.error });
         return;
       }
-      router.push(`/admin/news/${result.newsId}`);
+      router.replace(`/admin/news/${result.newsId}`);
+      return;
     } else {
       const result = await adminUpdateNewsAction(newsId ?? "", payload);
       if (!result.success) {
         setError("root", { message: result.error });
         return;
       }
-      router.push(`/admin/news/${newsId}`);
+      router.replace(`/admin/news/${newsId}`);
+      return;
     }
-
-    router.refresh();
   };
 
   return (
