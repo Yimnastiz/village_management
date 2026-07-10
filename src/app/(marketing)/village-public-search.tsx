@@ -159,6 +159,9 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           value={province}
           options={provinceOptions}
           placeholder="เลือกหรือพิมพ์จังหวัด"
+          labelClassName="text-white"
+          helperClassName="text-green-100"
+          inputClassName="bg-white text-gray-900"
           onChange={(nextValue) => {
             setProvince(nextValue);
             setDistrict("");
@@ -175,6 +178,9 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           options={districtOptions.map((districtOption) => ({ value: districtOption }))}
           placeholder={province ? "เลือกหรือพิมพ์อำเภอ" : "เลือกจังหวัดก่อน"}
           disabled={!province}
+          labelClassName="text-white"
+          helperClassName="text-green-100"
+          inputClassName="bg-white text-gray-900"
           onChange={(nextValue) => {
             setDistrict(nextValue);
             setSubdistrict("");
@@ -190,6 +196,9 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           options={subdistrictOptions.map((subdistrictOption) => ({ value: subdistrictOption }))}
           placeholder={district ? "เลือกหรือพิมพ์ตำบล" : "เลือกอำเภอก่อน"}
           disabled={!district}
+          labelClassName="text-white"
+          helperClassName="text-green-100"
+          inputClassName="bg-white text-gray-900"
           onChange={(nextValue) => {
             setSubdistrict(nextValue);
             setVillageName("");
@@ -216,6 +225,9 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
                   : "ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
             }
             emptyMessage="ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
+            labelClassName="text-white"
+            helperClassName="text-green-100"
+            inputClassName="bg-white text-gray-900"
             onChange={(nextValue) => {
               setVillageName(nextValue);
               setError(null);

@@ -53,19 +53,21 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues }: Pers
   return (
     <form
       onSubmit={handleSubmit(async (data) => {
-        const result =
-          mode === "create"
-            ? await createPersonAction(data)
-            : await updatePersonAction(personId ?? "", data);
-
-        if (!result.success) {
-          setError("root", { message: result.error });
-          return;
-        }
-
         if (mode === "create") {
+          const result = await createPersonAction(data);
+          if (!result.success) {
+            setError("root", { message: result.error });
+            return;
+          }
+
           router.push(`/admin/population/people/${result.id}`);
         } else {
+          const result = await updatePersonAction(personId ?? "", data);
+          if (!result.success) {
+            setError("root", { message: result.error });
+            return;
+          }
+
           router.push(`/admin/population/people/${personId}`);
         }
         router.refresh();

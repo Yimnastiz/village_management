@@ -6,6 +6,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { PERSON_STATUS_LABELS } from "@/lib/constants";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { PersonStatus, Prisma } from "@prisma/client";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; status?: string }>;
@@ -29,10 +30,14 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
   const status = (params.status ?? "ALL").trim();
+  const normalizedStatus =
+    status !== "ALL" && Object.values(PersonStatus).includes(status as PersonStatus)
+      ? (status as PersonStatus)
+      : null;
 
-  const where = {
+  const where: Prisma.PersonWhereInput = {
     villageId: membership.villageId,
-    ...(status !== "ALL" ? { status } : {}),
+    ...(normalizedStatus ? { status: normalizedStatus } : {}),
     ...(keyword
       ? {
           OR: [

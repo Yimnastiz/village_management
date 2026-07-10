@@ -48,7 +48,6 @@ export default function ResidentContactRequestNewPage() {
           <Input name="role" label="ตำแหน่ง/บทบาท" />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input name="email" label="อีเมล" type="email" />
           <Input name="category" label="หมวดหมู่" placeholder="เช่น ฉุกเฉิน, หน่วยงาน" />
         </div>
         <Input name="address" label="ที่อยู่/รายละเอียดสถานที่" />
