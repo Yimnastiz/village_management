@@ -6,7 +6,7 @@ import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
-import { toggleSaveTransparencyAction } from "@/app/(resident)/resident/saved/actions";
+import { toggleSaveTransparencyAction } from "@/features/saved/server/actions";
 
 interface PageProps {
   params: Promise<{ transparencyId: string }>;

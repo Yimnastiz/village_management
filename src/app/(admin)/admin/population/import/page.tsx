@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PopulationImportForm } from "./import-form";
-import { POPULATION_IMPORT_COLUMNS } from "./import-template";
+import { POPULATION_IMPORT_COLUMNS } from "@/features/population/server/import-template";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,

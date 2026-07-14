@@ -8,7 +8,7 @@ import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
-import { toggleSavePlaceAction } from "@/app/(resident)/resident/saved/actions";
+import { toggleSavePlaceAction } from "@/features/saved/server/actions";
 
 type PageProps = {
   params: Promise<{ placeId: string }>;

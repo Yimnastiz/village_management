@@ -9,7 +9,7 @@ import { SaveButton } from "@/components/ui/save-button";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { toggleSaveIssueAction } from "@/app/(resident)/resident/saved/actions";
+import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
 
 interface PageProps { params: Promise<{ issueId: string }> }

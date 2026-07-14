@@ -6,7 +6,7 @@ import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/utils";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { toggleSaveDownloadAction } from "@/app/(resident)/resident/saved/actions";
+import { toggleSaveDownloadAction } from "@/features/saved/server/actions";
 
 interface PageProps {
   params: Promise<{ fileId: string }>;

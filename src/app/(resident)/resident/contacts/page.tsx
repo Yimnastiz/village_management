@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { toggleSaveContactAction } from "@/app/(resident)/resident/saved/actions";
+import { toggleSaveContactAction } from "@/features/saved/server/actions";
 import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 
 export const dynamic = "force-dynamic";

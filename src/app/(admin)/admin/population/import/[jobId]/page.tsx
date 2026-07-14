@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
-import { POPULATION_IMPORT_COLUMNS } from "../import-template";
+import { POPULATION_IMPORT_COLUMNS } from "@/features/population/server/import-template";
 import { prisma } from "@/lib/prisma";
 import { deleteImportedPersonAction, deleteImportJobDatasetAction } from "./actions";
 

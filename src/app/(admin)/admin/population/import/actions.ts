@@ -12,7 +12,10 @@ import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { POPULATION_IMPORT_COLUMNS, POPULATION_IMPORT_HEADER_ALIASES } from "./import-template";
+import {
+  POPULATION_IMPORT_COLUMNS,
+  POPULATION_IMPORT_HEADER_ALIASES,
+} from "@/features/population/server/import-template";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,

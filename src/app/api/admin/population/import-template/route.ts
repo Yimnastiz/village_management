@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
-import { buildPopulationImportTemplateCsv } from "@/app/(admin)/admin/population/import/import-template";
+import { buildPopulationImportTemplateCsv } from "@/features/population/server/import-template";
 
 export async function GET(request: Request) {
   const session = await getSessionContextFromRequest(request);

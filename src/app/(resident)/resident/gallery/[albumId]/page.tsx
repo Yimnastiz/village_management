@@ -7,7 +7,7 @@ import { SaveButton } from "@/components/ui/save-button";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { formatThaiDate } from "@/lib/utils";
-import { toggleSaveAlbumAction } from "@/app/(resident)/resident/saved/actions";
+import { toggleSaveAlbumAction } from "@/features/saved/server/actions";
 import { AlbumGalleryViewer } from "./album-gallery-viewer";
 
 const db = prisma as any;
