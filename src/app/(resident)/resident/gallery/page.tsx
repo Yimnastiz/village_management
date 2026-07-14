@@ -3,7 +3,7 @@ import { Images } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { formatThaiShortDate } from "@/lib/utils";
 import { ResidentGalleryToolbar } from "./resident-gallery-toolbar";
@@ -16,7 +16,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
@@ -44,6 +44,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const albums = await prisma.galleryAlbum.findMany({
     where: {
       villageId: village.id,
+      ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
       ...(selectedVisibilities.length === 1
         ? { isPublic: selectedVisibilities[0] === "PUBLIC" }
         : {}),
@@ -86,7 +87,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   });
 
   const titleSuggestions = await prisma.galleryAlbum.findMany({
-    where: { villageId: village.id },
+    where: { villageId: village.id, ...(!membership.hasResidentAccess ? { isPublic: true } : {}) },
     select: { title: true },
     orderBy: [{ albumDate: "desc" }, { createdAt: "desc" }],
     take: 50,

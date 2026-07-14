@@ -17,6 +17,7 @@ import {
   Images,
   Phone,
   MapPin,
+  LockKeyhole,
 } from "lucide-react";
 
 export type ResidentMenuItem = {
@@ -25,6 +26,7 @@ export type ResidentMenuItem = {
   icon: React.ComponentType<{ className?: string }>;
   desktopPriority: number;
   mobilePriority: number;
+  locked?: boolean;
 };
 
 export const residentMenuItems: ResidentMenuItem[] = [
@@ -51,16 +53,6 @@ export type ResidentNavigationState = {
   publicVillageBasePath?: string | null;
 };
 
-const PUBLIC_MENU_SUFFIX: Record<string, string> = {
-  "/resident/news": "/news",
-  "/resident/calendar": "/calendar",
-  "/resident/downloads": "/downloads",
-  "/resident/transparency": "/transparency",
-  "/resident/gallery": "/gallery",
-  "/resident/places": "/places",
-  "/resident/contacts": "/contacts",
-};
-
 const MEMBERS_ONLY_PATHS = new Set([
   "/resident/issues",
   "/resident/appointments",
@@ -76,16 +68,11 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
 
   return baseItems.map((item) => {
     if (!state.hasMembership) {
-      const publicSuffix = PUBLIC_MENU_SUFFIX[item.href];
-      if (publicSuffix && state.publicVillageBasePath) {
-        return { ...item, href: `${state.publicVillageBasePath}${publicSuffix}` };
-      }
-
       if (MEMBERS_ONLY_PATHS.has(item.href)) {
         return {
           ...item,
           href: bindingHref,
-          label: `${item.label} (ต้องผูกบ้านก่อน)`,
+          locked: true,
         };
       }
     }
@@ -126,7 +113,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
-              key={item.href}
+              key={item.desktopPriority}
               href={item.href}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
@@ -136,7 +123,8 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
               )}
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
-              {item.label}
+              <span className="min-w-0 flex-1">{item.label}</span>
+              {item.locked ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องผูกเลขบ้านก่อน" /> : null}
             </Link>
           );
         })}

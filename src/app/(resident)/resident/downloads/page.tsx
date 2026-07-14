@@ -5,7 +5,7 @@ import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ResidentDownloadsToolbar } from "./resident-downloads-toolbar";
 
@@ -17,7 +17,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
@@ -36,7 +36,9 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
   );
 
   const visibilityWhereClause: NewsVisibility | { in: NewsVisibility[] } =
-    selectedVisibilities.length === 1
+    !membership.hasResidentAccess
+      ? NewsVisibility.PUBLIC
+      : selectedVisibilities.length === 1
       ? selectedVisibilities[0]
       : { in: ["PUBLIC", "RESIDENT_ONLY"] };
 
@@ -73,7 +75,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
     where: {
       villageId: membership.villageId,
       stage: "PUBLISHED",
-      visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+      visibility: membership.hasResidentAccess ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : NewsVisibility.PUBLIC,
     },
     select: { title: true },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],

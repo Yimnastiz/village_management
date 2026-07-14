@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NEWS_AUTHOR_SOURCE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ResidentNewsToolbar } from "./resident-news-toolbar";
 
 interface PageProps {
@@ -33,7 +33,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const query = await searchParams;
@@ -52,7 +52,9 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   );
 
   const visibilityWhereClause: NewsVisibility | { in: NewsVisibility[] } =
-    selectedVisibilities.length === 1
+    !membership.hasResidentAccess
+      ? NewsVisibility.PUBLIC
+      : selectedVisibilities.length === 1
       ? selectedVisibilities[0]
       : { in: ["PUBLIC", "RESIDENT_ONLY"] };
 

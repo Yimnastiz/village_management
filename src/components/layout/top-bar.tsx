@@ -215,13 +215,13 @@ export function TopBar({
               </button>
             </div>
             <nav className="space-y-1 p-3">
-              {mobileNavItems.map((item) => {
+              {mobileNavItems.map((item, index) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 const showUnread = item.href === notificationsHref && unreadNotificationCount > 0;
 
                 return (
                   <Link
-                    key={item.href}
+                    key={`${item.href}-${index}`}
                     href={item.href}
                     className={cn(
                       "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors",

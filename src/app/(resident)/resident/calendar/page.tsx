@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 type ResidentCalendarPageProps = {
@@ -45,7 +45,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const village = await prisma.village.findUnique({
@@ -63,6 +63,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
   const events = await prisma.villageEvent.findMany({
     where: {
       villageId: village.id,
+      ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
       startsAt: {
         gte: monthStart,
         lt: nextMonthStart,
@@ -79,7 +80,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
     },
   });
 
-  const userAppointments = await prisma.appointment.findMany({
+  const userAppointments = membership.hasResidentAccess ? await prisma.appointment.findMany({
     where: {
       userId: session.id,
       stage: { notIn: ["CANCELLED", "REJECTED"] },
@@ -97,7 +98,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
         },
       },
     },
-  });
+  }) : [];
 
   const userAppointmentDateKeys = new Set(
     userAppointments

@@ -29,7 +29,14 @@ export async function proxy(request: NextRequest) {
         pathname === "/resident" ||
         pathname === "/resident/dashboard" ||
         pathname.startsWith("/resident/profile") ||
-        pathname.startsWith("/resident/notifications");
+        pathname.startsWith("/resident/notifications") ||
+        pathname.startsWith("/resident/news") ||
+        pathname.startsWith("/resident/calendar") ||
+        pathname.startsWith("/resident/downloads") ||
+        pathname.startsWith("/resident/transparency") ||
+        pathname.startsWith("/resident/gallery") ||
+        pathname.startsWith("/resident/places") ||
+        pathname.startsWith("/resident/contacts");
       if (!isBindingRoute && !isUnboundSafeRoute) {
         return NextResponse.redirect(new URL(residentAccess.redirectPath, request.url));
       }

@@ -288,6 +288,21 @@ export function getResidentMembership(session: SessionContext) {
   return residentMemberships[0] ?? null;
 }
 
+export async function getResidentVillageAccess(session: SessionContext) {
+  const membership = getResidentMembership(session);
+  if (membership) {
+    return { villageId: membership.villageId, hasResidentAccess: true } as const;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { registrationVillageId: true },
+  });
+  return user?.registrationVillageId
+    ? { villageId: user.registrationVillageId, hasResidentAccess: false } as const
+    : null;
+}
+
 export async function setActiveVillageForCurrentSession(villageId: string): Promise<boolean> {
   const cookieStore = await cookies();
   const token = SESSION_COOKIE_NAMES

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { toggleSaveContactAction } from "@/app/(resident)/resident/saved/actions";
 import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 
@@ -19,7 +19,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
@@ -29,6 +29,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
     prisma.contactDirectory.findMany({
       where: {
         villageId: membership.villageId,
+        ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
         ...(keyword
           ? {
               OR: [

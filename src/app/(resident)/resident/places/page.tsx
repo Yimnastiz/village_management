@@ -3,7 +3,7 @@ import { Building2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { ResidentPlacesToolbar } from "./resident-places-toolbar";
@@ -32,7 +32,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
@@ -45,6 +45,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
 
   const where = {
     villageId: membership.villageId,
+    ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
     ...(category !== "ALL" ? { category } : {}),
     ...(keyword
       ? {

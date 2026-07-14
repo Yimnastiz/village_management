@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { ResidentTransparencyToolbar } from "./resident-transparency-toolbar";
 
@@ -21,7 +21,7 @@ export default async function ResidentTransparencyPage({
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const { q = "", sort = "date_desc", visibility = "" } = await searchParams;
@@ -34,7 +34,9 @@ export default async function ResidentTransparencyPage({
   const selectedVisibilities = Array.from(new Set(visibilityTokens));
 
   const allowedVisibility: NewsVisibility[] =
-    selectedVisibilities.length === 1
+    !membership.hasResidentAccess
+      ? [NewsVisibility.PUBLIC]
+      : selectedVisibilities.length === 1
       ? [selectedVisibilities[0]]
       : ["PUBLIC", "RESIDENT_ONLY"];
 
@@ -65,7 +67,7 @@ export default async function ResidentTransparencyPage({
       where: {
         villageId: membership.villageId,
         stage: "PUBLISHED",
-        visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+        visibility: { in: allowedVisibility },
         ...(q ? { title: { contains: q, mode: "insensitive" } } : {}),
       },
       select: { title: true },
