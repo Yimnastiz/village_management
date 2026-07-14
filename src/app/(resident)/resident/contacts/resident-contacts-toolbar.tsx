@@ -19,9 +19,10 @@ function buildContactsHref(keyword: string) {
 
 interface ResidentContactsToolbarProps {
   keyword: string;
+  canSubmit: boolean;
 }
 
-export function ResidentContactsToolbar({ keyword }: ResidentContactsToolbarProps) {
+export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContactsToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
   const [searchKeyword, setSearchKeyword] = useState(keyword);
@@ -51,7 +52,7 @@ export function ResidentContactsToolbar({ keyword }: ResidentContactsToolbarProp
 
       <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
         <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
-          <Link
+          {canSubmit ? <><Link
             href="/resident/contacts/new"
             className="inline-flex h-9 items-center rounded-lg border border-green-300 bg-green-50 px-3 text-xs font-medium text-green-700 hover:bg-green-100"
           >
@@ -62,7 +63,7 @@ export function ResidentContactsToolbar({ keyword }: ResidentContactsToolbarProp
             className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
           >
             ติดตามคำขอ
-          </Link>
+          </Link></> : null}
           <button
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"

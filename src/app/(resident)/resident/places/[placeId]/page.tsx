@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { SaveButton } from "@/components/ui/save-button";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
@@ -40,12 +40,12 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDetailDelegate }).villagePlace;
   const place = await villagePlace.findFirst({
-    where: { id: placeId, villageId: membership.villageId },
+    where: { id: placeId, villageId: membership.villageId, ...(!membership.hasResidentAccess ? { isPublic: true } : {}) },
     select: {
       id: true,
       villageId: true,
@@ -85,7 +85,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
         <Link href="/resident/places" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> กลับรายการสถานที่
         </Link>
-        <div className="flex flex-wrap items-center gap-2">
+        {membership.hasResidentAccess ? <div className="flex flex-wrap items-center gap-2">
           <SaveButton
             itemId={place.id}
             initialSaved={Boolean(saved)}
@@ -95,7 +95,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
           <Link href={`/resident/places/${place.id}/request-edit`} className="text-sm font-medium text-green-700 hover:text-green-800">
             ขอแก้ไขสถานที่
           </Link>
-        </div>
+        </div> : null}
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">

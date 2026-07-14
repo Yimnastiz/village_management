@@ -113,6 +113,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
         category={category}
         sort={sort}
         suggestionTitles={suggestionTitles}
+        canSubmit={membership.hasResidentAccess}
       />
 
       {places.length === 0 ? (

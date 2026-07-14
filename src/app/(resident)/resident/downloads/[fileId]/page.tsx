@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { SaveButton } from "@/components/ui/save-button";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { formatFileSize } from "@/lib/utils";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { toggleSaveDownloadAction } from "@/app/(resident)/resident/saved/actions";
 
@@ -18,7 +18,7 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const file = await prisma.downloadFile.findFirst({
@@ -26,7 +26,7 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
       id: fileId,
       villageId: membership.villageId,
       stage: "PUBLISHED",
-      visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+      visibility: membership.hasResidentAccess ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : "PUBLIC",
     },
   });
   if (!file) notFound();
@@ -50,12 +50,12 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
       <div className="bg-white rounded-xl border border-gray-200 p-8 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold text-gray-900">{file.title}</h1>
-          <SaveButton
+          {membership.hasResidentAccess ? <SaveButton
             itemId={file.id}
             initialSaved={Boolean(saved)}
             toggleAction={toggleSaveDownloadAction}
             label="บันทึกเอกสาร"
-          />
+          /> : null}
         </div>
         <p className="text-sm text-gray-500">{NEWS_VISIBILITY_LABELS[file.visibility]}</p>
         {file.description && <p className="text-gray-600">{file.description}</p>}

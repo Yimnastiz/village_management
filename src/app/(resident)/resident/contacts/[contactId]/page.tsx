@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 interface PageProps {
@@ -13,11 +13,11 @@ export default async function ResidentContactDetailPage({ params }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const contact = await prisma.contactDirectory.findFirst({
-    where: { id: contactId, villageId: membership.villageId },
+    where: { id: contactId, villageId: membership.villageId, ...(!membership.hasResidentAccess ? { isPublic: true } : {}) },
   });
 
   if (!contact) notFound();

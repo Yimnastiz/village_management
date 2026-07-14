@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { Bell } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
@@ -12,11 +11,6 @@ export default async function ResidentNotificationsPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
     redirect("/auth/login?callbackUrl=/resident/dashboard");
-  }
-
-  const membership = getResidentMembership(session);
-  if (!membership) {
-    redirect("/resident/dashboard");
   }
 
   const notifications = await prisma.notification.findMany({

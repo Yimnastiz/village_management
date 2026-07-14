@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { toggleSaveTransparencyAction } from "@/app/(resident)/resident/saved/actions";
 
@@ -18,7 +18,7 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const record = await prisma.transparencyRecord.findFirst({
@@ -26,7 +26,7 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
       id: transparencyId,
       villageId: membership.villageId,
       stage: "PUBLISHED",
-      visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+      visibility: membership.hasResidentAccess ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : "PUBLIC",
     },
   });
   if (!record) notFound();
@@ -51,12 +51,12 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold text-gray-900">{record.title}</h1>
-          <SaveButton
+          {membership.hasResidentAccess ? <SaveButton
             itemId={record.id}
             initialSaved={Boolean(saved)}
             toggleAction={toggleSaveTransparencyAction}
             label="บันทึกความโปร่งใส"
-          />
+          /> : null}
         </div>
 
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">

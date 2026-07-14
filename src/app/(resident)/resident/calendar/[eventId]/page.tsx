@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 type ResidentEventDetailPageProps = {
@@ -15,7 +15,7 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const village = await prisma.village.findUnique({
@@ -28,6 +28,7 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
     where: {
       id: eventId,
       villageId: village.id,
+      ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
     },
   });
   if (!event) notFound();

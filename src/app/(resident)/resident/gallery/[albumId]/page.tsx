@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SaveButton } from "@/components/ui/save-button";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { formatThaiDate } from "@/lib/utils";
 import { toggleSaveAlbumAction } from "@/app/(resident)/resident/saved/actions";
@@ -24,13 +24,14 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const album = await db.galleryAlbum.findFirst({
     where: {
       id: albumId,
       villageId: membership.villageId,
+      ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
     },
     include: {
       items: {
@@ -74,7 +75,7 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
           <ArrowLeft className="h-4 w-4" /> กลับหน้าแกลเลอรี
         </Link>
 
-        {album.allowResidentSubmissions && (
+        {membership.hasResidentAccess && album.allowResidentSubmissions && (
           <Link href={`/resident/gallery/${album.id}/request`}>
             <Button size="sm">
               <ImagePlus className="mr-1 h-4 w-4" /> ขอเพิ่มรูปในอัลบั้ม
@@ -89,12 +90,12 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
           <Badge variant={album.allowResidentSubmissions ? "warning" : "default"}>
             {album.allowResidentSubmissions ? "อัลบั้มนี้เปิดรับคำขอเพิ่มรูป" : "อัลบั้มนี้ไม่เปิดรับคำขอเพิ่มรูป"}
           </Badge>
-          <SaveButton
+          {membership.hasResidentAccess ? <SaveButton
             itemId={album.id}
             initialSaved={Boolean(saved)}
             toggleAction={toggleSaveAlbumAction}
             label="บันทึกอัลบั้ม"
-          />
+          /> : null}
         </div>
 
         <h1 className="text-2xl font-bold text-gray-900">{album.title}</h1>
@@ -110,7 +111,7 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
         <AlbumGalleryViewer items={album.items} />
       </article>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
+      {membership.hasResidentAccess ? <section className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">คำขอเพิ่มรูปของฉัน</h2>
           <Badge variant="outline">{myRecentSubmissions.length} รายการล่าสุด</Badge>
@@ -146,7 +147,7 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
             ))}
           </div>
         )}
-      </section>
+      </section> : null}
     </div>
   );
 }

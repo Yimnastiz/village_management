@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { NEWS_AUTHOR_SOURCE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsSaveButton } from "./news-save-button";
 
@@ -19,7 +19,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = getResidentMembership(session);
+  const membership = await getResidentVillageAccess(session);
   if (!membership) redirect("/resident/dashboard");
 
   const [news, savedItem] = await Promise.all([
@@ -28,7 +28,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
         id: newsId,
         villageId: membership.villageId,
         stage: "PUBLISHED",
-        visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+        visibility: membership.hasResidentAccess ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : "PUBLIC",
       },
       include: {
         author: {
@@ -81,7 +81,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
               ขอแก้ไขข่าวของฉัน
             </Link>
           )}
-          <NewsSaveButton newsId={newsId} initialSaved={Boolean(savedItem)} />
+          {membership.hasResidentAccess ? <NewsSaveButton newsId={newsId} initialSaved={Boolean(savedItem)} /> : null}
         </div>
       </div>
 

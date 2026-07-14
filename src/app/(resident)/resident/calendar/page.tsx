@@ -132,6 +132,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
           <p className="mt-1 text-sm text-gray-500">ดูกิจกรรมทั้งหมดของ {village.name}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {membership.hasResidentAccess ? <>
           <Link href="/resident/calendar/requests">
             <Button size="sm" variant="outline">คำขอกิจกรรมของฉัน</Button>
           </Link>
@@ -140,6 +141,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
               <FilePlus2 className="mr-1 h-4 w-4" /> ขอเพิ่มกิจกรรม
             </Button>
           </Link>
+          </> : null}
           <Link
             href={`/resident/calendar?month=${toMonthKey(prevMonth)}`}
             className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"

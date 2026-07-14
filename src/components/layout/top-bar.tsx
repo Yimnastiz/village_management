@@ -1,5 +1,5 @@
 "use client";
-import { Bell, ChevronDown, Menu, X } from "lucide-react";
+import { Bell, ChevronDown, LockKeyhole, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -234,7 +234,11 @@ export function TopBar({
                           : "text-gray-700 hover:bg-gray-100"
                     )}
                   >
-                    <span>{item.label}</span>
+                    <span className="flex items-center gap-2">
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                    </span>
+                    {"locked" in item && item.locked ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องผูกเลขบ้านก่อน" /> : null}
                     {showUnread && (
                       <span className="inline-flex min-w-5 justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                         {displayCount}

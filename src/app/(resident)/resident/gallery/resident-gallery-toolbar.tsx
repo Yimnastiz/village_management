@@ -16,6 +16,7 @@ interface ResidentGalleryToolbarProps {
   selectedVisibilities: VisibilityValue[];
   allowSubmissionsOnly: boolean;
   suggestionTitles: string[];
+  canSubmit: boolean;
 }
 
 const visibilityOptions: Array<{ value: VisibilityValue; label: string }> = [
@@ -65,6 +66,7 @@ export function ResidentGalleryToolbar({
   selectedVisibilities,
   allowSubmissionsOnly,
   suggestionTitles,
+  canSubmit,
 }: ResidentGalleryToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
@@ -209,7 +211,7 @@ export function ResidentGalleryToolbar({
             </Link>
           ))}
 
-          <span className="ml-1 text-xs font-medium text-gray-500">การขอเพิ่มรูป:</span>
+          {canSubmit ? <><span className="ml-1 text-xs font-medium text-gray-500">การขอเพิ่มรูป:</span>
           <Link
             href={toggleSubmissionsHref}
             className={cn(
@@ -220,7 +222,7 @@ export function ResidentGalleryToolbar({
             )}
           >
             ขอเพิ่มรูปได้
-          </Link>
+          </Link></> : null}
         </div>
       </div>
     </div>

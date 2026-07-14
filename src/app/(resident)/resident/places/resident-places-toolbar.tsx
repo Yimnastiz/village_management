@@ -15,6 +15,7 @@ type ResidentPlacesToolbarProps = {
   category: string;
   sort: SortValue;
   suggestionTitles: string[];
+  canSubmit: boolean;
 };
 
 const sortOptions: Array<{ value: SortValue; label: string }> = [
@@ -40,7 +41,7 @@ function buildHref(params: {
   return queryString ? `/resident/places?${queryString}` : "/resident/places";
 }
 
-export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitles }: ResidentPlacesToolbarProps) {
+export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitles, canSubmit }: ResidentPlacesToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
   const [searchKeyword, setSearchKeyword] = useState(keyword);
@@ -72,14 +73,14 @@ export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitle
           <h1 className="text-2xl font-bold text-gray-900">สถานที่สำคัญในหมู่บ้าน</h1>
           <p className="mt-1 text-sm text-gray-500">ค้นหาวัด ร้านค้า โรงเรียน และสถานที่จำเป็นใกล้บ้าน</p>
         </div>
-        <div className="flex gap-2">
+        {canSubmit ? <div className="flex gap-2">
           <Link href="/resident/places/requests">
             <Button size="sm" variant="outline">คำขอของฉัน</Button>
           </Link>
           <Link href="/resident/places/requests/new">
             <Button size="sm">ขอเพิ่มสถานที่</Button>
           </Link>
-        </div>
+        </div> : null}
       </div>
 
       <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">

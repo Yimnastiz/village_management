@@ -103,6 +103,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
         selectedVisibilities={selectedVisibilities}
         allowSubmissionsOnly={allowSubmissionsOnly}
         suggestionTitles={suggestionTitles}
+        canSubmit={membership.hasResidentAccess}
       />
 
       {albums.length === 0 ? (
@@ -139,7 +140,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
                   <Badge variant={album.isPublic ? "success" : "info"}>
                     {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
                   </Badge>
-                  {album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
+                  {membership.hasResidentAccess && album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
                   <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>
                 <p className="font-medium text-gray-900 line-clamp-1">{album.title}</p>

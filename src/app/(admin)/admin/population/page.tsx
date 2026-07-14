@@ -731,7 +731,9 @@ export default async function Page({ searchParams }: PageProps) {
                     <div className="text-sm font-medium text-gray-900">
                       {request.user.name || request.user.phoneNumber}
                     </div>
-                    <div className="text-xs text-gray-500">{request.user.phoneNumber}</div>
+                    <a href={`tel:${request.user.phoneNumber}`} className="text-sm font-medium text-green-700 hover:underline">
+                      โทร {request.user.phoneNumber}
+                    </a>
                   </div>
                   <div className="text-xs text-gray-500">
                     ส่งคำร้องเมื่อ {new Date(request.createdAt).toLocaleString()}
