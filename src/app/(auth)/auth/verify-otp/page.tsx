@@ -4,7 +4,12 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
+import {
+  authClient,
+  clearLoginOtpState,
+  loadLoginOtpState,
+  type LoginOtpState,
+} from "@/lib/auth-client";
 
 type VerifyMode = "signin" | "signup";
 
@@ -61,6 +66,7 @@ function VerifyOTPContent() {
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [draft, setDraft] = useState<RegistrationDraft | null>(null);
+  const [loginState, setLoginState] = useState<LoginOtpState | null>(null);
   const [serverDraft, setServerDraft] = useState<RegistrationDraft | null>(null);
   const [isServerDraftLoaded, setIsServerDraftLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -69,13 +75,18 @@ function VerifyOTPContent() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
 
-  const modeParam = searchParams.get("mode") as VerifyMode | null;
+  const rawMode = searchParams.get("mode");
+  const mode: VerifyMode = rawMode === "signup" ? "signup" : "signin";
   const registrationId = searchParams.get("registrationId")?.trim() || null;
-  const callbackUrl = searchParams.get("callbackUrl")?.trim() || null;
+  const signupCallbackUrl = searchParams.get("callbackUrl")?.trim() || null;
 
-  const mode = modeParam ?? draft?.mode ?? serverDraft?.mode ?? "signin";
   const activeDraft = mode === "signup" ? serverDraft ?? draft : null;
-  const phone = (activeDraft?.phone ?? "").trim();
+  const phone = mode === "signup"
+    ? (activeDraft?.phone ?? "").trim()
+    : (loginState?.phoneNumber ?? "").trim();
+  const callbackUrl = mode === "signup"
+    ? signupCallbackUrl
+    : loginState?.callbackUrl ?? null;
   const nationalId = (activeDraft?.nationalId ?? "").trim();
   const registrationMode = (activeDraft?.registrationMode ?? "resident").trim() === "headman" ? "headman" : "resident";
   const name = (activeDraft?.name ?? "").trim();
@@ -85,15 +96,18 @@ function VerifyOTPContent() {
   const villageId = (activeDraft?.villageId ?? "").trim();
 
   useEffect(() => {
-    const storedDraft = loadRegistrationDraft();
-    if (storedDraft) {
-      setDraft(storedDraft);
+    if (mode === "signup") {
+      const storedDraft = loadRegistrationDraft();
+      if (storedDraft) {
+        setDraft(storedDraft);
+      }
+    } else {
+      setLoginState(loadLoginOtpState());
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
-    const initialMode = modeParam ?? draft?.mode ?? "signin";
-    if (initialMode !== "signup" || isServerDraftLoaded) {
+    if (mode !== "signup" || isServerDraftLoaded) {
       return;
     }
 
@@ -121,7 +135,7 @@ function VerifyOTPContent() {
       .finally(() => {
         setIsServerDraftLoaded(true);
       });
-  }, [draft?.mode, isServerDraftLoaded, modeParam, registrationId]);
+  }, [isServerDraftLoaded, mode, registrationId]);
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -262,9 +276,12 @@ function VerifyOTPContent() {
         }
 
         router.push(resolvedLandingPath ?? "/resident/dashboard");
+        clearLoginOtpState();
       }
 
-      clearRegistrationDraft();
+      if (mode === "signup") {
+        clearRegistrationDraft();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
     } finally {

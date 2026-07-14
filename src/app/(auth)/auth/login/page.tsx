@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { authClient, saveLoginOtpState } from "@/lib/auth-client";
 
 function normalizePhone10(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 10);
@@ -79,14 +79,10 @@ function LoginContent() {
         );
       }
 
-      const params = new URLSearchParams({
-        mode: "signin",
-        phone: loginPhoneNumber,
-      });
-      if (callbackUrl) {
-        params.set("callbackUrl", callbackUrl);
-      }
-      router.push(`/auth/verify-otp?${params.toString()}`);
+      // Login state is tab-scoped and short-lived. Do not expose the phone
+      // number in browser history, logs, referrers, or registration storage.
+      saveLoginOtpState(loginPhoneNumber, callbackUrl);
+      router.push("/auth/verify-otp?mode=signin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send OTP.");
     } finally {
