@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { RegistrationTempStatus } from "@prisma/client";
 
 const checkRegistrationSchema = z.object({
   phoneNumber: z.string().trim().min(1),
@@ -53,6 +54,29 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user) {
+    const pendingRegistration = await prisma.registrationTemp.findFirst({
+      where: {
+        phoneNumber: { in: candidates },
+        status: RegistrationTempStatus.WAITING_OTP,
+        expiresAt: { gt: new Date() },
+      },
+      select: { id: true, expiresAt: true, otpLockedUntil: true },
+      orderBy: { updatedAt: "desc" },
+    });
+
+    if (pendingRegistration) {
+      const pendingRegistrationLockedUntil = pendingRegistration.otpLockedUntil
+        ? pendingRegistration.otpLockedUntil.toISOString()
+        : null;
+
+      return NextResponse.json({
+        registered: false,
+        pendingRegistrationId: pendingRegistration.id,
+        pendingRegistrationExpiresAt: pendingRegistration.expiresAt.toISOString(),
+        pendingRegistrationLockedUntil,
+      });
+    }
+
     return NextResponse.json(
       {
         error:

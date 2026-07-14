@@ -2,13 +2,14 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
-import { useRouter, useSearchParams } from "next/navigation";
 
 type VerifyMode = "signin" | "signup";
 
 type RegistrationDraft = {
+  registrationId?: string;
   mode: VerifyMode;
   phone?: string;
   registrationMode?: string;
@@ -19,26 +20,22 @@ type RegistrationDraft = {
   subdistrict?: string;
   villageId?: string;
   callbackUrl?: string;
+  rejectReason?: string | null;
+  otpLockedUntil?: string | null;
   savedAt: number;
 };
 
 const REGISTRATION_DRAFT_KEY = "village_auth_registration_draft";
 
 function loadRegistrationDraft(): RegistrationDraft | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
+  if (typeof window === "undefined") return null;
 
   try {
     const raw = window.localStorage.getItem(REGISTRATION_DRAFT_KEY);
-    if (!raw) {
-      return null;
-    }
+    if (!raw) return null;
 
     const parsed = JSON.parse(raw) as RegistrationDraft;
-    if (!parsed?.savedAt || typeof parsed.savedAt !== "number") {
-      return null;
-    }
+    if (!parsed?.savedAt || typeof parsed.savedAt !== "number") return null;
 
     if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) {
       window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
@@ -52,26 +49,40 @@ function loadRegistrationDraft(): RegistrationDraft | null {
 }
 
 function clearRegistrationDraft() {
-  if (typeof window === "undefined") {
-    return;
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
   }
-
-  window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
 }
 
 function VerifyOTPContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const inputs = useRef<(HTMLInputElement | null)[]>([]);
+
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [draft, setDraft] = useState<RegistrationDraft | null>(null);
+  const [serverDraft, setServerDraft] = useState<RegistrationDraft | null>(null);
+  const [isServerDraftLoaded, setIsServerDraftLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
-  const [isServerDraftLoaded, setIsServerDraftLoaded] = useState(false);
-  const [draft, setDraft] = useState<RegistrationDraft | null>(null);
-  const [serverDraft, setServerDraft] = useState<RegistrationDraft | null>(null);
-  const inputs = useRef<(HTMLInputElement | null)[]>([]);
-  const router = useRouter();
-  const searchParams = useSearchParams();
+
+  const modeParam = searchParams.get("mode") as VerifyMode | null;
+  const registrationId = searchParams.get("registrationId")?.trim() || null;
+  const callbackUrl = searchParams.get("callbackUrl")?.trim() || null;
+
+  const mode = modeParam ?? draft?.mode ?? serverDraft?.mode ?? "signin";
+  const activeDraft = mode === "signup" ? serverDraft ?? draft : null;
+  const phone = (activeDraft?.phone ?? "").trim();
+  const nationalId = (activeDraft?.nationalId ?? "").trim();
+  const registrationMode = (activeDraft?.registrationMode ?? "resident").trim() === "headman" ? "headman" : "resident";
+  const name = (activeDraft?.name ?? "").trim();
+  const province = (activeDraft?.province ?? "").trim();
+  const district = (activeDraft?.district ?? "").trim();
+  const subdistrict = (activeDraft?.subdistrict ?? "").trim();
+  const villageId = (activeDraft?.villageId ?? "").trim();
 
   useEffect(() => {
     const storedDraft = loadRegistrationDraft();
@@ -81,28 +92,23 @@ function VerifyOTPContent() {
   }, []);
 
   useEffect(() => {
-    const modeParam = searchParams.get("mode") as VerifyMode | null;
     const initialMode = modeParam ?? draft?.mode ?? "signin";
-
     if (initialMode !== "signup" || isServerDraftLoaded) {
       return;
     }
 
-    fetch("/api/auth/resume-registration", {
-      method: "GET",
-      credentials: "include",
-    })
+    const resumeUrl = registrationId
+      ? `/api/auth/resume-registration?registrationId=${encodeURIComponent(registrationId)}`
+      : "/api/auth/resume-registration";
+
+    fetch(resumeUrl, { method: "GET", credentials: "include" })
       .then(async (response) => {
         if (!response.ok) {
           const errorBody = (await response.json().catch(() => null)) as { error?: string } | null;
           throw new Error(errorBody?.error ?? "ไม่มีการสมัครสมาชิกที่รอดำเนินการหรือหมดเวลาแล้ว");
         }
 
-        const data = (await response.json()) as {
-          ok: boolean;
-          data?: RegistrationDraft;
-        };
-
+        const data = (await response.json()) as { ok: boolean; data?: RegistrationDraft };
         if (!data.ok || !data.data) {
           throw new Error("ไม่มีการสมัครสมาชิกที่รอดำเนินการหรือหมดเวลาแล้ว");
         }
@@ -115,25 +121,10 @@ function VerifyOTPContent() {
       .finally(() => {
         setIsServerDraftLoaded(true);
       });
-  }, [draft, isServerDraftLoaded, searchParams]);
-
-  const urlMode = searchParams.get("mode");
-  const mode = ((urlMode ?? draft?.mode ?? serverDraft?.mode ?? "signin") as VerifyMode);
-  const phone = (searchParams.get("phone") ?? (mode === "signup" ? draft?.phone ?? serverDraft?.phone : "") ?? "").trim();
-  const nationalId = (searchParams.get("nationalId") ?? (mode === "signup" ? draft?.nationalId ?? serverDraft?.nationalId : "") ?? "").trim();
-  const registrationModeRaw = (searchParams.get("registrationMode") ?? (mode === "signup" ? draft?.registrationMode ?? serverDraft?.registrationMode : "") ?? "resident").trim();
-  const registrationMode = registrationModeRaw === "headman" ? "headman" : "resident";
-  const name = (searchParams.get("name") ?? (mode === "signup" ? draft?.name ?? serverDraft?.name : "") ?? "").trim();
-  const province = (searchParams.get("province") ?? (mode === "signup" ? draft?.province ?? serverDraft?.province : "") ?? "").trim();
-  const district = (searchParams.get("district") ?? (mode === "signup" ? draft?.district ?? serverDraft?.district : "") ?? "").trim();
-  const subdistrict = (searchParams.get("subdistrict") ?? (mode === "signup" ? draft?.subdistrict ?? serverDraft?.subdistrict : "") ?? "").trim();
-  const villageId = (searchParams.get("villageId") ?? (mode === "signup" ? draft?.villageId ?? serverDraft?.villageId : "") ?? "").trim();
-  const callbackUrl = (searchParams.get("callbackUrl") ?? (mode === "signup" ? draft?.callbackUrl ?? serverDraft?.callbackUrl : "") ?? "").trim() || null;
+  }, [draft?.mode, isServerDraftLoaded, modeParam, registrationId]);
 
   const handleChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) {
-      return;
-    }
+    if (!/^\d*$/.test(value)) return;
 
     const nextOtp = [...otp];
     nextOtp[index] = value.slice(-1);
@@ -169,9 +160,7 @@ function VerifyOTPContent() {
       if (mode === "signup") {
         const resendResponse = await fetch("/api/auth/start-registration", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             phoneNumber: phone,
@@ -187,21 +176,24 @@ function VerifyOTPContent() {
         });
 
         if (!resendResponse.ok) {
-          const resendError = (await resendResponse.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const resendError = (await resendResponse.json().catch(() => null)) as { error?: string } | null;
           throw new Error(resendError?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
         }
-      } else {
-        const resendResult = await authClient.phoneNumber.sendOtp({
-          phoneNumber: phone,
-        });
 
+        const resendData = (await resendResponse.json().catch(() => null)) as { registrationId?: string } | null;
+        if (resendData?.registrationId) {
+          const nextParams = new URLSearchParams();
+          nextParams.set("mode", "signup");
+          nextParams.set("registrationId", resendData.registrationId);
+          if (callbackUrl) {
+            nextParams.set("callbackUrl", callbackUrl);
+          }
+          router.replace(`/auth/verify-otp?${nextParams.toString()}`);
+        }
+      } else {
+        const resendResult = await authClient.phoneNumber.sendOtp({ phoneNumber: phone });
         if ((resendResult as { error?: { message?: string } | null })?.error) {
-          throw new Error(
-            (resendResult as { error?: { message?: string } | null }).error?.message ??
-              "ส่ง OTP ซ้ำไม่สำเร็จ"
-          );
+          throw new Error((resendResult as { error?: { message?: string } | null }).error?.message ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
         }
       }
 
@@ -235,32 +227,19 @@ function VerifyOTPContent() {
       if (mode === "signup") {
         const verifyResponse = await fetch("/api/auth/verify-registration-otp", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            code,
-          }),
+          body: JSON.stringify({ code }),
         });
 
         if (!verifyResponse.ok) {
-          const verifyError = (await verifyResponse.json().catch(() => null)) as
-            | { error?: string }
-            | null;
+          const verifyError = (await verifyResponse.json().catch(() => null)) as { error?: string } | null;
           throw new Error(verifyError?.error ?? "Invalid or expired OTP.");
         }
       } else {
-        const verifyResult = await authClient.phoneNumber.verify({
-          phoneNumber: phone,
-          code,
-        });
-
+        const verifyResult = await authClient.phoneNumber.verify({ phoneNumber: phone, code });
         if ((verifyResult as { error?: { message?: string } | null })?.error) {
-          throw new Error(
-            (verifyResult as { error?: { message?: string } | null }).error?.message ??
-              "Invalid or expired OTP."
-          );
+          throw new Error((verifyResult as { error?: { message?: string } | null }).error?.message ?? "Invalid or expired OTP.");
         }
       }
 
@@ -271,24 +250,20 @@ function VerifyOTPContent() {
         }, 700);
       } else {
         let resolvedLandingPath: string | null = null;
-
         const postLoginResponse = await fetch("/api/auth/post-login-route", {
           method: "GET",
           credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
         });
 
         if (postLoginResponse.ok) {
-          const postLoginData = (await postLoginResponse.json()) as {
-            landingPath?: string;
-          };
+          const postLoginData = (await postLoginResponse.json()) as { landingPath?: string };
           resolvedLandingPath = postLoginData.landingPath ?? null;
         }
 
         router.push(resolvedLandingPath ?? "/resident/dashboard");
       }
+
       clearRegistrationDraft();
     } catch (err) {
       setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
@@ -298,43 +273,31 @@ function VerifyOTPContent() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 sm:p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">ยืนยันรหัส OTP</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {phone || "ของคุณ"}
-      </p>
+    <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
+      <h2 className="mb-2 text-xl font-bold text-gray-900">ยืนยันรหัส OTP</h2>
+      <p className="mb-6 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {phone || "ของคุณ"}</p>
 
-      {resumeError && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {resumeError}
-        </div>
-      )}
+      {resumeError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{resumeError}</div> : null}
 
-      {mode === "signup" && name && nationalId && province && district && subdistrict && villageId && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-700 mb-2">ข้อมูลการสมัคร:</p>
+      {mode === "signup" && activeDraft ? (
+        <div className="mb-4 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p className="text-sm text-gray-700">ข้อมูลการสมัคร</p>
           <p className="text-sm text-gray-600">ชื่อ: {name}</p>
           <p className="text-sm text-gray-600">เบอร์โทร: {phone}</p>
           <p className="text-sm text-gray-600">หมู่บ้าน: {province} {district} {subdistrict}</p>
+          {activeDraft.rejectReason ? <p className="text-sm text-red-700">เหตุผลการปฏิเสธ: {activeDraft.rejectReason}</p> : null}
+          {activeDraft.otpLockedUntil ? (
+            <p className="text-sm text-red-700">ระบบถูกล็อกชั่วคราวจนถึง {new Date(activeDraft.otpLockedUntil).toLocaleString("th-TH")}</p>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => {
-                const params = new URLSearchParams({
-                  mode: registrationMode,
-                  firstName: name.split(" ")[0] || "",
-                  lastName: name.split(" ").slice(1).join(" ") || "",
-                  phone,
-                  nationalId,
-                  province,
-                  district,
-                  subdistrict,
-                  villageId,
-                });
+                const params = new URLSearchParams();
                 if (callbackUrl) {
                   params.set("callbackUrl", callbackUrl);
                 }
-                router.push(`/auth/register?${params.toString()}`);
+                router.push(`/auth/register${params.toString() ? `?${params.toString()}` : ""}`);
               }}
               className="text-sm text-green-600 hover:underline"
             >
@@ -352,15 +315,15 @@ function VerifyOTPContent() {
                   });
 
                   if (!cancelResponse.ok) {
-                    const cancelError = (await cancelResponse.json().catch(() => null)) as
-                      | { error?: string }
-                      | null;
-                    throw new Error(
-                      cancelError?.error ?? "ไม่สามารถยกเลิกการสมัครสมาชิกได้ กรุณาลองใหม่"
-                    );
+                    const cancelError = (await cancelResponse.json().catch(() => null)) as { error?: string } | null;
+                    throw new Error(cancelError?.error ?? "ไม่สามารถยกเลิกการสมัครสมาชิกได้ กรุณาลองใหม่");
                   }
 
-                  router.push(`/auth/register${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`);
+                  const params = new URLSearchParams();
+                  if (callbackUrl) {
+                    params.set("callbackUrl", callbackUrl);
+                  }
+                  router.push(`/auth/register${params.toString() ? `?${params.toString()}` : ""}`);
                 } catch (err) {
                   setError(err instanceof Error ? err.message : "ไม่สามารถยกเลิกการสมัครสมาชิกได้");
                 } finally {
@@ -373,29 +336,29 @@ function VerifyOTPContent() {
             </button>
           </div>
         </div>
-      )}
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="flex gap-2 justify-center">
-          {otp.map((digit, i) => (
+        <div className="flex justify-center gap-2">
+          {otp.map((digit, index) => (
             <input
-              key={i}
+              key={index}
               ref={(el) => {
-                inputs.current[i] = el;
+                inputs.current[index] = el;
               }}
               type="text"
               inputMode="numeric"
               maxLength={1}
               value={digit}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              className="h-11 w-11 text-center text-xl font-bold border-2 rounded-xl focus:outline-none focus:border-green-500 sm:h-12 sm:w-12"
+              onChange={(event) => handleChange(index, event.target.value)}
+              onKeyDown={(event) => handleKeyDown(index, event)}
+              className="h-11 w-11 rounded-xl border-2 text-center text-xl font-bold focus:border-green-500 focus:outline-none sm:h-12 sm:w-12"
             />
           ))}
         </div>
 
-        {error && <p className="text-sm text-red-600 text-center">{error}</p>}
-        {successMessage && <p className="text-sm text-green-600 text-center">{successMessage}</p>}
+        {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}
+        {successMessage ? <p className="text-center text-sm text-green-600">{successMessage}</p> : null}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
           ยืนยัน OTP
@@ -405,12 +368,7 @@ function VerifyOTPContent() {
       <div className="mt-4 space-y-3 text-center text-sm text-gray-500">
         <p>
           ยังไม่ได้รับ OTP?{" "}
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={isResending}
-            className="text-green-600 hover:underline disabled:opacity-50"
-          >
+          <button type="button" onClick={handleResend} disabled={isResending} className="text-green-600 hover:underline disabled:opacity-50">
             {isResending ? "กำลังส่ง..." : "ส่งอีกครั้ง"}
           </button>
         </p>

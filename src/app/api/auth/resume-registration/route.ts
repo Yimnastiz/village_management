@@ -11,7 +11,9 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     ok: true,
     data: {
+      registrationId: registration.id,
       mode: "signup",
+      phone: registration.phoneNumber,
       phoneNumber: registration.phoneNumber,
       registrationMode: registration.registrationMode.toLowerCase(),
       name: registration.name,
@@ -21,6 +23,14 @@ export async function GET(request: NextRequest) {
       subdistrict: registration.subdistrict,
       villageId: registration.villageId,
       callbackUrl: registration.callbackUrl,
+      status: registration.status,
+      rejectReason: registration.rejectReason,
+      rejectedAt: registration.rejectedAt?.toISOString() ?? null,
+      otpSentAt: registration.otpSentAt?.toISOString() ?? null,
+      otpResendCount: registration.otpResendCount,
+      otpFailedCount: registration.otpFailedCount,
+      otpLastAttemptAt: registration.otpLastAttemptAt?.toISOString() ?? null,
+      otpLockedUntil: registration.otpLockedUntil?.toISOString() ?? null,
       expiresAt: registration.expiresAt.toISOString(),
     },
   });

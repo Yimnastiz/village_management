@@ -4,7 +4,7 @@ import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
 import {
-  computeLandingPath,
+  getAuthenticatedAccessRedirectPath,
   getSessionContextFromServerCookies,
   isAdminUser,
 } from "@/lib/access-control";
@@ -17,7 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   if (!isAdminUser(session)) {
-    redirect(computeLandingPath(session));
+    redirect(await getAuthenticatedAccessRedirectPath(session));
   }
 
   const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([

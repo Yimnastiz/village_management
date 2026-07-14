@@ -1,41 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const SESSION_COOKIE_NAMES = [
-  "better-auth.session_token",
-  "better-auth-session_token",
-];
+import {
+  getAuthenticatedAccessRedirectPath,
+  getResidentAreaAccessInfo,
+  getSessionContextFromRequest,
+  isAdminUser,
+  isSuperAdminUser,
+} from "@/lib/access-control";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionToken = SESSION_COOKIE_NAMES
-    .map((name) => request.cookies.get(name)?.value)
-    .find(Boolean) ?? null;
+  const session = await getSessionContextFromRequest(request);
 
   if (pathname.startsWith("/resident")) {
-    if (!sessionToken) {
+    if (!session) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
+    }
+
+    if (isSuperAdminUser(session)) {
+      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
+    }
+
+    const residentAccess = await getResidentAreaAccessInfo(session);
+    if (!residentAccess.canAccess) {
+      const isBindingRoute = pathname.startsWith("/resident/binding");
+      if (!isBindingRoute) {
+        return NextResponse.redirect(new URL(residentAccess.redirectPath, request.url));
+      }
     }
   }
 
   if (pathname.startsWith("/admin")) {
-    if (!sessionToken) {
+    if (!session) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
+    }
+
+    const redirectPath = await getAuthenticatedAccessRedirectPath(session);
+    if (!isAdminUser(session)) {
+      return NextResponse.redirect(new URL(redirectPath, request.url));
     }
   }
 
   if (pathname.startsWith("/superadmin")) {
-    if (!sessionToken) {
+    if (!session) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
     }
+
+    if (!isSuperAdminUser(session)) {
+      const redirectPath = await getAuthenticatedAccessRedirectPath(session);
+      return NextResponse.redirect(new URL(redirectPath, request.url));
+    }
   }
 
-  if (pathname === "/auth/register" && sessionToken) {
+  if (pathname === "/auth/register" && session) {
     return NextResponse.redirect(new URL("/auth/landing", request.url));
   }
 

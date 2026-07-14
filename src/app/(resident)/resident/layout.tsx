@@ -4,6 +4,7 @@ import { ResidentSidebar } from "@/components/layout/resident-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
 import {
+  getAuthenticatedAccessRedirectPath,
   getResidentMembership,
   getSessionContextFromServerCookies,
   isAdminUser,
@@ -17,7 +18,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   }
 
   if (isAdminUser(session)) {
-    redirect("/admin/dashboard");
+    redirect(await getAuthenticatedAccessRedirectPath(session));
   }
 
   const residentMembership = getResidentMembership(session);

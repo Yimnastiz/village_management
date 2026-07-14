@@ -322,17 +322,14 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         );
       }
 
-        const params = new URLSearchParams({
-          mode: "signup",
-          registrationMode,
-          phone: normalizedPhone,
-          nationalId: normalizedNationalId,
-          name: normalizedName,
-          province,
-          district,
-          subdistrict,
-          villageId,
-        });
+      const startData = (await startResponse.json()) as { registrationId?: string };
+      const params = new URLSearchParams({
+        mode: "signup",
+      });
+
+      if (startData.registrationId) {
+        params.set("registrationId", startData.registrationId);
+      }
 
       if (callbackUrl) {
         params.set("callbackUrl", callbackUrl);

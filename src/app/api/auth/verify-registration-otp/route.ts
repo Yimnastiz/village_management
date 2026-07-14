@@ -5,7 +5,10 @@ import { prisma } from "@/lib/prisma";
 import {
   clearRegistrationCookie,
   getRegistrationFromRequest,
-  REGISTRATION_OTP_TTL_SECONDS,
+  getRegistrationAttemptCooldownMessage,
+  getRegistrationLockMessage,
+  REGISTRATION_OTP_LOCK_DURATION_MS,
+  REGISTRATION_OTP_MAX_FAILED_ATTEMPTS,
   normalizePhone10,
   toPhoneCandidates,
 } from "@/lib/registration-temp";
@@ -24,6 +27,32 @@ export async function POST(request: NextRequest) {
   const registration = await getRegistrationFromRequest(request);
   if (!registration) {
     return NextResponse.json({ error: "No pending registration or OTP expired." }, { status: 404 });
+  }
+
+  if (registration.status === "REJECTED") {
+    return NextResponse.json(
+      {
+        error: registration.rejectReason
+          ? `คำขอสมัครของคุณถูกปฏิเสธ: ${registration.rejectReason}`
+          : "คำขอสมัครของคุณถูกปฏิเสธ กรุณาเริ่มสมัครใหม่",
+      },
+      { status: 403 }
+    );
+  }
+
+  if (registration.status !== "WAITING_OTP") {
+    return NextResponse.json({ error: "No pending registration or OTP expired." }, { status: 404 });
+  }
+
+  const now = new Date();
+  const lockMessage = getRegistrationLockMessage(registration.otpLockedUntil, now);
+  if (lockMessage) {
+    return NextResponse.json({ error: lockMessage }, { status: 423 });
+  }
+
+  const cooldownMessage = getRegistrationAttemptCooldownMessage(registration.otpLastAttemptAt, now);
+  if (cooldownMessage) {
+    return NextResponse.json({ error: cooldownMessage }, { status: 429 });
   }
 
   const normalizedPhoneNumber = normalizePhone10(registration.phoneNumber);
@@ -46,12 +75,67 @@ export async function POST(request: NextRequest) {
     verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
   } catch (err: any) {
     console.error("verify-registration-otp: verifyPhoneNumber error", err);
-    // Map upstream OTP not found / invalid to 401 for client
-    return NextResponse.json({ error: "Invalid or expired OTP." }, { status: 401 });
+    const nextFailedCount = registration.otpFailedCount + 1;
+    const lockedUntil = nextFailedCount >= REGISTRATION_OTP_MAX_FAILED_ATTEMPTS
+      ? new Date(now.getTime() + REGISTRATION_OTP_LOCK_DURATION_MS)
+      : null;
+
+    await prisma.registrationTemp.update({
+      where: { id: registration.id },
+      data: {
+        otpFailedCount: nextFailedCount,
+        otpLastAttemptAt: now,
+        otpLockedUntil: lockedUntil,
+      },
+    });
+
+    if (lockedUntil) {
+      return NextResponse.json(
+        {
+          error: `กรอกรหัสผิดเกินกำหนด ระบบถูกล็อกชั่วคราวประมาณ ${Math.ceil(REGISTRATION_OTP_LOCK_DURATION_MS / 60000)} นาที`,
+        },
+        { status: 423 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: `OTP ไม่ถูกต้อง เหลือโอกาสอีก ${REGISTRATION_OTP_MAX_FAILED_ATTEMPTS - nextFailedCount} ครั้ง`,
+      },
+      { status: 401 }
+    );
   }
 
   if (!verifyResult?.status) {
-    return NextResponse.json({ error: "Invalid or expired OTP." }, { status: 401 });
+    const nextFailedCount = registration.otpFailedCount + 1;
+    const lockedUntil = nextFailedCount >= REGISTRATION_OTP_MAX_FAILED_ATTEMPTS
+      ? new Date(now.getTime() + REGISTRATION_OTP_LOCK_DURATION_MS)
+      : null;
+
+    await prisma.registrationTemp.update({
+      where: { id: registration.id },
+      data: {
+        otpFailedCount: nextFailedCount,
+        otpLastAttemptAt: now,
+        otpLockedUntil: lockedUntil,
+      },
+    });
+
+    if (lockedUntil) {
+      return NextResponse.json(
+        {
+          error: `กรอกรหัสผิดเกินกำหนด ระบบถูกล็อกชั่วคราวประมาณ ${Math.ceil(REGISTRATION_OTP_LOCK_DURATION_MS / 60000)} นาที`,
+        },
+        { status: 423 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: `OTP ไม่ถูกต้อง เหลือโอกาสอีก ${REGISTRATION_OTP_MAX_FAILED_ATTEMPTS - nextFailedCount} ครั้ง`,
+      },
+      { status: 401 }
+    );
   }
 
   const verifiedAt = new Date();
@@ -84,7 +168,13 @@ export async function POST(request: NextRequest) {
 
   await prisma.registrationTemp.update({
     where: { id: registration.id },
-    data: { status: "VERIFIED" },
+    data: {
+      status: "VERIFIED",
+      otpFailedCount: 0,
+      otpResendCount: 0,
+      otpLastAttemptAt: now,
+      otpLockedUntil: null,
+    },
   });
 
   const response = NextResponse.json({ ok: true, userId: createdUser.id });

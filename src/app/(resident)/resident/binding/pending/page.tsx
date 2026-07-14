@@ -4,6 +4,10 @@ import { Clock } from "lucide-react";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
+type PageProps = {
+  searchParams?: Promise<{ membershipStatus?: string; bindingStatus?: string }>;
+};
+
 const STATUS_TEXT: Record<BindingRequestStatus, string> = {
   PENDING: "รอพิจารณา",
   APPROVED: "อนุมัติแล้ว",
@@ -11,7 +15,8 @@ const STATUS_TEXT: Record<BindingRequestStatus, string> = {
   CANCELLED: "ยกเลิกแล้ว",
 };
 
-export default async function ResidentBindingPendingPage() {
+export default async function ResidentBindingPendingPage({ searchParams }: PageProps) {
+  const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
 
   const latestRequest = session
@@ -34,7 +39,11 @@ export default async function ResidentBindingPendingPage() {
       })
     : null;
 
+    const membershipStatus = params.membershipStatus ?? null;
+    const bindingStatus = params.bindingStatus ?? null;
   const isApproved = latestRequest?.status === BindingRequestStatus.APPROVED;
+    const isRejected = latestRequest?.status === BindingRequestStatus.REJECTED || membershipStatus === "REJECTED" || bindingStatus === "REJECTED";
+    const currentStatus = latestRequest?.status ?? (membershipStatus as BindingRequestStatus | null) ?? (bindingStatus as BindingRequestStatus | null) ?? null;
   const villageHomeHref = latestRequest?.village?.slug ? `/${latestRequest.village.slug}` : "/";
 
   return (
@@ -52,9 +61,17 @@ export default async function ResidentBindingPendingPage() {
               <p className="mt-1 text-sm text-green-700">ตอนนี้คุณสามารถใช้งานข้อมูลภายในหมู่บ้านได้ตามสิทธิ์ของลูกบ้าน</p>
             </div>
           )}
-          <p className="text-gray-500 text-sm mb-2">
-            สถานะปัจจุบัน: <span className="font-semibold">{STATUS_TEXT[latestRequest.status]}</span>
-          </p>
+          {isRejected && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-left">
+              <p className="text-sm font-semibold text-red-800">คำขอของคุณถูกปฏิเสธ</p>
+              <p className="mt-1 text-sm text-red-700">{latestRequest?.reviewNote || "กรุณาตรวจสอบข้อมูลแล้วส่งคำขอใหม่อีกครั้ง"}</p>
+            </div>
+          )}
+          {currentStatus && (
+            <p className="text-gray-500 text-sm mb-2">
+              สถานะปัจจุบัน: <span className="font-semibold">{STATUS_TEXT[currentStatus] ?? currentStatus}</span>
+            </p>
+          )}
           <p className="text-gray-500 text-sm mb-2">บ้านเลขที่: {latestRequest.houseNumber ?? latestRequest.house?.houseNumber ?? "-"}</p>
           <p className="text-gray-500 text-sm mb-6">หมายเหตุ: {latestRequest.note ?? "-"}</p>
 
@@ -75,7 +92,7 @@ export default async function ResidentBindingPendingPage() {
 
       <div className="flex items-center justify-center gap-4 text-sm">
         <Link href="/resident/binding" className="text-green-600 hover:underline">
-          แก้ไขคำขอ
+          {isRejected ? "สมัคร/แก้ไขใหม่" : "แก้ไขคำขอ"}
         </Link>
         <Link href="/resident/dashboard" className="text-gray-500 hover:underline">
           กลับแดชบอร์ด

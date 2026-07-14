@@ -476,3 +476,111 @@ export function computeLandingPath(session: SessionContext): string {
 
   return "/resident/dashboard";
 }
+
+export async function getAuthenticatedAccessRedirectPath(session: SessionContext): Promise<string> {
+  if (session.systemRole === SystemRole.SUPERADMIN) {
+    return "/superadmin/dashboard";
+  }
+
+  if (isAdminUser(session)) {
+    return "/admin/dashboard";
+  }
+
+  const latestResidentMembership = await prisma.villageMembership.findFirst({
+    where: {
+      userId: session.id,
+      role: VillageMembershipRole.RESIDENT,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      status: true,
+      houseId: true,
+    },
+  });
+
+  if (latestResidentMembership) {
+    if (latestResidentMembership.status === MembershipStatus.ACTIVE) {
+      return latestResidentMembership.houseId ? "/resident/dashboard" : "/resident/binding";
+    }
+
+    if (latestResidentMembership.status === MembershipStatus.PENDING) {
+      return "/resident/binding/pending?membershipStatus=PENDING";
+    }
+
+    if (latestResidentMembership.status === MembershipStatus.SUSPENDED) {
+      return "/resident/binding/pending?membershipStatus=SUSPENDED";
+    }
+
+    if (latestResidentMembership.status === MembershipStatus.REJECTED) {
+      return "/resident/binding/pending?membershipStatus=REJECTED";
+    }
+  }
+
+  const latestBindingRequest = await prisma.bindingRequest.findFirst({
+    where: { userId: session.id },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      status: true,
+    },
+  });
+
+  if (latestBindingRequest?.status === "PENDING") {
+    return "/resident/binding/pending";
+  }
+
+  if (latestBindingRequest?.status === "REJECTED") {
+    return "/resident/binding/pending?bindingStatus=REJECTED";
+  }
+
+  return "/resident/binding";
+}
+
+export async function getResidentAreaAccessInfo(session: SessionContext): Promise<{ canAccess: boolean; redirectPath: string }> {
+  const latestResidentMembership = await prisma.villageMembership.findFirst({
+    where: {
+      userId: session.id,
+      role: VillageMembershipRole.RESIDENT,
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      status: true,
+      houseId: true,
+    },
+  });
+
+  if (latestResidentMembership?.status === MembershipStatus.ACTIVE && latestResidentMembership.houseId) {
+    return { canAccess: true, redirectPath: "/resident/dashboard" };
+  }
+
+  if (latestResidentMembership?.status === MembershipStatus.ACTIVE && !latestResidentMembership.houseId) {
+    return { canAccess: false, redirectPath: "/resident/binding" };
+  }
+
+  if (latestResidentMembership?.status === MembershipStatus.PENDING) {
+    return { canAccess: false, redirectPath: "/resident/binding/pending?membershipStatus=PENDING" };
+  }
+
+  if (latestResidentMembership?.status === MembershipStatus.SUSPENDED) {
+    return { canAccess: false, redirectPath: "/resident/binding/pending?membershipStatus=SUSPENDED" };
+  }
+
+  if (latestResidentMembership?.status === MembershipStatus.REJECTED) {
+    return { canAccess: false, redirectPath: "/resident/binding/pending?membershipStatus=REJECTED" };
+  }
+
+  const latestBindingRequest = await prisma.bindingRequest.findFirst({
+    where: { userId: session.id },
+    orderBy: { updatedAt: "desc" },
+    select: { status: true },
+  });
+
+  if (latestBindingRequest?.status === "PENDING") {
+    return { canAccess: false, redirectPath: "/resident/binding/pending" };
+  }
+
+  if (latestBindingRequest?.status === "REJECTED") {
+    return { canAccess: false, redirectPath: "/resident/binding/pending?bindingStatus=REJECTED" };
+  }
+
+  return { canAccess: false, redirectPath: "/resident/binding" };
+}

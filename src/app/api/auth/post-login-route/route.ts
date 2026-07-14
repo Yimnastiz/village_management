@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  computeLandingPath,
+  getAuthenticatedAccessRedirectPath,
   getSessionContextFromRequest,
   isAdminUser,
   isResidentUser,
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    landingPath: computeLandingPath(session),
+    landingPath: await getAuthenticatedAccessRedirectPath(session),
     systemRole: session.systemRole,
     isAdmin: isAdminUser(session),
     isResident: isResidentUser(session),

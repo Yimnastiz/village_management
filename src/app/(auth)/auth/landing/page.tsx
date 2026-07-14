@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { computeLandingPath, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getAuthenticatedAccessRedirectPath, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 export default async function AuthLandingPage() {
   const session = await getSessionContextFromServerCookies();
@@ -8,6 +8,6 @@ export default async function AuthLandingPage() {
     redirect("/auth/login");
   }
 
-  redirect(computeLandingPath(session));
+  redirect(await getAuthenticatedAccessRedirectPath(session));
 }
 
