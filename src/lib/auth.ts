@@ -6,6 +6,9 @@ import { prisma } from "./prisma";
 const defaultBaseUrl = "http://localhost:3000";
 const appUrl = process.env.BETTER_AUTH_URL;
 const authSecret = process.env.BETTER_AUTH_SECRET;
+const shouldShowDevelopmentOtp =
+  process.env.NODE_ENV === "development" &&
+  process.env.DEV_SHOW_OTP === "true";
 
 if (!authSecret) {
   throw new Error(
@@ -90,12 +93,20 @@ export const auth = betterAuth({
     phoneNumber({
       expiresIn: 60 * 5,
       sendOTP: async ({ phoneNumber, code }) => {
-        // Development mode: log to console and mock SMS
-        console.log("[auth] OTP generated", {
+        const maskedOtpLog = {
           phoneSuffix: phoneNumber.slice(-4),
           codeLength: code.length,
           expiresInSeconds: 300,
-        });
+        };
+
+        if (shouldShowDevelopmentOtp) {
+          console.log("[auth] OTP generated", {
+            ...maskedOtpLog,
+            otp: code,
+          });
+        } else {
+          console.log("[auth] OTP generated", maskedOtpLog);
+        }
         
         // TODO: integrate with SMS provider (e.g. Twilio, DTAC, AIS)
         // For production:
