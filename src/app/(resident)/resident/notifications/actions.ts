@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { NotificationStatus } from "@prisma/client";
-import { getSessionContextFromServerCookies, isResidentUser } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export async function markNotificationAsReadAction(notificationId: string) {
   const session = await getSessionContextFromServerCookies();
-  if (!session || !isResidentUser(session)) {
+  if (!session || !getResidentMembership(session)) {
     throw new Error("Unauthorized");
   }
 
@@ -34,7 +34,7 @@ export async function markNotificationAsReadAction(notificationId: string) {
 
 export async function markAllNotificationsAsReadAction() {
   const session = await getSessionContextFromServerCookies();
-  if (!session || !isResidentUser(session)) {
+  if (!session || !getResidentMembership(session)) {
     throw new Error("Unauthorized");
   }
 

@@ -2,7 +2,7 @@
 
 import { NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { normalizeVillagePlaceInput, parseVillagePlacePayload } from "@/lib/village-place";
 
 type VillagePlaceRecord = {
@@ -62,14 +62,7 @@ async function requireAdminVillage() {
   if (!session?.id) {
     return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
   }
-  if (!isAdminUser(session)) {
-    return { ok: false as const, error: "ไม่มีสิทธิ์ดำเนินการ", session: null, villageId: "" };
-  }
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getAdminMembership(session);
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", session: null, villageId: "" };
   }

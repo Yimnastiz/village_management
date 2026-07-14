@@ -4,7 +4,7 @@ import { NotificationType } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 type EventSubmissionRecord = {
   id: string;
@@ -47,14 +47,7 @@ async function requireAdminVillage() {
   if (!session?.id) {
     return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", villageId: "", userId: "" };
   }
-  if (!isAdminUser(session)) {
-    return { ok: false as const, error: "ไม่มีสิทธิ์ดำเนินการ", villageId: "", userId: "" };
-  }
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getAdminMembership(session);
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", villageId: "", userId: "" };
   }

@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatThaiDateTime } from "@/lib/utils";
-import { getSessionContextFromServerCookies, isAdminUser, getHeadmanMembership } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, getHeadmanMembership } from "@/lib/access-control";
 import {
   ISSUE_STAGE_LABELS,
   APPOINTMENT_STAGE_LABELS,
@@ -47,28 +47,23 @@ export default async function AdminDashboard() {
   if (!session?.id) {
     redirect("/auth/login");
   }
-  if (!isAdminUser(session)) {
+  const adminMembership = getAdminMembership(session);
+  if (!adminMembership) {
     redirect("/resident");
   }
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: {
-      villageId: true,
-      village: {
-        select: {
-          name: true,
-        },
-      },
-    },
+  const village = await prisma.village.findUnique({
+    where: { id: adminMembership.villageId },
+    select: { name: true },
   });
-  if (!membership) {
+  if (!village) {
     redirect("/auth/login");
   }
 
   const headmanMembership = getHeadmanMembership(session);
   const userRole = headmanMembership ? "headman" : "admin";
-  const villageName = membership.village.name;
+  const membership = adminMembership;
+  const villageName = village.name;
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -212,7 +207,7 @@ export default async function AdminDashboard() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">แดชบอร์ด</h1>
         <p className="text-gray-500 text-sm mt-1">
-          ภาพรวมระบบหมู่บ้าน {membership.village.name}
+          ภาพรวมระบบหมู่บ้าน {villageName}
         </p>
       </div>
 

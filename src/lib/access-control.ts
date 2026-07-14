@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { MembershipStatus, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
-import { createHmac } from "crypto";
 import { prisma } from "@/lib/prisma";
 
 export const SESSION_COOKIE_NAMES = [
@@ -12,11 +11,13 @@ export const SESSION_COOKIE_NAMES = [
 // The preferred (canonical) cookie name we use when setting new cookies.
 export const SESSION_COOKIE = SESSION_COOKIE_NAMES[0];
 
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
+export const ADMIN_MEMBERSHIP_ROLES = [
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
   VillageMembershipRole.COMMITTEE,
-]);
+] as const;
+
+const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHIP_ROLES);
 
 export type SessionContext = {
   id: string;
@@ -36,27 +37,6 @@ export type SessionContext = {
 
 function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s-]/g, "");
-}
-
-function toPhoneCandidates(raw: string): string[] {
-  const normalized = normalizePhoneNumber(raw);
-  const candidates = new Set<string>();
-
-  if (!normalized) {
-    return [];
-  }
-
-  candidates.add(normalized);
-
-  if (/^0\d{9}$/.test(normalized)) {
-    candidates.add(`+66${normalized.slice(1)}`);
-  }
-
-  if (/^\+66\d{9}$/.test(normalized)) {
-    candidates.add(`0${normalized.slice(3)}`);
-  }
-
-  return Array.from(candidates);
 }
 
 /**
@@ -130,137 +110,6 @@ async function loadAuthSession(unsignedToken: string): Promise<AuthSessionWithUs
   });
 }
 
-async function hydrateResidentMembershipFromImportedData(session: AuthSessionWithUser) {
-  if (session.user.memberships.length > 0) {
-    return;
-  }
-
-  try {
-    const phoneCandidates = toPhoneCandidates(session.user.phoneNumber);
-    if (phoneCandidates.length === 0) {
-      return;
-    }
-
-    const [phoneSeed, person] = await Promise.all([
-      prisma.phoneRoleSeed.findFirst({
-        where: {
-          phoneNumber: {
-            in: phoneCandidates,
-          },
-        },
-        select: {
-          villageId: true,
-          membershipRole: true,
-          isCitizenVerified: true,
-        },
-      }),
-      prisma.person.findFirst({
-        where: {
-          phone: {
-            in: phoneCandidates,
-          },
-        },
-        select: {
-          villageId: true,
-          houseId: true,
-        },
-        orderBy: { updatedAt: "desc" },
-      }),
-    ]);
-
-    const resolvedVillageId = phoneSeed?.villageId ?? person?.villageId ?? null;
-    const resolvedRole = phoneSeed?.membershipRole ?? VillageMembershipRole.RESIDENT;
-    const resolvedHouseId = person?.houseId ?? null;
-
-    if (!resolvedVillageId) {
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          "[hydration] no village found for phone:",
-          session.user.phoneNumber,
-          "phoneSeed?.villageId:",
-          phoneSeed?.villageId,
-          "person?.villageId:",
-          person?.villageId,
-          "registrationVillageId:",
-          session.user.registrationVillageId
-        );
-      }
-      return;
-    }
-
-    // Resident access to internal village data requires a bound house.
-    // Only hydrate resident membership when imported data has a houseId.
-    if (resolvedRole === VillageMembershipRole.RESIDENT && !resolvedHouseId) {
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          "[hydration] skip resident hydration because no house binding for phone:",
-          session.user.phoneNumber
-        );
-      }
-      return;
-    }
-
-    await prisma.villageMembership.upsert({
-      where: {
-        userId_villageId: {
-          userId: session.user.id,
-          villageId: resolvedVillageId,
-        },
-      },
-      update: {
-        role: resolvedRole,
-        status: MembershipStatus.ACTIVE,
-        houseId: resolvedHouseId,
-        joinedAt: new Date(),
-      },
-      create: {
-        userId: session.user.id,
-        villageId: resolvedVillageId,
-        role: resolvedRole,
-        status: MembershipStatus.ACTIVE,
-        houseId: resolvedHouseId,
-        joinedAt: new Date(),
-      },
-    });
-
-    if (phoneSeed?.isCitizenVerified && !session.user.citizenVerifiedAt) {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: {
-          citizenVerifiedAt: new Date(),
-          registrationVillageId: session.user.registrationVillageId ?? resolvedVillageId,
-        },
-      });
-    }
-
-    if (process.env.NODE_ENV === "development") {
-      console.log(
-        "[hydration] successfully created membership for user",
-        session.user.phoneNumber,
-        "in village",
-        resolvedVillageId
-      );
-    }
-  } catch (error) {
-    if (process.env.NODE_ENV === "development") {
-      const details =
-        error instanceof Prisma.PrismaClientKnownRequestError ||
-        error instanceof Prisma.PrismaClientInitializationError ||
-        error instanceof Prisma.PrismaClientUnknownRequestError
-          ? `${error.name}: ${error.message}`
-          : String(error);
-
-      console.error(
-        "[hydration] failed to hydrate membership for phone",
-        session.user.phoneNumber,
-        "error:",
-        details
-      );
-    }
-    return;
-  }
-}
-
 export async function getSessionContextByToken(token: string | null): Promise<SessionContext | null> {
   if (!token) {
     return null;
@@ -275,10 +124,6 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
   try {
     session = await loadAuthSession(unsignedToken);
 
-    if (session) {
-      await hydrateResidentMembershipFromImportedData(session);
-      session = await loadAuthSession(unsignedToken);
-    }
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
       const details =
@@ -319,6 +164,7 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
   const normalizedSessionPhone = normalizePhoneNumber(session.user.phoneNumber);
 
   if (
+    process.env.NODE_ENV === "development" &&
     normalizedBootstrapPhone &&
     normalizedSessionPhone === normalizedBootstrapPhone &&
     session.user.systemRole !== SystemRole.SUPERADMIN
@@ -376,12 +222,10 @@ export async function getSessionContextFromRequest(
 }
 
 export function isAdminUser(session: SessionContext): boolean {
-  if (session.systemRole === SystemRole.SUPERADMIN) {
-    return true;
-  }
-
-  return session.memberships.some((membership) =>
-    ADMIN_MEMBERSHIP_ROLES.has(membership.role)
+  return session.systemRole !== SystemRole.SUPERADMIN && session.memberships.some(
+    (membership) =>
+      membership.status === MembershipStatus.ACTIVE &&
+      ADMIN_MEMBERSHIP_ROLE_SET.has(membership.role)
   );
 }
 
@@ -391,8 +235,32 @@ export function isSuperAdminUser(session: SessionContext): boolean {
 
 export function isResidentUser(session: SessionContext): boolean {
   return session.memberships.some(
-    (membership) => membership.role === VillageMembershipRole.RESIDENT
+    (membership) =>
+      membership.role === VillageMembershipRole.RESIDENT &&
+      membership.status === MembershipStatus.ACTIVE &&
+      Boolean(membership.houseId)
   );
+}
+
+export function getAdminMembership(
+  session: SessionContext,
+  options: {
+    villageId?: string | null;
+    roles?: readonly VillageMembershipRole[];
+  } = {}
+) {
+  if (session.systemRole === SystemRole.SUPERADMIN) return null;
+
+  const allowedRoles = new Set<VillageMembershipRole>(options.roles ?? ADMIN_MEMBERSHIP_ROLES);
+  const targetVillageId = options.villageId ?? session.activeVillageId;
+  const eligible = session.memberships.filter(
+    (membership) =>
+      membership.status === MembershipStatus.ACTIVE &&
+      allowedRoles.has(membership.role) &&
+      (!targetVillageId || membership.villageId === targetVillageId)
+  );
+
+  return eligible[0] ?? null;
 }
 
 export function getResidentMembership(session: SessionContext) {
@@ -454,11 +322,7 @@ export async function setActiveVillageForCurrentSession(villageId: string): Prom
 }
 
 export function getHeadmanMembership(session: SessionContext) {
-  return (
-    session.memberships.find(
-      (membership) => membership.role === VillageMembershipRole.HEADMAN
-    ) ?? null
-  );
+  return getAdminMembership(session, { roles: [VillageMembershipRole.HEADMAN] });
 }
 
 export function computeLandingPath(session: SessionContext): string {
@@ -470,7 +334,7 @@ export function computeLandingPath(session: SessionContext): string {
     return "/admin/dashboard";
   }
 
-  if (isResidentUser(session)) {
+  if (getResidentMembership(session)) {
     return "/resident/dashboard";
   }
 

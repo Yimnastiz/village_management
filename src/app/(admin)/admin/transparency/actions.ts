@@ -4,7 +4,7 @@ import { MembershipStatus, NewsVisibility, NotificationType, Prisma, Transparenc
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const transparencyInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อ"),
@@ -75,14 +75,7 @@ async function requireAdminVillage() {
   if (!session?.id) {
     return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
   }
-  if (!isAdminUser(session)) {
-    return { ok: false as const, error: "ไม่มีสิทธิ์ดำเนินการ", session: null, villageId: "" };
-  }
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getAdminMembership(session);
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", session: null, villageId: "" };
   }

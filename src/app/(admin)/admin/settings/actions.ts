@@ -3,7 +3,7 @@
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
@@ -17,21 +17,10 @@ async function requireAdminVillageContext() {
   if (!session) {
     redirect("/auth/login?callbackUrl=/admin/settings");
   }
-  if (!isAdminUser(session)) {
-    redirect(computeLandingPath(session));
-  }
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      status: MembershipStatus.ACTIVE,
-      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] },
-    },
-    select: { villageId: true },
-  });
+  const membership = getAdminMembership(session);
 
   if (!membership) {
-    throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");
+    redirect(computeLandingPath(session));
   }
 
   return {

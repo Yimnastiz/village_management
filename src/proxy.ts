@@ -38,6 +38,10 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    if (isSuperAdminUser(session)) {
+      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
+    }
+
     const redirectPath = await getAuthenticatedAccessRedirectPath(session);
     if (!isAdminUser(session)) {
       return NextResponse.redirect(new URL(redirectPath, request.url));

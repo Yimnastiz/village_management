@@ -5,6 +5,7 @@ import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
 import {
   getAuthenticatedAccessRedirectPath,
+  getAdminMembership,
   getSessionContextFromServerCookies,
   isAdminUser,
 } from "@/lib/access-control";
@@ -16,7 +17,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/auth/login?callbackUrl=/admin");
   }
 
-  if (!isAdminUser(session)) {
+  const adminMembership = getAdminMembership(session);
+  if (!adminMembership || !isAdminUser(session)) {
     redirect(await getAuthenticatedAccessRedirectPath(session));
   }
 
@@ -31,20 +33,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         status: NotificationStatus.UNREAD,
       },
     }),
-    prisma.villageMembership.findFirst({
-      where: { userId: session.id, status: "ACTIVE" },
-      select: {
-        village: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
+    prisma.village.findUnique({
+      where: { id: adminMembership.villageId },
+      select: { name: true },
     }),
   ]);
 
-  const villageName = villageProfile?.village?.name ?? null;
+  const villageName = villageProfile?.name ?? null;
 
   return (
     <div className="flex min-h-screen bg-gray-100">

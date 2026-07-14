@@ -1,4 +1,4 @@
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getAdminMembership, getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -16,14 +16,7 @@ export async function GET(req: NextRequest) {
 
     let targetVillageId: string | null = null;
     if (villageIdParam) {
-      const adminMembership = await prisma.villageMembership.findFirst({
-        where: {
-          userId: session.id,
-          villageId: villageIdParam,
-          role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
-          status: "ACTIVE",
-        },
-      });
+      const adminMembership = getAdminMembership(session, { villageId: villageIdParam });
 
       if (!adminMembership) {
         return NextResponse.json(
@@ -35,12 +28,7 @@ export async function GET(req: NextRequest) {
       targetVillageId = villageIdParam;
     } else {
       // Resident mode: use active village membership
-      const membership = await prisma.villageMembership.findFirst({
-        where: {
-          userId: session.id,
-          status: "ACTIVE",
-        },
-      });
+      const membership = getResidentMembership(session);
 
       if (!membership) {
         return NextResponse.json(

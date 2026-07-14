@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const inputSchema = z.object({
   name: z.string().min(2, "กรุณาระบุชื่อผู้ติดต่อ"),
@@ -20,12 +20,7 @@ type ContactInput = z.infer<typeof inputSchema>;
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", villageId: "" };
-  if (!isAdminUser(session)) return { ok: false as const, error: "ไม่มีสิทธิ์ดำเนินการ", villageId: "" };
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", villageId: "" };
 
   return { ok: true as const, error: null, villageId: membership.villageId };

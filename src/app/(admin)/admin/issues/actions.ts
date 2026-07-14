@@ -11,7 +11,7 @@ import {
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -87,11 +87,7 @@ async function notifyIssueStakeholders(params: {
 async function requireAdminCtx() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { error: "กรุณาเข้าสู่ระบบ" as const, session: null, villageId: "" };
-  if (!isAdminUser(session))
-    return { error: "ไม่มีสิทธิ์ดำเนินการ" as const, session: null, villageId: "" };
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-  });
+  const membership = getAdminMembership(session);
   if (!membership)
     return { error: "ไม่พบหมู่บ้านของคุณ" as const, session: null, villageId: "" };
   return { error: null, session, villageId: membership.villageId };
