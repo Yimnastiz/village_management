@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { MembershipStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { computeLandingPath, SESSION_COOKIE } from "@/lib/access-control";
+import { computeLandingPath } from "@/lib/access-control";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { prisma } from "@/lib/prisma";
 
 function normalizePhoneNumber(raw: string): string {
@@ -140,4 +141,3 @@ export async function POST(request: NextRequest) {
 
   return response;
 }
-

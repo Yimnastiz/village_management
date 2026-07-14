@@ -168,7 +168,8 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         source={source}
         selectedVisibilities={selectedVisibilities}
         sort={sort}
-        suggestionTitles={suggestionTitles}
+      suggestionTitles={suggestionTitles}
+      canSubmit={membership.hasResidentAccess}
       />
 
       {source !== "resident" && visibleSuperAdminAnnouncements.length > 0 ? (

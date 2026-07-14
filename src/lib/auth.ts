@@ -91,9 +91,11 @@ export const auth = betterAuth({
       expiresIn: 60 * 5,
       sendOTP: async ({ phoneNumber, code }) => {
         // Development mode: log to console and mock SMS
-        console.log(`\n🔐 [OTP Sent to ${phoneNumber}]`);
-        console.log(`📲 Your OTP Code: ${code}`);
-        console.log(`⏰ Valid for 5 minutes\n`);
+        console.log("[auth] OTP generated", {
+          phoneSuffix: phoneNumber.slice(-4),
+          codeLength: code.length,
+          expiresInSeconds: 300,
+        });
         
         // TODO: integrate with SMS provider (e.g. Twilio, DTAC, AIS)
         // For production:

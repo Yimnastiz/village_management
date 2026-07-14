@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     try {
       const raw = await request.text();
-      console.error("start-registration: failed json.parse, raw body:", raw);
+      console.error("start-registration: failed to parse JSON body", { hasBody: raw.length > 0, bodyLength: raw.length });
       payload = raw ? JSON.parse(raw) : null;
     } catch (e) {
       console.error("start-registration: unable to parse body", e);

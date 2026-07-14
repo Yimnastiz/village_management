@@ -74,7 +74,9 @@ export async function POST(request: NextRequest) {
   try {
     verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
   } catch (err: any) {
-    console.error("verify-registration-otp: verifyPhoneNumber error", err);
+    console.error("verify-registration-otp: verifyPhoneNumber failed", {
+      errorName: err instanceof Error ? err.name : "UnknownError",
+    });
     const nextFailedCount = registration.otpFailedCount + 1;
     const lockedUntil = nextFailedCount >= REGISTRATION_OTP_MAX_FAILED_ATTEMPTS
       ? new Date(now.getTime() + REGISTRATION_OTP_LOCK_DURATION_MS)

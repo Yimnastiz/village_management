@@ -17,6 +17,7 @@ interface ResidentNewsToolbarProps {
   selectedVisibilities: NewsVisibilityValue[];
   sort: NewsSort;
   suggestionTitles: string[];
+  canSubmit: boolean;
 }
 
 const sourceOptions: Array<{ value: SourceValue; label: string }> = [
@@ -71,6 +72,7 @@ export function ResidentNewsToolbar({
   selectedVisibilities,
   sort,
   suggestionTitles,
+  canSubmit,
 }: ResidentNewsToolbarProps) {
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
 
@@ -92,14 +94,14 @@ export function ResidentNewsToolbar({
     <div className="sticky top-16 z-30 -mx-6 border-b border-gray-200 bg-gray-50/95 px-6 pb-4 pt-3 backdrop-blur">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">ข่าว/ประกาศ</h1>
-        <div className="flex items-center gap-2">
+        {canSubmit ? <div className="flex items-center gap-2">
           <Link href="/resident/news/requests">
             <Button size="sm" variant="outline">คำขอของฉัน</Button>
           </Link>
           <Link href="/resident/news/requests/new">
             <Button size="sm">ขอเพิ่มข่าว</Button>
           </Link>
-        </div>
+        </div> : null}
       </div>
 
       <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">

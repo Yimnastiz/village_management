@@ -1,7 +1,6 @@
 "use server";
 
 import { BindingRequestStatus, MembershipStatus, VillageMembershipRole, NotificationType } from "@prisma/client";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -18,10 +17,7 @@ function toOptionalString(value: FormDataEntryValue | null): string | null {
 export async function submitBindingRequestAction(formData: FormData) {
   const session = await getSessionContextFromServerCookies();
   if (!session) {
-    if (process.env.NODE_ENV === "development") {
-      const cookieStore = await cookies();
-      console.log("[binding] no session; cookies:", cookieStore.getAll());
-    }
+    if (process.env.NODE_ENV === "development") console.log("[binding] no session", { hasSession: false });
     redirect("/auth/login");
   }
 
@@ -140,4 +136,3 @@ export async function submitBindingRequestAction(formData: FormData) {
   revalidatePath("/resident/binding/pending");
   redirect("/resident/binding/pending");
 }
-

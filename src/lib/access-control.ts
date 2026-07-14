@@ -1,15 +1,7 @@
-import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";
 import { MembershipStatus, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-
-export const SESSION_COOKIE_NAMES = [
-  "better-auth.session_token",
-  "better-auth-session_token",
-] as const;
-
-// The preferred (canonical) cookie name we use when setting new cookies.
-export const SESSION_COOKIE = SESSION_COOKIE_NAMES[0];
+import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
 
 export const ADMIN_MEMBERSHIP_ROLES = [
   VillageMembershipRole.HEADMAN,
@@ -54,22 +46,6 @@ function unsignSessionToken(signedToken: string): string {
   return rawToken;
 }
 
-
-export function parseCookieTokenFromHeader(cookieHeader: string | null): string | null {
-  if (!cookieHeader) {
-    return null;
-  }
-
-  const parts = cookieHeader.split(";").map((segment) => segment.trim());
-  for (const part of parts) {
-    for (const cookieName of SESSION_COOKIE_NAMES) {
-      if (part.startsWith(`${cookieName}=`)) {
-        return decodeURIComponent(part.slice(`${cookieName}=`.length));
-      }
-    }
-  }
-  return null;
-}
 
 const authSessionInclude = {
   user: {
@@ -126,20 +102,10 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
 
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
-      const details =
-        error instanceof Prisma.PrismaClientKnownRequestError ||
-        error instanceof Prisma.PrismaClientInitializationError ||
-        error instanceof Prisma.PrismaClientUnknownRequestError
-          ? `${error.name}: ${error.message}`
-          : String(error);
-
       console.error(
         "[access-control] failed to load session context:",
-        details,
-        "Signed:",
-        token,
-        "Unsigned:",
-        unsignedToken
+        { errorName: error instanceof Error ? error.name : "UnknownError" },
+        getTokenLogMetadata(token)
       );
     }
 
@@ -149,10 +115,8 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
   if (!session) {
     if (process.env.NODE_ENV === "development") {
       console.log(
-        "[access-control] session not found - Signed:",
-        token,
-        "Unsigned:",
-        unsignedToken
+        "[access-control] session not found",
+        getTokenLogMetadata(token)
       );
     }
     return null;
@@ -200,25 +164,14 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
 }
 
 export async function getSessionContextFromServerCookies(): Promise<SessionContext | null> {
-  const cookieStore = await cookies();
-  const token = SESSION_COOKIE_NAMES
-    .map((name) => cookieStore.get(name)?.value)
-    .find(Boolean) ?? null;
+  const token = await readSessionCookieFromServer();
   return getSessionContextByToken(token);
 }
 
 export async function getSessionContextFromRequest(
   request: NextRequest | Request
 ): Promise<SessionContext | null> {
-  let token: string | null = null;
-
-  if ("cookies" in request && request.cookies?.get) {
-    token = request.cookies.get(SESSION_COOKIE)?.value ?? null;
-  } else {
-    token = parseCookieTokenFromHeader(request.headers.get("cookie"));
-  }
-
-  return getSessionContextByToken(token);
+  return getSessionContextByToken(readSessionCookieFromRequest(request));
 }
 
 export function isAdminUser(session: SessionContext): boolean {
@@ -304,10 +257,7 @@ export async function getResidentVillageAccess(session: SessionContext) {
 }
 
 export async function setActiveVillageForCurrentSession(villageId: string): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = SESSION_COOKIE_NAMES
-    .map((name) => cookieStore.get(name)?.value)
-    .find(Boolean) ?? null;
+  const token = await readSessionCookieFromServer();
 
   if (!token) {
     return false;
