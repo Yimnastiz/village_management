@@ -48,7 +48,25 @@ export const residentMenuItems: ResidentMenuItem[] = [
 export type ResidentNavigationState = {
   hasMembership: boolean;
   pendingBindingRequestHref?: string | null;
+  publicVillageBasePath?: string | null;
 };
+
+const PUBLIC_MENU_SUFFIX: Record<string, string> = {
+  "/resident/news": "/news",
+  "/resident/calendar": "/calendar",
+  "/resident/downloads": "/downloads",
+  "/resident/transparency": "/transparency",
+  "/resident/gallery": "/gallery",
+  "/resident/places": "/places",
+  "/resident/contacts": "/contacts",
+};
+
+const MEMBERS_ONLY_PATHS = new Set([
+  "/resident/issues",
+  "/resident/appointments",
+  "/resident/household",
+  "/resident/saved",
+]);
 
 export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
   const baseItems = state.hasMembership
@@ -57,6 +75,21 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
   const bindingHref = state.pendingBindingRequestHref ?? "/resident/binding";
 
   return baseItems.map((item) => {
+    if (!state.hasMembership) {
+      const publicSuffix = PUBLIC_MENU_SUFFIX[item.href];
+      if (publicSuffix && state.publicVillageBasePath) {
+        return { ...item, href: `${state.publicVillageBasePath}${publicSuffix}` };
+      }
+
+      if (MEMBERS_ONLY_PATHS.has(item.href)) {
+        return {
+          ...item,
+          href: bindingHref,
+          label: `${item.label} (ต้องผูกบ้านก่อน)`,
+        };
+      }
+    }
+
     if (item.href !== "/resident/binding") {
       return item;
     }
@@ -68,10 +101,6 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
     };
   });
 }
-
-const desktopNavItems = [...residentMenuItems].sort(
-  (left, right) => left.desktopPriority - right.desktopPriority
-);
 
 export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
   const pathname = usePathname();

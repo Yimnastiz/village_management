@@ -33,15 +33,14 @@ export default async function ResidentLayout({ children }: { children: React.Rea
         orderBy: { createdAt: "desc" },
       });
 
-  const residentNavigationState = {
-    hasMembership: Boolean(residentMembership),
-    pendingBindingRequestHref: pendingBindingRequest ? "/resident/binding/pending" : "/resident/binding",
-  };
-
   const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.id },
-      select: { name: true, image: true },
+      select: {
+        name: true,
+        image: true,
+        registrationVillage: { select: { slug: true, name: true } },
+      },
     }),
     prisma.notification.count({
       where: {
@@ -52,10 +51,19 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     residentMembership
       ? prisma.village.findUnique({
           where: { id: residentMembership.villageId },
-          select: { name: true },
+          select: { name: true, slug: true },
         })
       : Promise.resolve(null),
   ]);
+
+  const publicVillage = residentMembership
+    ? villageProfile
+    : userProfile?.registrationVillage ?? null;
+  const residentNavigationState = {
+    hasMembership: Boolean(residentMembership),
+    pendingBindingRequestHref: pendingBindingRequest ? "/resident/binding/pending" : "/resident/binding",
+    publicVillageBasePath: publicVillage?.slug ? `/${publicVillage.slug}` : null,
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -66,7 +74,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           userName={userProfile?.name || session.name}
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
-          villageName={villageProfile?.name ?? null}
+          villageName={publicVillage?.name ?? null}
           residentNavigationState={residentNavigationState}
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>

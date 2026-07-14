@@ -25,7 +25,12 @@ export async function proxy(request: NextRequest) {
     const residentAccess = await getResidentAreaAccessInfo(session);
     if (!residentAccess.canAccess) {
       const isBindingRoute = pathname.startsWith("/resident/binding");
-      if (!isBindingRoute) {
+      const isUnboundSafeRoute =
+        pathname === "/resident" ||
+        pathname === "/resident/dashboard" ||
+        pathname.startsWith("/resident/profile") ||
+        pathname.startsWith("/resident/notifications");
+      if (!isBindingRoute && !isUnboundSafeRoute) {
         return NextResponse.redirect(new URL(residentAccess.redirectPath, request.url));
       }
     }
