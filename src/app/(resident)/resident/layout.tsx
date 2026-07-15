@@ -22,14 +22,13 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   }
 
   const residentMembership = getResidentMembership(session);
-  const pendingBindingRequest = residentMembership
+  const latestBindingRequest = residentMembership
     ? null
     : await prisma.bindingRequest.findFirst({
         where: {
           userId: session.id,
-          status: "PENDING",
         },
-        select: { id: true },
+        select: { id: true, status: true, reviewNote: true },
         orderBy: { createdAt: "desc" },
       });
 
@@ -61,7 +60,15 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     : userProfile?.registrationVillage ?? null;
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
-    pendingBindingRequestHref: pendingBindingRequest ? "/resident/binding/pending" : "/resident/binding",
+    bindingRequestHref:
+      latestBindingRequest?.status === "PENDING"
+        ? "/resident/binding/pending"
+        : "/resident/binding",
+    bindingStatus: latestBindingRequest?.status ?? null,
+    bindingRejectReason:
+      latestBindingRequest?.status === "REJECTED"
+        ? latestBindingRequest.reviewNote
+        : null,
     publicVillageBasePath: publicVillage?.slug ? `/${publicVillage.slug}` : null,
   };
 

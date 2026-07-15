@@ -74,6 +74,8 @@ function VerifyOTPContent() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [resendSeconds, setResendSeconds] = useState(60);
+  const [otpSeconds, setOtpSeconds] = useState(300);
 
   const rawMode = searchParams.get("mode");
   const mode: VerifyMode = rawMode === "signup" ? "signup" : "signin";
@@ -94,6 +96,17 @@ function VerifyOTPContent() {
   const district = (activeDraft?.district ?? "").trim();
   const subdistrict = (activeDraft?.subdistrict ?? "").trim();
   const villageId = (activeDraft?.villageId ?? "").trim();
+  const maskedPhone = phone.length === 10
+    ? `${phone.slice(0, 2)}X-XXX-${phone.slice(-4)}`
+    : "เบอร์ของคุณ";
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setResendSeconds((seconds) => Math.max(0, seconds - 1));
+      setOtpSeconds((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (mode === "signup") {
@@ -155,7 +168,17 @@ function VerifyOTPContent() {
     }
   };
 
+  const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const digits = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!digits) return;
+    event.preventDefault();
+    const nextOtp = Array.from({ length: 6 }, (_, index) => digits[index] ?? "");
+    setOtp(nextOtp);
+    inputs.current[Math.min(digits.length, 6) - 1]?.focus();
+  };
+
   const handleResend = async () => {
+    if (resendSeconds > 0) return;
     if (!phone) {
       setError("ไม่พบเบอร์โทรศัพท์ กรุณากลับไปเริ่มใหม่");
       return;
@@ -212,6 +235,8 @@ function VerifyOTPContent() {
       }
 
       setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
+      setResendSeconds(60);
+      setOtpSeconds(300);
     } catch (err) {
       setError(err instanceof Error ? err.message : "ส่ง OTP ซ้ำไม่สำเร็จ");
     } finally {
@@ -263,6 +288,7 @@ function VerifyOTPContent() {
           router.push("/auth/login?registered=success");
         }, 700);
       } else {
+        setSuccessMessage("ยืนยันสำเร็จ กำลังพาไปหน้าถัดไป");
         let resolvedLandingPath: string | null = null;
         const postLoginResponse = await fetch("/api/auth/post-login-route", {
           method: "GET",
@@ -292,7 +318,8 @@ function VerifyOTPContent() {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
       <h2 className="mb-2 text-xl font-bold text-gray-900">ยืนยันรหัส OTP</h2>
-      <p className="mb-6 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {phone || "ของคุณ"}</p>
+      <p className="mb-2 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {maskedPhone}</p>
+      <p className="mb-6 text-xs text-gray-400">รหัสจะหมดอายุใน {Math.floor(otpSeconds / 60)}:{String(otpSeconds % 60).padStart(2, "0")} นาที</p>
 
       {resumeError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{resumeError}</div> : null}
 
@@ -300,7 +327,7 @@ function VerifyOTPContent() {
         <div className="mb-4 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p className="text-sm text-gray-700">ข้อมูลการสมัคร</p>
           <p className="text-sm text-gray-600">ชื่อ: {name}</p>
-          <p className="text-sm text-gray-600">เบอร์โทร: {phone}</p>
+          <p className="text-sm text-gray-600">เบอร์โทร: {maskedPhone}</p>
           <p className="text-sm text-gray-600">หมู่บ้าน: {province} {district} {subdistrict}</p>
           {activeDraft.rejectReason ? <p className="text-sm text-red-700">เหตุผลการปฏิเสธ: {activeDraft.rejectReason}</p> : null}
           {activeDraft.otpLockedUntil ? (
@@ -369,7 +396,10 @@ function VerifyOTPContent() {
               value={digit}
               onChange={(event) => handleChange(index, event.target.value)}
               onKeyDown={(event) => handleKeyDown(index, event)}
-              className="h-11 w-11 rounded-xl border-2 text-center text-xl font-bold focus:border-green-500 focus:outline-none sm:h-12 sm:w-12"
+              onPaste={handlePaste}
+              disabled={isLoading}
+              aria-label={`OTP หลักที่ ${index + 1}`}
+              className="h-10 min-w-0 flex-1 rounded-xl border-2 text-center text-lg font-bold focus:border-green-500 focus:outline-none disabled:bg-gray-100 sm:h-12 sm:w-12 sm:flex-none sm:text-xl"
             />
           ))}
         </div>
@@ -385,8 +415,8 @@ function VerifyOTPContent() {
       <div className="mt-4 space-y-3 text-center text-sm text-gray-500">
         <p>
           ยังไม่ได้รับ OTP?{" "}
-          <button type="button" onClick={handleResend} disabled={isResending} className="text-green-600 hover:underline disabled:opacity-50">
-            {isResending ? "กำลังส่ง..." : "ส่งอีกครั้ง"}
+          <button type="button" onClick={handleResend} disabled={isResending || resendSeconds > 0 || isLoading} className="text-green-600 hover:underline disabled:text-gray-400 disabled:no-underline">
+            {isResending ? "กำลังส่ง..." : resendSeconds > 0 ? `ส่งอีกครั้งได้ใน ${resendSeconds} วินาที` : "ส่งอีกครั้ง"}
           </button>
         </p>
         <p>

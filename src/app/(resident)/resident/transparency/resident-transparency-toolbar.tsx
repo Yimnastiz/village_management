@@ -14,6 +14,7 @@ interface ResidentTransparencyToolbarProps {
   selectedVisibilities: VisibilityValue[];
   sort: SortValue;
   suggestionTitles: string[];
+  canViewResidentOnly: boolean;
 }
 
 const visibilityOptions: Array<{ value: VisibilityValue; label: string }> = [
@@ -56,6 +57,7 @@ export function ResidentTransparencyToolbar({
   selectedVisibilities,
   sort,
   suggestionTitles,
+  canViewResidentOnly,
 }: ResidentTransparencyToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
@@ -145,8 +147,8 @@ export function ResidentTransparencyToolbar({
             ))}
           </datalist>
 
-          <span className="ml-1 text-xs font-medium text-gray-500">การมองเห็น:</span>
-          {visibilityOptions.map((option) => (
+          {canViewResidentOnly ? <span className="ml-1 text-xs font-medium text-gray-500">การมองเห็น:</span> : null}
+          {canViewResidentOnly ? visibilityOptions.map((option) => (
             <Link
               key={option.value}
               href={getVisibilityToggleHref(option.value)}
@@ -159,7 +161,7 @@ export function ResidentTransparencyToolbar({
             >
               {option.label}
             </Link>
-          ))}
+          )) : null}
 
           <span className="ml-1 text-xs font-medium text-gray-500">เรียงตามวันที่:</span>
           {sortOptions.map((option) => (

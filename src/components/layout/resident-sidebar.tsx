@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   Home,
@@ -49,8 +50,10 @@ export const residentMenuItems: ResidentMenuItem[] = [
 
 export type ResidentNavigationState = {
   hasMembership: boolean;
-  pendingBindingRequestHref?: string | null;
   publicVillageBasePath?: string | null;
+  bindingRequestHref?: string | null;
+  bindingStatus?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | null;
+  bindingRejectReason?: string | null;
 };
 
 const MEMBERS_ONLY_PATHS = new Set([
@@ -64,14 +67,13 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
   const baseItems = state.hasMembership
     ? residentMenuItems.filter((item) => item.href !== "/resident/binding")
     : residentMenuItems;
-  const bindingHref = state.pendingBindingRequestHref ?? "/resident/binding";
+  const bindingHref = state.bindingRequestHref ?? "/resident/binding";
 
   return baseItems.map((item) => {
     if (!state.hasMembership) {
       if (MEMBERS_ONLY_PATHS.has(item.href)) {
         return {
           ...item,
-          href: bindingHref,
           locked: true,
         };
       }
@@ -91,6 +93,7 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
 
 export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
   const pathname = usePathname();
+  const [lockedMenuLabel, setLockedMenuLabel] = useState<string | null>(null);
   const navItems = getResidentNavigationItems(state);
   const desktopItems = [...navItems].sort((left, right) => left.desktopPriority - right.desktopPriority);
   return (
@@ -113,8 +116,14 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
-              key={item.desktopPriority}
+              key={item.href}
               href={item.href}
+              onClick={(event) => {
+                if (item.locked) {
+                  event.preventDefault();
+                  setLockedMenuLabel(item.label);
+                }
+              }}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -129,6 +138,54 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           );
         })}
       </nav>
+      <LockedResidentMenuDialog
+        open={Boolean(lockedMenuLabel)}
+        menuLabel={lockedMenuLabel}
+        state={state}
+        onClose={() => setLockedMenuLabel(null)}
+      />
     </aside>
+  );
+}
+
+export function LockedResidentMenuDialog({
+  open,
+  menuLabel,
+  state,
+  onClose,
+}: {
+  open: boolean;
+  menuLabel: string | null;
+  state: ResidentNavigationState;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  const isPending = state.bindingStatus === "PENDING";
+  const isRejected = state.bindingStatus === "REJECTED";
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="locked-menu-title">
+      <button className="absolute inset-0" type="button" aria-label="ยกเลิก" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6">
+        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+          <LockKeyhole className="h-5 w-5" />
+        </div>
+        <h2 id="locked-menu-title" className="mt-4 text-lg font-semibold text-gray-900">ยังใช้เมนู {menuLabel} ไม่ได้</h2>
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          {isPending
+            ? "คำขอของคุณกำลังรอผู้ใหญ่บ้านตรวจสอบ"
+            : isRejected
+              ? `คำขอผูกเลขบ้านถูกปฏิเสธ${state.bindingRejectReason ? `: ${state.bindingRejectReason}` : ""}`
+              : "เมนูนี้ใช้ได้เฉพาะลูกบ้านที่ผูกเลขบ้านและได้รับการอนุมัติแล้ว"}
+        </p>
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">ยกเลิก</button>
+          <Link href={state.bindingRequestHref ?? "/resident/binding"} onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+            {isPending ? "ดูสถานะคำขอ" : isRejected ? "แก้ไขคำขอและส่งใหม่" : "ไปขอผูกเลขบ้าน"}
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }

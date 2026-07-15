@@ -30,15 +30,19 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
 
   const membership = getResidentMembership(session);
   if (!membership) {
-    const [pendingBindingRequest, unreadNotifications] = await Promise.all([
+    const [latestBindingRequest, unreadNotifications] = await Promise.all([
       prisma.bindingRequest.findFirst({
         where: {
           userId: session.id,
-          status: "PENDING",
         },
         select: {
           id: true,
           createdAt: true,
+          status: true,
+          houseNumber: true,
+          reviewNote: true,
+          house: { select: { houseNumber: true } },
+          village: { select: { name: true } },
         },
         orderBy: {
           createdAt: "desc",
@@ -48,6 +52,8 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
         where: { userId: session.id, status: NotificationStatus.UNREAD },
       }),
     ]);
+    const isPending = latestBindingRequest?.status === "PENDING";
+    const isRejected = latestBindingRequest?.status === "REJECTED";
 
     return (
       <div className="space-y-6">
@@ -72,17 +78,27 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           <p className="text-sm font-semibold text-amber-900">บัญชีของคุณยังไม่ผูกกับครัวเรือน</p>
           <p className="mt-1 text-sm text-amber-800">
             คุณยังเข้าใช้งานข้อมูลภายในหมู่บ้านไม่ได้จนกว่าจะผูกเลขบ้านและได้รับการอนุมัติ
-            {pendingBindingRequest
-              ? ` (ส่งคำขอแล้วเมื่อ ${toThaiDate(pendingBindingRequest.createdAt)})`
-              : ""}
+            {isPending
+              ? ` ส่งคำขอแล้วเมื่อ ${toThaiDate(latestBindingRequest.createdAt)} และกำลังรอผู้ใหญ่บ้านตรวจสอบ`
+              : isRejected
+                ? " คำขอล่าสุดถูกปฏิเสธ คุณสามารถแก้ไขข้อมูลและส่งใหม่ได้"
+                : " เริ่มต้นด้วยการส่งคำขอผูกเลขบ้านให้ผู้ใหญ่บ้านตรวจสอบ"}
           </p>
+          {latestBindingRequest ? (
+            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-amber-200 bg-white/70 p-4 text-sm sm:grid-cols-3">
+              <div><dt className="text-gray-500">วันที่ส่ง</dt><dd className="mt-1 font-medium text-gray-900">{toThaiDate(latestBindingRequest.createdAt)}</dd></div>
+              <div><dt className="text-gray-500">หมู่บ้าน</dt><dd className="mt-1 font-medium text-gray-900">{latestBindingRequest.village?.name ?? "-"}</dd></div>
+              <div><dt className="text-gray-500">บ้านเลขที่</dt><dd className="mt-1 font-medium text-gray-900">{latestBindingRequest.houseNumber ?? latestBindingRequest.house?.houseNumber ?? "-"}</dd></div>
+              {isRejected ? <div className="sm:col-span-3"><dt className="text-red-600">เหตุผลที่ปฏิเสธ</dt><dd className="mt-1 font-medium text-red-800">{latestBindingRequest.reviewNote || "ไม่ได้ระบุเหตุผล"}</dd></div> : null}
+            </dl>
+          ) : null}
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
-              href={pendingBindingRequest ? "/resident/binding/pending" : "/resident/binding"}
+              href={isPending ? "/resident/binding/pending" : "/resident/binding"}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
             >
               <FileText className="h-4 w-4" />
-              {pendingBindingRequest ? "ดูสถานะคำขอผูกเลขบ้าน" : "ขอผูกเลขบ้าน"}
+              {isPending ? "ดูสถานะคำขอผูกเลขบ้าน" : isRejected ? "แก้ไขคำขอและส่งใหม่" : "ขอผูกเลขบ้าน"}
             </Link>
             <Link
               href="/resident/notifications"

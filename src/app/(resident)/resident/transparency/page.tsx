@@ -86,6 +86,7 @@ export default async function ResidentTransparencyPage({
         sort={sort === "date_asc" ? "date_asc" : "date_desc"}
         selectedVisibilities={selectedVisibilities}
         suggestionTitles={suggestions.map((item) => item.title)}
+        canViewResidentOnly={membership.hasResidentAccess}
       />
 
       {records.length === 0 ? (

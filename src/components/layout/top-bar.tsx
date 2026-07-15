@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "./logout-button";
-import { getResidentNavigationItems, type ResidentNavigationState } from "./resident-sidebar";
+import {
+  getResidentNavigationItems,
+  LockedResidentMenuDialog,
+  type ResidentNavigationState,
+} from "./resident-sidebar";
 import { adminMenuItems } from "./admin-sidebar";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +31,7 @@ export function TopBar({
 }: TopBarProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [lockedMenuLabel, setLockedMenuLabel] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const notificationsHref = userArea === "admin" ? "/admin/notifications" : "/resident/notifications";
   const profileHref = userArea === "admin" ? "/admin/settings" : "/resident/profile";
@@ -53,10 +58,6 @@ export function TopBar({
 
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
 
   return (
     <>
@@ -215,14 +216,23 @@ export function TopBar({
               </button>
             </div>
             <nav className="space-y-1 p-3">
-              {mobileNavItems.map((item, index) => {
+              {mobileNavItems.map((item) => {
                 const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
                 const showUnread = item.href === notificationsHref && unreadNotificationCount > 0;
 
                 return (
                   <Link
-                    key={`${item.href}-${index}`}
+                    key={item.href}
                     href={item.href}
+                    onClick={(event) => {
+                      if ("locked" in item && item.locked) {
+                        event.preventDefault();
+                        setMobileMenuOpen(false);
+                        setLockedMenuLabel(item.label);
+                      } else {
+                        setMobileMenuOpen(false);
+                      }
+                    }}
                     className={cn(
                       "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       isActive
@@ -251,6 +261,14 @@ export function TopBar({
           </aside>
         </div>
       )}
+      {userArea === "resident" && residentNavigationState ? (
+        <LockedResidentMenuDialog
+          open={Boolean(lockedMenuLabel)}
+          menuLabel={lockedMenuLabel}
+          state={residentNavigationState}
+          onClose={() => setLockedMenuLabel(null)}
+        />
+      ) : null}
     </>
   );
 }

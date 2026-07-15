@@ -126,12 +126,13 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">ปฏิทินกิจกรรมหมู่บ้าน</h1>
           <p className="mt-1 text-sm text-gray-500">ดูกิจกรรมทั้งหมดของ {village.name}</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
+          <div className="flex flex-wrap gap-2 lg:justify-end">
           {membership.hasResidentAccess ? <>
           <Link href="/resident/calendar/requests">
             <Button size="sm" variant="outline">คำขอกิจกรรมของฉัน</Button>
@@ -142,21 +143,26 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
             </Button>
           </Link>
           </> : null}
+          </div>
+          <div className="grid w-full grid-cols-[44px_1fr_44px] items-center gap-2 sm:w-auto sm:min-w-72">
           <Link
             href={`/resident/calendar?month=${toMonthKey(prevMonth)}`}
-            className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            aria-label="เดือนก่อนหน้า"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             <ChevronLeft className="h-4 w-4" />
           </Link>
-          <p className="min-w-28 text-center text-sm font-medium text-gray-800">
+          <p className="text-center text-sm font-semibold text-gray-800 sm:text-base">
             {monthStart.toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
           </p>
           <Link
             href={`/resident/calendar?month=${toMonthKey(nextMonth)}`}
-            className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            aria-label="เดือนถัดไป"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
           >
             <ChevronRight className="h-4 w-4" />
           </Link>
+          </div>
         </div>
       </div>
 
@@ -173,7 +179,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
           </div>
           <div className="grid grid-cols-7">
             {Array.from({ length: leadingBlankDays }).map((_, index) => (
-              <div key={`blank-${index}`} className="min-h-28 border-b border-r border-gray-100 bg-gray-50/70" />
+              <div key={`blank-${index}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/70 sm:min-h-24 lg:min-h-28" />
             ))}
 
             {Array.from({ length: daysInMonth }).map((_, index) => {
@@ -188,7 +194,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
               return (
                 <div
                   key={dayKey}
-                  className={`min-h-28 border-b border-r border-gray-100 p-2 transition-colors duration-200 ${
+                  className={`min-h-16 min-w-0 border-b border-r border-gray-100 p-1 transition-colors duration-200 sm:min-h-24 sm:p-2 lg:min-h-28 ${
                     isSelected ? "bg-green-50" : "bg-white hover:bg-gray-50/80"
                   } ${
                     hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
@@ -197,14 +203,15 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                   <div className="mb-2 flex items-center justify-between">
                     <Link
                       href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
-                      className={`text-sm font-medium hover:text-green-700 transition-colors focus-visible:outline-none focus-visible:underline ${
+                      aria-label={`${isToday ? "วันนี้ " : ""}${cellDate.toLocaleDateString("th-TH")}`}
+                      className={`text-xs font-medium transition-colors hover:text-green-700 focus-visible:outline-none focus-visible:underline sm:text-sm ${
                         isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
                       }`}
                     >
                       {day}
                     </Link>
                     {isToday && (
-                      <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                      <span className="hidden items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 lg:inline-flex">
                         TODAY
                       </span>
                     )}
@@ -225,7 +232,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                       <Link
                         key={event.id}
                         href={`/resident/calendar/${event.id}`}
-                        className="block truncate rounded-md bg-green-50 px-2 py-1 text-xs text-green-800 hover:bg-green-100"
+                        className="hidden truncate rounded-md bg-green-50 px-2 py-1 text-xs text-green-800 hover:bg-green-100 sm:block"
                       >
                         {event.title}
                       </Link>

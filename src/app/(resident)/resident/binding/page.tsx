@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Ban, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { BindingRequestStatus } from "@prisma/client";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { submitBindingRequestAction } from "./actions";
+import { BindingVillageCombobox } from "./binding-village-combobox";
 
 export default async function ResidentBindingPage() {
   const session = await getSessionContextFromServerCookies();
@@ -41,6 +43,14 @@ export default async function ResidentBindingPage() {
     : null;
 
   const hasPending = latestRequest?.status === BindingRequestStatus.PENDING;
+  const statusPresentation = latestRequest
+    ? {
+        PENDING: { icon: Clock3, label: "รอผู้ใหญ่บ้านตรวจสอบ", className: "border-amber-200 bg-amber-50 text-amber-800" },
+        APPROVED: { icon: CheckCircle2, label: "อนุมัติแล้ว", className: "border-green-200 bg-green-50 text-green-800" },
+        REJECTED: { icon: XCircle, label: "ถูกปฏิเสธ", className: "border-red-200 bg-red-50 text-red-800" },
+        CANCELLED: { icon: Ban, label: "ยกเลิกแล้ว", className: "border-gray-200 bg-gray-50 text-gray-700" },
+      }[latestRequest.status]
+    : null;
 
   return (
     <div className="space-y-6">
@@ -66,32 +76,20 @@ export default async function ResidentBindingPage() {
           </div>
         )}
 
-        <form action={submitBindingRequestAction} className="space-y-4">
-          <div>
-            <label htmlFor="villageId" className="mb-1 block text-sm font-medium text-gray-700">
-              หมู่บ้าน
-            </label>
-            {hasPending && latestRequest?.villageId && (
-              <input type="hidden" name="villageId" value={latestRequest.villageId} />
-            )}
-            <select
-              id="villageId"
-              name="villageId"
-              required
-              defaultValue={latestRequest?.villageId ?? ""}
-              disabled={hasPending}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="">เลือกหมู่บ้าน</option>
-              {villages.map((village) => (
-                <option key={village.id} value={village.id}>
-                  {village.name} ({[village.subdistrict, village.district, village.province]
-                    .filter(Boolean)
-                    .join(" / ")})
-                </option>
-              ))}
-            </select>
+        {statusPresentation ? (
+          <div className={`mb-6 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${statusPresentation.className}`}>
+            <statusPresentation.icon className="mt-0.5 h-5 w-5 flex-none" />
+            <div>
+              <p className="font-semibold">{statusPresentation.label}</p>
+              {latestRequest?.status === BindingRequestStatus.REJECTED ? (
+                <p className="mt-1">เหตุผล: {latestRequest.reviewNote || "ไม่ได้ระบุเหตุผล"}</p>
+              ) : null}
+            </div>
           </div>
+        ) : null}
+
+        <form action={submitBindingRequestAction} className="space-y-4">
+          <BindingVillageCombobox villages={villages} initialVillageId={latestRequest?.villageId} disabled={hasPending} />
 
           <div>
             <label htmlFor="houseNumber" className="mb-1 block text-sm font-medium text-gray-700">
@@ -100,6 +98,7 @@ export default async function ResidentBindingPage() {
             <input
               id="houseNumber"
               name="houseNumber"
+              required
               defaultValue={latestRequest?.houseNumber ?? latestRequest?.house?.houseNumber ?? ""}
               placeholder="เช่น 123/4"
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
@@ -124,7 +123,7 @@ export default async function ResidentBindingPage() {
             type="submit"
             className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
           >
-            {hasPending ? "อัปเดตคำขอผูกเลขบ้านเดิม" : "ส่งคำขอผูกเลขบ้าน"}
+            {hasPending ? "อัปเดตคำขอผูกเลขบ้านเดิม" : latestRequest?.status === BindingRequestStatus.REJECTED ? "แก้ไขคำขอและส่งใหม่" : "ส่งคำขอผูกเลขบ้าน"}
           </button>
 
           {!session && (

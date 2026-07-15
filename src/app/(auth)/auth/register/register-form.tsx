@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ThaiProvince } from "@/lib/thai-geography";
@@ -83,17 +82,8 @@ function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
   );
 }
 
-function clearRegistrationDraft() {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
-}
-
 export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
   const [firstName, setFirstName] = useState("");
@@ -111,27 +101,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/login";
 
-  // Populate form from URL params (when coming back from verify-otp)
   useEffect(() => {
-    const firstNameParam = searchParams.get("firstName");
-    const lastNameParam = searchParams.get("lastName");
-    const phoneParam = searchParams.get("phone");
-    const nationalIdParam = searchParams.get("nationalId");
-    const provinceParam = searchParams.get("province");
-    const districtParam = searchParams.get("district");
-    const subdistrictParam = searchParams.get("subdistrict");
-    const villageIdParam = searchParams.get("villageId");
-
-    if (firstNameParam) setFirstName(firstNameParam);
-    if (lastNameParam) setLastName(lastNameParam);
-    if (phoneParam) setPhone(phoneParam);
-    if (nationalIdParam) setNationalId(nationalIdParam);
-    if (provinceParam) setProvince(provinceParam);
-    if (districtParam) setDistrict(districtParam);
-    if (subdistrictParam) setSubdistrict(subdistrictParam);
-    if (villageIdParam) setVillageId(villageIdParam);
-
-    if (!draftLoaded && !phoneParam && !firstNameParam && !lastNameParam) {
+    if (!draftLoaded) {
       const storedDraft = loadRegistrationDraft();
       if (storedDraft) {
         setRegistrationMode(storedDraft.registrationMode);
@@ -146,7 +117,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       }
       setDraftLoaded(true);
     }
-  }, [searchParams, draftLoaded]);
+  }, [draftLoaded]);
 
   useEffect(() => {
     if (!draftLoaded) {
