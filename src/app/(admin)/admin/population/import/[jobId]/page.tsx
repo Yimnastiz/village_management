@@ -148,12 +148,13 @@ export default async function Page({ params }: PageProps) {
           <Link href="/admin/population/import" className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             กลับหน้ารายนำเข้า
           </Link>
-          <a href="/api/admin/population/export" className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
+          <a href="/api/admin/population/export" download className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
             ส่งออกข้อมูลล่าสุด
           </a>
           {errors.length > 0 && (
             <a
               href={`/api/admin/population/import/${job.id}/error-report`}
+              download
               className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100"
             >
               ดาวน์โหลด error report (.csv)

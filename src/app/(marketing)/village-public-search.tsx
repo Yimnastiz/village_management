@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPinned, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import type { ThaiProvince } from "@/lib/thai-geography";
 
@@ -20,12 +19,6 @@ type VillagePublicSearchProps = {
   villages: VillageOption[];
   thaiGeography: ThaiProvince[];
 };
-
-function unique(values: Array<string | null | undefined>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort(
-    (left, right) => left.localeCompare(right, "th")
-  );
-}
 
 function normalizeForSearch(value: string): string {
   return value

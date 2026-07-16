@@ -30,10 +30,10 @@ const startRegistrationSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  let payload: any = null;
+  let payload: unknown = null;
   try {
     payload = await request.json();
-  } catch (err) {
+  } catch {
     try {
       const raw = await request.text();
       console.error("start-registration: failed to parse JSON body", { hasBody: raw.length > 0, bodyLength: raw.length });

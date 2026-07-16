@@ -10,7 +10,7 @@ import { formatThaiDate } from "@/lib/utils";
 import { toggleSaveAlbumAction } from "@/features/saved/server/actions";
 import { AlbumGalleryViewer } from "./album-gallery-viewer";
 
-const db = prisma as any;
+const db = prisma;
 
 type ResidentAlbumDetailPageProps = {
   params: Promise<{ albumId: string }>;
@@ -121,7 +121,7 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
           <p className="text-sm text-gray-500">ยังไม่มีคำขอในอัลบั้มนี้</p>
         ) : (
           <div className="space-y-2">
-            {myRecentSubmissions.map((submission: any) => (
+            {myRecentSubmissions.map((submission) => (
               <div key={submission.id} className="rounded-lg border border-gray-200 px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-medium text-gray-900">{submission.title || "(ไม่มีหัวข้อรูปภาพ)"}</p>

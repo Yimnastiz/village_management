@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
-const db = prisma as any;
+const db = prisma;
 
 type AdminGallerySubmissionsPageProps = {
   searchParams?: Promise<{ albumId?: string }>;
@@ -67,7 +67,7 @@ export default async function AdminGallerySubmissionsPage({ searchParams }: Admi
         <EmptyState icon={ImagePlus} title="ยังไม่มีคำขอเพิ่มรูป" description="เมื่อมีลูกบ้านส่งคำขอจะปรากฏที่หน้านี้" />
       ) : (
         <div className="space-y-3">
-          {submissions.map((submission: any) => (
+          {submissions.map((submission) => (
             <Link
               key={submission.id}
               href={`/admin/gallery/submissions/${submission.id}`}

@@ -8,7 +8,7 @@ import { DeleteAlbumButton } from "./delete-album-button";
 import { DeleteGalleryItemButton } from "./delete-item-button";
 import { formatThaiDate } from "@/lib/utils";
 
-const db = prisma as any;
+const db = prisma;
 
 interface PageProps {
   params: Promise<{ albumId: string }>;
@@ -92,7 +92,7 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500">ยังไม่มีรูปภาพ</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {album.items.map((item: any) => (
+            {album.items.map((item) => (
               <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
                 <div className="aspect-video bg-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -34,6 +34,7 @@ export function ItemForm({ mode, albumId, itemId, defaultValues }: ItemFormProps
   const router = useRouter();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState(defaultValues?.fileUrl || "");
+  const objectPreviewUrlRef = useRef<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -57,18 +58,28 @@ export function ItemForm({ mode, albumId, itemId, defaultValues }: ItemFormProps
     });
 
   useEffect(() => {
-    if (!selectedFiles[0]) {
-      setPreviewUrl(defaultValues?.fileUrl || "");
-      return;
-    }
-
-    const nextPreviewUrl = URL.createObjectURL(selectedFiles[0]);
-    setPreviewUrl(nextPreviewUrl);
-
     return () => {
-      URL.revokeObjectURL(nextPreviewUrl);
+      if (objectPreviewUrlRef.current) {
+        URL.revokeObjectURL(objectPreviewUrlRef.current);
+      }
     };
-  }, [defaultValues?.fileUrl, selectedFiles]);
+  }, []);
+
+  const handleFilesChange = (files: File[]) => {
+    const nextFiles = files.slice(0, 1);
+    setSelectedFiles(nextFiles);
+    if (objectPreviewUrlRef.current) {
+      URL.revokeObjectURL(objectPreviewUrlRef.current);
+      objectPreviewUrlRef.current = null;
+    }
+    if (nextFiles[0]) {
+      const objectUrl = URL.createObjectURL(nextFiles[0]);
+      objectPreviewUrlRef.current = objectUrl;
+      setPreviewUrl(objectUrl);
+    } else {
+      setPreviewUrl(defaultValues?.fileUrl || "");
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     let fileUrl = defaultValues?.fileUrl || "";
@@ -122,7 +133,7 @@ export function ItemForm({ mode, albumId, itemId, defaultValues }: ItemFormProps
         label={mode === "create" ? "อัปโหลดรูปภาพ" : "อัปโหลดรูปภาพใหม่ (ถ้าต้องการแทนที่)"}
         accept="image/*"
         maxSize={5 * 1024 * 1024}
-        onFilesChange={(files) => setSelectedFiles(files.slice(0, 1))}
+        onFilesChange={handleFilesChange}
       />
       {previewUrl && (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-gray-50">

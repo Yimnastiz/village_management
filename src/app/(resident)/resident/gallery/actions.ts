@@ -6,7 +6,7 @@ import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
-const db = prisma as any;
+const db = prisma;
 
 const submissionSchema = z.object({
   title: z.string().trim().min(2, "กรุณาระบุหัวข้อรูปภาพ").max(120),

@@ -190,7 +190,7 @@ export default async function TransparencyPage({ searchParams }: PageProps) {
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
           <ShieldCheck className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-600">ยังไม่มีข้อมูลความโปร่งใส</p>
-          <p className="text-sm text-gray-400 mt-1">กดปุ่ม "สร้างข้อมูล mock" เพื่อสร้างตัวอย่าง PUBLIC/RESIDENT</p>
+          <p className="text-sm text-gray-400 mt-1">กดปุ่ม &quot;สร้างข้อมูล mock&quot; เพื่อสร้างตัวอย่าง PUBLIC/RESIDENT</p>
         </div>
       ) : (
         <div className="space-y-3">

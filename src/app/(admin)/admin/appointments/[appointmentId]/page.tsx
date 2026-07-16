@@ -17,12 +17,12 @@ import {
 } from "../../../../(resident)/resident/appointments/actions";
 import { ArrowLeft, AlertCircle, CheckCircle, Pencil, X } from "lucide-react";
 import Link from "next/link";
-import type { Appointment, AppointmentSlot, User } from "@prisma/client";
+import type { Appointment, AppointmentSlot, AppointmentTimeline, User } from "@prisma/client";
 
 interface AppointmentDetail extends Appointment {
   user: Pick<User, "email" | "name">;
   slot: AppointmentSlot | null;
-  timeline: any[];
+  timeline: AppointmentTimeline[];
 }
 
 interface AdminAppointmentDetailPageProps {
@@ -531,7 +531,7 @@ export default function AdminAppointmentDetailPage(props: AdminAppointmentDetail
         <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 space-y-4">
           <h2 className="font-semibold text-gray-900">ประวัติการดำเนินการ</h2>
           <div className="space-y-3">
-            {appointment.timeline.map((entry: any, idx: number) => (
+            {appointment.timeline.map((entry, idx) => (
               <div key={entry.id} className="flex gap-4">
                 <div className="flex flex-col items-center">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>

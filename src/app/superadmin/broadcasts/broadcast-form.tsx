@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -26,10 +26,6 @@ export function BroadcastForm({ broadcasts }: { broadcasts: BroadcastRow[] }) {
   const { pushToast } = useToast();
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [editingId, setEditingId] = useState<string>("");
-  const editingBroadcast = useMemo(
-    () => broadcasts.find((item) => item.groupId === editingId) ?? null,
-    [broadcasts, editingId]
-  );
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");

@@ -1,4 +1,4 @@
-import { AuditAction } from "@prisma/client";
+import { AuditAction, Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import {
@@ -44,7 +44,7 @@ export async function writeSuperAdminAuditLog(input: {
   action: AuditAction;
   resource: string;
   resourceId?: string | null;
-  metadata?: unknown;
+  metadata?: Prisma.InputJsonValue;
   villageId?: string | null;
 }) {
   await prisma.auditLog.create({
@@ -54,7 +54,7 @@ export async function writeSuperAdminAuditLog(input: {
       resource: input.resource,
       resourceId: input.resourceId ?? null,
       villageId: input.villageId ?? null,
-      metadata: input.metadata as any,
+      metadata: input.metadata,
     },
   });
 }

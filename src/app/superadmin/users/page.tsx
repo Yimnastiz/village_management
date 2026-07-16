@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
@@ -87,7 +88,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
         </select>
         <div className="md:col-span-4 flex flex-wrap gap-2">
           <button type="submit" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">ค้นหา</button>
-          <a href="/superadmin/users" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">ล้างตัวกรอง</a>
+          <Link href="/superadmin/users" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">ล้างตัวกรอง</Link>
         </div>
       </form>
 

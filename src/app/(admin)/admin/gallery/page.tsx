@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatThaiShortDate } from "@/lib/utils";
 
-const db = prisma as any;
+const db = prisma;
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; submissions?: string; sort?: string }>;
@@ -152,7 +152,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {albums.map((album: any) => (
+          {albums.map((album) => (
             <Link
               key={album.id}
               href={`/admin/gallery/${album.id}`}

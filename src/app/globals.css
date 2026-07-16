@@ -3,7 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --font-google-sans: "Google Sans", "Noto Sans Thai", Arial, Helvetica, sans-serif;
+  --font-google-sans: var(--font-noto-sans-thai), "Noto Sans Thai", Arial, Helvetica, sans-serif;
 }
 
 html {

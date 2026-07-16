@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Clock, AlertCircle, Info } from "lucide-react";
 import { confirmSuggestionAction, rejectSuggestionAction } from "../actions";
@@ -54,7 +55,7 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
               กรุณายืนยันหรือปฏิเสธเวลานัดหมายที่ผู้บริหารแนะนำด้านบน
             </p>
             {suggestionMessage && (
-              <p className="text-sm text-blue-800 mt-2 italic">"{suggestionMessage}"</p>
+              <p className="text-sm text-blue-800 mt-2 italic">&quot;{suggestionMessage}&quot;</p>
             )}
           </div>
         </div>
@@ -111,12 +112,12 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
             </p>
           </div>
         </div>
-        <a
+        <Link
           href="/resident/appointments/new"
           className="inline-flex items-center gap-2 text-sm font-medium text-orange-800 underline hover:text-orange-600"
         >
           ขอจองนัดหมายใหม่
-        </a>
+        </Link>
       </div>
     );
   }

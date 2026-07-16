@@ -4,7 +4,7 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { AlbumForm } from "../../album-form";
 import { formatDateInputValue } from "@/lib/utils";
 
-const db = prisma as any;
+const db = prisma;
 
 interface PageProps {
   params: Promise<{ albumId: string }>;

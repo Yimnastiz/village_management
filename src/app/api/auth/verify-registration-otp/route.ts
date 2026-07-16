@@ -70,10 +70,10 @@ export async function POST(request: NextRequest) {
   // Use the exact same identifier format used when sending the OTP.
   const phoneNumber = normalizedPhoneNumber;
 
-  let verifyResult: any;
+  let verifyResult: Awaited<ReturnType<typeof auth.api.verifyPhoneNumber>> | null = null;
   try {
     verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("verify-registration-otp: verifyPhoneNumber failed", {
       errorName: err instanceof Error ? err.name : "UnknownError",
     });

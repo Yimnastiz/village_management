@@ -324,7 +324,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
           ) : (
             <div className="space-y-2">
               {selectedDayAppointments.map((apt) => (
-                <Link href={`/admin/appointments/${apt.id}`} className="block rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 hover:border-purple-300 hover:bg-purple-100/50">
+                <Link key={apt.id} href={`/admin/appointments/${apt.id}`} className="block rounded-lg border border-purple-200 bg-purple-50 px-4 py-3 hover:border-purple-300 hover:bg-purple-100/50">
                   <p className="font-medium text-purple-900">{apt.title}</p>
                   <p className="text-sm text-purple-700">{apt.user.name}</p>
                 </Link>

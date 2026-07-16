@@ -155,7 +155,7 @@ export default async function Page({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <a href="/api/admin/population/import-template">
+          <a href="/api/admin/population/import-template" download>
             <Button variant="outline">ดาวน์โหลดไฟล์ตัวอย่าง</Button>
           </a>
           <Link href="/admin/population/export">
@@ -277,7 +277,7 @@ export default async function Page({ searchParams }: PageProps) {
               <Link href="/admin/population/export" className="inline-flex items-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 เปิดหน้าส่งออก
               </Link>
-              <a href="/api/admin/population/export" className="inline-flex items-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
+              <a href="/api/admin/population/export" download className="inline-flex items-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
                 ดาวน์โหลด Excel ทันที
               </a>
             </div>

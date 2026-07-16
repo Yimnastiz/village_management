@@ -731,8 +731,8 @@ export async function adminCancelAppointmentAction(
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์ยกเลิกนัดหมายนี้" };
 
-  const cancellableStages = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
-  if (!cancellableStages.includes(appointment.stage as any)) {
+  const cancellableStages = new Set(["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"]);
+  if (!cancellableStages.has(appointment.stage)) {
     return { success: false, error: "ไม่สามารถยกเลิกนัดหมายในสถานะนี้ได้" };
   }
 
@@ -799,8 +799,8 @@ export async function adminEditAppointmentAction(
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์แก้ไขนัดหมายนี้" };
 
-  const editableStages = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
-  if (!editableStages.includes(appointment.stage as any)) {
+  const editableStages = new Set(["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"]);
+  if (!editableStages.has(appointment.stage)) {
     return { success: false, error: "ไม่สามารถแก้ไขนัดหมายในสถานะนี้ได้" };
   }
 

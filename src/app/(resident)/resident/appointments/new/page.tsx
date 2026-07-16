@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
@@ -74,7 +74,7 @@ export default function NewAppointmentPage() {
   const {
     register,
     handleSubmit,
-    watch,
+    control,
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -86,8 +86,8 @@ export default function NewAppointmentPage() {
     },
   });
 
-  const selectedDate = watch("requestedDate");
-  const selectedRecipientId = watch("targetAdminUserId");
+  const selectedDate = useWatch({ control, name: "requestedDate" });
+  const selectedRecipientId = useWatch({ control, name: "targetAdminUserId" });
   const selectedRecipient = recipients.find((item) => item.id === selectedRecipientId);
 
   useEffect(() => {
@@ -446,4 +446,3 @@ export default function NewAppointmentPage() {
     </div>
   );
 }
-

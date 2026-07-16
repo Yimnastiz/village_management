@@ -85,7 +85,6 @@ export async function adminCreateVillagePlaceAction(
   if (!normalized.ok) return { success: false, error: normalized.error };
 
   const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
-
   const created = await villagePlace.create({
     data: {
       villageId: ctx.villageId,
@@ -178,8 +177,6 @@ export async function adminApproveVillagePlaceSubmissionAction(
 
   const villagePlaceSubmission =
     (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;
-  const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
-
   const submission = await villagePlaceSubmission.findFirst({
     where: {
       id: submissionId,

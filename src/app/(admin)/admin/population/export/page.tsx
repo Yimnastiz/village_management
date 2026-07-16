@@ -37,7 +37,7 @@ export default async function Page() {
           <h1 className="text-2xl font-bold text-gray-900">ส่งออกข้อมูลประชากร</h1>
           <p className="mt-1 text-sm text-gray-500">ส่งออกข้อมูลบ้าน คน และบัญชีผู้ใช้ของ {village?.name ?? "หมู่บ้านของคุณ"} เป็นไฟล์ Excel เดียว</p>
         </div>
-        <a href="/api/admin/population/export">
+        <a href="/api/admin/population/export" download>
           <Button>
             <Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Excel
           </Button>

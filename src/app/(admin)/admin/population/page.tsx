@@ -477,7 +477,13 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
       // Notify resident of decision change
       const title = newStatus === "APPROVED" ? "การผูกบัญชีได้รับการอนุมัติแล้ว" : "การผูกบัญชีถูกปฏิเสธ";
       let body = "";
-      const metadata: any = { bindingRequestId: requestId, action: newStatus.toLowerCase() };
+      const metadata: {
+        bindingRequestId: string;
+        action: string;
+        actionUrl?: string;
+        actionLabel?: string;
+        reason?: string;
+      } = { bindingRequestId: requestId, action: newStatus.toLowerCase() };
       
       if (newStatus === "APPROVED") {
         body = "ยินดีด้วย! การผูกบัญชีของคุณได้รับการอนุมัติ คุณสามารถเข้าสู่ระบบและใช้งานโปรแกรมได้แล้ว";
@@ -487,7 +493,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
         body = reviewNote
           ? `การผูกบัญชีของคุณถูกปฏิเสธ เหตุผล: ${reviewNote}`
           : "การผูกบัญชีของคุณถูกปฏิเสธ";
-        metadata.reason = reviewNote;
+        metadata.reason = reviewNote || undefined;
       }
 
       await tx.notification.create({

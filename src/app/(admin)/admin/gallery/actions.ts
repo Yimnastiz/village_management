@@ -6,7 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
-const db = prisma as any;
+const db = prisma;
 
 const albumSchema = z.object({
   title: z.string().min(2, "กรุณาระบุชื่ออัลบั้ม"),
@@ -364,7 +364,7 @@ export async function adminApproveGalleryItemSubmissionAction(
     return { success: false, error: "ไม่พบคำขอหรือคำขอถูกดำเนินการแล้ว" };
   }
 
-  const result = await db.$transaction(async (tx: any) => {
+  const result = await db.$transaction(async (tx) => {
     const createdItem = await tx.galleryItem.create({
       data: {
         albumId: submission.albumId,
@@ -437,7 +437,7 @@ export async function adminRejectGalleryItemSubmissionAction(
     return { success: false, error: "ไม่พบคำขอหรือคำขอถูกดำเนินการแล้ว" };
   }
 
-  await db.$transaction(async (tx: any) => {
+  await db.$transaction(async (tx) => {
     await tx.galleryItemSubmission.update({
       where: { id: submission.id },
       data: {

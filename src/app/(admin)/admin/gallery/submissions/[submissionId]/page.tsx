@@ -6,7 +6,7 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { prisma } from "@/lib/prisma";
 import { GallerySubmissionReviewButtons } from "../request-review-buttons";
 
-const db = prisma as any;
+const db = prisma;
 
 type AdminGallerySubmissionDetailPageProps = {
   params: Promise<{ submissionId: string }>;

@@ -86,10 +86,7 @@ export async function createVillageAction(
   return { success: true, message: `สร้างหมู่บ้าน "${name}" (slug: "${slug}") สำเร็จ` };
 }
 
-export async function repairVillageSlugAction(
-  _prevState: VillageActionState | null,
-  _formData: FormData,
-): Promise<VillageActionState> {
+export async function repairVillageSlugAction(): Promise<VillageActionState> {
   const villages = await prisma.village.findMany({
     select: { id: true, slug: true, name: true },
   });

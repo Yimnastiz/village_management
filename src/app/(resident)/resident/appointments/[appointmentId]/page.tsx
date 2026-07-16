@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { AppointmentActions } from "./appointment-actions";
 
 interface PageProps { 
@@ -21,6 +21,30 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   CANCELLED: "default",
   COMPLETED: "info",
 };
+
+type AppointmentMetadata = {
+  adminMessage?: string;
+  targetAdminName?: string;
+  targetAdminRole?: string;
+  targetAdminPhone?: string;
+  responderName?: string;
+  responderRole?: string;
+  responderPhone?: string;
+};
+
+function readAppointmentMetadata(value: Prisma.JsonValue | null): AppointmentMetadata {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const readString = (key: string) => typeof value[key] === "string" ? value[key] : undefined;
+  return {
+    adminMessage: readString("adminMessage"),
+    targetAdminName: readString("targetAdminName"),
+    targetAdminRole: readString("targetAdminRole"),
+    targetAdminPhone: readString("targetAdminPhone"),
+    responderName: readString("responderName"),
+    responderRole: readString("responderRole"),
+    responderPhone: readString("responderPhone"),
+  };
+}
 
 async function fetchAppointment(appointmentId: string) {
   const session = await getSessionContextFromServerCookies();
@@ -59,13 +83,13 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
 
   // Find the latest TIME_SUGGESTED timeline entry for admin message
   const suggestionEntry = appointment.timeline.find((t) => t.action === "TIME_SUGGESTED");
-  const suggestionMetadata = suggestionEntry?.metadata as any;
+  const suggestionMetadata = readAppointmentMetadata(suggestionEntry?.metadata ?? null);
   const createdEntry = appointment.timeline.find((t) => t.action === "CREATED");
-  const createdMetadata = createdEntry?.metadata as any;
+  const createdMetadata = readAppointmentMetadata(createdEntry?.metadata ?? null);
   const responderEntry = appointment.timeline.find((t) =>
     t.action === "APPROVED" || t.action === "REJECTED" || t.action === "TIME_SUGGESTED"
   );
-  const responderMetadata = responderEntry?.metadata as any;
+  const responderMetadata = readAppointmentMetadata(responderEntry?.metadata ?? null);
 
   // Find if last rejection was a rejected suggestion
   const lastTimeline = appointment.timeline[0];

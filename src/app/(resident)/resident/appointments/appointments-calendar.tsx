@@ -53,11 +53,19 @@ export function AppointmentsCalendar({
   }
 
   function prev() {
-    month === 1 ? goTo(year - 1, 12) : goTo(year, month - 1);
+    if (month === 1) {
+      goTo(year - 1, 12);
+    } else {
+      goTo(year, month - 1);
+    }
   }
 
   function next() {
-    month === 12 ? goTo(year + 1, 1) : goTo(year, month + 1);
+    if (month === 12) {
+      goTo(year + 1, 1);
+    } else {
+      goTo(year, month + 1);
+    }
   }
 
   const currentYear = today.getFullYear();

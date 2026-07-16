@@ -4,7 +4,7 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { prisma } from "@/lib/prisma";
 import { GallerySubmissionForm } from "./request-form";
 
-const db = prisma as any;
+const db = prisma;
 
 type ResidentGalleryRequestPageProps = {
   params: Promise<{ albumId: string }>;

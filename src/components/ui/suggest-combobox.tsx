@@ -74,15 +74,6 @@ export function SuggestCombobox({
   );
 
   useEffect(() => {
-    if (!open) {
-      setActiveIndex(-1);
-      return;
-    }
-
-    setActiveIndex(selectedIndex >= 0 ? selectedIndex : filteredOptions.length > 0 ? 0 : -1);
-  }, [filteredOptions.length, open, selectedIndex]);
-
-  useEffect(() => {
     if (activeIndex < 0) {
       return;
     }
@@ -119,6 +110,12 @@ export function SuggestCombobox({
   const selectOption = (nextValue: string) => {
     onChange(nextValue);
     setOpen(false);
+    setActiveIndex(-1);
+  };
+
+  const openOptions = () => {
+    setOpen(true);
+    setActiveIndex(selectedIndex >= 0 ? selectedIndex : filteredOptions.length > 0 ? 0 : -1);
   };
 
   return (
@@ -132,7 +129,7 @@ export function SuggestCombobox({
           value={value}
           disabled={disabled}
           placeholder={placeholder}
-          onFocus={() => setOpen(true)}
+          onFocus={openOptions}
           role="combobox"
           aria-expanded={open}
           aria-controls={listboxId}
@@ -141,12 +138,13 @@ export function SuggestCombobox({
           onChange={(event) => {
             onChange(event.target.value);
             setOpen(true);
+            setActiveIndex(0);
           }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
               event.preventDefault();
               if (!open) {
-                setOpen(true);
+                openOptions();
                 return;
               }
               if (filteredOptions.length > 0) {
@@ -158,7 +156,7 @@ export function SuggestCombobox({
             if (event.key === "ArrowUp") {
               event.preventDefault();
               if (!open) {
-                setOpen(true);
+                openOptions();
                 return;
               }
               if (filteredOptions.length > 0) {
@@ -181,6 +179,7 @@ export function SuggestCombobox({
               if (open) {
                 event.preventDefault();
                 setOpen(false);
+                setActiveIndex(-1);
               }
             }
           }}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { superAdminMenuItems } from "@/components/layout/superadmin-sidebar";
 import { cn } from "@/lib/utils";
@@ -19,10 +19,6 @@ export function SuperAdminTopBar({ userName, unreadNotificationCount }: SuperAdm
 
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const mobileItems = useMemo(() => superAdminMenuItems, []);
-
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
 
   return (
     <>
@@ -79,6 +75,7 @@ export function SuperAdminTopBar({ userName, unreadNotificationCount }: SuperAdm
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                       isActive

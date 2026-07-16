@@ -36,10 +36,6 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
   const pathname = usePathname();
 
   useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
     } else {
@@ -111,6 +107,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive
@@ -130,12 +127,14 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
               <VillageSwitcher villages={villages} currentSlug={currentSlug} />
               <Link
                 href="/"
+                onClick={() => setOpen(false)}
                 className="block rounded-lg bg-white/10 px-3 py-2 text-center text-sm text-white hover:bg-white/20"
               >
                 หน้าค้นหาหมู่บ้าน
               </Link>
               <Link
                 href="/auth/login"
+                onClick={() => setOpen(false)}
                 className="block rounded-lg bg-white/20 px-3 py-2 text-center text-sm font-medium text-white hover:bg-white/30"
               >
                 เข้าสู่ระบบ

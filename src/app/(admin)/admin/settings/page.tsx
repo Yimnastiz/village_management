@@ -6,12 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
-]);
-
 export default async function Page() {
   const session = await getSessionContextFromServerCookies();
   if (!session) redirect("/auth/login?callbackUrl=/admin/settings");

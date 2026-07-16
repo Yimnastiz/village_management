@@ -1,4 +1,5 @@
 import { NotificationStatus } from "@prisma/client";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { updateFeedbackNotificationStatusAction } from "./actions";
@@ -115,7 +116,7 @@ export default async function SuperAdminFeedbackPage({ searchParams }: PageProps
         </select>
         <div className="md:col-span-5 flex gap-2">
           <button type="submit" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">ค้นหา</button>
-          <a href="/superadmin/feedback" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">ล้างตัวกรอง</a>
+          <Link href="/superadmin/feedback" className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">ล้างตัวกรอง</Link>
         </div>
       </form>
 

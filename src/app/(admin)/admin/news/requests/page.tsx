@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { FileClock } from "lucide-react";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +12,15 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
   APPROVED: "success",
   REJECTED: "danger",
 };
+
+function isDeleteRequestPayload(payload: Prisma.JsonValue): boolean {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      !Array.isArray(payload) &&
+      payload.isDeleteRequest === true,
+  );
+}
 
 export default async function AdminNewsRequestListPage() {
   const session = await getSessionContextFromServerCookies();
@@ -57,8 +67,7 @@ export default async function AdminNewsRequestListPage() {
                     </Badge>
                     <Badge variant="outline">
                       {(() => {
-                        const payload = request.payload as any;
-                        if (payload?.isDeleteRequest) return "ขอลบข่าว";
+                        if (isDeleteRequestPayload(request.payload)) return "ขอลบข่าว";
                         return NEWS_SUBMISSION_TYPE_LABELS[request.type];
                       })()}
                     </Badge>

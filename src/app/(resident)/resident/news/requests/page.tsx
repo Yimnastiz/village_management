@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, FileClock, Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
@@ -13,6 +14,15 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
   APPROVED: "success",
   REJECTED: "danger",
 };
+
+function isDeleteRequestPayload(payload: Prisma.JsonValue): boolean {
+  return Boolean(
+    payload &&
+      typeof payload === "object" &&
+      !Array.isArray(payload) &&
+      payload.isDeleteRequest === true,
+  );
+}
 
 export default async function ResidentNewsRequestsPage() {
   const session = await getSessionContextFromServerCookies();
@@ -70,8 +80,7 @@ export default async function ResidentNewsRequestsPage() {
         ) : (
           <div className="space-y-3">
             {requests.map((request) => {
-              const payload = request.payload as any;
-              const isDeleteRequest = payload?.isDeleteRequest === true;
+              const isDeleteRequest = isDeleteRequestPayload(request.payload);
               return (
                 <article key={request.id} className="rounded-xl border border-gray-200 bg-white p-5">
                   <div className="flex items-start justify-between gap-3">
@@ -147,8 +156,9 @@ export default async function ResidentNewsRequestsPage() {
             {myNews.map((news) => {
               const pendingSubmissions = news.submissions;
               const hasPendingRequest = pendingSubmissions.length > 0;
-              const pendingType = pendingSubmissions[0]?.type;
-              const isPendingDelete = (pendingSubmissions[0]?.payload as any)?.isDeleteRequest === true;
+              const isPendingDelete = pendingSubmissions[0]
+                ? isDeleteRequestPayload(pendingSubmissions[0].payload)
+                : false;
 
               return (
                 <article key={news.id} className="rounded-xl border border-gray-200 bg-white p-5 hover:shadow-sm transition-shadow">

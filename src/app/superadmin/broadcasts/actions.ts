@@ -178,7 +178,7 @@ export async function updateBroadcastAnnouncementAction(formData: FormData) {
     data: {
       title,
       body,
-      metadata: buildMetadata(groupId, expiresAt) as any,
+      metadata: buildMetadata(groupId, expiresAt),
     },
   });
 
