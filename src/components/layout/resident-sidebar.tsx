@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import {
   Home,
@@ -164,7 +165,7 @@ export function LockedResidentMenuDialog({
   const isPending = state.bindingStatus === "PENDING";
   const isRejected = state.bindingStatus === "REJECTED";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="locked-menu-title">
       <button className="absolute inset-0" type="button" aria-label="ยกเลิก" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-xl sm:p-6">
@@ -186,6 +187,7 @@ export function LockedResidentMenuDialog({
           </Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

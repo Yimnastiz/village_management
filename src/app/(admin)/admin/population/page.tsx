@@ -513,7 +513,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
 }
 
 type PageProps = {
-  searchParams?: Promise<{ q?: string; occupancy?: string }>;
+  searchParams?: Promise<{ q?: string; occupancy?: string; historyQ?: string }>;
 };
 
 export default async function Page({ searchParams }: PageProps) {
@@ -533,7 +533,12 @@ export default async function Page({ searchParams }: PageProps) {
 
   const isSuperAdmin = session.systemRole === SystemRole.SUPERADMIN;
   const houseKeyword = params.q?.trim() ?? "";
+  const historyKeyword = params.historyQ?.trim() ?? "";
   const activeOccupancy = params.occupancy ?? "ALL";
+  const historyClearParams = new URLSearchParams();
+  if (houseKeyword) historyClearParams.set("q", houseKeyword);
+  if (activeOccupancy !== "ALL") historyClearParams.set("occupancy", activeOccupancy);
+  const historyClearHref = `/admin/population${historyClearParams.size ? `?${historyClearParams.toString()}` : ""}#binding-history`;
 
   const villageFilterForHomes = isSuperAdmin ? {} : { villageId: { in: villageIds } };
   const occupancyFilterForHomes =
@@ -551,7 +556,8 @@ export default async function Page({ searchParams }: PageProps) {
 
   const historyRequests = await getBindingRequestHistory(
     isSuperAdmin,
-    villageIds
+    villageIds,
+    historyKeyword,
   );
 
   const [houses, totalHouses, occupiedHouses] = await Promise.all([
@@ -800,10 +806,28 @@ export default async function Page({ searchParams }: PageProps) {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">ประวัติการอนุมัติ/ปฏิเสธ</h2>
+      <div id="binding-history" className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">ประวัติการอนุมัติ/ปฏิเสธ</h2>
+            <p className="mt-1 text-xs text-gray-500">ค้นหาจากชื่อ เบอร์โทรศัพท์ หรือบ้านเลขที่</p>
+          </div>
+          <form method="GET" action="/admin/population#binding-history" className="flex w-full gap-2 sm:max-w-md">
+            {houseKeyword ? <input type="hidden" name="q" value={houseKeyword} /> : null}
+            {activeOccupancy !== "ALL" ? <input type="hidden" name="occupancy" value={activeOccupancy} /> : null}
+            <input
+              type="search"
+              name="historyQ"
+              defaultValue={historyKeyword}
+              placeholder="ชื่อ เบอร์โทร หรือเลขบ้าน"
+              className="min-h-10 min-w-0 flex-1 rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500"
+            />
+            <button type="submit" className="min-h-10 rounded-lg bg-green-600 px-4 text-sm font-medium text-white hover:bg-green-700">ค้นหา</button>
+            {historyKeyword ? <Link href={historyClearHref} className="inline-flex min-h-10 items-center rounded-lg border border-gray-300 px-3 text-sm text-gray-700 hover:bg-gray-50">ล้าง</Link> : null}
+          </form>
+        </div>
         {historyRequests.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center">ยังไม่มีประวัติการอนุมัติหรือปฏิเสธ</p>
+          <p className="text-gray-500 text-sm text-center">{historyKeyword ? "ไม่พบประวัติที่ตรงกับคำค้นหา" : "ยังไม่มีประวัติการอนุมัติหรือปฏิเสธ"}</p>
         ) : (
           <div className="space-y-4">
             {historyRequests.map((request) => (
@@ -904,7 +928,7 @@ export default async function Page({ searchParams }: PageProps) {
   );
 }
 
-async function getBindingRequestHistory(isSuperAdmin: boolean, villageIds: string[]) {
+async function getBindingRequestHistory(isSuperAdmin: boolean, villageIds: string[], keyword: string) {
   if (!isSuperAdmin && villageIds.length === 0) {
     return [] as Array<{
       id: string;
@@ -924,6 +948,13 @@ async function getBindingRequestHistory(isSuperAdmin: boolean, villageIds: strin
   };
   if (!isSuperAdmin) {
     where.villageId = { in: villageIds };
+  }
+  if (keyword) {
+    where.OR = [
+      { user: { is: { name: { contains: keyword, mode: "insensitive" } } } },
+      { user: { is: { phoneNumber: { contains: keyword, mode: "insensitive" } } } },
+      { houseNumber: { contains: keyword, mode: "insensitive" } },
+    ];
   }
 
   return prisma.bindingRequest.findMany({

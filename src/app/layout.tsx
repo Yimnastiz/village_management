@@ -21,6 +21,12 @@ export default function RootLayout({
   return (
     <html lang="th">
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,17..18,400..700;1,17..18,400..700&display=swap"
+          rel="stylesheet"
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
@@ -55,7 +61,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${notoSansThai.variable} font-sans antialiased bg-gray-50 text-gray-900`}
+        className={`${notoSansThai.variable} antialiased bg-gray-50 text-gray-900`}
       >
         {children}
       </body>
