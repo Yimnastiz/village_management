@@ -76,11 +76,7 @@ export function normalizeVillagePlaceInput(data: {
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
 
-  if (
-    imageUrls.some(
-      (url) => !url.startsWith("data:image/") && !/^https?:\/\//i.test(url)
-    )
-  ) {
+  if (!areSafeImageSources(imageUrls)) {
     return { ok: false, error: "รูปภาพต้องเป็นไฟล์ที่อัปโหลดหรือ URL ที่ถูกต้อง" };
   }
 
@@ -129,3 +125,4 @@ export function getVillagePlaceEmbedMapUrl(latitude: number | null, longitude: n
   if (latitude == null || longitude == null) return null;
   return `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`;
 }
+import { areSafeImageSources } from "@/lib/image-input";

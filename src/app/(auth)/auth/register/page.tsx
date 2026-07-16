@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getThaiGeographyHierarchy } from "@/lib/thai-geography";
 import { RegisterForm } from "./register-form";
+import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 
 type RegisterPageProps = {
   searchParams?: Promise<{ callbackUrl?: string }>;
@@ -28,8 +29,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
     <RegisterForm
       villages={villages}
       thaiGeography={thaiGeography}
-      callbackUrl={params.callbackUrl}
+      callbackUrl={sanitizeInternalCallbackUrl(params.callbackUrl) ?? undefined}
     />
   );
 }
-

@@ -10,6 +10,7 @@ import {
   loadLoginOtpState,
   type LoginOtpState,
 } from "@/lib/auth-client";
+import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 
 type VerifyMode = "signin" | "signup";
 
@@ -80,7 +81,7 @@ function VerifyOTPContent() {
   const rawMode = searchParams.get("mode");
   const mode: VerifyMode = rawMode === "signup" ? "signup" : "signin";
   const registrationId = searchParams.get("registrationId")?.trim() || null;
-  const signupCallbackUrl = searchParams.get("callbackUrl")?.trim() || null;
+  const signupCallbackUrl = sanitizeInternalCallbackUrl(searchParams.get("callbackUrl"));
 
   const activeDraft = mode === "signup" ? serverDraft ?? draft : null;
   const phone = mode === "signup"
@@ -88,9 +89,9 @@ function VerifyOTPContent() {
     : (loginState?.phoneNumber ?? "").trim();
   const callbackUrl = mode === "signup"
     ? signupCallbackUrl
-    : loginState?.callbackUrl ?? null;
+    : sanitizeInternalCallbackUrl(loginState?.callbackUrl);
   const nationalId = (activeDraft?.nationalId ?? "").trim();
-  const registrationMode = (activeDraft?.registrationMode ?? "resident").trim() === "headman" ? "headman" : "resident";
+  const registrationMode = "resident" as const;
   const name = (activeDraft?.name ?? "").trim();
   const province = (activeDraft?.province ?? "").trim();
   const district = (activeDraft?.district ?? "").trim();

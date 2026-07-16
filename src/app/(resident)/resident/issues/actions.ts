@@ -5,6 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { areSafeImageSources } from "@/lib/image-input";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -31,14 +32,6 @@ const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.ASSISTANT_HEADMAN,
   VillageMembershipRole.COMMITTEE,
 ];
-
-function isSupportedImageSource(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith("data:image/")) return true;
-  if (/^https?:\/\//i.test(trimmed)) return true;
-  return false;
-}
 
 async function notifyVillageAdmins(
   villageId: string,
@@ -85,7 +78,7 @@ export async function createIssueAction(
   }
 
   const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter((url) => url.length > 0);
-  if (imageUrls.some((url) => !isSupportedImageSource(url))) {
+  if (!areSafeImageSources(imageUrls)) {
     return { success: false, error: "รูปภาพต้องเป็นไฟล์อัปโหลดหรือ URL ที่ถูกต้อง" };
   }
 
@@ -145,7 +138,7 @@ export async function editIssueAction(
   }
 
   const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter((url) => url.length > 0);
-  if (imageUrls.some((url) => !isSupportedImageSource(url))) {
+  if (!areSafeImageSources(imageUrls)) {
     return { success: false, error: "รูปภาพต้องเป็นไฟล์อัปโหลดหรือ URL ที่ถูกต้อง" };
   }
 

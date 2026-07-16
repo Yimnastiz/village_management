@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, OCCUPANCY_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { maskNationalId } from "@/lib/utils";
 
 interface PageProps { params: Promise<{ houseId: string }> }
 export default async function Page({ params }: PageProps) {
@@ -109,7 +110,7 @@ export default async function Page({ params }: PageProps) {
                       {person.firstName} {person.lastName}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-700">{person.nationalId ?? "-"}</td>
+                  <td className="px-4 py-3 text-gray-700">{person.nationalId ? maskNationalId(person.nationalId) : "-"}</td>
                   <td className="px-4 py-3 text-gray-700">{person.phone ?? "-"}</td>
                   <td className="px-4 py-3">
                     <Badge variant={person.status === "ACTIVE" ? "success" : "warning"}>

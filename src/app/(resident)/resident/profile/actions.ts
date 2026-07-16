@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { isSafeImageSource } from "@/lib/image-input";
 
 const profileSchema = z.object({
   name: z.string().trim().min(2, "ชื่อต้องมีอย่างน้อย 2 ตัวอักษร").max(120),
@@ -17,7 +18,7 @@ const profileSchema = z.object({
     .transform((v) => {
       if (!v || v.trim() === "") return null;
       const t = v.trim();
-      if (t.startsWith("data:image/") || t.startsWith("https://") || t.startsWith("http://")) return t;
+      if (isSafeImageSource(t)) return t;
       return null;
     }),
 });

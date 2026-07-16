@@ -9,6 +9,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugInput, getSlugVariants } from "@/lib/village-slug";
 
+function assertDevelopment(): void {
+  if (process.env.NODE_ENV !== "development") {
+    throw new Error("Not found");
+  }
+}
+
 function toNonEmptyString(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
     return null;
@@ -28,6 +34,7 @@ export async function createVillageAction(
   _prevState: VillageActionState | null,
   formData: FormData,
 ): Promise<VillageActionState> {
+  assertDevelopment();
   const rawSlug = toNonEmptyString(formData.get("slug"));
   const name = toNonEmptyString(formData.get("name"));
   const province = toNonEmptyString(formData.get("province"));
@@ -87,6 +94,7 @@ export async function createVillageAction(
 }
 
 export async function repairVillageSlugAction(): Promise<VillageActionState> {
+  assertDevelopment();
   const villages = await prisma.village.findMany({
     select: { id: true, slug: true, name: true },
   });
@@ -127,6 +135,7 @@ export async function repairVillageSlugAction(): Promise<VillageActionState> {
 }
 
 export async function upsertPhoneRoleSeedAction(formData: FormData) {
+  assertDevelopment();
   const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
   const villageId = toNonEmptyString(formData.get("villageId"));
   const membershipRoleRaw = toNonEmptyString(formData.get("membershipRole"));
@@ -176,6 +185,7 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
 }
 
 export async function updateUserRoleAction(formData: FormData) {
+  assertDevelopment();
   const userId = toNonEmptyString(formData.get("userId"));
   const systemRoleRaw = toNonEmptyString(formData.get("systemRole"));
   const villageId = toNonEmptyString(formData.get("villageId"));
@@ -233,6 +243,7 @@ export async function updateUserRoleAction(formData: FormData) {
 }
 
 export async function registerAdminAction(formData: FormData) {
+  assertDevelopment();
   const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
   const adminName = toNonEmptyString(formData.get("adminName"));
   const adminLastName = toNonEmptyString(formData.get("lastName"));
@@ -419,6 +430,7 @@ function parseOptionalDate(value: string | null): Date | null {
 }
 
 export async function importResidentSeedAction(formData: FormData) {
+  assertDevelopment();
   const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
   const firstName = toNonEmptyString(formData.get("firstName"));
   const lastName = toNonEmptyString(formData.get("lastName"));

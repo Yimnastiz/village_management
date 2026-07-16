@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 import {
   REGISTRATION_OTP_MAX_RESENDS,
   createRegistrationCookie,
@@ -15,7 +16,7 @@ import {
 
 const startRegistrationSchema = z.object({
   phoneNumber: z.string().trim().min(1),
-  registrationMode: z.enum(["resident", "headman"]).default("resident"),
+  registrationMode: z.literal("resident").optional(),
   // accept either `name` or `firstName`+`lastName` from different clients
   name: z.string().trim().min(1).optional(),
   firstName: z.string().trim().optional(),
@@ -76,7 +77,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid registration payload: name missing" }, { status: 400 });
   }
 
-  const registrationMode = parsed.data.registrationMode.toUpperCase() as "RESIDENT" | "HEADMAN";
+  // Public registration is always resident. Administrative roles are appointed
+  // through the authenticated super-admin flow only.
+  const registrationMode = "RESIDENT" as const;
 
   if (existingPending) {
     const lockMessage = getRegistrationLockMessage(existingPending.otpLockedUntil, now);
@@ -114,7 +117,7 @@ export async function POST(request: NextRequest) {
         district: parsed.data.district,
         subdistrict: parsed.data.subdistrict,
         villageId: parsed.data.villageId,
-        callbackUrl: parsed.data.callbackUrl ?? null,
+        callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
         status: "WAITING_OTP",
         expiresAt,
         otpSentAt: now,
@@ -135,7 +138,7 @@ export async function POST(request: NextRequest) {
         district: parsed.data.district,
         subdistrict: parsed.data.subdistrict,
         villageId: parsed.data.villageId,
-        callbackUrl: parsed.data.callbackUrl ?? null,
+        callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
         expiresAt,
         otpSentAt: now,
         otpResendCount: 1,

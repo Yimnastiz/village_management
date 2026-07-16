@@ -10,12 +10,11 @@ function normalizePhoneNumber(raw: string): string {
 }
 
 export async function POST(request: NextRequest) {
-  const isEnabled = process.env.DEV_BYPASS_OTP_HEADMAN === "true";
+  const isEnabled =
+    process.env.NODE_ENV === "development" &&
+    process.env.DEV_BYPASS_OTP_HEADMAN === "true";
   if (!isEnabled) {
-    return NextResponse.json(
-      { error: "Headman OTP bypass is disabled." },
-      { status: 403 }
-    );
+    return new NextResponse(null, { status: 404 });
   }
 
   const body = (await request.json().catch(() => null)) as

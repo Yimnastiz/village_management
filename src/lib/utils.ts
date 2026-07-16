@@ -6,8 +6,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function maskNationalId(id: string): string {
-  if (!id || id.length < 4) return "****";
-  return "*".repeat(id.length - 4) + id.slice(-4);
+  const digits = id.replace(/\D/g, "");
+  if (digits.length !== 13) return "-";
+  return `${digits[0]}-${digits.slice(1, 5)}-XXXXX-XX-${digits[12]}`;
+}
+
+export function escapeSpreadsheetFormula(value: string): string {
+  return /^[=+\-@]/.test(value) ? `'${value}` : value;
 }
 
 export function formatThaiDate(date: Date | string): string {

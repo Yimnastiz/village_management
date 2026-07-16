@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { POPULATION_IMPORT_COLUMNS } from "@/features/population/server/import-template";
 import { prisma } from "@/lib/prisma";
+import { maskNationalId } from "@/lib/utils";
 import { deleteImportedPersonAction, deleteImportJobDatasetAction } from "./actions";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
@@ -271,7 +272,7 @@ export default async function Page({ params }: PageProps) {
                     <td className="px-3 py-2 text-gray-900">{person.firstName} {person.lastName}</td>
                     <td className="px-3 py-2 text-gray-700">{person.house?.houseNumber ?? "-"}</td>
                     <td className="px-3 py-2 text-gray-700">{person.phone ?? "-"}</td>
-                    <td className="px-3 py-2 text-gray-700">{person.nationalId ?? "-"}</td>
+                    <td className="px-3 py-2 text-gray-700">{person.nationalId ? maskNationalId(person.nationalId) : "-"}</td>
                     <td className="px-3 py-2">
                       <form action={deleteImportedPersonAction}>
                         <input type="hidden" name="jobId" value={job.id} />

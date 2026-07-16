@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { isSafeImageSource } from "@/lib/image-input";
 
 const db = prisma;
 
@@ -18,10 +19,7 @@ const submissionSchema = z.object({
 type SubmissionInput = z.infer<typeof submissionSchema>;
 
 function isSupportedImageSource(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith("data:image/")) return true;
-  return /^https?:\/\//i.test(trimmed);
+  return isSafeImageSource(value);
 }
 
 function revalidateGalleryResidentViews(albumId: string, submissionId?: string) {

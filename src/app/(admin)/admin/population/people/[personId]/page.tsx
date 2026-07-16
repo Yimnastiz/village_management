@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { maskNationalId } from "@/lib/utils";
 import { DeletePersonButton } from "../delete-person-button";
 
 interface PageProps { params: Promise<{ personId: string }> }
@@ -131,7 +132,7 @@ export default async function Page({ params }: PageProps) {
         <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <p className="text-gray-500">เลขบัตรประชาชน</p>
-            <p className="font-medium text-gray-900">{person.nationalId ?? "-"}</p>
+            <p className="font-medium text-gray-900">{person.nationalId ? maskNationalId(person.nationalId) : "-"}</p>
           </div>
           <div>
             <p className="text-gray-500">วันเกิด</p>

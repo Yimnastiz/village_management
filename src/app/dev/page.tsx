@@ -4,6 +4,7 @@ import {
   VillageMembershipRole,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { notFound } from "next/navigation";
 import {
   updateUserRoleAction,
   upsertPhoneRoleSeedAction,
@@ -17,6 +18,10 @@ import { maskNationalId } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function DevPage() {
+  if (process.env.NODE_ENV !== "development") {
+    notFound();
+  }
+
   const thaiGeography = getThaiGeographyHierarchy();
 
   const [villages, users, seeds, adminCounts, residents] = await Promise.all([

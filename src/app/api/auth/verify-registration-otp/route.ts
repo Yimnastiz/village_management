@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
       registrationDistrict: registration.district,
       registrationSubdistrict: registration.subdistrict,
       registrationVillageId: registration.villageId,
-      citizenVerifiedAt: registration.registrationMode === "HEADMAN" ? verifiedAt : null,
+      citizenVerifiedAt: null,
       consentAt: verifiedAt,
     },
     create: {
@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
       registrationDistrict: registration.district,
       registrationSubdistrict: registration.subdistrict,
       registrationVillageId: registration.villageId,
-      citizenVerifiedAt: registration.registrationMode === "HEADMAN" ? verifiedAt : null,
+      citizenVerifiedAt: null,
       consentAt: verifiedAt,
     },
   });

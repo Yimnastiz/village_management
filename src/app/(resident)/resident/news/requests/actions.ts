@@ -5,6 +5,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
+import { areSafeImageSources } from "@/lib/image-input";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -38,14 +39,6 @@ async function requireResidentVillage() {
   }
 
   return { ok: true as const, error: null, userId: session.id, villageId: membership.villageId };
-}
-
-function isSupportedImageSource(value: string): boolean {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith("data:image/")) return true;
-  if (/^https?:\/\//i.test(trimmed)) return true;
-  return false;
 }
 
 async function notifyVillageAdmins(
@@ -99,7 +92,7 @@ function normalizeInput(data: RequestInput) {
   }
 
   const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter((url) => url.length > 0);
-  if (imageUrls.some((url) => !isSupportedImageSource(url))) {
+  if (!areSafeImageSources(imageUrls)) {
     return { ok: false as const, error: "รูปภาพต้องเป็นไฟล์ที่อัปโหลดหรือ URL ที่ถูกต้อง" };
   }
 

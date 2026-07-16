@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { isSafeImageSource } from "@/lib/image-input";
 
 const db = prisma;
 
@@ -66,10 +67,7 @@ function normalizeAlbumInput(data: AlbumInput) {
 }
 
 function isSupportedImageSource(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith("data:image/")) return true;
-  return /^https?:\/\//i.test(trimmed);
+  return isSafeImageSource(value);
 }
 
 function normalizeItemInput(data: GalleryItemInput) {

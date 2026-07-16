@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Shield } from "lucide-react";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { maskNationalId } from "@/lib/utils";
 import { ProfileEditForm } from "./profile-edit-form";
 
 function splitDisplayName(fullName: string): { firstName: string; lastName: string } {
@@ -158,7 +159,7 @@ export default async function ProfilePage() {
           <div><span className="text-gray-500">สถานะสมาชิก:</span> <span className="font-medium text-gray-900">{activeMembership?.status || "-"}</span></div>
           <div><span className="text-gray-500">บทบาทสมาชิก:</span> <span className="font-medium text-gray-900">{activeMembership?.role || "-"}</span></div>
           <div><span className="text-gray-500">บ้านเลขที่:</span> <span className="font-medium text-gray-900">{activeMembership?.house?.houseNumber || person?.house?.houseNumber || "-"}</span></div>
-          <div><span className="text-gray-500">เลขบัตรประชาชน:</span> <span className="font-medium text-gray-900">{person?.nationalId || "-"}</span></div>
+          <div><span className="text-gray-500">เลขบัตรประชาชน:</span> <span className="font-medium text-gray-900">{person?.nationalId ? maskNationalId(person.nationalId) : "-"}</span></div>
         </div>
       </div>
 

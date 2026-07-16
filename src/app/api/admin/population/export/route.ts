@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { utils, write } from "xlsx";
-import { getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { escapeSpreadsheetFormula, maskNationalId } from "@/lib/utils";
 
 export async function GET(request: Request) {
   const session = await getSessionContextFromRequest(request);
@@ -9,10 +10,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getAdminMembership(session);
   if (!membership) {
     return NextResponse.json({ error: "Village not found" }, { status: 404 });
   }
@@ -65,14 +63,14 @@ export async function GET(request: Request) {
 
   const peopleSheet = utils.json_to_sheet(
     people.map((person) => ({
-      house_number: person.house?.houseNumber ?? "",
-      first_name: person.firstName,
-      last_name: person.lastName,
-      national_id: person.nationalId ?? "",
+      house_number: escapeSpreadsheetFormula(person.house?.houseNumber ?? ""),
+      first_name: escapeSpreadsheetFormula(person.firstName),
+      last_name: escapeSpreadsheetFormula(person.lastName),
+      national_id: person.nationalId ? maskNationalId(person.nationalId) : "",
       date_of_birth: person.dateOfBirth ? person.dateOfBirth.toISOString().slice(0, 10) : "",
       gender: person.gender ?? "",
-      phone_number: person.phone ?? "",
-      email: person.email ?? "",
+      phone_number: escapeSpreadsheetFormula(person.phone ?? ""),
+      email: escapeSpreadsheetFormula(person.email ?? ""),
       person_status: person.status,
       house_address: person.house?.address ?? "",
       created_at: person.createdAt.toISOString(),

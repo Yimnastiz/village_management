@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient, saveLoginOtpState } from "@/lib/auth-client";
+import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 
 function normalizePhone10(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 10);
@@ -18,7 +19,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const callbackUrl = (searchParams.get("callbackUrl") ?? "").trim() || null;
+  const callbackUrl = sanitizeInternalCallbackUrl(searchParams.get("callbackUrl"));
   const registered = (searchParams.get("registered") ?? "").trim() === "success";
   const registerHref = callbackUrl
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`

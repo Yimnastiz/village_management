@@ -25,6 +25,8 @@ const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
 
 const MAX_IMPORT_ERRORS = 50;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_IMPORT_ROWS = 10_000;
+const MAX_IMPORT_COLUMNS = 40;
 
 type CanonicalColumnKey =
   | "house_number"
@@ -393,6 +395,12 @@ function extractRowsFromWorkbook(buffer: Buffer, fileName: string) {
   ensureRequiredHeaders(rawRows);
 
   const sourceHeaders = rawRows[0] ? Object.keys(rawRows[0]) : [];
+  if (rawRows.length > MAX_IMPORT_ROWS) {
+    throw new Error(`ไฟล์มีข้อมูลเกิน ${MAX_IMPORT_ROWS.toLocaleString()} แถว`);
+  }
+  if (sourceHeaders.length > MAX_IMPORT_COLUMNS) {
+    throw new Error(`ไฟล์มีคอลัมน์เกิน ${MAX_IMPORT_COLUMNS} คอลัมน์`);
+  }
   const rows = rawRows.map(canonicalizeSpreadsheetRow);
 
   return {
@@ -726,6 +734,17 @@ export async function importPopulationWorkbookAction(
       return { success: false, message: "รองรับเฉพาะไฟล์ .xlsx, .xls และ .csv" };
     }
 
+    const allowedMimeTypes = new Set([
+      "text/csv",
+      "application/csv",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "application/octet-stream",
+    ]);
+    if (fileEntry.type && !allowedMimeTypes.has(fileEntry.type.toLowerCase())) {
+      return { success: false, message: "MIME type ของไฟล์ไม่ตรงกับ CSV/XLS/XLSX" };
+    }
+
     const job = await prisma.populationImportJob.create({
       data: {
         villageId: ctx.villageId,
@@ -739,6 +758,16 @@ export async function importPopulationWorkbookAction(
     jobId = job.id;
 
     const buffer = Buffer.from(await fileEntry.arrayBuffer());
+    const isCsv = /\.csv$/i.test(fileEntry.name);
+    const hasZipSignature = buffer[0] === 0x50 && buffer[1] === 0x4b;
+    const hasOleSignature = buffer.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+    if ((!isCsv && /\.xlsx$/i.test(fileEntry.name) && !hasZipSignature) || (!isCsv && /\.xls$/i.test(fileEntry.name) && !hasOleSignature)) {
+      await prisma.populationImportJob.update({
+        where: { id: jobId },
+        data: { stage: PopulationImportStage.FAILED, completedAt: new Date() },
+      });
+      return { success: false, message: "ลายเซ็นไฟล์ไม่ตรงกับนามสกุลที่อัปโหลด" };
+    }
     const { rows: spreadsheetRows, sourceHeaders } = extractRowsFromWorkbook(buffer, fileEntry.name);
 
     if (spreadsheetRows.length === 0) {
