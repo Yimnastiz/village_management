@@ -18,14 +18,23 @@ import {
 } from "@/lib/login-otp-challenge";
 
 export async function GET(request: NextRequest) {
-  const challenge = await loadLoginChallenge(request);
+  let challenge = await loadLoginChallenge(request);
   if (!challenge) return NextResponse.json({ error: "Login OTP challenge not found." }, { status: 404 });
+  for (let attempt = 0; challenge.status === LoginOtpChallengeStatus.PENDING_SEND && attempt < 20; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    challenge = await prisma.loginOtpChallenge.findUnique({ where: { id: challenge.id } });
+    if (!challenge) return NextResponse.json({ error: "Login OTP challenge not found." }, { status: 404 });
+  }
+  if (challenge.status === LoginOtpChallengeStatus.PENDING_SEND) {
+    return NextResponse.json({ error: "OTP delivery is still in progress.", data: publicLoginChallengeState(challenge) }, { status: 202 });
+  }
   return NextResponse.json({ ok: true, data: publicLoginChallengeState(challenge) });
 }
 
 export async function POST(request: NextRequest) {
-  const body = (await request.json().catch(() => null)) as { phoneNumber?: string } | null;
+  const body = (await request.json().catch(() => null)) as { phoneNumber?: string; intent?: "START_OR_RESUME" | "RESEND" } | null;
   const phoneNumber = normalizeLoginPhone(body?.phoneNumber ?? "");
+  const intent = body?.intent === "RESEND" ? "RESEND" : "START_OR_RESUME";
   if (!phoneNumber) return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });
 
   const user = await prisma.user.findFirst({
@@ -37,14 +46,23 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const reservation = await withLoginPhoneLock(phoneNumber, async (tx) => {
     const existing = await tx.loginOtpChallenge.findUnique({ where: { phoneNumber } });
+    const resumableStatuses: LoginOtpChallengeStatus[] = [
+      LoginOtpChallengeStatus.PENDING_SEND,
+      LoginOtpChallengeStatus.ACTIVE,
+      LoginOtpChallengeStatus.VERIFYING,
+      LoginOtpChallengeStatus.LOCKED,
+    ];
+    if (intent === "START_OR_RESUME" && existing && resumableStatuses.includes(existing.status)) {
+      return { resumed: true as const, challenge: existing };
+    }
     if (existing?.lockedUntil && existing.lockedUntil > now) {
-      return { denied: true as const, reason: "lock", challenge: existing, retryAt: existing.lockedUntil };
+      return { resumed: false as const, denied: true as const, reason: "lock", challenge: existing, retryAt: existing.lockedUntil };
     }
     if (existing?.resendAvailableAt && existing.resendAvailableAt > now) {
-      return { denied: true as const, reason: "cooldown", challenge: existing, retryAt: existing.resendAvailableAt };
+      return { resumed: false as const, denied: true as const, reason: "cooldown", challenge: existing, retryAt: existing.resendAvailableAt };
     }
     if (existing?.status === LoginOtpChallengeStatus.PENDING_SEND && now.getTime() - existing.updatedAt.getTime() < 30_000) {
-      return { denied: true as const, reason: "in-flight", challenge: existing, retryAt: new Date(existing.updatedAt.getTime() + 30_000) };
+      return { resumed: false as const, denied: true as const, reason: "in-flight", challenge: existing, retryAt: new Date(existing.updatedAt.getTime() + 30_000) };
     }
 
     const windowStartedAt = !existing || now.getTime() - existing.sendWindowStartedAt.getTime() >= LOGIN_OTP_SEND_WINDOW_MS
@@ -52,7 +70,7 @@ export async function POST(request: NextRequest) {
       : existing.sendWindowStartedAt;
     const sendCount = windowStartedAt === now ? 0 : existing?.sendCount ?? 0;
     if (sendCount >= LOGIN_OTP_MAX_SENDS_PER_WINDOW) {
-      return { denied: true as const, reason: "rate-limit", challenge: existing!, retryAt: new Date(windowStartedAt.getTime() + LOGIN_OTP_SEND_WINDOW_MS) };
+      return { resumed: false as const, denied: true as const, reason: "rate-limit", challenge: existing!, retryAt: new Date(windowStartedAt.getTime() + LOGIN_OTP_SEND_WINDOW_MS) };
     }
 
     const challengeToken = newLoginChallengeId();
@@ -77,8 +95,20 @@ export async function POST(request: NextRequest) {
       },
     });
     await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
-    return { denied: false as const, challenge };
+    return { resumed: false as const, denied: false as const, challenge };
   });
+
+  if (reservation.resumed) {
+    const locked = Boolean(reservation.challenge.lockedUntil && reservation.challenge.lockedUntil > now);
+    const response = NextResponse.json({
+      ok: true,
+      outcome: locked ? "LOCKED" : "RESUME_EXISTING_CHALLENGE",
+      retryAfterSeconds: locked ? retryAfterSeconds(reservation.challenge.lockedUntil, now) : undefined,
+      data: publicLoginChallengeState(reservation.challenge),
+    });
+    setLoginChallengeCookie(response, reservation.challenge.challengeToken);
+    return response;
+  }
 
   if (reservation.denied) {
     return NextResponse.json({
@@ -113,7 +143,7 @@ export async function POST(request: NextRequest) {
       lockedUntil: null,
     },
   }));
-  const response = NextResponse.json({ ok: true, data: publicLoginChallengeState(challenge) });
+  const response = NextResponse.json({ ok: true, outcome: "OTP_SENT", data: publicLoginChallengeState(challenge) });
   setLoginChallengeCookie(response, challenge.challengeToken);
   return response;
 }

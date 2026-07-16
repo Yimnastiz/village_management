@@ -73,16 +73,17 @@ function LoginContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phoneNumber: loginPhoneNumber }),
+        body: JSON.stringify({ phoneNumber: loginPhoneNumber, intent: "START_OR_RESUME" }),
       });
       if (!result.ok) {
         const body = (await result.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "Failed to send OTP.");
       }
+      const resultBody = (await result.json()) as { outcome?: "OTP_SENT" | "RESUME_EXISTING_CHALLENGE" | "LOCKED" };
 
       // Login state is tab-scoped and short-lived. Do not expose the phone
       // number in browser history, logs, referrers, or registration storage.
-      saveLoginOtpState(loginPhoneNumber, callbackUrl);
+      saveLoginOtpState(loginPhoneNumber, callbackUrl, resultBody.outcome);
       router.push("/auth/verify-otp?mode=signin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send OTP.");

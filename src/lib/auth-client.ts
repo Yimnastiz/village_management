@@ -23,15 +23,17 @@ const LOGIN_OTP_STATE_TTL_MS = 5 * 60 * 1000;
 export type LoginOtpState = {
   phoneNumber: string;
   callbackUrl: string | null;
+  outcome?: "OTP_SENT" | "RESUME_EXISTING_CHALLENGE" | "LOCKED";
   createdAt: number;
 };
 
-export function saveLoginOtpState(phoneNumber: string, callbackUrl: string | null) {
+export function saveLoginOtpState(phoneNumber: string, callbackUrl: string | null, outcome?: LoginOtpState["outcome"]) {
   if (typeof window === "undefined") return;
 
   const state: LoginOtpState = {
     phoneNumber,
     callbackUrl,
+    outcome,
     createdAt: Date.now(),
   };
   window.sessionStorage.setItem(LOGIN_OTP_STATE_KEY, JSON.stringify(state));

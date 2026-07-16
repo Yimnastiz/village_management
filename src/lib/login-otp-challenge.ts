@@ -63,6 +63,7 @@ export function publicLoginChallengeState(challenge: LoginOtpChallenge) {
     otpLockedUntil: challenge.lockedUntil?.toISOString() ?? null,
     failedCount: challenge.failedAttempts,
     remainingAttempts: Math.max(0, LOGIN_OTP_MAX_FAILED - challenge.failedAttempts),
+    status: challenge.status,
   };
 }
 

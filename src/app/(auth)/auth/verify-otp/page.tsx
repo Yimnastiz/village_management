@@ -85,6 +85,7 @@ function VerifyOTPContent() {
     expiresAt: string;
     resendAvailableAt: string;
     otpLockedUntil?: string | null;
+    remainingAttempts?: number;
   } | null>(null);
 
   const rawMode = searchParams.get("mode");
@@ -135,7 +136,7 @@ function VerifyOTPContent() {
         .then(async (response) => {
           const body = (await response.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
           if (!response.ok || !body?.data?.expiresAt || !body.data.resendAvailableAt) throw new Error(body?.error ?? "Login OTP challenge not found.");
-          setChallengeTiming({ expiresAt: body.data.expiresAt, resendAvailableAt: body.data.resendAvailableAt, otpLockedUntil: body.data.otpLockedUntil });
+          setChallengeTiming({ expiresAt: body.data.expiresAt, resendAvailableAt: body.data.resendAvailableAt, otpLockedUntil: body.data.otpLockedUntil, remainingAttempts: body.data.remainingAttempts });
         })
         .catch((reason: unknown) => setResumeError(reason instanceof Error ? reason.message : "Login OTP challenge not found."));
     }
@@ -254,9 +255,9 @@ function VerifyOTPContent() {
           router.replace(`/auth/verify-otp?${nextParams.toString()}`);
         }
       } else {
-        const resendResult = await fetch("/api/auth/login-otp", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ phoneNumber: phone }) });
+        const resendResult = await fetch("/api/auth/login-otp", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ phoneNumber: phone, intent: "RESEND" }) });
         const resendBody = (await resendResult.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
-        if (resendBody?.data?.expiresAt && resendBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: resendBody.data.expiresAt, resendAvailableAt: resendBody.data.resendAvailableAt, otpLockedUntil: resendBody.data.otpLockedUntil });
+        if (resendBody?.data?.expiresAt && resendBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: resendBody.data.expiresAt, resendAvailableAt: resendBody.data.resendAvailableAt, otpLockedUntil: resendBody.data.otpLockedUntil, remainingAttempts: resendBody.data.remainingAttempts });
         if (!resendResult.ok) throw new Error(resendBody?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
         setOtp(["", "", "", "", "", ""]);
       }
@@ -304,7 +305,7 @@ function VerifyOTPContent() {
         const verifyResult = await fetch("/api/auth/login-otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ code }) });
         const verifyBody = (await verifyResult.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
         if (!verifyResult.ok) {
-          if (verifyBody?.data?.expiresAt && verifyBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: verifyBody.data.expiresAt, resendAvailableAt: verifyBody.data.resendAvailableAt, otpLockedUntil: verifyBody.data.otpLockedUntil });
+          if (verifyBody?.data?.expiresAt && verifyBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: verifyBody.data.expiresAt, resendAvailableAt: verifyBody.data.resendAvailableAt, otpLockedUntil: verifyBody.data.otpLockedUntil, remainingAttempts: verifyBody.data.remainingAttempts });
           throw new Error(verifyBody?.error ?? "Invalid or expired OTP.");
         }
       }
@@ -348,6 +349,8 @@ function VerifyOTPContent() {
       <p className="mb-2 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {maskedPhone}</p>
       <p className={`mb-6 text-xs ${otpSeconds === 0 ? "text-red-600" : "text-gray-400"}`}>{otpSeconds === 0 ? "OTP หมดอายุแล้ว กรุณากดส่งอีกครั้ง" : <>รหัสจะหมดอายุใน {Math.floor(otpSeconds / 60)}:{String(otpSeconds % 60).padStart(2, "0")} นาที</>}</p>
       {isLocked ? <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">ระบบถูกล็อกชั่วคราว กรุณารอจนถึง {new Date(challengeTiming!.otpLockedUntil!).toLocaleString("th-TH")}</p> : null}
+      {mode === "signin" && loginState?.outcome === "RESUME_EXISTING_CHALLENGE" ? <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">พบรหัส OTP ที่ส่งไว้แล้ว กรุณากรอกรหัสเดิม หรือรอส่งรหัสใหม่ได้ในอีก {resendSeconds} วินาที</p> : null}
+      {mode === "signin" && typeof challengeTiming?.remainingAttempts === "number" ? <p className="mb-4 text-sm text-gray-600">เหลือโอกาสกรอก OTP อีก {challengeTiming.remainingAttempts} ครั้ง</p> : null}
 
       {resumeError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{resumeError}</div> : null}
 
