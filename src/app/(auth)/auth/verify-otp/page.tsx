@@ -317,19 +317,17 @@ function VerifyOTPContent() {
         }, 700);
       } else {
         setSuccessMessage("ยืนยันสำเร็จ กำลังพาไปหน้าถัดไป");
-        let resolvedLandingPath: string | null = null;
         const postLoginResponse = await fetch("/api/auth/post-login-route", {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
 
-        if (postLoginResponse.ok) {
-          const postLoginData = (await postLoginResponse.json()) as { landingPath?: string };
-          resolvedLandingPath = postLoginData.landingPath ?? null;
-        }
-
-        router.push(resolvedLandingPath ?? "/resident/dashboard");
+        if (!postLoginResponse.ok) throw new Error("สร้างการเข้าสู่ระบบสำเร็จไม่สมบูรณ์ กรุณาลองใหม่อีกครั้ง");
+        const postLoginData = (await postLoginResponse.json()) as { landingPath?: string };
+        if (!postLoginData.landingPath?.startsWith("/")) throw new Error("ไม่พบหน้าปลายทางหลังเข้าสู่ระบบ");
+        router.replace(postLoginData.landingPath);
+        router.refresh();
         clearLoginOtpState();
       }
 
