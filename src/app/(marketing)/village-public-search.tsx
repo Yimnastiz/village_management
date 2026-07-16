@@ -209,7 +209,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
               label: village.name,
               description: [village.subdistrict, village.district, village.province].filter(Boolean).join(" / "),
             }))}
-            placeholder="พิมพ์ชื่อหมู่บ้าน เช่น Kontai"
+            placeholder="พิมพ์ชื่อหมู่บ้าน เช่น รักไทย"
             helperText={
               villageSuggestions.length > 0
                 ? `มีคำแนะนำ ${villageSuggestions.length} รายการจากฐานข้อมูล`
