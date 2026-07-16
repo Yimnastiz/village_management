@@ -10,12 +10,13 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
 import { Check, X, AlertCircle } from "lucide-react";
+import { QueryPagination } from "@/components/ui/query-pagination";
 
 type PageProps = {
-  searchParams?: Promise<{ q?: string; stage?: string; sort?: string }>;
+  searchParams?: Promise<{ q?: string; stage?: string; sort?: string; page?: string }>;
 };
 
-async function fetchPendingAppointments(params: { q?: string; stage?: string; sort?: string }) {
+async function fetchPendingAppointments(params: { q?: string; stage?: string; sort?: string; page?: string }) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id || !isAdminUser(session)) {
     redirect("/auth/login?error=unauthorized");
@@ -33,12 +34,14 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   const villageIds = memberships.map((m) => m.villageId);
 
   if (villageIds.length === 0) {
-    return [];
+    return { appointments: [], totalCount: 0 };
   }
 
   const keyword = params.q?.trim() ?? "";
   const activeStage = params.stage ?? "ALL";
   const activeSort = params.sort ?? "pending";
+  const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const pageSize = 25;
 
   const where: Prisma.AppointmentWhereInput = {
     villageId: { in: villageIds },
@@ -63,28 +66,27 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
         : [{ stage: "asc" as const }, { createdAt: "desc" as const }];
 
   // Fetch appointments from admin's villages, prioritize pending
-  const appointments = await prisma.appointment.findMany({
+  const [appointments, totalCount] = await Promise.all([prisma.appointment.findMany({
     where,
-    include: {
+    skip: (page - 1) * pageSize,
+    take: pageSize,
+    select: {
+      id: true, title: true, stage: true, slotId: true, scheduledAt: true,
       user: {
         select: {
           email: true,
           name: true,
         },
       },
-      slot: true,
+      slot: { select: { date: true, startTime: true, endTime: true } },
       village: {
         select: { name: true },
       },
-      timeline: {
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
     },
     orderBy,
-  });
+  }), prisma.appointment.count({ where })]);
 
-  return appointments;
+  return { appointments, totalCount };
 }
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
@@ -101,7 +103,10 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
   const keyword = params.q?.trim() ?? "";
   const activeStage = params.stage ?? "ALL";
   const activeSort = params.sort ?? "pending";
-  const appointments = await fetchPendingAppointments(params);
+  const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const pageSize = 25;
+  const { appointments, totalCount } = await fetchPendingAppointments(params);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const suggestionTitles = Array.from(new Set(appointments.map((appointment) => appointment.title))).slice(0, 12);
 
@@ -257,6 +262,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
           ))}
         </div>
       )}
+      <QueryPagination pathname="/admin/appointments" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, sort: activeSort !== "pending" ? activeSort : undefined }} />
     </div>
   );
 }

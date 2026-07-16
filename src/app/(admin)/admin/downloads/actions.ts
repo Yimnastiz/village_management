@@ -126,8 +126,6 @@ async function notifyResidents(
 }
 
 function revalidateDownloadViews(fileId?: string) {
-  revalidatePath("/resident", "layout");
-  revalidatePath("/admin", "layout");
   revalidatePath("/resident/downloads");
   revalidatePath("/admin/downloads");
   revalidatePath("/resident/notifications");

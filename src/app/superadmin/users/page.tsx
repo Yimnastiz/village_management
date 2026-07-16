@@ -45,9 +45,16 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phoneNumber: true,
+        systemRole: true,
         memberships: {
-          include: {
+          select: {
+            id: true,
+            role: true,
+            status: true,
             village: {
               select: { id: true, name: true },
             },

@@ -1,3 +1,4 @@
+@import 'https://cdn.jsdelivr.net/gh/lazywasabi/thai-web-fonts@7/fonts/Umpush/Umpush.css';
 @import "tailwindcss";
 
 :root {
@@ -12,5 +13,5 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-noto-sans-thai), "Noto Sans Thai", Arial, Helvetica, sans-serif;
+  font-family: "Umpush", sans-serif;
 }

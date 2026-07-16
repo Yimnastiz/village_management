@@ -56,7 +56,12 @@ export default async function SuperAdminLogsPage({ searchParams }: PageProps) {
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      include: {
+      select: {
+        id: true,
+        createdAt: true,
+        action: true,
+        resource: true,
+        resourceId: true,
         user: {
           select: {
             name: true,

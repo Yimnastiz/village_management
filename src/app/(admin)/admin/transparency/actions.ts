@@ -58,8 +58,6 @@ async function notifyResidents(
 }
 
 function revalidateTransparencyViews(recordId?: string) {
-  revalidatePath("/resident", "layout");
-  revalidatePath("/admin", "layout");
   revalidatePath("/resident/transparency");
   revalidatePath("/admin/transparency");
   revalidatePath("/resident/notifications");

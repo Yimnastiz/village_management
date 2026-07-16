@@ -23,8 +23,6 @@ function isSupportedImageSource(value: string) {
 }
 
 function revalidateGalleryResidentViews(albumId: string, submissionId?: string) {
-  revalidatePath("/resident", "layout");
-  revalidatePath("/admin", "layout");
   revalidatePath("/resident/gallery");
   revalidatePath(`/resident/gallery/${albumId}`);
   revalidatePath(`/resident/gallery/${albumId}/request`);

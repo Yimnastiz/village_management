@@ -131,21 +131,17 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
     );
   }
 
-  const primaryMembership = await prisma.villageMembership.findFirst({
+  const effectiveHouseId = membership.houseId;
+  if (!effectiveHouseId) redirect("/resident/binding");
+
+  const residentHouse = await prisma.house.findFirst({
     where: {
-      userId: session.id,
+      id: effectiveHouseId,
       villageId: membership.villageId,
-      role: "RESIDENT",
-      status: "ACTIVE",
     },
     select: {
-      houseId: true,
-      house: {
-        select: {
-          houseNumber: true,
-          address: true,
-        },
-      },
+      houseNumber: true,
+      address: true,
       village: {
         select: {
           name: true,
@@ -154,8 +150,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
     },
   });
 
-  const villageName = primaryMembership?.village?.name ?? "หมู่บ้าน";
-  const effectiveHouseId = membership.houseId ?? primaryMembership?.houseId ?? null;
+  const villageName = residentHouse?.village.name ?? "หมู่บ้าน";
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -184,7 +179,13 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
         userId: session.id,
         stage: { in: [...UPCOMING_APPOINTMENT_STAGES] },
       },
-      include: { slot: true },
+      select: {
+        id: true,
+        title: true,
+        stage: true,
+        scheduledAt: true,
+        slot: { select: { date: true, startTime: true, endTime: true } },
+      },
       orderBy: [{ slot: { date: "asc" } }, { createdAt: "asc" }],
       take: 5,
     }),
@@ -258,14 +259,9 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
             houseId: effectiveHouseId,
             status: "ACTIVE",
           },
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                phoneNumber: true,
-              },
-            },
+          select: {
+            id: true,
+            user: { select: { id: true, name: true, phoneNumber: true } },
           },
           orderBy: { updatedAt: "desc" },
         })
@@ -478,7 +474,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           </div>
           {effectiveHouseId && (
             <p className="mt-3 text-xs text-gray-500">
-              บ้านเลขที่ {primaryMembership?.house?.houseNumber ?? "-"} {primaryMembership?.house?.address ? `• ${primaryMembership.house.address}` : ""}
+              บ้านเลขที่ {residentHouse?.houseNumber ?? "-"} {residentHouse?.address ? `• ${residentHouse.address}` : ""}
             </p>
           )}
           <Link href="/resident/household" className="text-sm text-green-600 hover:underline mt-3 block">

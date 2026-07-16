@@ -135,8 +135,6 @@ async function notifyUser(
 }
 
 function revalidateAppointmentViews(appointmentId: string) {
-  revalidatePath("/resident", "layout");
-  revalidatePath("/admin", "layout");
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
   revalidatePath("/resident/appointments");

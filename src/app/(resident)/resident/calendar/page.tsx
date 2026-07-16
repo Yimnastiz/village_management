@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { getVillageCalendarEvents } from "@/features/public-village/server/public-village-data";
 
 type ResidentCalendarPageProps = {
   searchParams?: Promise<{ month?: string; date?: string }>;
@@ -60,25 +61,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const leadingBlankDays = monthStart.getDay();
 
-  const events = await prisma.villageEvent.findMany({
-    where: {
-      villageId: village.id,
-      ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
-      startsAt: {
-        gte: monthStart,
-        lt: nextMonthStart,
-      },
-    },
-    orderBy: [{ startsAt: "asc" }],
-    select: {
-      id: true,
-      title: true,
-      startsAt: true,
-      endsAt: true,
-      location: true,
-      isPublic: true,
-    },
-  });
+  const events = await getVillageCalendarEvents({ villageId: village.id, startsAt: monthStart, endsBefore: nextMonthStart, publicOnly: !membership.hasResidentAccess });
 
   const userAppointments = membership.hasResidentAccess ? await prisma.appointment.findMany({
     where: {

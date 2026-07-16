@@ -136,8 +136,6 @@ async function notifyResidents(
 }
 
 function revalidateGalleryViews(albumId?: string, submissionId?: string) {
-  revalidatePath("/resident", "layout");
-  revalidatePath("/admin", "layout");
   revalidatePath("/resident/gallery");
   revalidatePath("/admin/gallery");
   revalidatePath("/resident/notifications");

@@ -7,9 +7,10 @@ import { PERSON_STATUS_LABELS } from "@/lib/constants";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PersonStatus, Prisma } from "@prisma/client";
+import { QueryPagination } from "@/components/ui/query-pagination";
 
 type PageProps = {
-  searchParams?: Promise<{ q?: string; status?: string }>;
+  searchParams?: Promise<{ q?: string; status?: string; page?: string }>;
 };
 
 export default async function PopulationPeoplePage({ searchParams }: PageProps) {
@@ -30,6 +31,8 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
   const status = (params.status ?? "ALL").trim();
+  const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const pageSize = 25;
   const normalizedStatus =
     status !== "ALL" && Object.values(PersonStatus).includes(status as PersonStatus)
       ? (status as PersonStatus)
@@ -49,15 +52,24 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
       : {}),
   };
 
-  const people = await prisma.person.findMany({
-    where,
-    include: {
-      house: {
-        select: { id: true, houseNumber: true },
+  const [people, totalCount] = await Promise.all([
+    prisma.person.findMany({
+      where,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        status: true,
+        house: { select: { houseNumber: true } },
       },
-    },
-    orderBy: [{ updatedAt: "desc" }],
-  });
+      orderBy: [{ updatedAt: "desc" }],
+    }),
+    prisma.person.count({ where }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const suggestionTitles = Array.from(
     new Set(people.map((person) => `${person.firstName} ${person.lastName}`.trim()))
@@ -121,6 +133,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
           ))}
         </div>
       )}
+      <QueryPagination pathname="/admin/population/people" page={page} totalPages={totalPages} params={{ q: keyword || undefined, status: status !== "ALL" ? status : undefined }} />
     </div>
   );
 }

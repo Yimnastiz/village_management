@@ -2,8 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { getPublicVillageBySlug, getVillageCalendarEvents } from "@/features/public-village/server/public-village-data";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
@@ -40,14 +39,11 @@ function toMonthKey(date: Date) {
 
 export default async function Page({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
-  const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
   const { month, date } = await searchParams;
 
-  const village = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) } },
-    select: { id: true, name: true },
-  });
+  const village = await getPublicVillageBySlug(rawVillageSlug);
   if (!village) notFound();
+  const villageSlug = village.slug;
 
   const { year, monthIndex } = parseMonth(month);
   const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
@@ -55,24 +51,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const leadingBlankDays = monthStart.getDay();
 
-  const events = await prisma.villageEvent.findMany({
-    where: {
-      villageId: village.id,
-      isPublic: true,
-      startsAt: {
-        gte: monthStart,
-        lt: nextMonthStart,
-      },
-    },
-    orderBy: [{ startsAt: "asc" }],
-    select: {
-      id: true,
-      title: true,
-      startsAt: true,
-      endsAt: true,
-      location: true,
-    },
-  });
+  const events = await getVillageCalendarEvents({ villageId: village.id, startsAt: monthStart, endsBefore: nextMonthStart, publicOnly: true });
 
   const eventsByDay = new Map<string, typeof events>();
   for (const event of events) {

@@ -8,9 +8,10 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { QueryPagination } from "@/components/ui/query-pagination";
 
 interface PageProps {
-  searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string }>;
+  searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
 }
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
@@ -34,7 +35,7 @@ function formatDate(date: Date): string {
 }
 
 export default async function AdminIssuesPage({ searchParams }: PageProps) {
-  const { q, stage, category, sort } = await searchParams;
+  const { q, stage, category, sort, page: pageParam } = await searchParams;
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
@@ -48,6 +49,8 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   const activeStage = stage ?? "ALL";
   const activeCategory = category ?? "ALL";
   const activeSort = sort ?? "newest";
+  const page = Math.max(1, Number(pageParam ?? "1") || 1);
+  const pageSize = 25;
 
   const whereClause: Prisma.IssueWhereInput = { villageId: membership.villageId };
   if (activeStage !== "ALL") whereClause.stage = activeStage as Prisma.IssueWhereInput["stage"];
@@ -67,10 +70,12 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         ? [{ priority: "desc" as const }, { createdAt: "desc" as const }]
         : [{ createdAt: "desc" as const }];
 
-  const [issues, stageCounts] = await Promise.all([
+  const [issues, filteredCount, stageCounts] = await Promise.all([
     prisma.issue.findMany({
       where: whereClause,
       orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       select: {
         id: true,
         title: true,
@@ -81,6 +86,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         location: true,
       },
     }),
+    prisma.issue.count({ where: whereClause }),
     prisma.issue.groupBy({
       by: ["stage"],
       where: { villageId: membership.villageId },
@@ -91,6 +97,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   const counts: Record<string, number> = {};
   for (const c of stageCounts) counts[c.stage] = c._count;
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
+  const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
 
   const stageFilters = [
     { value: "ALL", label: "ทั้งหมด", count: totalCount },
@@ -234,6 +241,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
           </table>
         </div>
       )}
+      <QueryPagination pathname="/admin/issues" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, category: activeCategory !== "ALL" ? activeCategory : undefined, sort: activeSort !== "newest" ? activeSort : undefined }} />
     </div>
   );
 }
