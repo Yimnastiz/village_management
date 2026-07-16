@@ -3,6 +3,7 @@ import { BindingRequestStatus } from "@prisma/client";
 import { Clock } from "lucide-react";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 
 type PageProps = {
   searchParams?: Promise<{ membershipStatus?: string; bindingStatus?: string }>;
@@ -36,6 +37,16 @@ export default async function ResidentBindingPendingPage({ searchParams }: PageP
             },
           },
         },
+      })
+    : null;
+
+  const reviewer = latestRequest?.reviewedBy
+    ? await prisma.user.findUnique({ where: { id: latestRequest.reviewedBy }, select: { name: true } })
+    : null;
+  const reviewerMembership = latestRequest?.reviewedBy && latestRequest.villageId
+    ? await prisma.villageMembership.findUnique({
+        where: { userId_villageId: { userId: latestRequest.reviewedBy, villageId: latestRequest.villageId } },
+        select: { role: true },
       })
     : null;
 
@@ -74,6 +85,15 @@ export default async function ResidentBindingPendingPage({ searchParams }: PageP
           )}
           <p className="text-gray-500 text-sm mb-2">บ้านเลขที่: {latestRequest.houseNumber ?? latestRequest.house?.houseNumber ?? "-"}</p>
           <p className="text-gray-500 text-sm mb-6">หมายเหตุ: {latestRequest.note ?? "-"}</p>
+          {latestRequest.reviewedAt && latestRequest.status !== BindingRequestStatus.CANCELLED ? (
+            <div className="mx-auto mb-6 max-w-lg rounded-lg border border-gray-200 bg-gray-50 p-3 text-left text-sm text-gray-700">
+              <p><span className="text-gray-500">ผู้ตรวจ:</span> {reviewer?.name ?? "เจ้าหน้าที่หมู่บ้าน"}</p>
+              <p><span className="text-gray-500">ตำแหน่ง:</span> {reviewerMembership ? MEMBERSHIP_ROLE_LABELS[reviewerMembership.role] : "เจ้าหน้าที่หมู่บ้าน"}</p>
+              <p><span className="text-gray-500">ตรวจเมื่อ:</span> {latestRequest.reviewedAt.toLocaleString("th-TH")}</p>
+              {latestRequest.status === BindingRequestStatus.REJECTED ? <p><span className="text-gray-500">เหตุผล:</span> {latestRequest.reviewNote || "ไม่ได้ระบุเหตุผล"}</p> : null}
+              <Link href="/resident/contacts" className="mt-2 inline-block text-green-700 hover:underline">ดูข้อมูลติดต่อหมู่บ้าน</Link>
+            </div>
+          ) : null}
 
           {isApproved && (
             <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-sm">

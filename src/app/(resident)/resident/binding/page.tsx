@@ -5,6 +5,7 @@ import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { submitBindingRequestAction } from "./actions";
 import { BindingVillageCombobox } from "./binding-village-combobox";
+import { CancelBindingButton } from "./cancel-binding-button";
 
 export default async function ResidentBindingPage() {
   const session = await getSessionContextFromServerCookies();
@@ -75,6 +76,7 @@ export default async function ResidentBindingPage() {
             คุณมีคำขอผูกบ้านที่รออนุมัติอยู่แล้ว ระบบจะไม่สร้างคำขอใหม่ซ้ำ แต่จะอัปเดตเลขบ้านและหมายเหตุในคำขอเดิมแทน
           </div>
         )}
+        {hasPending ? <div className="mb-6"><CancelBindingButton /></div> : null}
 
         {statusPresentation ? (
           <div className={`mb-6 flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${statusPresentation.className}`}>

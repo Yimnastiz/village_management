@@ -27,6 +27,9 @@ export async function GET(request: NextRequest) {
       rejectReason: registration.rejectReason,
       rejectedAt: registration.rejectedAt?.toISOString() ?? null,
       otpSentAt: registration.otpSentAt?.toISOString() ?? null,
+      resendAvailableAt: registration.otpSentAt
+        ? new Date(registration.otpSentAt.getTime() + 60_000).toISOString()
+        : null,
       otpResendCount: registration.otpResendCount,
       otpFailedCount: registration.otpFailedCount,
       otpLastAttemptAt: registration.otpLastAttemptAt?.toISOString() ?? null,

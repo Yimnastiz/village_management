@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
-  authClient,
   clearLoginOtpState,
   loadLoginOtpState,
   type LoginOtpState,
@@ -28,6 +27,11 @@ type RegistrationDraft = {
   callbackUrl?: string;
   rejectReason?: string | null;
   otpLockedUntil?: string | null;
+  otpSentAt?: string | null;
+  expiresAt?: string | null;
+  resendAvailableAt?: string | null;
+  failedCount?: number;
+  remainingAttempts?: number;
   savedAt: number;
 };
 
@@ -75,8 +79,13 @@ function VerifyOTPContent() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
-  const [resendSeconds, setResendSeconds] = useState(60);
-  const [otpSeconds, setOtpSeconds] = useState(300);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [otpSeconds, setOtpSeconds] = useState(0);
+  const [challengeTiming, setChallengeTiming] = useState<{
+    expiresAt: string;
+    resendAvailableAt: string;
+    otpLockedUntil?: string | null;
+  } | null>(null);
 
   const rawMode = searchParams.get("mode");
   const mode: VerifyMode = rawMode === "signup" ? "signup" : "signin";
@@ -100,14 +109,19 @@ function VerifyOTPContent() {
   const maskedPhone = phone.length === 10
     ? `${phone.slice(0, 2)}X-XXX-${phone.slice(-4)}`
     : "เบอร์ของคุณ";
+  const isLocked = Boolean(challengeTiming?.otpLockedUntil && new Date(challengeTiming.otpLockedUntil).getTime() > Date.now());
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setResendSeconds((seconds) => Math.max(0, seconds - 1));
-      setOtpSeconds((seconds) => Math.max(0, seconds - 1));
-    }, 1000);
+    const updateCountdowns = () => {
+      if (!challengeTiming) return;
+      const now = Date.now();
+      setResendSeconds(Math.max(0, Math.ceil((new Date(challengeTiming.resendAvailableAt).getTime() - now) / 1000)));
+      setOtpSeconds(Math.max(0, Math.ceil((new Date(challengeTiming.expiresAt).getTime() - now) / 1000)));
+    };
+    updateCountdowns();
+    const timer = window.setInterval(updateCountdowns, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [challengeTiming]);
 
   useEffect(() => {
     if (mode === "signup") {
@@ -117,6 +131,13 @@ function VerifyOTPContent() {
       }
     } else {
       setLoginState(loadLoginOtpState());
+      fetch("/api/auth/login-otp", { credentials: "include" })
+        .then(async (response) => {
+          const body = (await response.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
+          if (!response.ok || !body?.data?.expiresAt || !body.data.resendAvailableAt) throw new Error(body?.error ?? "Login OTP challenge not found.");
+          setChallengeTiming({ expiresAt: body.data.expiresAt, resendAvailableAt: body.data.resendAvailableAt, otpLockedUntil: body.data.otpLockedUntil });
+        })
+        .catch((reason: unknown) => setResumeError(reason instanceof Error ? reason.message : "Login OTP challenge not found."));
     }
   }, [mode]);
 
@@ -142,6 +163,9 @@ function VerifyOTPContent() {
         }
 
         setServerDraft(data.data);
+        if (data.data.expiresAt && data.data.resendAvailableAt) {
+          setChallengeTiming({ expiresAt: data.data.expiresAt, resendAvailableAt: data.data.resendAvailableAt, otpLockedUntil: data.data.otpLockedUntil });
+        }
       })
       .catch((err) => {
         setResumeError(err instanceof Error ? err.message : "ไม่สามารถโหลดการสมัครสมาชิกที่ค้างอยู่ได้");
@@ -218,7 +242,8 @@ function VerifyOTPContent() {
           throw new Error(resendError?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
         }
 
-        const resendData = (await resendResponse.json().catch(() => null)) as { registrationId?: string } | null;
+        const resendData = (await resendResponse.json().catch(() => null)) as { registrationId?: string; data?: RegistrationDraft } | null;
+        if (resendData?.data?.expiresAt && resendData.data.resendAvailableAt) setChallengeTiming({ expiresAt: resendData.data.expiresAt, resendAvailableAt: resendData.data.resendAvailableAt, otpLockedUntil: resendData.data.otpLockedUntil });
         if (resendData?.registrationId) {
           const nextParams = new URLSearchParams();
           nextParams.set("mode", "signup");
@@ -229,15 +254,13 @@ function VerifyOTPContent() {
           router.replace(`/auth/verify-otp?${nextParams.toString()}`);
         }
       } else {
-        const resendResult = await authClient.phoneNumber.sendOtp({ phoneNumber: phone });
-        if ((resendResult as { error?: { message?: string } | null })?.error) {
-          throw new Error((resendResult as { error?: { message?: string } | null }).error?.message ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
-        }
+        const resendResult = await fetch("/api/auth/login-otp", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ phoneNumber: phone }) });
+        const resendBody = (await resendResult.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
+        if (!resendResult.ok) throw new Error(resendBody?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
+        if (resendBody?.data?.expiresAt && resendBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: resendBody.data.expiresAt, resendAvailableAt: resendBody.data.resendAvailableAt, otpLockedUntil: resendBody.data.otpLockedUntil });
       }
 
       setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
-      setResendSeconds(60);
-      setOtpSeconds(300);
     } catch (err) {
       setError(err instanceof Error ? err.message : "ส่ง OTP ซ้ำไม่สำเร็จ");
     } finally {
@@ -277,9 +300,11 @@ function VerifyOTPContent() {
           throw new Error(verifyError?.error ?? "Invalid or expired OTP.");
         }
       } else {
-        const verifyResult = await authClient.phoneNumber.verify({ phoneNumber: phone, code });
-        if ((verifyResult as { error?: { message?: string } | null })?.error) {
-          throw new Error((verifyResult as { error?: { message?: string } | null }).error?.message ?? "Invalid or expired OTP.");
+        const verifyResult = await fetch("/api/auth/login-otp/verify", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ code }) });
+        const verifyBody = (await verifyResult.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
+        if (!verifyResult.ok) {
+          if (verifyBody?.data?.expiresAt && verifyBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: verifyBody.data.expiresAt, resendAvailableAt: verifyBody.data.resendAvailableAt, otpLockedUntil: verifyBody.data.otpLockedUntil });
+          throw new Error(verifyBody?.error ?? "Invalid or expired OTP.");
         }
       }
 
@@ -320,7 +345,8 @@ function VerifyOTPContent() {
     <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
       <h2 className="mb-2 text-xl font-bold text-gray-900">ยืนยันรหัส OTP</h2>
       <p className="mb-2 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {maskedPhone}</p>
-      <p className="mb-6 text-xs text-gray-400">รหัสจะหมดอายุใน {Math.floor(otpSeconds / 60)}:{String(otpSeconds % 60).padStart(2, "0")} นาที</p>
+      <p className={`mb-6 text-xs ${otpSeconds === 0 ? "text-red-600" : "text-gray-400"}`}>{otpSeconds === 0 ? "OTP หมดอายุแล้ว กรุณากดส่งอีกครั้ง" : <>รหัสจะหมดอายุใน {Math.floor(otpSeconds / 60)}:{String(otpSeconds % 60).padStart(2, "0")} นาที</>}</p>
+      {isLocked ? <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">ระบบถูกล็อกชั่วคราว กรุณารอจนถึง {new Date(challengeTiming!.otpLockedUntil!).toLocaleString("th-TH")}</p> : null}
 
       {resumeError ? <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{resumeError}</div> : null}
 
@@ -408,7 +434,7 @@ function VerifyOTPContent() {
         {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}
         {successMessage ? <p className="text-center text-sm text-green-600">{successMessage}</p> : null}
 
-        <Button type="submit" className="w-full" isLoading={isLoading}>
+        <Button type="submit" className="w-full" isLoading={isLoading} disabled={otpSeconds === 0 || isLocked}>
           ยืนยัน OTP
         </Button>
       </form>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
-import { authClient, saveLoginOtpState } from "@/lib/auth-client";
+import { saveLoginOtpState } from "@/lib/auth-client";
 import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 
 function normalizePhone10(raw: string): string {
@@ -69,15 +69,15 @@ function LoginContent() {
       };
       const loginPhoneNumber = registrationData.phoneNumber ?? normalizedPhone;
 
-      const result = await authClient.phoneNumber.sendOtp({
-        phoneNumber: loginPhoneNumber,
+      const result = await fetch("/api/auth/login-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ phoneNumber: loginPhoneNumber }),
       });
-
-      if ((result as { error?: { message?: string } | null })?.error) {
-        throw new Error(
-          (result as { error?: { message?: string } | null }).error?.message ??
-            "Failed to send OTP."
-        );
+      if (!result.ok) {
+        const body = (await result.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Failed to send OTP.");
       }
 
       // Login state is tab-scoped and short-lived. Do not expose the phone

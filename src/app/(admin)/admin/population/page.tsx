@@ -16,6 +16,7 @@ const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
 
 type PendingBindingRequest = {
   id: string;
+  villageId: string | null;
   houseNumber: string | null;
   note: string | null;
   createdAt: Date;
@@ -109,10 +110,11 @@ export async function handleBindingRequestAction(formData: FormData) {
   }
 
   const canManage =
-    session.systemRole === SystemRole.SUPERADMIN ||
+    session.systemRole !== SystemRole.SUPERADMIN &&
     session.memberships.some(
       (membership) =>
-        ADMIN_MEMBERSHIP_ROLES.has(membership.role) &&
+        (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN) &&
+        membership.status === MembershipStatus.ACTIVE &&
         membership.villageId === binding.villageId
     );
   if (!canManage) {
@@ -186,7 +188,12 @@ export async function handleBindingRequestAction(formData: FormData) {
         where: { id: binding.userId },
         data: {
           citizenVerifiedAt: now,
+          registrationVillageId: binding.villageId,
         },
+      });
+      await tx.authSession.updateMany({
+        where: { userId: binding.userId, expiresAt: { gt: now } },
+        data: { activeVillageId: binding.villageId },
       });
 
       if (resolvedHouseId) {
@@ -771,7 +778,11 @@ export default async function Page({ searchParams }: PageProps) {
                   </div>
                 </div>
 
-                <form action={handleBindingRequestAction} className="mt-4 space-y-2">
+                {session.memberships.some((membership) =>
+                  membership.villageId === request.villageId &&
+                  membership.status === MembershipStatus.ACTIVE &&
+                  (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN)
+                ) ? <form action={handleBindingRequestAction} className="mt-4 space-y-2">
                   <input type="hidden" name="requestId" value={request.id} />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <textarea
@@ -799,7 +810,7 @@ export default async function Page({ searchParams }: PageProps) {
                       </button>
                     </div>
                   </div>
-                </form>
+                </form> : <p className="mt-4 text-sm text-gray-500">คุณมีสิทธิ์ดูคำขอนี้ แต่การอนุมัติหรือปฏิเสธต้องดำเนินการโดยผู้ใหญ่บ้านหรือผู้ช่วยผู้ใหญ่บ้าน</p>}
               </div>
             ))}
           </div>

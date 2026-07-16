@@ -107,6 +107,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Persist new countdown timestamps only after the OTP provider accepted the send.
+    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: normalizedPhone } });
     registration = await prisma.registrationTemp.update({
       where: { id: existingPending.id },
       data: {
@@ -128,6 +130,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } else {
+    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: normalizedPhone } });
     registration = await prisma.registrationTemp.create({
       data: {
         phoneNumber: normalizedPhone,
@@ -147,9 +150,16 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: normalizedPhone } });
-
-  const response = NextResponse.json({ ok: true, registrationId: registration.id });
+  const response = NextResponse.json({
+    ok: true,
+    registrationId: registration.id,
+    data: {
+      otpSentAt: registration.otpSentAt?.toISOString() ?? now.toISOString(),
+      expiresAt: registration.expiresAt.toISOString(),
+      resendAvailableAt: new Date((registration.otpSentAt ?? now).getTime() + 60_000).toISOString(),
+      otpLockedUntil: registration.otpLockedUntil?.toISOString() ?? null,
+    },
+  });
   createRegistrationCookie(response, registration.id);
   return response;
 }

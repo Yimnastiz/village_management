@@ -1,6 +1,6 @@
 "use server";
 
-import { BindingRequestStatus, MembershipStatus, VillageMembershipRole, NotificationType } from "@prisma/client";
+import { AuditAction, BindingRequestStatus, MembershipStatus, VillageMembershipRole, NotificationType } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -28,6 +28,12 @@ export async function submitBindingRequestAction(formData: FormData) {
   if (!villageId) {
     throw new Error("Village is required.");
   }
+  if (!houseNumber) throw new Error("House number is required.");
+  const villageExists = await prisma.village.findFirst({ where: { id: villageId, isActive: true }, select: { id: true } });
+  if (!villageExists) throw new Error("Village not found.");
+
+  // This is the selected public village context; it grants no membership access.
+  await prisma.user.update({ where: { id: session.id }, data: { registrationVillageId: villageId } });
 
   const existingPending = await prisma.bindingRequest.findFirst({
     where: {
@@ -135,4 +141,39 @@ export async function submitBindingRequestAction(formData: FormData) {
   revalidatePath("/resident/binding");
   revalidatePath("/resident/binding/pending");
   redirect("/resident/binding/pending");
+}
+
+export async function cancelBindingRequestAction() {
+  const session = await getSessionContextFromServerCookies();
+  if (!session) redirect("/auth/login?callbackUrl=/resident/binding");
+  const pending = await prisma.bindingRequest.findFirst({
+    where: { userId: session.id, status: BindingRequestStatus.PENDING },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, villageId: true },
+  });
+  if (!pending) throw new Error("ไม่พบคำขอที่กำลังรออนุมัติ");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.bindingRequest.update({
+      where: { id: pending.id },
+      data: { status: BindingRequestStatus.CANCELLED },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: session.id,
+        villageId: pending.villageId,
+        action: AuditAction.UPDATE,
+        resource: "BindingRequest",
+        resourceId: pending.id,
+        metadata: { previousStatus: BindingRequestStatus.PENDING, status: BindingRequestStatus.CANCELLED, source: "resident-self-service" },
+      },
+    });
+    if (pending.villageId) {
+      await tx.villageMembership.deleteMany({
+        where: { userId: session.id, villageId: pending.villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.PENDING },
+      });
+    }
+  });
+  revalidatePath("/resident/binding");
+  revalidatePath("/resident/binding/pending");
 }
