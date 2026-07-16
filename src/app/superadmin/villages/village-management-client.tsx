@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -114,7 +115,7 @@ export function VillageCard({ village }: { village: VillageRow }) {
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-lg font-semibold text-slate-900">{village.name}</p>
+          <Link href={`/superadmin/villages/${village.id}`} className="text-lg font-semibold text-cyan-800 hover:underline">{village.name}</Link>
           <p className="text-xs text-slate-500">/{village.slug}</p>
         </div>
         <span className={`rounded-full px-2 py-1 text-xs font-semibold ${village.isActive ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}>

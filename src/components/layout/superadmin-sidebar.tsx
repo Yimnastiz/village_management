@@ -11,6 +11,7 @@ import {
   MessageSquare,
   ScrollText,
   Settings,
+  ListChecks,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export const superAdminMenuItems: SuperAdminMenuItem[] = [
   { href: "/superadmin/dashboard", label: "ภาพรวมระบบ", icon: LayoutDashboard },
   { href: "/superadmin/villages", label: "จัดการหมู่บ้าน", icon: Building2 },
   { href: "/superadmin/users", label: "จัดการผู้ใช้", icon: Users },
+  { href: "/superadmin/data-quality", label: "Data Quality", icon: ListChecks },
   { href: "/superadmin/roles", label: "บทบาทและสิทธิ์", icon: Shield },
   { href: "/superadmin/broadcasts", label: "ประกาศทุกหมู่บ้าน", icon: Megaphone },
   { href: "/superadmin/feedback", label: "Feedback ผู้ใช้งาน", icon: MessageSquare },

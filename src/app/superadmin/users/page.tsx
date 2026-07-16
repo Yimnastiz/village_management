@@ -7,6 +7,11 @@ import { finalizeDueAccountDeletions } from "@/lib/account-deletion";
 
 const ADMIN_ROLES = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
+function maskPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length >= 4 ? `XXX-XXX-${digits.slice(-4)}` : "-";
+}
+
 type PageProps = {
   searchParams?: Promise<{ q?: string; systemRole?: string; adminRole?: string; page?: string }>;
 };
@@ -53,14 +58,19 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
         phoneNumber: true,
         systemRole: true,
         accountStatus: true,
+        registrationProvince: true,
+        registrationDistrict: true,
+        registrationSubdistrict: true,
+        registrationVillage: { select: { name: true } },
         memberships: {
           select: {
             id: true,
             role: true,
             status: true,
             village: {
-              select: { id: true, name: true },
+              select: { id: true, name: true, subdistrict: true, district: true, province: true },
             },
+            house: { select: { houseNumber: true } },
           },
           orderBy: { updatedAt: "desc" },
         },
@@ -105,7 +115,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
       <div className="space-y-3">
         {users.map((user) => {
           return (
-            <UserManagementCard key={user.id} user={user} villages={villages} />
+            <UserManagementCard key={user.id} user={{ ...user, phoneNumber: maskPhone(user.phoneNumber) }} villages={villages} />
           );
         })}
         {users.length === 0 ? <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">ไม่พบผู้ใช้ตามตัวกรองที่เลือก</div> : null}

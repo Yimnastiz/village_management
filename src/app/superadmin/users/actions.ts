@@ -1,6 +1,6 @@
 "use server";
 
-import { AuditAction, MembershipStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession, writeSuperAdminAuditLog } from "@/lib/superadmin";
@@ -25,18 +25,26 @@ export async function updateUserSystemRoleAction(formData: FormData) {
 
   const userId = getString(formData, "userId");
   const role = parseSystemRole(getString(formData, "systemRole"));
+  const reason = getString(formData, "reason");
 
   if (!userId) {
     throw new Error("ไม่พบผู้ใช้");
   }
+  if (reason.length < 5) throw new Error("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
 
   if (session.id === userId && role !== SystemRole.SUPERADMIN) {
     throw new Error("ไม่สามารถลดสิทธิ์ Super Admin ของบัญชีตัวเองได้");
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { systemRole: role },
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('active-superadmin-role-change'))`;
+    const target = await tx.user.findUnique({ where: { id: userId }, select: { systemRole: true, accountStatus: true } });
+    if (!target) throw new Error("ไม่พบผู้ใช้");
+    if (target.systemRole === SystemRole.SUPERADMIN && role !== SystemRole.SUPERADMIN) {
+      const activeCount = await tx.user.count({ where: { systemRole: SystemRole.SUPERADMIN, accountStatus: "ACTIVE" } });
+      if (activeCount <= 1) throw new Error("ไม่สามารถดำเนินการได้ เนื่องจากบัญชีนี้เป็น Super Admin คนสุดท้ายของระบบ");
+    }
+    await tx.user.update({ where: { id: userId }, data: { systemRole: role } });
   });
 
   await writeSuperAdminAuditLog({
@@ -44,7 +52,7 @@ export async function updateUserSystemRoleAction(formData: FormData) {
     action: AuditAction.UPDATE,
     resource: "UserSystemRole",
     resourceId: userId,
-    metadata: { systemRole: role },
+    metadata: { actorRole: "SUPERADMIN", systemRole: role, reason },
   });
 
   revalidatePath("/superadmin/users");
@@ -52,7 +60,7 @@ export async function updateUserSystemRoleAction(formData: FormData) {
 }
 
 export async function assignVillageAdminRoleAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const userId = getString(formData, "userId");
   const villageId = getString(formData, "villageId");
@@ -62,101 +70,32 @@ export async function assignVillageAdminRoleAction(formData: FormData) {
     throw new Error("ข้อมูลไม่ครบถ้วน");
   }
 
-  await prisma.villageMembership.upsert({
-    where: {
-      userId_villageId: {
-        userId,
-        villageId,
-      },
-    },
-    update: {
-      role,
-      status: MembershipStatus.ACTIVE,
-      joinedAt: new Date(),
-      houseId: null,
-    },
-    create: {
-      userId,
-      villageId,
-      role,
-      status: MembershipStatus.ACTIVE,
-      joinedAt: new Date(),
-      houseId: null,
-    },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.APPROVE,
-    resource: "VillageAdminRoleAssignment",
-    resourceId: `${userId}:${villageId}`,
-    metadata: { membershipRole: role },
-    villageId,
-  });
-
-  revalidatePath("/superadmin/users");
-  revalidatePath("/superadmin/roles");
+  void role;
+  throw new Error(`กรุณาแต่งตั้งผู้ดูแลผ่าน Village Context /superadmin/villages/${villageId} เพื่อระบุเหตุผลและบันทึก Audit Log`);
 }
 
 export async function removeVillageAdminRoleAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const membershipId = getString(formData, "membershipId");
   if (!membershipId) {
     throw new Error("ไม่พบรายการสมาชิก");
   }
 
-  const membership = await prisma.villageMembership.update({
-    where: { id: membershipId },
-    data: {
-      role: VillageMembershipRole.RESIDENT,
-    },
-    select: {
-      id: true,
-      villageId: true,
-      userId: true,
-    },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.REJECT,
-    resource: "VillageAdminRoleRemoval",
-    resourceId: membership.id,
-    metadata: { userId: membership.userId },
-    villageId: membership.villageId,
-  });
-
-  revalidatePath("/superadmin/users");
-  revalidatePath("/superadmin/roles");
+  const membership = await prisma.villageMembership.findUnique({ where: { id: membershipId }, select: { villageId: true } });
+  if (!membership) throw new Error("ไม่พบ Membership");
+  throw new Error(`กรุณาถอดบทบาทผ่าน Village Context /superadmin/villages/${membership.villageId} ระบบจะไม่เปลี่ยนเป็น Resident โดยไม่มีบ้าน`);
 }
 
 export async function suspendUserMembershipsAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const userId = getString(formData, "userId");
   if (!userId) {
     throw new Error("ไม่พบผู้ใช้");
   }
 
-  await prisma.villageMembership.updateMany({
-    where: {
-      userId,
-      status: MembershipStatus.ACTIVE,
-    },
-    data: {
-      status: MembershipStatus.SUSPENDED,
-    },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.UPDATE,
-    resource: "UserMembershipSuspension",
-    resourceId: userId,
-  });
-
-  revalidatePath("/superadmin/users");
+  throw new Error("กรุณาระงับ Membership แยกตามหมู่บ้านผ่าน Village Context เพื่อระบุหมู่บ้านเป้าหมายและเหตุผล");
 }
 
 export async function updateUserProfileAction(formData: FormData) {
@@ -204,54 +143,19 @@ export async function updateUserProfileAction(formData: FormData) {
 }
 
 export async function createUserMembershipAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const userId = getString(formData, "userId");
   const villageId = getString(formData, "villageId");
-  const roleInput = getString(formData, "role");
-  const statusInput = getString(formData, "status");
-  const houseId = getString(formData, "houseId") || null;
-
-  if (!userId || !villageId || !roleInput || !statusInput) {
+  if (!userId || !villageId) {
     throw new Error("ข้อมูลสมาชิกไม่ครบถ้วน");
   }
 
-  const role = roleInput as VillageMembershipRole;
-  const status = statusInput as MembershipStatus;
-
-  const membership = await prisma.villageMembership.upsert({
-    where: { userId_villageId: { userId, villageId } },
-    update: {
-      role,
-      status,
-      houseId,
-      joinedAt: status === MembershipStatus.ACTIVE ? new Date() : null,
-    },
-    create: {
-      userId,
-      villageId,
-      role,
-      status,
-      houseId,
-      joinedAt: status === MembershipStatus.ACTIVE ? new Date() : null,
-    },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.UPDATE,
-    resource: "UserMembership",
-    resourceId: membership.id,
-    metadata: { role, status, villageId },
-    villageId,
-  });
-
-  revalidatePath("/superadmin/users");
-  revalidatePath(`/superadmin/users/${userId}`);
+  throw new Error(`กรุณาจัดการ Membership ผ่าน Village Context /superadmin/villages/${villageId}`);
 }
 
 export async function updateUserMembershipAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const membershipId = getString(formData, "membershipId");
   const userId = getString(formData, "userId");
@@ -259,36 +163,13 @@ export async function updateUserMembershipAction(formData: FormData) {
     throw new Error("ไม่พบรายการสมาชิก");
   }
 
-  const role = getString(formData, "role") as VillageMembershipRole;
-  const status = getString(formData, "status") as MembershipStatus;
-  const houseId = getString(formData, "houseId") || null;
-
-  const updated = await prisma.villageMembership.update({
-    where: { id: membershipId },
-    data: {
-      role,
-      status,
-      houseId,
-      joinedAt: status === MembershipStatus.ACTIVE ? new Date() : null,
-    },
-    select: { id: true, villageId: true },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.UPDATE,
-    resource: "UserMembership",
-    resourceId: updated.id,
-    metadata: { role, status },
-    villageId: updated.villageId,
-  });
-
-  revalidatePath("/superadmin/users");
-  revalidatePath(`/superadmin/users/${userId}`);
+  const membership = await prisma.villageMembership.findUnique({ where: { id: membershipId }, select: { villageId: true } });
+  if (!membership) throw new Error("ไม่พบ Membership");
+  throw new Error(`กรุณาจัดการ Membership ผ่าน Village Context /superadmin/villages/${membership.villageId}`);
 }
 
 export async function deleteUserMembershipAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const membershipId = getString(formData, "membershipId");
   const userId = getString(formData, "userId");
@@ -296,47 +177,18 @@ export async function deleteUserMembershipAction(formData: FormData) {
     throw new Error("ไม่พบรายการสมาชิก");
   }
 
-  const deleted = await prisma.villageMembership.delete({
-    where: { id: membershipId },
-    select: { id: true, villageId: true },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.DELETE,
-    resource: "UserMembership",
-    resourceId: deleted.id,
-    villageId: deleted.villageId,
-  });
-
-  revalidatePath("/superadmin/users");
-  revalidatePath(`/superadmin/users/${userId}`);
+  const membership = await prisma.villageMembership.findUnique({ where: { id: membershipId }, select: { villageId: true } });
+  if (!membership) throw new Error("ไม่พบ Membership");
+  throw new Error(`กรุณาระงับ Membership ผ่าน Village Context /superadmin/villages/${membership.villageId}`);
 }
 
 export async function deleteUserAccountAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const userId = getString(formData, "userId");
   if (!userId) {
     throw new Error("ไม่พบผู้ใช้");
   }
 
-  if (session.id === userId) {
-    throw new Error("ไม่สามารถลบบัญชีของตนเองได้");
-  }
-
-  const deleted = await prisma.user.delete({
-    where: { id: userId },
-    select: { id: true, name: true },
-  });
-
-  await writeSuperAdminAuditLog({
-    userId: session.id,
-    action: AuditAction.DELETE,
-    resource: "UserAccount",
-    resourceId: deleted.id,
-    metadata: { name: deleted.name },
-  });
-
-  revalidatePath("/superadmin/users");
+  throw new Error("ปิดใช้งาน Hard Delete แล้ว กรุณาใช้ Account Deletion/Anonymization Flow เพื่อรักษาประวัติและข้อมูลทะเบียน");
 }

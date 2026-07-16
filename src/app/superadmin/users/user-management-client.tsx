@@ -7,9 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import {
-  assignVillageAdminRoleAction,
-  removeVillageAdminRoleAction,
-  suspendUserMembershipsAction,
   updateUserSystemRoleAction,
 } from "./actions";
 
@@ -18,7 +15,8 @@ type MembershipRow = {
   id: string;
   role: string;
   status: string;
-  village: { id: string; name: string };
+  village: { id: string; name: string; subdistrict: string | null; district: string | null; province: string | null };
+  house: { houseNumber: string } | null;
 };
 type UserRow = {
   id: string;
@@ -26,6 +24,10 @@ type UserRow = {
   phoneNumber: string;
   systemRole: string;
   accountStatus: string;
+  registrationProvince: string | null;
+  registrationDistrict: string | null;
+  registrationSubdistrict: string | null;
+  registrationVillage: { name: string } | null;
   memberships: MembershipRow[];
 };
 
@@ -77,6 +79,11 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
         </div>
       </div>
 
+      <div className="mb-3 grid gap-3 text-sm md:grid-cols-2">
+        <div className="rounded-lg border border-slate-200 p-3"><p className="font-medium text-slate-800">พื้นที่ที่ระบุตอนสมัคร</p><p className="mt-1 text-slate-600">{user.registrationVillage?.name ?? "ไม่ระบุหมู่บ้าน"}</p><p className="text-xs text-slate-500">ต.{user.registrationSubdistrict ?? "-"} อ.{user.registrationDistrict ?? "-"} จ.{user.registrationProvince ?? "-"}</p></div>
+        <div className="rounded-lg border border-slate-200 p-3"><p className="font-medium text-slate-800">หมู่บ้านที่สังกัดจริง</p>{user.memberships.length === 0 ? <p className="mt-1 text-slate-500">ยังไม่ได้สังกัดหมู่บ้าน</p> : user.memberships.map((membership) => <div key={membership.id} className="mt-1 text-slate-600"><p>{membership.village.name} · {membership.role} · {membership.status}{membership.house ? ` · บ้านเลขที่ ${membership.house.houseNumber}` : ""}</p><p className="text-xs text-slate-500">ต.{membership.village.subdistrict ?? "-"} อ.{membership.village.district ?? "-"} จ.{membership.village.province ?? "-"}</p></div>)}</div>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <form
           className="rounded-lg border border-slate-200 p-3"
@@ -103,6 +110,7 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
             </select>
             <Button type="submit" variant="secondary">บันทึก</Button>
           </div>
+          <input name="reason" required minLength={5} placeholder="เหตุผลในการเปลี่ยนสิทธิ์" className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
         </form>
 
         <form
@@ -118,7 +126,8 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
               description: `ต้องการแต่งตั้ง ${user.name} เป็น ${role} ของ ${villageName}`,
               tone: "default",
               action: async () => {
-                await runAction(() => assignVillageAdminRoleAction(formData), "แต่งตั้งบทบาทหมู่บ้านแล้ว", `${user.name} • ${role}`);
+                router.push(`/superadmin/villages/${villageId}`);
+                setDialogState(null);
               },
             });
           }}
@@ -160,9 +169,8 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
                       description: `ต้องการถอด ${user.name} ออกจากบทบาท ${membership.role} ของ ${membership.village.name}`,
                       tone: "default",
                       action: async () => {
-                        const formData = new FormData();
-                        formData.set("membershipId", membership.id);
-                        await runAction(() => removeVillageAdminRoleAction(formData), "ถอดบทบาทผู้บริหารแล้ว", `${user.name} • ${membership.village.name}`);
+                        router.push(`/superadmin/villages/${membership.village.id}`);
+                        setDialogState(null);
                       },
                     });
                   }}
@@ -173,27 +181,6 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
             ))}
           </div>
         )}
-      </div>
-
-      <div className="mt-3">
-        <Button
-          type="button"
-          variant="danger"
-          onClick={() => {
-            setDialogState({
-              title: "ยืนยันระงับสมาชิกทุกหมู่บ้าน",
-              description: `ต้องการระงับสมาชิกทุกหมู่บ้านของ ${user.name}`,
-              tone: "danger",
-              action: async () => {
-                const formData = new FormData();
-                formData.set("userId", user.id);
-                await runAction(() => suspendUserMembershipsAction(formData), "ระงับสมาชิกแล้ว", user.name);
-              },
-            });
-          }}
-        >
-          ระงับสมาชิกทุกหมู่บ้านของผู้ใช้นี้
-        </Button>
       </div>
 
       <ConfirmDialog
