@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRegistrationFromRequest } from "@/lib/registration-temp";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   const registration = await getRegistrationFromRequest(request);
@@ -7,6 +8,11 @@ export async function GET(request: NextRequest) {
   if (!registration) {
     return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 200 });
   }
+  const [challenge, verifier] = await Promise.all([
+    prisma.registrationOtpChallenge.findUnique({ where: { phoneNumber: registration.phoneNumber } }),
+    prisma.registrationVerifierSession.findUnique({ where: { registrationId: registration.id } }),
+  ]);
+  if (!challenge || !verifier) return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 404 });
 
   return NextResponse.json({
     ok: true,
@@ -26,15 +32,16 @@ export async function GET(request: NextRequest) {
       status: registration.status,
       rejectReason: registration.rejectReason,
       rejectedAt: registration.rejectedAt?.toISOString() ?? null,
-      otpSentAt: registration.otpSentAt?.toISOString() ?? null,
-      resendAvailableAt: registration.otpSentAt
-        ? new Date(registration.otpSentAt.getTime() + 60_000).toISOString()
-        : null,
-      otpResendCount: registration.otpResendCount,
-      otpFailedCount: registration.otpFailedCount,
-      otpLastAttemptAt: registration.otpLastAttemptAt?.toISOString() ?? null,
-      otpLockedUntil: registration.otpLockedUntil?.toISOString() ?? null,
-      expiresAt: registration.expiresAt.toISOString(),
+      challengeId: challenge.id,
+      challengeStatus: challenge.status,
+      otpSentAt: challenge.otpSentAt?.toISOString() ?? null,
+      resendAvailableAt: challenge.resendAvailableAt?.toISOString() ?? null,
+      otpResendCount: challenge.resendCount,
+      otpFailedCount: verifier.failedAttempts,
+      otpLastAttemptAt: verifier.updatedAt.toISOString(),
+      otpLockedUntil: verifier.lockedUntil?.toISOString() ?? null,
+      retryAfterSeconds: verifier.nextAttemptAt ? Math.max(0, Math.ceil((verifier.nextAttemptAt.getTime() - Date.now()) / 1000)) : 0,
+      expiresAt: challenge.otpExpiresAt?.toISOString() ?? registration.expiresAt.toISOString(),
     },
   });
 }

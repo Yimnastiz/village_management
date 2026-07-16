@@ -32,6 +32,7 @@ type RegistrationDraft = {
   resendAvailableAt?: string | null;
   failedCount?: number;
   remainingAttempts?: number;
+  challengeId?: string;
   savedAt: number;
 };
 
@@ -91,6 +92,7 @@ function VerifyOTPContent() {
   const rawMode = searchParams.get("mode");
   const mode: VerifyMode = rawMode === "signup" ? "signup" : "signin";
   const registrationId = searchParams.get("registrationId")?.trim() || null;
+  const resumedRegistration = mode === "signup" && searchParams.get("resumed") === "1";
   const signupCallbackUrl = sanitizeInternalCallbackUrl(searchParams.get("callbackUrl"));
 
   const activeDraft = mode === "signup" ? serverDraft ?? draft : null;
@@ -101,7 +103,6 @@ function VerifyOTPContent() {
     ? signupCallbackUrl
     : sanitizeInternalCallbackUrl(loginState?.callbackUrl);
   const nationalId = (activeDraft?.nationalId ?? "").trim();
-  const registrationMode = "resident" as const;
   const name = (activeDraft?.name ?? "").trim();
   const province = (activeDraft?.province ?? "").trim();
   const district = (activeDraft?.district ?? "").trim();
@@ -221,21 +222,11 @@ function VerifyOTPContent() {
 
     try {
       if (mode === "signup") {
-        const resendResponse = await fetch("/api/auth/start-registration", {
+        const resendResponse = await fetch("/api/auth/resend-registration-otp", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({
-            phoneNumber: phone,
-            registrationMode,
-            name,
-            nationalId,
-            province,
-            district,
-            subdistrict,
-            villageId,
-            callbackUrl,
-          }),
+          body: JSON.stringify({}),
         });
 
         if (!resendResponse.ok) {
@@ -294,7 +285,7 @@ function VerifyOTPContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({ code, registrationId, challengeId: activeDraft?.challengeId }),
         });
 
         if (!verifyResponse.ok) {
@@ -347,6 +338,7 @@ function VerifyOTPContent() {
       <p className="mb-2 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {maskedPhone}</p>
       <p className={`mb-6 text-xs ${otpSeconds === 0 ? "text-red-600" : "text-gray-400"}`}>{otpSeconds === 0 ? "OTP หมดอายุแล้ว กรุณากดส่งอีกครั้ง" : <>รหัสจะหมดอายุใน {Math.floor(otpSeconds / 60)}:{String(otpSeconds % 60).padStart(2, "0")} นาที</>}</p>
       {isLocked ? <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">ระบบถูกล็อกชั่วคราว กรุณารอจนถึง {new Date(challengeTiming!.otpLockedUntil!).toLocaleString("th-TH")}</p> : null}
+      {resumedRegistration ? <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">พบรหัส OTP ที่ส่งไว้แล้ว กรุณากรอกรหัสที่ได้รับ หรือรอส่งรหัสใหม่</p> : null}
       {mode === "signin" && loginState?.outcome === "RESUME_EXISTING_CHALLENGE" ? <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-700">พบรหัส OTP ที่ส่งไว้แล้ว กรุณากรอกรหัสเดิม หรือรอส่งรหัสใหม่ได้ในอีก {resendSeconds} วินาที</p> : null}
       {mode === "signin" && typeof challengeTiming?.remainingAttempts === "number" ? <p className="mb-4 text-sm text-gray-600">เหลือโอกาสกรอก OTP อีก {challengeTiming.remainingAttempts} ครั้ง</p> : null}
 

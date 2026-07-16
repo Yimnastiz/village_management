@@ -1,29 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { RegistrationTempStatus } from "@prisma/client";
+import { AccountStatus, RegistrationTempStatus } from "@prisma/client";
+import { toPhoneCandidates } from "@/lib/registration-temp";
 
 const checkRegistrationSchema = z.object({
   phoneNumber: z.string().trim().min(1),
 });
-
-function normalizePhone10(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 10);
-}
-
-function toPhoneCandidates(raw: string): string[] {
-  const normalized = normalizePhone10(raw);
-  if (!/^\d{10}$/.test(normalized)) {
-    return [];
-  }
-
-  const candidates = new Set<string>([normalized]);
-  if (normalized.startsWith("0")) {
-    candidates.add(`+66${normalized.slice(1)}`);
-  }
-
-  return Array.from(candidates);
-}
 
 export async function POST(request: NextRequest) {
   const payload = await request.json().catch(() => null);
@@ -46,6 +29,7 @@ export async function POST(request: NextRequest) {
       phoneNumber: {
         in: candidates,
       },
+      accountStatus: AccountStatus.ACTIVE,
     },
     select: {
       id: true,

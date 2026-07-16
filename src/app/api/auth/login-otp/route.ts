@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (!phoneNumber) return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });
 
   const user = await prisma.user.findFirst({
-    where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] } },
+    where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "ACTIVE" },
     select: { phoneNumber: true },
   });
   if (!user) return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });

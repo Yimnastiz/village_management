@@ -21,6 +21,7 @@ function LoginContent() {
 
   const callbackUrl = sanitizeInternalCallbackUrl(searchParams.get("callbackUrl"));
   const registered = (searchParams.get("registered") ?? "").trim() === "success";
+  const deletionPending = searchParams.get("accountDeletion") === "pending";
   const registerHref = callbackUrl
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/register";
@@ -104,6 +105,7 @@ function LoginContent() {
           สมัครลงทะเบียนเสร็จสิ้นแล้ว สามารถล็อกอินเข้าเว็บไซต์ได้
         </div>
       )}
+      {deletionPending ? <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"><p>บัญชีอยู่ระหว่างระยะผ่อนผันการปิด 7 วัน คุณสามารถยกเลิกคำขอจาก Browser เดิมได้</p><button type="button" className="mt-2 font-medium underline" onClick={async () => { const response = await fetch("/api/auth/account-deletion", { method: "DELETE" }); if (response.ok) router.replace("/auth/login?accountDeletion=cancelled"); else setError("ไม่สามารถยกเลิกคำขอได้"); }}>ยกเลิกคำขอปิดบัญชี</button></div> : null}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input

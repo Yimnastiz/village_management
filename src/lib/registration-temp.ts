@@ -33,7 +33,10 @@ export type RegistrationTempRecord = {
 };
 
 export function normalizePhone10(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 10);
+  const digits = raw.replace(/\D/g, "");
+  if (/^0\d{9}$/.test(digits)) return digits;
+  if (/^66\d{9}$/.test(digits)) return `0${digits.slice(2)}`;
+  return "";
 }
 
 export function toPhoneCandidates(raw: string): string[] {

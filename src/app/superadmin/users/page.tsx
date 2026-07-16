@@ -3,6 +3,7 @@ import { QueryPagination } from "@/components/ui/query-pagination";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { UserManagementCard } from "./user-management-client";
+import { finalizeDueAccountDeletions } from "@/lib/account-deletion";
 
 const ADMIN_ROLES = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
@@ -12,6 +13,7 @@ type PageProps = {
 
 export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
   await requireSuperAdminPageSession();
+  await finalizeDueAccountDeletions();
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
   const systemRole = (params.systemRole ?? "all").trim();
@@ -50,6 +52,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
         name: true,
         phoneNumber: true,
         systemRole: true,
+        accountStatus: true,
         memberships: {
           select: {
             id: true,

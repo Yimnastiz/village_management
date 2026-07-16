@@ -1,165 +1,95 @@
+import { createHash } from "node:crypto";
+import { RegistrationOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
-import {
-  REGISTRATION_OTP_MAX_RESENDS,
-  createRegistrationCookie,
-  findPendingRegistrationByPhone,
-  getRegistrationLockMessage,
-  getRegistrationResendCooldownMessage,
-  REGISTRATION_OTP_TTL_SECONDS,
-  hasExistingUserWithPhone,
-  normalizePhone10,
-} from "@/lib/registration-temp";
+import { createRegistrationCookie, hasExistingUserWithPhone, normalizePhone10, REGISTRATION_OTP_TTL_SECONDS } from "@/lib/registration-temp";
+import { finalizeAccountDeletion } from "@/lib/account-deletion";
 
-const startRegistrationSchema = z.object({
-  phoneNumber: z.string().trim().min(1),
-  registrationMode: z.literal("resident").optional(),
-  // accept either `name` or `firstName`+`lastName` from different clients
-  name: z.string().trim().min(1).optional(),
-  firstName: z.string().trim().optional(),
-  lastName: z.string().trim().optional(),
-  nationalId: z.string().trim().regex(/^\d{13}$/),
-  province: z.string().trim().min(1),
-  district: z.string().trim().min(1),
-  subdistrict: z.string().trim().min(1),
-  villageId: z.string().trim().min(1),
-  // accept null from some clients or a trimmed string
-  callbackUrl: z.string().trim().nullable().optional(),
+const schema = z.object({
+  phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
+  name: z.string().trim().min(1).optional(), firstName: z.string().trim().optional(), lastName: z.string().trim().optional(),
+  nationalId: z.string().trim().regex(/^\d{13}$/), province: z.string().trim().min(1), district: z.string().trim().min(1),
+  subdistrict: z.string().trim().min(1), villageId: z.string().trim().min(1), callbackUrl: z.string().trim().nullable().optional(),
 });
 
+function ipHash(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "unknown";
+  return createHash("sha256").update(ip).digest("hex");
+}
+
 export async function POST(request: NextRequest) {
-  let payload: unknown = null;
-  try {
-    payload = await request.json();
-  } catch {
-    try {
-      const raw = await request.text();
-      console.error("start-registration: failed to parse JSON body", { hasBody: raw.length > 0, bodyLength: raw.length });
-      payload = raw ? JSON.parse(raw) : null;
-    } catch (e) {
-      console.error("start-registration: unable to parse body", e);
-      payload = null;
-    }
-  }
+  const parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
+  const phoneNumber = normalizePhone10(parsed.data.phoneNumber);
+  if (!phoneNumber) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
+  const dueAccount = await prisma.user.findFirst({ where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "DELETION_PENDING", scheduledDeletionAt: { lte: new Date() } }, select: { id: true } });
+  if (dueAccount) await finalizeAccountDeletion(dueAccount.id);
+  if (await hasExistingUserWithPhone(phoneNumber)) return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });
+  const name = parsed.data.name ?? `${parsed.data.firstName ?? ""} ${parsed.data.lastName ?? ""}`.trim();
+  if (!name) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
 
-  const parsed = startRegistrationSchema.safeParse(payload);
-  if (!parsed.success) {
-    console.error("start-registration: validation failed", parsed.error.format());
-    return NextResponse.json({ error: "Invalid registration payload", details: parsed.error.format() }, { status: 400 });
-  }
-
-  const normalizedPhone = normalizePhone10(parsed.data.phoneNumber);
-  if (!/^\d{10}$/.test(normalizedPhone)) {
-    return NextResponse.json(
-      { error: "Phone number must be exactly 10 digits." },
-      { status: 400 }
-    );
-  }
-
-  if (await hasExistingUserWithPhone(normalizedPhone)) {
-    return NextResponse.json(
-      { error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบหรือใช้เบอร์อื่น" },
-      { status: 409 }
-    );
-  }
-
-  const existingPending = await findPendingRegistrationByPhone(normalizedPhone);
-  const expiresAt = new Date(Date.now() + REGISTRATION_OTP_TTL_SECONDS * 1000);
   const now = new Date();
-
-  let registration;
-  // compute name if provided as firstName+lastName
-  const providedName = parsed.data.name ?? `${parsed.data.firstName ?? ""} ${parsed.data.lastName ?? ""}`.trim();
-  if (!providedName) {
-    return NextResponse.json({ error: "Invalid registration payload: name missing" }, { status: 400 });
-  }
-
-  // Public registration is always resident. Administrative roles are appointed
-  // through the authenticated super-admin flow only.
-  const registrationMode = "RESIDENT" as const;
-
-  if (existingPending) {
-    const lockMessage = getRegistrationLockMessage(existingPending.otpLockedUntil, now);
-    if (lockMessage) {
-      return NextResponse.json({ error: lockMessage }, { status: 423 });
-    }
-
-    const cooldownMessage = getRegistrationResendCooldownMessage(existingPending.otpSentAt, now);
-    if (cooldownMessage) {
-      return NextResponse.json({ error: cooldownMessage }, { status: 429 });
-    }
-
-    if (existingPending.otpResendCount >= REGISTRATION_OTP_MAX_RESENDS) {
-      const lockedUntil = new Date(now.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000);
-      await prisma.registrationTemp.update({
-        where: { id: existingPending.id },
-        data: {
-          otpLockedUntil: lockedUntil,
-        },
-      });
-
-      return NextResponse.json(
-        { error: `ส่ง OTP ได้สูงสุด ${REGISTRATION_OTP_MAX_RESENDS} ครั้ง กรุณารอแล้วลองใหม่อีกครั้ง` },
-        { status: 429 }
-      );
-    }
-
-    // Persist new countdown timestamps only after the OTP provider accepted the send.
-    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: normalizedPhone } });
-    registration = await prisma.registrationTemp.update({
-      where: { id: existingPending.id },
+  const hash = ipHash(request);
+  const prepared = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`registration-otp:${phoneNumber}`}))`;
+    const recentSessions = await tx.registrationVerifierSession.count({ where: { ipHash: hash, createdAt: { gt: new Date(now.getTime() - 15 * 60_000) } } });
+    if (recentSessions >= 10) return { limited: true as const };
+    const challenge = await tx.registrationOtpChallenge.findUnique({ where: { phoneNumber } });
+    const resumable = challenge && (challenge.status === RegistrationOtpChallengeStatus.PENDING_SEND || challenge.status === RegistrationOtpChallengeStatus.ACTIVE)
+      && Boolean(challenge.otpExpiresAt ? challenge.otpExpiresAt > now : now.getTime() - challenge.updatedAt.getTime() < 30_000);
+    const draft = await tx.registrationTemp.create({
       data: {
-        registrationMode,
-        name: providedName,
-        nationalId: parsed.data.nationalId,
-        province: parsed.data.province,
-        district: parsed.data.district,
-        subdistrict: parsed.data.subdistrict,
-        villageId: parsed.data.villageId,
-        callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
-        status: "WAITING_OTP",
-        expiresAt,
-        otpSentAt: now,
-        otpResendCount: existingPending.otpResendCount + 1,
-        otpFailedCount: 0,
-        otpLastAttemptAt: null,
-        otpLockedUntil: null,
+        phoneNumber, registrationMode: "RESIDENT", name, nationalId: parsed.data.nationalId,
+        province: parsed.data.province, district: parsed.data.district, subdistrict: parsed.data.subdistrict,
+        villageId: parsed.data.villageId, callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
+        expiresAt: challenge?.otpExpiresAt && challenge.otpExpiresAt > now ? challenge.otpExpiresAt : new Date(now.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000),
       },
     });
-  } else {
-    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: normalizedPhone } });
-    registration = await prisma.registrationTemp.create({
-      data: {
-        phoneNumber: normalizedPhone,
-        registrationMode,
-        name: providedName,
-        nationalId: parsed.data.nationalId,
-        province: parsed.data.province,
-        district: parsed.data.district,
-        subdistrict: parsed.data.subdistrict,
-        villageId: parsed.data.villageId,
-        callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
-        expiresAt,
-        otpSentAt: now,
-        otpResendCount: 1,
-        otpFailedCount: 0,
-      },
+    await tx.registrationVerifierSession.create({ data: { registrationId: draft.id, ipHash: hash, expiresAt: new Date(now.getTime() + 20 * 60_000) } });
+    if (resumable) return { limited: false as const, resume: true as const, draft, challenge };
+    await tx.authVerification.deleteMany({ where: { identifier: phoneNumber } });
+    const reserved = await tx.registrationOtpChallenge.upsert({
+      where: { phoneNumber },
+      create: { phoneNumber, otpIdentifier: phoneNumber, status: RegistrationOtpChallengeStatus.PENDING_SEND, sendWindowStartedAt: now, sendCount: 1 },
+      update: { otpIdentifier: phoneNumber, status: RegistrationOtpChallengeStatus.PENDING_SEND, sendCount: { increment: 1 } },
     });
-  }
-
-  const response = NextResponse.json({
-    ok: true,
-    registrationId: registration.id,
-    data: {
-      otpSentAt: registration.otpSentAt?.toISOString() ?? now.toISOString(),
-      expiresAt: registration.expiresAt.toISOString(),
-      resendAvailableAt: new Date((registration.otpSentAt ?? now).getTime() + 60_000).toISOString(),
-      otpLockedUntil: registration.otpLockedUntil?.toISOString() ?? null,
-    },
+    return { limited: false as const, resume: false as const, draft, challenge: reserved };
   });
-  createRegistrationCookie(response, registration.id);
+  if (prepared.limited) return NextResponse.json({ error: "Too many verification sessions.", retryAfterSeconds: 900 }, { status: 429 });
+
+  let challenge = prepared.challenge;
+  let outcome = "RESUME_EXISTING_CHALLENGE";
+  if (prepared.resume && challenge.status === RegistrationOtpChallengeStatus.PENDING_SEND) {
+    for (let attempt = 0; attempt < 20 && challenge.status === RegistrationOtpChallengeStatus.PENDING_SEND; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      challenge = await prisma.registrationOtpChallenge.findUniqueOrThrow({ where: { id: challenge.id } });
+    }
+  }
+  if (!prepared.resume) {
+    try {
+      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber } });
+      const sentAt = new Date();
+      challenge = await prisma.registrationOtpChallenge.update({
+        where: { id: challenge.id },
+        data: { status: RegistrationOtpChallengeStatus.ACTIVE, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000), resendAvailableAt: new Date(sentAt.getTime() + 60_000), resendCount: { increment: 1 } },
+      });
+      await prisma.registrationTemp.update({ where: { id: prepared.draft.id }, data: { expiresAt: challenge.otpExpiresAt!, otpSentAt: sentAt } });
+      outcome = "OTP_SENT";
+    } catch {
+      await prisma.$transaction([
+        prisma.authVerification.deleteMany({ where: { identifier: phoneNumber } }),
+        prisma.registrationOtpChallenge.update({ where: { id: challenge.id }, data: { status: RegistrationOtpChallengeStatus.SEND_FAILED } }),
+      ]);
+      return NextResponse.json({ error: "OTP provider could not send the code." }, { status: 502 });
+    }
+  }
+  const response = NextResponse.json({ ok: true, outcome, registrationId: prepared.draft.id, data: {
+    otpSentAt: challenge.otpSentAt?.toISOString() ?? null, expiresAt: challenge.otpExpiresAt?.toISOString() ?? null,
+    resendAvailableAt: challenge.resendAvailableAt?.toISOString() ?? null, otpLockedUntil: null,
+  } });
+  createRegistrationCookie(response, prepared.draft.id);
   return response;
 }

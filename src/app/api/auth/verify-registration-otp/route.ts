@@ -1,185 +1,77 @@
+import { RegistrationOtpChallengeStatus, RegistrationTempStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { clearRegistrationCookie, getRegistrationFromRequest, normalizePhone10, toPhoneCandidates } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
-import {
-  clearRegistrationCookie,
-  getRegistrationFromRequest,
-  getRegistrationAttemptCooldownMessage,
-  getRegistrationLockMessage,
-  REGISTRATION_OTP_LOCK_DURATION_MS,
-  REGISTRATION_OTP_MAX_FAILED_ATTEMPTS,
-  normalizePhone10,
-  toPhoneCandidates,
-} from "@/lib/registration-temp";
 
-const verifyOtpSchema = z.object({
-  code: z.string().trim().length(6),
-});
+const schema = z.object({ code: z.string().trim().regex(/^\d{6}$/), registrationId: z.string().min(1), challengeId: z.string().min(1) });
+const DELAYS = [2, 5, 15, 30, 30] as const;
 
 export async function POST(request: NextRequest) {
-  const payload = await request.json().catch(() => null);
-  const parsed = verifyOtpSchema.safeParse(payload);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid OTP payload" }, { status: 400 });
-  }
-
-  const registration = await getRegistrationFromRequest(request);
-  if (!registration) {
-    return NextResponse.json({ error: "No pending registration or OTP expired." }, { status: 404 });
-  }
-
-  if (registration.status === "REJECTED") {
-    return NextResponse.json(
-      {
-        error: registration.rejectReason
-          ? `คำขอสมัครของคุณถูกปฏิเสธ: ${registration.rejectReason}`
-          : "คำขอสมัครของคุณถูกปฏิเสธ กรุณาเริ่มสมัครใหม่",
-      },
-      { status: 403 }
-    );
-  }
-
-  if (registration.status !== "WAITING_OTP") {
-    return NextResponse.json({ error: "No pending registration or OTP expired." }, { status: 404 });
-  }
-
+  const parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Invalid OTP payload" }, { status: 400 });
+  const draft = await getRegistrationFromRequest(request);
+  if (!draft || draft.status !== RegistrationTempStatus.WAITING_OTP) return NextResponse.json({ error: "No pending registration." }, { status: 404 });
+  if (draft.id !== parsed.data.registrationId) return NextResponse.json({ error: "Registration draft mismatch." }, { status: 403 });
+  const phoneNumber = normalizePhone10(draft.phoneNumber);
   const now = new Date();
-  const lockMessage = getRegistrationLockMessage(registration.otpLockedUntil, now);
-  if (lockMessage) {
-    return NextResponse.json({ error: lockMessage }, { status: 423 });
-  }
 
-  const cooldownMessage = getRegistrationAttemptCooldownMessage(registration.otpLastAttemptAt, now);
-  if (cooldownMessage) {
-    return NextResponse.json({ error: cooldownMessage }, { status: 429 });
-  }
-
-  const normalizedPhoneNumber = normalizePhone10(registration.phoneNumber);
-  const candidates = toPhoneCandidates(normalizedPhoneNumber);
-
-  const existingUser = await prisma.user.findFirst({
-    where: { phoneNumber: { in: candidates } },
-    select: { id: true },
-  });
-
-  if (existingUser) {
-    return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบหรือใช้เบอร์อื่น" }, { status: 409 });
-  }
-
-  // Use the exact same identifier format used when sending the OTP.
-  const phoneNumber = normalizedPhoneNumber;
-
-  let verifyResult: Awaited<ReturnType<typeof auth.api.verifyPhoneNumber>> | null = null;
-  try {
-    verifyResult = await auth.api.verifyPhoneNumber({ body: { phoneNumber, code: parsed.data.code } });
-  } catch (err: unknown) {
-    console.error("verify-registration-otp: verifyPhoneNumber failed", {
-      errorName: err instanceof Error ? err.name : "UnknownError",
+  const result = await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`registration-otp:${phoneNumber}`}))`;
+    const [currentDraft, verifier, challenge] = await Promise.all([
+      tx.registrationTemp.findUnique({ where: { id: draft.id } }),
+      tx.registrationVerifierSession.findUnique({ where: { registrationId: draft.id } }),
+      tx.registrationOtpChallenge.findUnique({ where: { phoneNumber } }),
+    ]);
+    if (!currentDraft || currentDraft.status !== RegistrationTempStatus.WAITING_OTP || !verifier || !challenge || challenge.id !== parsed.data.challengeId || challenge.status !== RegistrationOtpChallengeStatus.ACTIVE) return { type: "inactive" as const };
+    if (!challenge.otpExpiresAt || challenge.otpExpiresAt <= now) return { type: "expired" as const };
+    if (verifier.lockedUntil && verifier.lockedUntil > now) return { type: "limited" as const, retryAt: verifier.lockedUntil };
+    if (verifier.nextAttemptAt && verifier.nextAttemptAt > now) return { type: "limited" as const, retryAt: verifier.nextAttemptAt };
+    const ipFailures = await tx.registrationVerifierSession.aggregate({
+      where: { ipHash: verifier.ipHash, updatedAt: { gt: new Date(now.getTime() - 15 * 60_000) } },
+      _sum: { failedAttempts: true },
     });
-    const nextFailedCount = registration.otpFailedCount + 1;
-    const lockedUntil = nextFailedCount >= REGISTRATION_OTP_MAX_FAILED_ATTEMPTS
-      ? new Date(now.getTime() + REGISTRATION_OTP_LOCK_DURATION_MS)
-      : null;
-
-    await prisma.registrationTemp.update({
-      where: { id: registration.id },
-      data: {
-        otpFailedCount: nextFailedCount,
-        otpLastAttemptAt: now,
-        otpLockedUntil: lockedUntil,
-      },
-    });
-
-    if (lockedUntil) {
-      return NextResponse.json(
-        {
-          error: `กรอกรหัสผิดเกินกำหนด ระบบถูกล็อกชั่วคราวประมาณ ${Math.ceil(REGISTRATION_OTP_LOCK_DURATION_MS / 60000)} นาที`,
-        },
-        { status: 423 }
-      );
+    if ((ipFailures._sum.failedAttempts ?? 0) >= 20) return { type: "limited" as const, retryAt: new Date(now.getTime() + 15 * 60_000) };
+    const verification = await tx.authVerification.findFirst({ where: { identifier: challenge.otpIdentifier, expiresAt: { gt: now } }, orderBy: { updatedAt: "desc" } });
+    if (!verification) return { type: "expired" as const };
+    const separator = verification.value.lastIndexOf(":");
+    const storedCode = separator >= 0 ? verification.value.slice(0, separator) : verification.value;
+    if (storedCode !== parsed.data.code) {
+      const failedAttempts = verifier.failedAttempts + 1;
+      const delay = DELAYS[Math.min(failedAttempts, DELAYS.length) - 1] ?? 30;
+      const lockedUntil = failedAttempts >= 5 ? new Date(now.getTime() + 15 * 60_000) : null;
+      await tx.registrationVerifierSession.update({
+        where: { id: verifier.id },
+        data: { failedAttempts, nextAttemptAt: new Date(now.getTime() + delay * 1000), lockedUntil },
+      });
+      return { type: "invalid" as const, remaining: Math.max(0, 5 - failedAttempts), retryAt: lockedUntil ?? new Date(now.getTime() + delay * 1000) };
     }
-
-    return NextResponse.json(
-      {
-        error: `OTP ไม่ถูกต้อง เหลือโอกาสอีก ${REGISTRATION_OTP_MAX_FAILED_ATTEMPTS - nextFailedCount} ครั้ง`,
-      },
-      { status: 401 }
-    );
-  }
-
-  if (!verifyResult?.status) {
-    const nextFailedCount = registration.otpFailedCount + 1;
-    const lockedUntil = nextFailedCount >= REGISTRATION_OTP_MAX_FAILED_ATTEMPTS
-      ? new Date(now.getTime() + REGISTRATION_OTP_LOCK_DURATION_MS)
-      : null;
-
-    await prisma.registrationTemp.update({
-      where: { id: registration.id },
+    const existingUser = await tx.user.findFirst({ where: { phoneNumber: { in: toPhoneCandidates(phoneNumber) } }, select: { id: true } });
+    if (existingUser) return { type: "exists" as const };
+    const user = await tx.user.create({
       data: {
-        otpFailedCount: nextFailedCount,
-        otpLastAttemptAt: now,
-        otpLockedUntil: lockedUntil,
+        phoneNumber, phoneNumberVerified: true, name: currentDraft.name, systemRole: "USER",
+        registrationProvince: currentDraft.province, registrationDistrict: currentDraft.district,
+        registrationSubdistrict: currentDraft.subdistrict, registrationVillageId: currentDraft.villageId,
+        citizenVerifiedAt: null, consentAt: now,
       },
+      select: { id: true },
     });
+    await tx.registrationTemp.update({ where: { id: currentDraft.id }, data: { status: RegistrationTempStatus.VERIFIED } });
+    await tx.registrationTemp.updateMany({ where: { phoneNumber, id: { not: currentDraft.id }, status: RegistrationTempStatus.WAITING_OTP }, data: { status: RegistrationTempStatus.CANCELLED } });
+    await tx.registrationOtpChallenge.update({ where: { id: challenge.id }, data: { status: RegistrationOtpChallengeStatus.CONSUMED } });
+    await tx.authVerification.deleteMany({ where: { identifier: challenge.otpIdentifier } });
+    return { type: "verified" as const, userId: user.id };
+  });
 
-    if (lockedUntil) {
-      return NextResponse.json(
-        {
-          error: `กรอกรหัสผิดเกินกำหนด ระบบถูกล็อกชั่วคราวประมาณ ${Math.ceil(REGISTRATION_OTP_LOCK_DURATION_MS / 60000)} นาที`,
-        },
-        { status: 423 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        error: `OTP ไม่ถูกต้อง เหลือโอกาสอีก ${REGISTRATION_OTP_MAX_FAILED_ATTEMPTS - nextFailedCount} ครั้ง`,
-      },
-      { status: 401 }
-    );
+  if (result.type === "limited" || result.type === "invalid") {
+    const retryAfterSeconds = Math.max(1, Math.ceil((result.retryAt.getTime() - Date.now()) / 1000));
+    return NextResponse.json({ error: result.type === "invalid" ? `OTP ไม่ถูกต้อง เหลือโอกาสอีก ${result.remaining} ครั้ง` : "กรุณารอก่อนลองใหม่", retryAfterSeconds }, { status: 429, headers: { "Retry-After": String(retryAfterSeconds) } });
   }
-
-  const verifiedAt = new Date();
-  const createdUser = await prisma.user.upsert({
-    where: { phoneNumber: normalizedPhoneNumber },
-    update: {
-      phoneNumberVerified: true,
-      name: registration.name,
-      systemRole: "USER",
-      registrationProvince: registration.province,
-      registrationDistrict: registration.district,
-      registrationSubdistrict: registration.subdistrict,
-      registrationVillageId: registration.villageId,
-      citizenVerifiedAt: null,
-      consentAt: verifiedAt,
-    },
-    create: {
-      phoneNumber: normalizedPhoneNumber,
-      phoneNumberVerified: true,
-      name: registration.name,
-      systemRole: "USER",
-      registrationProvince: registration.province,
-      registrationDistrict: registration.district,
-      registrationSubdistrict: registration.subdistrict,
-      registrationVillageId: registration.villageId,
-      citizenVerifiedAt: null,
-      consentAt: verifiedAt,
-    },
-  });
-
-  await prisma.registrationTemp.update({
-    where: { id: registration.id },
-    data: {
-      status: "VERIFIED",
-      otpFailedCount: 0,
-      otpResendCount: 0,
-      otpLastAttemptAt: now,
-      otpLockedUntil: null,
-    },
-  });
-
-  const response = NextResponse.json({ ok: true, userId: createdUser.id });
+  if (result.type === "expired") return NextResponse.json({ error: "OTP หมดอายุแล้ว" }, { status: 410 });
+  if (result.type === "exists") return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });
+  if (result.type !== "verified") return NextResponse.json({ error: "Registration challenge is no longer active." }, { status: 409 });
+  const response = NextResponse.json({ ok: true, userId: result.userId });
   clearRegistrationCookie(response);
   return response;
 }

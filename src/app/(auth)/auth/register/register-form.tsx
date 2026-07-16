@@ -293,7 +293,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         );
       }
 
-      const startData = (await startResponse.json()) as { registrationId?: string };
+      const startData = (await startResponse.json()) as { registrationId?: string; outcome?: string };
       const params = new URLSearchParams({
         mode: "signup",
       });
@@ -301,6 +301,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       if (startData.registrationId) {
         params.set("registrationId", startData.registrationId);
       }
+      if (startData.outcome === "RESUME_EXISTING_CHALLENGE") params.set("resumed", "1");
 
       if (callbackUrl) {
         params.set("callbackUrl", callbackUrl);

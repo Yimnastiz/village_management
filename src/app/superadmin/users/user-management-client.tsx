@@ -25,6 +25,7 @@ type UserRow = {
   name: string;
   phoneNumber: string;
   systemRole: string;
+  accountStatus: string;
   memberships: MembershipRow[];
 };
 
@@ -66,6 +67,7 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
           <p className="text-xs text-slate-500">{user.phoneNumber} • {user.id}</p>
         </div>
         <div className="flex items-center gap-2">
+          <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">{user.accountStatus}</span>
           <span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.systemRole === "SUPERADMIN" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
             {user.systemRole}
           </span>

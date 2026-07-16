@@ -32,6 +32,19 @@ enum RegistrationTempStatus {
   CANCELLED
 }
 
+enum RegistrationOtpChallengeStatus {
+  PENDING_SEND
+  ACTIVE
+  SEND_FAILED
+  CONSUMED
+}
+
+enum AccountStatus {
+  ACTIVE
+  DELETION_PENDING
+  ANONYMIZED
+}
+
 enum MembershipStatus {
   PENDING
   ACTIVE
@@ -277,6 +290,11 @@ model User {
   consentAt               DateTime?
   createdAt               DateTime   @default(now())
   updatedAt               DateTime   @updatedAt
+  accountStatus           AccountStatus @default(ACTIVE)
+  deletionRequestedAt     DateTime?
+  scheduledDeletionAt     DateTime?
+  anonymizedAt            DateTime?
+  deletionRecoveryHash    String?
 
   authSessions            AuthSession[]
   authAccounts            AuthAccount[]
@@ -1170,9 +1188,62 @@ model RegistrationTemp {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
+  verifierSessions RegistrationVerifierSession[]
+
   @@index([phoneNumber])
   @@index([status])
   @@index([expiresAt])
+}
+
+model RegistrationOtpChallenge {
+  id                    String                         @id @default(cuid())
+  phoneNumber           String                         @unique
+  otpIdentifier         String
+  status                RegistrationOtpChallengeStatus @default(PENDING_SEND)
+  otpSentAt             DateTime?
+  otpExpiresAt          DateTime?
+  resendAvailableAt     DateTime?
+  resendCount           Int                            @default(0)
+  sendWindowStartedAt   DateTime
+  sendCount             Int                            @default(0)
+  createdAt             DateTime                       @default(now())
+  updatedAt             DateTime                       @updatedAt
+
+  @@index([status])
+}
+
+model RegistrationVerifierSession {
+  id              String           @id @default(cuid())
+  registrationId  String
+  ipHash          String
+  failedAttempts  Int              @default(0)
+  nextAttemptAt   DateTime?
+  lockedUntil     DateTime?
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  registration RegistrationTemp @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId])
+  @@index([ipHash, createdAt])
+  @@index([expiresAt])
+}
+
+model AccountDeletionChallenge {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  phoneNumber       String
+  otpSentAt         DateTime
+  otpExpiresAt      DateTime
+  resendAvailableAt DateTime
+  failedAttempts    Int      @default(0)
+  lockedUntil       DateTime?
+  verifiedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([otpExpiresAt])
 }
 
 model PhoneRoleSeed {

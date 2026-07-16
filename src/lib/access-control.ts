@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { MembershipStatus, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AccountStatus, MembershipStatus, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
 
@@ -121,6 +121,7 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
     }
     return null;
   }
+  if (session.user.accountStatus !== AccountStatus.ACTIVE) return null;
 
   const normalizedBootstrapPhone = process.env.DEV_BOOTSTRAP_PHONE
     ? normalizePhoneNumber(process.env.DEV_BOOTSTRAP_PHONE)
