@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { LoginOtpChallenge } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import type { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -7,19 +9,14 @@ export const LOGIN_OTP_TTL_MS = 5 * 60 * 1000;
 export const LOGIN_OTP_RESEND_COOLDOWN_MS = 60 * 1000;
 export const LOGIN_OTP_LOCK_MS = 15 * 60 * 1000;
 export const LOGIN_OTP_MAX_FAILED = 5;
-
-export type LoginOtpChallengeState = {
-  phoneNumber: string;
-  ipHash: string;
-  sentAt: string;
-  resendAvailableAt: string;
-  otpExpiresAt: string;
-  failedCount: number;
-  lockedUntil: string | null;
-};
+export const LOGIN_OTP_SEND_WINDOW_MS = 15 * 60 * 1000;
+export const LOGIN_OTP_MAX_SENDS_PER_WINDOW = 5;
 
 export function normalizeLoginPhone(raw: string) {
-  return raw.replace(/\D/g, "").slice(0, 10);
+  const digits = raw.replace(/\D/g, "");
+  if (/^0\d{9}$/.test(digits)) return digits;
+  if (/^66\d{9}$/.test(digits)) return `0${digits.slice(2)}`;
+  return "";
 }
 
 export function requestIpHash(request: NextRequest) {
@@ -33,10 +30,10 @@ export function newLoginChallengeId() {
   return randomUUID();
 }
 
-export function setLoginChallengeCookie(response: NextResponse, challengeId: string) {
+export function setLoginChallengeCookie(response: NextResponse, challengeToken: string) {
   response.cookies.set({
     name: LOGIN_OTP_COOKIE,
-    value: challengeId,
+    value: challengeToken,
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -45,30 +42,30 @@ export function setLoginChallengeCookie(response: NextResponse, challengeId: str
   });
 }
 
-export async function loadLoginChallenge(request: NextRequest) {
-  const challengeId = request.cookies.get(LOGIN_OTP_COOKIE)?.value;
-  if (!challengeId) return null;
-  const record = await prisma.authVerification.findFirst({
-    where: { identifier: `login-otp:${challengeId}` },
-    orderBy: { updatedAt: "desc" },
+export async function withLoginPhoneLock<T>(phoneNumber: string, operation: (tx: Prisma.TransactionClient) => Promise<T>) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`login-otp:${phoneNumber}`}))`;
+    return operation(tx);
   });
-  if (!record) return null;
-  try {
-    const state = JSON.parse(record.value) as LoginOtpChallengeState;
-    if (!/^\d{10}$/.test(state.phoneNumber) || typeof state.failedCount !== "number") return null;
-    return { record, state, challengeId };
-  } catch {
-    return null;
-  }
 }
 
-export function publicLoginChallengeState(state: LoginOtpChallengeState, expiresAt: Date) {
+export async function loadLoginChallenge(request: NextRequest) {
+  const challengeToken = request.cookies.get(LOGIN_OTP_COOKIE)?.value;
+  if (!challengeToken) return null;
+  return prisma.loginOtpChallenge.findUnique({ where: { challengeToken } });
+}
+
+export function publicLoginChallengeState(challenge: LoginOtpChallenge) {
   return {
-    otpSentAt: state.sentAt,
-    expiresAt: state.otpExpiresAt ?? expiresAt.toISOString(),
-    resendAvailableAt: state.resendAvailableAt,
-    otpLockedUntil: state.lockedUntil,
-    failedCount: state.failedCount,
-    remainingAttempts: Math.max(0, LOGIN_OTP_MAX_FAILED - state.failedCount),
+    otpSentAt: challenge.otpSentAt?.toISOString() ?? null,
+    expiresAt: challenge.otpExpiresAt?.toISOString() ?? null,
+    resendAvailableAt: challenge.resendAvailableAt?.toISOString() ?? null,
+    otpLockedUntil: challenge.lockedUntil?.toISOString() ?? null,
+    failedCount: challenge.failedAttempts,
+    remainingAttempts: Math.max(0, LOGIN_OTP_MAX_FAILED - challenge.failedAttempts),
   };
+}
+
+export function retryAfterSeconds(until: Date | null, now = new Date()) {
+  return until ? Math.max(1, Math.ceil((until.getTime() - now.getTime()) / 1000)) : 0;
 }

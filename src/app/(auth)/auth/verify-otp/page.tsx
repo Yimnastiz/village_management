@@ -256,8 +256,9 @@ function VerifyOTPContent() {
       } else {
         const resendResult = await fetch("/api/auth/login-otp", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ phoneNumber: phone }) });
         const resendBody = (await resendResult.json().catch(() => null)) as { error?: string; data?: RegistrationDraft } | null;
-        if (!resendResult.ok) throw new Error(resendBody?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
         if (resendBody?.data?.expiresAt && resendBody.data.resendAvailableAt) setChallengeTiming({ expiresAt: resendBody.data.expiresAt, resendAvailableAt: resendBody.data.resendAvailableAt, otpLockedUntil: resendBody.data.otpLockedUntil });
+        if (!resendResult.ok) throw new Error(resendBody?.error ?? "ส่ง OTP ซ้ำไม่สำเร็จ");
+        setOtp(["", "", "", "", "", ""]);
       }
 
       setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
@@ -442,7 +443,7 @@ function VerifyOTPContent() {
       <div className="mt-4 space-y-3 text-center text-sm text-gray-500">
         <p>
           ยังไม่ได้รับ OTP?{" "}
-          <button type="button" onClick={handleResend} disabled={isResending || resendSeconds > 0 || isLoading} className="text-green-600 hover:underline disabled:text-gray-400 disabled:no-underline">
+          <button type="button" onClick={handleResend} disabled={isResending || resendSeconds > 0 || isLoading || isLocked} className="text-green-600 hover:underline disabled:text-gray-400 disabled:no-underline">
             {isResending ? "กำลังส่ง..." : resendSeconds > 0 ? `ส่งอีกครั้งได้ใน ${resendSeconds} วินาที` : "ส่งอีกครั้ง"}
           </button>
         </p>

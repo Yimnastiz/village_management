@@ -20,28 +20,6 @@ function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s-]/g, "");
 }
 
-const otpSendState = new Map<string, { windowStartedAt: number; sentAt: number; count: number }>();
-const otpSendsInFlight = new Set<string>();
-const OTP_SEND_COOLDOWN_MS = 60_000;
-const OTP_SEND_WINDOW_MS = 15 * 60_000;
-const OTP_SEND_MAX_PER_WINDOW = 5;
-
-function reserveOtpSend(rawPhone: string): () => void {
-  const phone = normalizePhoneNumber(rawPhone);
-  const now = Date.now();
-  if (otpSendsInFlight.has(phone)) throw new Error("OTP request is already in progress.");
-  const previous = otpSendState.get(phone);
-  const state = !previous || now - previous.windowStartedAt >= OTP_SEND_WINDOW_MS
-    ? { windowStartedAt: now, sentAt: 0, count: 0 }
-    : previous;
-  if (now - state.sentAt < OTP_SEND_COOLDOWN_MS || state.count >= OTP_SEND_MAX_PER_WINDOW) {
-    throw new Error("Please wait before requesting another OTP.");
-  }
-  otpSendsInFlight.add(phone);
-  otpSendState.set(phone, { ...state, sentAt: now, count: state.count + 1 });
-  return () => otpSendsInFlight.delete(phone);
-}
-
 export const auth = betterAuth({
   baseURL: appUrl
     ? appUrl
@@ -125,8 +103,6 @@ export const auth = betterAuth({
       expiresIn: 60 * 5,
       allowedAttempts: 5,
       sendOTP: async ({ phoneNumber, code }) => {
-        const release = reserveOtpSend(phoneNumber);
-        try {
         const maskedOtpLog = {
           phoneSuffix: phoneNumber.slice(-4),
           codeLength: code.length,
@@ -145,9 +121,6 @@ export const auth = betterAuth({
         // TODO: integrate with SMS provider (e.g. Twilio, DTAC, AIS)
         // For production:
         // await sendSMS(phoneNumber, `Your OTP code is: ${code}`);
-        } finally {
-          release();
-        }
       },
       signUpOnVerification: {
         getTempEmail: (phoneNumber) =>

@@ -1117,6 +1117,36 @@ model AuthVerification {
   @@index([identifier])
 }
 
+enum LoginOtpChallengeStatus {
+  PENDING_SEND
+  ACTIVE
+  VERIFYING
+  SEND_FAILED
+  LOCKED
+  CONSUMED
+}
+
+model LoginOtpChallenge {
+  id                    String                  @id @default(cuid())
+  phoneNumber           String                  @unique
+  otpIdentifier         String
+  challengeToken        String                  @unique
+  status                LoginOtpChallengeStatus @default(PENDING_SEND)
+  otpSentAt             DateTime?
+  otpExpiresAt          DateTime?
+  resendAvailableAt     DateTime?
+  failedAttempts        Int                     @default(0)
+  lockedUntil           DateTime?
+  sendWindowStartedAt   DateTime
+  sendCount             Int                     @default(0)
+  ipHash                String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  @@index([status])
+  @@index([lockedUntil])
+}
+
 model RegistrationTemp {
   id               String                 @id @default(cuid())
   phoneNumber      String
