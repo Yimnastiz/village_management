@@ -141,7 +141,7 @@ export function BindingRequestForm({
         <div className="space-y-3 rounded-xl border border-gray-200 p-3">
           <div>
             <label htmlFor="house-search" className="mb-1 block text-sm font-medium text-gray-700">ค้นหาเลขบ้าน</label>
-            <input type="hidden" name="houseId" value={selectedHouseId} />
+            <input type="hidden" name="requestedHouseId" value={selectedHouseId} />
             <input
               id="house-search"
               value={houseQuery}
@@ -202,7 +202,7 @@ export function BindingRequestForm({
         </div>
       ) : (
         <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <input type="hidden" name="houseId" value="" />
+          <input type="hidden" name="requestedHouseId" value="" />
           <div>
             <label htmlFor="houseNumber" className="mb-1 block text-sm font-medium text-amber-950">เลขบ้านที่ต้องการให้ผู้ดูแลตรวจสอบ</label>
             <input

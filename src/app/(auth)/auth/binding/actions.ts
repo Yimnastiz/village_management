@@ -23,7 +23,7 @@ export async function submitBindingRequestAction(formData: FormData) {
   }
 
   const villageId = toOptionalString(formData.get("villageId"));
-  const requestedHouseId = toOptionalString(formData.get("houseId"));
+  const requestedHouseId = toOptionalString(formData.get("requestedHouseId"));
   const rawHouseNumber = toOptionalString(formData.get("houseNumber"));
   const note = toOptionalString(formData.get("note"));
 
