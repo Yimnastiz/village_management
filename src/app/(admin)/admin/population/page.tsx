@@ -28,7 +28,14 @@ type PendingBindingRequest = {
     phoneNumber: string;
   };
   village: {
+    id: string;
     name: string | null;
+  } | null;
+  house: {
+    id: string;
+    houseNumber: string;
+    normalizedHouseNumber: string;
+    villageId: string;
   } | null;
 };
 
@@ -42,6 +49,23 @@ function splitDisplayName(fullName: string): { firstName: string; lastName: stri
   const firstName = parts[0] ?? "ไม่ระบุ";
   const lastName = parts.slice(1).join(" ") || "-";
   return { firstName, lastName };
+}
+
+function getBindingDisplayHouseNumber(request: {
+  house?: { houseNumber: string } | null;
+  houseNumber?: string | null;
+}) {
+  return request.house?.houseNumber ?? request.houseNumber ?? "ยังไม่ได้ระบุเลขบ้าน";
+}
+
+function getBindingHouseSourceLabel(request: {
+  houseId?: string | null;
+  house?: { houseNumber: string } | null;
+  houseNumber?: string | null;
+}) {
+  if (request.houseId && request.house) return "เลือกจากทะเบียนบ้านในระบบ";
+  if (request.houseNumber) return "ลูกบ้านเสนอเลขบ้านนี้ ต้องตรวจสอบก่อนสร้างหรือจับคู่บ้าน";
+  return "ยังไม่ได้ระบุเลขบ้าน";
 }
 
 async function getPendingBindingRequests(
@@ -73,7 +97,16 @@ async function getPendingBindingRequests(
       },
       village: {
         select: {
+          id: true,
           name: true,
+        },
+      },
+      house: {
+        select: {
+          id: true,
+          houseNumber: true,
+          normalizedHouseNumber: true,
+          villageId: true,
         },
       },
     },
@@ -593,8 +626,9 @@ export default async function Page({ searchParams }: PageProps) {
       select: {
         id: true,
         houseNumber: true,
+        villageId: true,
         occupancyStatus: true,
-        village: { select: { name: true } },
+        village: { select: { id: true, name: true } },
         _count: {
           select: {
             persons: true,
@@ -778,7 +812,10 @@ export default async function Page({ searchParams }: PageProps) {
                   <div>
                     <div className="text-xs text-gray-500">บ้านเลขที่</div>
                     <div className="text-sm font-medium text-gray-900">
-                      {request.houseNumber ?? "-"}
+                      {getBindingDisplayHouseNumber(request)}
+                    </div>
+                    <div className="mt-1 text-xs text-gray-500">
+                      {getBindingHouseSourceLabel(request)}
                     </div>
                   </div>
                   <div>
@@ -796,7 +833,7 @@ export default async function Page({ searchParams }: PageProps) {
                   {!request.houseId ? <div className="col-span-1 md:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                     <p className="mb-2 text-sm font-medium text-amber-900">คำขอนี้เป็นข้อมูลที่ลูกบ้านแจ้ง ยังไม่ใช่ข้อมูลบ้านจริง ต้องจับคู่หรือสร้างบ้านหลังตรวจสอบก่อน</p>
                     <div className="grid gap-2 md:grid-cols-2">
-                      <select name="selectedHouseId" defaultValue="" className="rounded-lg border border-amber-300 bg-white p-2 text-sm"><option value="">สร้างบ้านใหม่จากคำขอที่ตรวจสอบแล้ว</option>{houses.filter((house) => house.village?.name === request.village?.name).map((house) => <option key={house.id} value={house.id}>จับคู่บ้านเลขที่ {house.houseNumber}</option>)}</select>
+                      <select name="selectedHouseId" defaultValue="" className="rounded-lg border border-amber-300 bg-white p-2 text-sm"><option value="">สร้างบ้านใหม่จากคำขอที่ตรวจสอบแล้ว</option>{houses.filter((house) => house.villageId === request.villageId).map((house) => <option key={house.id} value={house.id}>จับคู่บ้านเลขที่ {house.houseNumber}</option>)}</select>
                       <input name="sourceNote" minLength={5} placeholder="เหตุผล/แหล่งที่มาที่ใช้ยืนยันเลขบ้าน" className="rounded-lg border border-amber-300 bg-white p-2 text-sm" />
                     </div>
                     <button formAction={verifyHouseForBindingAction} type="submit" className="mt-2 rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800">ยืนยันและสร้าง/จับคู่บ้าน</button>
@@ -874,7 +911,7 @@ export default async function Page({ searchParams }: PageProps) {
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">บ้านเลขที่</div>
-                    <div className="text-sm text-gray-700">{request.houseNumber ?? "-"}</div>
+                    <div className="text-sm text-gray-700">{getBindingDisplayHouseNumber(request)}</div>
                   </div>
                 </div>
 
@@ -964,11 +1001,13 @@ async function getBindingRequestHistory(isSuperAdmin: boolean, villageIds: strin
       houseNumber: string | null;
       note: string | null;
       status: BindingRequestStatus;
+      houseId: string | null;
       reviewedBy: string | null;
       reviewedAt: Date | null;
       reviewNote: string | null;
       user: { name: string; phoneNumber: string };
       village: { name: string | null } | null;
+      house: { houseNumber: string } | null;
     }>;
   }
 
@@ -983,6 +1022,7 @@ async function getBindingRequestHistory(isSuperAdmin: boolean, villageIds: strin
       { user: { is: { name: { contains: keyword, mode: "insensitive" } } } },
       { user: { is: { phoneNumber: { contains: keyword, mode: "insensitive" } } } },
       { houseNumber: { contains: keyword, mode: "insensitive" } },
+      { house: { is: { houseNumber: { contains: keyword, mode: "insensitive" } } } },
     ];
   }
 
@@ -993,6 +1033,7 @@ async function getBindingRequestHistory(isSuperAdmin: boolean, villageIds: strin
     include: {
       user: { select: { name: true, phoneNumber: true } },
       village: { select: { name: true } },
+      house: { select: { houseNumber: true } },
     },
   });
 }
