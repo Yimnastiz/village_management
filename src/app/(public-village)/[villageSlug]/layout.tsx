@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { Home, Newspaper, Calendar, Image, Eye, Download, Phone, MapPin } from "lucide-react";
-import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { getSlugVariants, normalizeVillageSlugParam } from "@/lib/village-slug";
+import { normalizeVillageSlugParam } from "@/lib/village-slug";
 import { VillageSwitcher } from "./village-switcher";
 import { VillagePublicMobileNav } from "./village-mobile-nav";
 
@@ -16,36 +15,8 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
   const base = `/${villageSlug}`;
 
-  const currentVillage = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      province: true,
-      district: true,
-      subdistrict: true,
-    },
-  });
-
-  if (!currentVillage) {
-    notFound();
-  }
-
-  const hasFullGeoScope =
-    Boolean(currentVillage.province) &&
-    Boolean(currentVillage.district) &&
-    Boolean(currentVillage.subdistrict);
-
   const villages = await prisma.village.findMany({
-    where: hasFullGeoScope
-      ? {
-          isActive: true,
-          province: currentVillage.province,
-          district: currentVillage.district,
-          subdistrict: currentVillage.subdistrict,
-        }
-      : { isActive: true },
+    where: { isActive: true },
     orderBy: [{ name: "asc" }],
     select: {
       id: true,
@@ -65,7 +36,7 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
     { href: `${base}/contacts`, label: "ติดต่อ", icon: Phone },
   ];
 
-  const villageName = currentVillage.name;
+  const villageName = villages.find((v) => v.slug === villageSlug)?.name ?? villageSlug;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">

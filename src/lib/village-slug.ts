@@ -38,10 +38,6 @@ export function normalizeVillageSlugInput(raw: string): string {
   return normalized;
 }
 
-export function normalizeVillageSlug(value: string): string {
-  return normalizeVillageSlugInput(value);
-}
-
 export function normalizeVillageSlugParam(raw: string): string {
   return repairMojibakeThai(decodeUriSafe(raw.trim()))
     .normalize("NFC")
