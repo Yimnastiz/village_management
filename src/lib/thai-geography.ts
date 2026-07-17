@@ -127,3 +127,29 @@ export function getThaiGeographyHierarchy(): ThaiProvince[] {
   warnIfInvalidProvinceCount(result);
   return result;
 }
+
+export function validateThaiGeographySelection(input: {
+  province: string;
+  district: string;
+  subdistrict: string;
+}): { ok: true } | { ok: false; error: string } {
+  const provinceName = normalizeText(input.province);
+  const districtName = normalizeText(input.district);
+  const subdistrictName = normalizeText(input.subdistrict);
+
+  if (!provinceName) return { ok: false, error: "กรุณาเลือกจังหวัด" };
+  if (!districtName) return { ok: false, error: "กรุณาเลือกอำเภอ" };
+  if (!subdistrictName) return { ok: false, error: "กรุณาเลือกตำบล" };
+
+  const province = getThaiGeographyHierarchy().find((item) => item.name === provinceName);
+  if (!province) return { ok: false, error: "จังหวัดต้องอยู่ในชุดข้อมูล GeoThai" };
+
+  const district = province.districts.find((item) => item.name === districtName);
+  if (!district) return { ok: false, error: "อำเภอต้องสัมพันธ์กับจังหวัดที่เลือก" };
+
+  if (!district.subdistricts.includes(subdistrictName)) {
+    return { ok: false, error: "ตำบลต้องสัมพันธ์กับอำเภอที่เลือก" };
+  }
+
+  return { ok: true };
+}
