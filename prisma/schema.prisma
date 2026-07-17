@@ -271,6 +271,14 @@ enum AuditAction {
   LOGOUT
 }
 
+enum HouseSourceType {
+  ADMIN_CREATED
+  IMPORT
+  RESIDENT_REQUEST_VERIFIED
+  SUPERADMIN_CREATED
+  SEED
+}
+
 // ========== MODELS ==========
 
 model User {
@@ -448,6 +456,10 @@ model House {
   normalizedHouseNumber String
   address         String?
   occupancyStatus HouseholdOccupancyStatus @default(OCCUPIED)
+  sourceType      HouseSourceType          @default(ADMIN_CREATED)
+  sourceNote      String?
+  verifiedByUserId String?
+  verifiedAt      DateTime?
   latitude        Float?
   longitude       Float?
   createdAt       DateTime                 @default(now())

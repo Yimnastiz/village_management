@@ -4,6 +4,8 @@ export function normalizeHouseNumber(value: string): string {
   return value
     .trim()
     .replace(/[๐-๙]/g, (digit) => String(THAI_DIGITS.indexOf(digit)))
+    // Accept common slash variants but keep one canonical value for comparisons.
+    .replace(/[／⁄∕\\]/g, "/")
     .replace(/\s+/g, "")
     .replace(/\/{2,}/g, "/")
     .toUpperCase();

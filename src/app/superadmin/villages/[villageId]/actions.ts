@@ -28,7 +28,8 @@ export async function reviewBindingSupportAction(formData: FormData) {
       if (!request.houseNumber) throw new Error("คำขอไม่มีบ้านเลขที่");
       const normalizedHouseNumber = request.houseNumber ? normalizeHouseNumber(request.houseNumber) : null;
       if (!request.houseId && (!normalizedHouseNumber || !isValidHouseNumber(normalizedHouseNumber))) throw new Error("เลขบ้านในคำขอไม่ถูกต้อง");
-      const house = request.houseId ? await tx.house.findFirst({ where: { id: request.houseId, villageId: targetVillageId } }) : await tx.house.upsert({ where: { villageId_normalizedHouseNumber: { villageId: targetVillageId, normalizedHouseNumber: normalizedHouseNumber! } }, update: {}, create: { villageId: targetVillageId, houseNumber: normalizedHouseNumber!, normalizedHouseNumber: normalizedHouseNumber! } });
+      if (!request.houseId) throw new Error("เลขบ้านนี้ยังไม่อยู่ในทะเบียนบ้านของระบบ ต้องให้ผู้ดูแลสร้างหรือจับคู่บ้านก่อนอนุมัติ");
+      const house = await tx.house.findFirst({ where: { id: request.houseId, villageId: targetVillageId } });
       if (!house) throw new Error("บ้านไม่อยู่ในหมู่บ้านเป้าหมาย");
       resolvedHouseId = house.id;
       await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });

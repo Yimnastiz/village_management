@@ -555,6 +555,9 @@ async function importRowIntoVillage(
       zoneId,
       latitude: row.latitude,
       longitude: row.longitude,
+      sourceType: "IMPORT",
+      sourceNote: row.note ?? "Imported from admin population import",
+      verifiedAt: new Date(),
     },
     select: { id: true },
   });

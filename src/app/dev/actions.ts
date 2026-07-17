@@ -348,6 +348,7 @@ export async function registerAdminAction(formData: FormData) {
         villageId,
         houseNumber,
         normalizedHouseNumber,
+        sourceType: "SEED",
       },
     });
   }
@@ -501,6 +502,7 @@ export async function importResidentSeedAction(formData: FormData) {
         villageId,
         houseNumber,
         normalizedHouseNumber,
+        sourceType: "SEED",
         address,
       },
     });

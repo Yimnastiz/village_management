@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { BindingRequestStatus, MembershipStatus, NotificationType, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, NotificationType, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -18,6 +18,7 @@ const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
 type PendingBindingRequest = {
   id: string;
   villageId: string | null;
+  houseId: string | null;
   houseNumber: string | null;
   note: string | null;
   createdAt: Date;
@@ -134,26 +135,7 @@ export async function handleBindingRequestAction(formData: FormData) {
         const house = await tx.house.findFirst({ where: { id: binding.houseId, villageId: binding.villageId! }, select: { id: true } });
         if (!house) throw new Error("บ้านที่ผูกไว้ไม่ได้อยู่ในหมู่บ้านของคำขอ");
         resolvedHouseId = house.id;
-      } else if (binding.houseNumber) {
-        const normalizedHouseNumber = normalizeHouseNumber(binding.houseNumber);
-        if (!isValidHouseNumber(normalizedHouseNumber)) throw new Error("เลขบ้านในคำขอไม่ถูกต้อง");
-        const house = await tx.house.upsert({
-          where: {
-            villageId_normalizedHouseNumber: {
-              villageId: binding.villageId!,
-              normalizedHouseNumber,
-            },
-          },
-          update: {},
-          create: {
-            villageId: binding.villageId!,
-            houseNumber: binding.houseNumber,
-            normalizedHouseNumber,
-          },
-          select: { id: true },
-        });
-        resolvedHouseId = house.id;
-      }
+      } else throw new Error("เลขบ้านนี้ยังไม่อยู่ในทะเบียนบ้านของระบบ ต้องสร้างหรือจับคู่บ้านก่อนอนุมัติ");
     }
 
     await tx.bindingRequest.update({
@@ -166,6 +148,8 @@ export async function handleBindingRequestAction(formData: FormData) {
         reviewNote: reviewNote || null,
       },
     });
+
+    await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: action === "approve" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequest", resourceId: requestId, metadata: { actionName: action === "approve" ? "BINDING_APPROVED_TO_EXISTING_HOUSE" : "BINDING_REJECTED", houseId: resolvedHouseId, reviewNote: reviewNote || null } } });
 
     await tx.villageMembership.upsert({
       where: {
@@ -393,26 +377,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
           const house = await tx.house.findFirst({ where: { id: binding.houseId, villageId: binding.villageId! }, select: { id: true } });
           if (!house) throw new Error("บ้านที่ผูกไว้ไม่ได้อยู่ในหมู่บ้านของคำขอ");
           resolvedHouseId = house.id;
-      } else if (binding.houseNumber) {
-          const normalizedHouseNumber = normalizeHouseNumber(binding.houseNumber);
-          if (!isValidHouseNumber(normalizedHouseNumber)) throw new Error("เลขบ้านในคำขอไม่ถูกต้อง");
-          const house = await tx.house.upsert({
-            where: {
-              villageId_normalizedHouseNumber: {
-                villageId: binding.villageId!,
-                normalizedHouseNumber,
-              },
-            },
-            update: {},
-            create: {
-              villageId: binding.villageId!,
-              houseNumber: binding.houseNumber,
-              normalizedHouseNumber,
-            },
-            select: { id: true },
-          });
-          resolvedHouseId = house.id;
-        }
+      } else throw new Error("คำขอนี้ยังไม่ได้จับคู่กับบ้านในทะเบียน ต้องสร้างหรือจับคู่บ้านก่อนอนุมัติ");
       }
 
       await tx.bindingRequest.update({
@@ -527,6 +492,39 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
     });
   }
 
+  revalidatePath("/admin/population");
+}
+
+export async function verifyHouseForBindingAction(formData: FormData) {
+  const session = await getSessionContextFromServerCookies();
+  if (!session || !isAdminUser(session)) throw new Error("Unauthorized");
+  const requestId = String(formData.get("requestId") ?? "");
+  const selectedHouseId = String(formData.get("selectedHouseId") ?? "").trim();
+  const sourceNote = String(formData.get("sourceNote") ?? "").trim();
+  if (!requestId || sourceNote.length < 5) throw new Error("กรุณาระบุเหตุผล/แหล่งที่มาของการยืนยันอย่างน้อย 5 ตัวอักษร");
+  await prisma.$transaction(async (tx) => {
+    const request = await tx.bindingRequest.findFirst({ where: { id: requestId, status: BindingRequestStatus.PENDING } });
+    if (!request?.villageId) throw new Error("ไม่พบคำขอที่รอตรวจสอบ");
+    const canManage = session.memberships.some((m) => m.villageId === request.villageId && m.status === MembershipStatus.ACTIVE && (m.role === VillageMembershipRole.HEADMAN || m.role === VillageMembershipRole.ASSISTANT_HEADMAN));
+    if (!canManage) throw new Error("Unauthorized");
+    let houseId = selectedHouseId;
+    if (houseId) {
+      const house = await tx.house.findFirst({ where: { id: houseId, villageId: request.villageId }, select: { id: true } });
+      if (!house) throw new Error("บ้านที่เลือกไม่อยู่ในหมู่บ้านนี้");
+    } else {
+      const normalized = normalizeHouseNumber(request.houseNumber ?? "");
+      if (!isValidHouseNumber(normalized)) throw new Error("เลขบ้านที่ลูกบ้านแจ้งไม่ถูกต้อง");
+      const existing = await tx.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId: request.villageId, normalizedHouseNumber: normalized } }, select: { id: true } });
+      if (existing) houseId = existing.id;
+      else {
+        const house = await tx.house.create({ data: { villageId: request.villageId, houseNumber: request.houseNumber!.trim(), normalizedHouseNumber: normalized, sourceType: HouseSourceType.RESIDENT_REQUEST_VERIFIED, sourceNote, verifiedByUserId: session.id, verifiedAt: new Date() }, select: { id: true } });
+        houseId = house.id;
+        await tx.auditLog.create({ data: { userId: session.id, villageId: request.villageId, action: AuditAction.CREATE, resource: "House", resourceId: house.id, metadata: { actionName: "HOUSE_CREATED_FROM_VERIFIED_BINDING_REQUEST", bindingRequestId: request.id, sourceNote, normalizedHouseNumber: normalized } } });
+      }
+    }
+    await tx.bindingRequest.update({ where: { id: request.id }, data: { houseId } });
+    await tx.auditLog.create({ data: { userId: session.id, villageId: request.villageId, action: AuditAction.UPDATE, resource: "BindingRequest", resourceId: request.id, metadata: { actionName: "BINDING_MATCHED_TO_EXISTING_HOUSE", houseId, sourceNote } } });
+  });
   revalidatePath("/admin/population");
 }
 
@@ -795,6 +793,14 @@ export default async function Page({ searchParams }: PageProps) {
                   (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN)
                 ) ? <form action={handleBindingRequestAction} className="mt-4 space-y-2">
                   <input type="hidden" name="requestId" value={request.id} />
+                  {!request.houseId ? <div className="col-span-1 md:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                    <p className="mb-2 text-sm font-medium text-amber-900">คำขอนี้เป็นข้อมูลที่ลูกบ้านแจ้ง ยังไม่ใช่ข้อมูลบ้านจริง ต้องจับคู่หรือสร้างบ้านหลังตรวจสอบก่อน</p>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <select name="selectedHouseId" defaultValue="" className="rounded-lg border border-amber-300 bg-white p-2 text-sm"><option value="">สร้างบ้านใหม่จากคำขอที่ตรวจสอบแล้ว</option>{houses.filter((house) => house.village?.name === request.village?.name).map((house) => <option key={house.id} value={house.id}>จับคู่บ้านเลขที่ {house.houseNumber}</option>)}</select>
+                      <input name="sourceNote" minLength={5} placeholder="เหตุผล/แหล่งที่มาที่ใช้ยืนยันเลขบ้าน" className="rounded-lg border border-amber-300 bg-white p-2 text-sm" />
+                    </div>
+                    <button formAction={verifyHouseForBindingAction} type="submit" className="mt-2 rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800">ยืนยันและสร้าง/จับคู่บ้าน</button>
+                  </div> : null}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <textarea
                       name="reviewNote"
@@ -807,6 +813,7 @@ export default async function Page({ searchParams }: PageProps) {
                         name="action"
                         value="approve"
                         type="submit"
+                        disabled={!request.houseId}
                         className="flex-1 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
                       >
                         อนุมัติ
