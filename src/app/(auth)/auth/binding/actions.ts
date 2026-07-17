@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 
 function toOptionalString(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -22,15 +23,29 @@ export async function submitBindingRequestAction(formData: FormData) {
   }
 
   const villageId = toOptionalString(formData.get("villageId"));
-  const houseNumber = toOptionalString(formData.get("houseNumber"));
+  const requestedHouseId = toOptionalString(formData.get("houseId"));
+  const rawHouseNumber = toOptionalString(formData.get("houseNumber"));
   const note = toOptionalString(formData.get("note"));
 
   if (!villageId) {
     throw new Error("Village is required.");
   }
-  if (!houseNumber) throw new Error("House number is required.");
+  if (!requestedHouseId && !rawHouseNumber) throw new Error("กรุณาเลือกบ้าน หรือเสนอเลขบ้านให้ผู้ใหญ่บ้านตรวจสอบ");
   const villageExists = await prisma.village.findFirst({ where: { id: villageId, isActive: true }, select: { id: true } });
   if (!villageExists) throw new Error("Village not found.");
+
+  let houseId: string | null = null;
+  let houseNumber: string | null = null;
+  if (requestedHouseId) {
+    const house = await prisma.house.findFirst({ where: { id: requestedHouseId, villageId }, select: { id: true } });
+    if (!house) throw new Error("บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้");
+    houseId = house.id;
+  } else {
+    houseNumber = normalizeHouseNumber(rawHouseNumber!);
+    if (!isValidHouseNumber(houseNumber)) throw new Error("รูปแบบเลขบ้านไม่ถูกต้อง");
+    const existing = await prisma.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId, normalizedHouseNumber: houseNumber } }, select: { id: true } });
+    if (existing) throw new Error("พบเลขบ้านนี้ในระบบแล้ว กรุณาเลือกบ้านจากรายการ");
+  }
 
   // This is the selected public village context; it grants no membership access.
   await prisma.user.update({ where: { id: session.id }, data: { registrationVillageId: villageId } });
@@ -44,10 +59,12 @@ export async function submitBindingRequestAction(formData: FormData) {
   });
 
   if (existingPending) {
+    if (existingPending.villageId && existingPending.villageId !== villageId) throw new Error("มีคำขอผูกบ้านของหมู่บ้านอื่นกำลังรอตรวจสอบอยู่");
     await prisma.bindingRequest.update({
       where: { id: existingPending.id },
       data: {
         // Keep original village while request is pending to avoid duplicate multi-village requests.
+        houseId,
         houseNumber,
         note,
       },
@@ -80,6 +97,7 @@ export async function submitBindingRequestAction(formData: FormData) {
       data: {
         userId: session.id,
         villageId,
+        houseId,
         houseNumber,
         note,
         status: BindingRequestStatus.PENDING,

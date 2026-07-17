@@ -53,6 +53,11 @@ export default async function ResidentBindingPage() {
       }[latestRequest.status]
     : null;
 
+  const selectedVillageId = latestRequest?.villageId ?? villages[0]?.id;
+  const houses = selectedVillageId
+    ? await prisma.house.findMany({ where: { villageId: selectedVillageId }, orderBy: { houseNumber: "asc" }, select: { id: true, houseNumber: true } })
+    : [];
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -94,18 +99,28 @@ export default async function ResidentBindingPage() {
           <BindingVillageCombobox villages={villages} initialVillageId={latestRequest?.villageId} disabled={hasPending} />
 
           <div>
+            <label htmlFor="houseId" className="mb-1 block text-sm font-medium text-gray-700">ค้นหาเลขบ้านที่มีอยู่ในระบบ เช่น 96/4</label>
+            <select id="houseId" name="houseId" defaultValue={latestRequest?.houseId ?? ""} className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+              <option value="">ไม่พบเลขบ้านของฉัน / เสนอเลขบ้านใหม่</option>
+              {houses.map((house) => <option key={house.id} value={house.id}>{house.houseNumber}</option>)}
+            </select>
+          </div>
+
+          <div>
             <label htmlFor="houseNumber" className="mb-1 block text-sm font-medium text-gray-700">
               บ้านเลขที่
             </label>
             <input
               id="houseNumber"
               name="houseNumber"
-              required
-              defaultValue={latestRequest?.houseNumber ?? latestRequest?.house?.houseNumber ?? ""}
+              required={!latestRequest?.houseId}
+              defaultValue={latestRequest?.houseNumber ?? ""}
               placeholder="เช่น 123/4"
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
             />
           </div>
+
+          <p className="text-xs text-amber-700">หากไม่พบเลขบ้านของคุณ ให้ส่งคำขอให้ผู้ใหญ่บ้านตรวจสอบก่อน ระบบจะไม่สร้างบ้านใหม่อัตโนมัติ</p>
 
           <div>
             <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700">

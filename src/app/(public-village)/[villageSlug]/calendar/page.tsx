@@ -136,11 +136,6 @@ export default async function Page({ params, searchParams }: PageProps) {
                   >
                     {day}
                   </Link>
-                  {isToday && (
-                    <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-                      TODAY
-                    </span>
-                  )}
                   {dayEvents.length > 0 && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-green-100 px-1 text-xs font-medium text-green-700">
                       {dayEvents.length}
@@ -174,7 +169,7 @@ export default async function Page({ params, searchParams }: PageProps) {
         <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
             <span className="inline-flex items-center gap-1">
-              <span className="h-2 w-2 rounded-full bg-rose-600" /> วันนี้ (ขอบแดง + ป้าย TODAY)
+              <span className="h-2 w-2 rounded-full bg-rose-600" /> วันนี้ 
             </span>
           </div>
         </div>

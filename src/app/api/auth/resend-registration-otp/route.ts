@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getRegistrationFromRequest, normalizePhone10, REGISTRATION_OTP_TTL_SECONDS } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
+import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 
 export async function POST(request: NextRequest) {
   const draft = await getRegistrationFromRequest(request);
@@ -29,7 +30,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "กรุณารอก่อนส่ง OTP ใหม่", retryAfterSeconds }, { status: reserved.status, headers: retryAfterSeconds ? { "Retry-After": String(retryAfterSeconds) } : undefined });
   }
   try {
-    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: reserved.challenge.otpIdentifier } });
+    if (isDevOtpBypassEnabled()) {
+      await prisma.authVerification.create({ data: { identifier: reserved.challenge.otpIdentifier, value: `${getDevOtpCode()}:0`, expiresAt: new Date(Date.now() + REGISTRATION_OTP_TTL_SECONDS * 1000) } });
+    } else {
+      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: reserved.challenge.otpIdentifier } });
+    }
   } catch {
     await prisma.$transaction([
       prisma.authVerification.deleteMany({ where: { identifier: reserved.challenge.otpIdentifier } }),
@@ -42,5 +47,5 @@ export async function POST(request: NextRequest) {
     where: { id: reserved.challenge.id },
     data: { status: RegistrationOtpChallengeStatus.ACTIVE, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000), resendAvailableAt: new Date(sentAt.getTime() + 60_000), resendCount: { increment: 1 } },
   });
-  return NextResponse.json({ ok: true, outcome: "OTP_SENT", data: { otpSentAt: challenge.otpSentAt?.toISOString(), expiresAt: challenge.otpExpiresAt?.toISOString(), resendAvailableAt: challenge.resendAvailableAt?.toISOString() } });
+  return NextResponse.json({ ok: true, outcome: isDevOtpBypassEnabled() ? "DEV_OTP_READY" : "OTP_SENT", data: { otpSentAt: challenge.otpSentAt?.toISOString(), expiresAt: challenge.otpExpiresAt?.toISOString(), resendAvailableAt: challenge.resendAvailableAt?.toISOString() } });
 }

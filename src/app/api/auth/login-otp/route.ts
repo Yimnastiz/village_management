@@ -16,6 +16,7 @@ import {
   setLoginChallengeCookie,
   withLoginPhoneLock,
 } from "@/lib/login-otp-challenge";
+import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 
 export async function GET(request: NextRequest) {
   let challenge = await loadLoginChallenge(request);
@@ -119,7 +120,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: user.phoneNumber } });
+    if (isDevOtpBypassEnabled()) {
+      await prisma.authVerification.create({ data: { identifier: user.phoneNumber, value: `${getDevOtpCode()}:0`, expiresAt: new Date(Date.now() + LOGIN_OTP_TTL_MS) } });
+    } else {
+      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: user.phoneNumber } });
+    }
   } catch {
     await withLoginPhoneLock(phoneNumber, async (tx) => {
       await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
@@ -143,7 +148,7 @@ export async function POST(request: NextRequest) {
       lockedUntil: null,
     },
   }));
-  const response = NextResponse.json({ ok: true, outcome: "OTP_SENT", data: publicLoginChallengeState(challenge) });
+  const response = NextResponse.json({ ok: true, outcome: isDevOtpBypassEnabled() ? "DEV_OTP_READY" : "OTP_SENT", data: publicLoginChallengeState(challenge) });
   setLoginChallengeCookie(response, challenge.challengeToken);
   return response;
 }

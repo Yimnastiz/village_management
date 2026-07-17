@@ -445,6 +445,7 @@ model House {
   villageId       String
   zoneId          String?
   houseNumber     String
+  normalizedHouseNumber String
   address         String?
   occupancyStatus HouseholdOccupancyStatus @default(OCCUPIED)
   latitude        Float?
@@ -460,7 +461,7 @@ model House {
   correctionRequests HouseholdCorrectionRequest[]
   movementHistory    PersonMovement[]
 
-  @@unique([villageId, houseNumber])
+  @@unique([villageId, normalizedHouseNumber])
   @@index([villageId])
 }
 

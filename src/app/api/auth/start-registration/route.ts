@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 import { createRegistrationCookie, hasExistingUserWithPhone, normalizePhone10, REGISTRATION_OTP_TTL_SECONDS } from "@/lib/registration-temp";
 import { finalizeAccountDeletion } from "@/lib/account-deletion";
+import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
@@ -70,14 +71,22 @@ export async function POST(request: NextRequest) {
   }
   if (!prepared.resume) {
     try {
-      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber } });
+      if (isDevOtpBypassEnabled()) {
+        const sentAt = new Date();
+        await prisma.$transaction([
+          prisma.authVerification.deleteMany({ where: { identifier: phoneNumber } }),
+          prisma.authVerification.create({ data: { identifier: phoneNumber, value: `${getDevOtpCode()}:0`, expiresAt: new Date(sentAt.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000) } }),
+        ]);
+      } else {
+        await auth.api.sendPhoneNumberOTP({ body: { phoneNumber } });
+      }
       const sentAt = new Date();
       challenge = await prisma.registrationOtpChallenge.update({
         where: { id: challenge.id },
         data: { status: RegistrationOtpChallengeStatus.ACTIVE, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000), resendAvailableAt: new Date(sentAt.getTime() + 60_000), resendCount: { increment: 1 } },
       });
       await prisma.registrationTemp.update({ where: { id: prepared.draft.id }, data: { expiresAt: challenge.otpExpiresAt!, otpSentAt: sentAt } });
-      outcome = "OTP_SENT";
+      outcome = isDevOtpBypassEnabled() ? "DEV_OTP_READY" : "OTP_SENT";
     } catch {
       await prisma.$transaction([
         prisma.authVerification.deleteMany({ where: { identifier: phoneNumber } }),

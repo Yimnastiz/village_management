@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { normalizeHouseNumber } from "@/lib/house-number";
 import { normalizeVillageSlugInput, getSlugVariants } from "@/lib/village-slug";
 
 function assertDevelopment(): void {
@@ -334,17 +335,19 @@ export async function registerAdminAction(formData: FormData) {
   // Create house if house number provided
   let house = null;
   if (houseNumber) {
+    const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
     house = await prisma.house.upsert({
       where: {
-        villageId_houseNumber: {
+        villageId_normalizedHouseNumber: {
           villageId,
-          houseNumber,
+          normalizedHouseNumber,
         },
       },
       update: {},
       create: {
         villageId,
         houseNumber,
+        normalizedHouseNumber,
       },
     });
   }
@@ -483,11 +486,12 @@ export async function importResidentSeedAction(formData: FormData) {
   const verifiedAt = isCitizenVerified ? new Date() : null;
 
   await prisma.$transaction(async (tx) => {
+    const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
     const house = await tx.house.upsert({
       where: {
-        villageId_houseNumber: {
+        villageId_normalizedHouseNumber: {
           villageId,
-          houseNumber,
+          normalizedHouseNumber,
         },
       },
       update: {
@@ -496,6 +500,7 @@ export async function importResidentSeedAction(formData: FormData) {
       create: {
         villageId,
         houseNumber,
+        normalizedHouseNumber,
         address,
       },
     });

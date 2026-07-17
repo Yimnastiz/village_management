@@ -7,6 +7,7 @@ import { BindingRequestStatus, MembershipStatus, NotificationType, Prisma, Syste
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
+import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 
 const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
   VillageMembershipRole.HEADMAN,
@@ -130,19 +131,24 @@ export async function handleBindingRequestAction(formData: FormData) {
 
     if (action === "approve") {
       if (binding.houseId) {
-        resolvedHouseId = binding.houseId;
+        const house = await tx.house.findFirst({ where: { id: binding.houseId, villageId: binding.villageId! }, select: { id: true } });
+        if (!house) throw new Error("บ้านที่ผูกไว้ไม่ได้อยู่ในหมู่บ้านของคำขอ");
+        resolvedHouseId = house.id;
       } else if (binding.houseNumber) {
+        const normalizedHouseNumber = normalizeHouseNumber(binding.houseNumber);
+        if (!isValidHouseNumber(normalizedHouseNumber)) throw new Error("เลขบ้านในคำขอไม่ถูกต้อง");
         const house = await tx.house.upsert({
           where: {
-            villageId_houseNumber: {
+            villageId_normalizedHouseNumber: {
               villageId: binding.villageId!,
-              houseNumber: binding.houseNumber,
+              normalizedHouseNumber,
             },
           },
           update: {},
           create: {
             villageId: binding.villageId!,
             houseNumber: binding.houseNumber,
+            normalizedHouseNumber,
           },
           select: { id: true },
         });
@@ -384,19 +390,24 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
 
       if (newStatus === "APPROVED") {
         if (binding.houseId) {
-          resolvedHouseId = binding.houseId;
-        } else if (binding.houseNumber) {
+          const house = await tx.house.findFirst({ where: { id: binding.houseId, villageId: binding.villageId! }, select: { id: true } });
+          if (!house) throw new Error("บ้านที่ผูกไว้ไม่ได้อยู่ในหมู่บ้านของคำขอ");
+          resolvedHouseId = house.id;
+      } else if (binding.houseNumber) {
+          const normalizedHouseNumber = normalizeHouseNumber(binding.houseNumber);
+          if (!isValidHouseNumber(normalizedHouseNumber)) throw new Error("เลขบ้านในคำขอไม่ถูกต้อง");
           const house = await tx.house.upsert({
             where: {
-              villageId_houseNumber: {
+              villageId_normalizedHouseNumber: {
                 villageId: binding.villageId!,
-                houseNumber: binding.houseNumber,
+                normalizedHouseNumber,
               },
             },
             update: {},
             create: {
               villageId: binding.villageId!,
               houseNumber: binding.houseNumber,
+              normalizedHouseNumber,
             },
             select: { id: true },
           });

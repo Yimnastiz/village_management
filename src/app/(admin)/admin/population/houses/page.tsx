@@ -6,6 +6,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { createHouseAction } from "./actions";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; occupancy?: string }>;
@@ -33,7 +34,7 @@ export default async function Page({ searchParams }: PageProps) {
   const houses = await prisma.house.findMany({
     where: {
       villageId: membership.villageId,
-      ...(keyword ? { houseNumber: { contains: keyword, mode: "insensitive" } } : {}),
+      ...(keyword ? { OR: [{ houseNumber: { contains: keyword, mode: "insensitive" as const } }, { normalizedHouseNumber: { contains: keyword.replace(/\s+/g, ""), mode: "insensitive" as const } }] } : {}),
       ...(activeOccupancy !== "ALL" ? { occupancyStatus: activeOccupancy as "OCCUPIED" | "VACANT" | "UNDER_CONSTRUCTION" | "DEMOLISHED" } : {}),
     },
     include: {
@@ -79,6 +80,13 @@ export default async function Page({ searchParams }: PageProps) {
           },
         ]}
       />
+
+      <form action={createHouseAction} className="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 md:grid-cols-[1fr_1fr_auto_auto]">
+        <input name="houseNumber" required maxLength={50} placeholder="เพิ่มบ้าน เช่น 96/4" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <input name="address" placeholder="ที่อยู่เพิ่มเติม (ถ้ามี)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+        <select name="occupancyStatus" className="rounded-lg border border-gray-300 px-3 py-2 text-sm"><option value="OCCUPIED">มีผู้อยู่อาศัย</option><option value="VACANT">ว่าง</option><option value="UNDER_CONSTRUCTION">กำลังก่อสร้าง</option></select>
+        <button type="submit" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white">เพิ่มบ้าน</button>
+      </form>
 
       <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
         <table className="min-w-full text-sm">

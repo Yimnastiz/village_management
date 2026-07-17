@@ -4,6 +4,7 @@ import { AuditAction, BindingRequestStatus, MembershipStatus, NotificationType, 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
+import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 
 function value(formData: FormData, key: string) { const entry = formData.get(key); return typeof entry === "string" ? entry.trim() : ""; }
 async function requireVillage(targetVillageId: string) {
@@ -25,7 +26,9 @@ export async function reviewBindingSupportAction(formData: FormData) {
     let resolvedHouseId: string | null = null;
     if (decision === "APPROVE") {
       if (!request.houseNumber) throw new Error("คำขอไม่มีบ้านเลขที่");
-      const house = request.houseId ? await tx.house.findFirst({ where: { id: request.houseId, villageId: targetVillageId } }) : await tx.house.upsert({ where: { villageId_houseNumber: { villageId: targetVillageId, houseNumber: request.houseNumber } }, update: {}, create: { villageId: targetVillageId, houseNumber: request.houseNumber } });
+      const normalizedHouseNumber = request.houseNumber ? normalizeHouseNumber(request.houseNumber) : null;
+      if (!request.houseId && (!normalizedHouseNumber || !isValidHouseNumber(normalizedHouseNumber))) throw new Error("เลขบ้านในคำขอไม่ถูกต้อง");
+      const house = request.houseId ? await tx.house.findFirst({ where: { id: request.houseId, villageId: targetVillageId } }) : await tx.house.upsert({ where: { villageId_normalizedHouseNumber: { villageId: targetVillageId, normalizedHouseNumber: normalizedHouseNumber! } }, update: {}, create: { villageId: targetVillageId, houseNumber: normalizedHouseNumber!, normalizedHouseNumber: normalizedHouseNumber! } });
       if (!house) throw new Error("บ้านไม่อยู่ในหมู่บ้านเป้าหมาย");
       resolvedHouseId = house.id;
       await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });

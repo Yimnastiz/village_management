@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import {
   POPULATION_IMPORT_COLUMNS,
   POPULATION_IMPORT_HEADER_ALIASES,
@@ -304,11 +305,12 @@ function ensureRequiredHeaders(rows: SpreadsheetRow[]) {
 }
 
 function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): NormalizedImportRow {
-  const houseNumber = toTrimmedString(row.house_number);
+  const rawHouseNumber = toTrimmedString(row.house_number);
+  const houseNumber = normalizeHouseNumber(rawHouseNumber ?? "");
   const firstName = toTrimmedString(row.first_name);
   const lastName = toTrimmedString(row.last_name);
 
-  if (!houseNumber || !firstName || !lastName) {
+  if (!rawHouseNumber || !isValidHouseNumber(houseNumber) || !firstName || !lastName) {
     throw new Error("ต้องมี house_number, first_name และ last_name");
   }
 
@@ -532,9 +534,9 @@ async function importRowIntoVillage(
 
   const house = await tx.house.upsert({
     where: {
-      villageId_houseNumber: {
+      villageId_normalizedHouseNumber: {
         villageId: ctx.villageId,
-        houseNumber: row.houseNumber,
+        normalizedHouseNumber: row.houseNumber,
       },
     },
     update: {
@@ -547,6 +549,7 @@ async function importRowIntoVillage(
     create: {
       villageId: ctx.villageId,
       houseNumber: row.houseNumber,
+      normalizedHouseNumber: row.houseNumber,
       address: row.houseAddress,
       occupancyStatus: row.occupancyStatus ?? HouseholdOccupancyStatus.OCCUPIED,
       zoneId,
