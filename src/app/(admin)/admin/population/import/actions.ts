@@ -2,6 +2,7 @@
 
 import {
   HouseholdOccupancyStatus,
+  AuditAction,
   MembershipStatus,
   PersonStatus,
   PopulationImportStage,
@@ -13,6 +14,7 @@ import { SSF, read, utils } from "xlsx";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
+import { maskNationalId } from "@/lib/utils";
 import {
   POPULATION_IMPORT_COLUMNS,
   POPULATION_IMPORT_HEADER_ALIASES,
@@ -33,6 +35,7 @@ type CanonicalColumnKey =
   | "house_number"
   | "first_name"
   | "last_name"
+  | "external_person_id"
   | "phone_number"
   | "national_id"
   | "date_of_birth"
@@ -69,6 +72,25 @@ type ImportJobDetailsPayload = {
   importedPersonIds: string[];
   importedHouseIds: string[];
   importedUserIds: string[];
+  rowDetails?: ImportRowDetail[];
+};
+
+export type ImportRowDetail = {
+  rowNumber: number;
+  action: "CREATE" | "UPDATE" | "SKIP" | "CONFLICT" | "FAILED";
+  status: "VALID" | "INVALID" | "CONFLICT" | "PENDING";
+  createdRecordId?: string | null;
+  matchedRecordId?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  changedFields?: string[];
+  confidenceLevel?: "HIGH_CONFIDENCE_MATCH" | "POSSIBLE_MATCH" | "CONFLICT" | "NEW_RECORD" | "INVALID";
+};
+
+export type StoredImportRow = NormalizedImportRow & {
+  rowNumber: number;
+  matchedPersonId: string | null;
+  action: "CREATE" | "UPDATE" | "SKIP" | "CONFLICT" | "FAILED";
 };
 
 type RowImportResult = {
@@ -92,6 +114,7 @@ type NormalizedImportRow = {
   houseNumber: string;
   firstName: string;
   lastName: string;
+  externalPersonId: string | null;
   phoneNumber: string | null;
   nationalId: string | null;
   dateOfBirth: Date | null;
@@ -346,6 +369,7 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     houseNumber,
     firstName,
     lastName,
+    externalPersonId: toTrimmedString(row.external_person_id),
     phoneNumber,
     nationalId,
     dateOfBirth,
@@ -418,6 +442,7 @@ function buildImportJobDetailsPayload(params: {
   importedPersonIds?: string[];
   importedHouseIds?: string[];
   importedUserIds?: string[];
+  rowDetails?: ImportRowDetail[];
 }): ImportJobDetailsPayload {
   const {
     rows,
@@ -426,6 +451,7 @@ function buildImportJobDetailsPayload(params: {
     importedPersonIds = [],
     importedHouseIds = [],
     importedUserIds = [],
+    rowDetails = [],
   } = params;
 
   const previewColumns = POPULATION_IMPORT_COLUMNS
@@ -439,7 +465,8 @@ function buildImportJobDetailsPayload(params: {
     const normalizedRow: Record<string, string> = {};
     for (const column of effectiveColumns) {
       const value = row[column as CanonicalColumnKey];
-      normalizedRow[column] = toTrimmedString(value) ?? "";
+      const text = toTrimmedString(value) ?? "";
+      normalizedRow[column] = column === "national_id" ? maskNationalId(text) : column === "phone_number" && text.length > 4 ? `${"*".repeat(Math.max(0, text.length - 4))}${text.slice(-4)}` : text;
     }
     return normalizedRow;
   });
@@ -452,6 +479,7 @@ function buildImportJobDetailsPayload(params: {
     importedPersonIds,
     importedHouseIds,
     importedUserIds,
+    rowDetails,
   };
 }
 
@@ -718,6 +746,77 @@ function formatError(error: unknown) {
   return "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ";
 }
 
+export async function applyStoredImportRow(
+  tx: Prisma.TransactionClient,
+  ctx: AdminVillageContext,
+  row: StoredImportRow,
+) {
+  const zone = row.zoneName ? await tx.villageZone.findFirst({ where: { villageId: ctx.villageId, name: row.zoneName }, select: { id: true } }) : null;
+  const existingHouse = await tx.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId: ctx.villageId, normalizedHouseNumber: row.houseNumber } }, select: { id: true } });
+  const house = existingHouse
+    ? await tx.house.update({ where: { id: existingHouse.id }, data: { ...(row.houseAddress ? { address: row.houseAddress } : {}), ...(row.occupancyStatus ? { occupancyStatus: row.occupancyStatus } : {}), ...(zone ? { zoneId: zone.id } : {}), ...(row.latitude !== null ? { latitude: row.latitude } : {}), ...(row.longitude !== null ? { longitude: row.longitude } : {}) }, select: { id: true } })
+    : await tx.house.create({ data: { villageId: ctx.villageId, houseNumber: row.houseNumber, normalizedHouseNumber: row.houseNumber, address: row.houseAddress, occupancyStatus: row.occupancyStatus ?? HouseholdOccupancyStatus.OCCUPIED, zoneId: zone?.id ?? null, latitude: row.latitude, longitude: row.longitude, sourceType: "IMPORT", sourceNote: row.note ?? "Population import confirmed by administrator", verifiedByUserId: ctx.userId, verifiedAt: new Date() }, select: { id: true } });
+
+  const dateOfBirth = row.dateOfBirth ? new Date(row.dateOfBirth) : null;
+  const personData = { villageId: ctx.villageId, houseId: house.id, nationalId: row.nationalId, firstName: row.firstName, lastName: row.lastName, dateOfBirth, gender: row.gender, phone: row.phoneNumber, email: row.email, status: row.personStatus ?? PersonStatus.ACTIVE };
+  const person = row.matchedPersonId
+    ? await tx.person.update({ where: { id: row.matchedPersonId }, data: personData, select: { id: true } })
+    : await tx.person.create({ data: personData, select: { id: true } });
+  return { personId: person.id, houseId: house.id };
+}
+
+async function validateRowsForPreview(
+  ctx: AdminVillageContext,
+  rows: Array<Partial<Record<CanonicalColumnKey, unknown>>>,
+) {
+  const details: ImportRowDetail[] = [];
+  const storedRows: StoredImportRow[] = [];
+  const seenKeys = new Set<string>();
+  let createdRows = 0;
+  let updatedRows = 0;
+  let conflictRows = 0;
+  let failedRows = 0;
+
+  for (const [index, rawRow] of rows.entries()) {
+    const rowNumber = index + 2;
+    try {
+      const parsed = parseImportRow(rawRow);
+      const duplicateKey = parsed.nationalId ? `nid:${parsed.nationalId}` : parsed.phoneNumber ? `phone:${parsed.phoneNumber}` : `person:${parsed.firstName.toLowerCase()}|${parsed.lastName.toLowerCase()}|${parsed.dateOfBirth?.toISOString() ?? ""}|${parsed.houseNumber}`;
+      if (seenKeys.has(duplicateKey)) {
+        conflictRows += 1;
+        details.push({ rowNumber, action: "CONFLICT", status: "CONFLICT", errorCode: "DUPLICATE_IN_FILE", errorMessage: "พบข้อมูลบุคคลซ้ำภายในไฟล์เดียวกัน", confidenceLevel: "CONFLICT" });
+        storedRows.push({ ...parsed, rowNumber, matchedPersonId: null, action: "CONFLICT" });
+        continue;
+      }
+      seenKeys.add(duplicateKey);
+
+      const [byNationalId, byPhone, byIdentity, existingHouse] = await Promise.all([
+        parsed.nationalId ? prisma.person.findFirst({ where: { villageId: ctx.villageId, nationalId: parsed.nationalId }, select: { id: true, phone: true } }) : null,
+        parsed.phoneNumber ? prisma.person.findFirst({ where: { villageId: ctx.villageId, phone: parsed.phoneNumber }, select: { id: true, nationalId: true } }) : null,
+        prisma.person.findFirst({ where: { villageId: ctx.villageId, firstName: parsed.firstName, lastName: parsed.lastName, dateOfBirth: parsed.dateOfBirth, house: { normalizedHouseNumber: parsed.houseNumber } }, select: { id: true } }),
+        prisma.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId: ctx.villageId, normalizedHouseNumber: parsed.houseNumber } }, select: { id: true } }),
+      ]);
+      if (byNationalId && byPhone && byNationalId.id !== byPhone.id) {
+        conflictRows += 1;
+        details.push({ rowNumber, action: "CONFLICT", status: "CONFLICT", errorCode: "IDENTIFIER_CONFLICT", errorMessage: "national_id และ phone_number อ้างถึงคนละบุคคล", confidenceLevel: "CONFLICT" });
+        storedRows.push({ ...parsed, rowNumber, matchedPersonId: null, action: "CONFLICT" });
+        continue;
+      }
+      const matched = byNationalId ?? byPhone ?? byIdentity;
+      const confidenceLevel = byNationalId && byPhone ? "HIGH_CONFIDENCE_MATCH" : matched ? (byNationalId || byPhone ? "HIGH_CONFIDENCE_MATCH" : "POSSIBLE_MATCH") : "NEW_RECORD";
+      const action = matched ? "UPDATE" : "CREATE";
+      if (matched) updatedRows += 1; else createdRows += 1;
+      details.push({ rowNumber, action, status: "VALID", matchedRecordId: matched?.id ?? null, changedFields: ["person", ...(existingHouse ? ["existing_house"] : ["NEW_HOUSE_REQUIRES_CONFIRM"])], confidenceLevel });
+      storedRows.push({ ...parsed, rowNumber, matchedPersonId: matched?.id ?? null, action });
+    } catch (error) {
+      failedRows += 1;
+      details.push({ rowNumber, action: "FAILED", status: "INVALID", errorCode: "INVALID_ROW", errorMessage: formatError(error), confidenceLevel: "INVALID" });
+        storedRows.push({ houseNumber: "", firstName: "", lastName: "", externalPersonId: null, phoneNumber: null, nationalId: null, dateOfBirth: null, gender: null, email: null, houseAddress: null, zoneName: null, occupancyStatus: null, personStatus: null, latitude: null, longitude: null, createUserAccount: false, isCitizenVerified: false, note: null, rowNumber, matchedPersonId: null, action: "FAILED" });
+    }
+  }
+  return { details, storedRows, createdRows, updatedRows, conflictRows, failedRows };
+}
+
 export async function importPopulationWorkbookAction(
   _prevState: ImportActionState | null,
   formData: FormData,
@@ -756,12 +855,13 @@ export async function importPopulationWorkbookAction(
         villageId: ctx.villageId,
         createdBy: ctx.userId,
         fileName: fileEntry.name,
-        stage: PopulationImportStage.PROCESSING,
+        stage: PopulationImportStage.PENDING,
         startedAt: new Date(),
       },
       select: { id: true },
     });
     jobId = job.id;
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, fileName: fileEntry.name } } });
 
     const buffer = Buffer.from(await fileEntry.arrayBuffer());
     const isCsv = /\.csv$/i.test(fileEntry.name);
@@ -803,6 +903,25 @@ export async function importPopulationWorkbookAction(
       },
     });
 
+    const preview = await validateRowsForPreview(ctx, spreadsheetRows);
+    const previewErrors = preview.details.filter((detail) => detail.errorMessage).slice(0, MAX_IMPORT_ERRORS).map((detail) => `แถว ${detail.rowNumber}: ${detail.errorMessage}`);
+    await prisma.populationImportJob.update({
+      where: { id: jobId },
+      data: {
+        stage: PopulationImportStage.PENDING,
+        importedRows: 0,
+        failedRows: preview.failedRows + preview.conflictRows,
+        createdRows: preview.createdRows,
+        updatedRows: preview.updatedRows,
+        conflictRows: preview.conflictRows,
+        sourceRows: JSON.parse(JSON.stringify(preview.storedRows)) as Prisma.InputJsonValue,
+        errors: buildImportJobDetailsPayload({ rows: spreadsheetRows, sourceHeaders, errors: previewErrors, rowDetails: preview.details }),
+      },
+    });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
+    revalidatePath("/admin/population/import");
+    return { success: true, message: `ตรวจสอบไฟล์แล้ว กรุณาเปิดงาน ${jobId} เพื่อดู Preview และยืนยัน`, summary: { fileName: fileEntry.name, totalRows: spreadsheetRows.length, importedRows: 0, failedRows: preview.failedRows + preview.conflictRows, stage: PopulationImportStage.PENDING }, errors: previewErrors };
+
     let importedRows = 0;
     let failedRows = 0;
     const errors: string[] = [];
@@ -821,8 +940,8 @@ export async function importPopulationWorkbookAction(
 
         importedPersonIds.add(rowResult.resolvedPersonId);
         importedHouseIds.add(rowResult.resolvedHouseId);
-        if (rowResult.resolvedUserId) {
-          importedUserIds.add(rowResult.resolvedUserId);
+        if (rowResult.resolvedUserId !== null) {
+          importedUserIds.add(rowResult.resolvedUserId!);
         }
 
         importedRows += 1;
@@ -842,7 +961,7 @@ export async function importPopulationWorkbookAction(
           : PopulationImportStage.COMPLETED;
 
     await prisma.populationImportJob.update({
-      where: { id: jobId },
+      where: { id: jobId! },
       data: {
         stage,
         importedRows,
@@ -872,7 +991,7 @@ export async function importPopulationWorkbookAction(
             ? `นำเข้าบางส่วนสำเร็จ ${importedRows} แถว และล้มเหลว ${failedRows} แถว`
             : "ไม่สามารถนำเข้าข้อมูลได้",
       summary: {
-        fileName: fileEntry.name,
+        fileName: String((fileEntry as File | null)?.name ?? "import"),
         totalRows: spreadsheetRows.length,
         importedRows,
         failedRows,

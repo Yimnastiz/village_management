@@ -14,6 +14,10 @@ export function PopulationImportForm() {
 
   return (
     <div className="space-y-4">
+      <ol className="grid gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 md:grid-cols-6">
+        <li>1. ดาวน์โหลด Template</li><li>2. เตรียมข้อมูล</li><li>3. อัปโหลดและตรวจสอบ</li><li>4. ตรวจสอบ Preview</li><li>5. ยืนยันนำเข้า</li><li>6. ดูผลลัพธ์</li>
+      </ol>
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">การ Import ไม่ใช่การยืนยันตัวตน ข้อมูลบ้านต้องมาจากทะเบียนหรือผู้ดูแล แถวที่มีปัญหาจะไม่ถูกนำเข้า และระบบจะไม่ลบบุคคลเดิมโดยอัตโนมัติ</div>
       {state && (
         <div
           className={`rounded-xl border px-4 py-3 text-sm ${

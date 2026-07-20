@@ -7,6 +7,7 @@ import { POPULATION_IMPORT_COLUMNS } from "@/features/population/server/import-t
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
 import { deleteImportedPersonAction, deleteImportJobDatasetAction } from "./actions";
+import { ImportConfirmForm } from "./import-confirm-form";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
@@ -22,6 +23,9 @@ type ImportJobDetailsPayload = {
   importedPersonIds?: string[];
   importedHouseIds?: string[];
   importedUserIds?: string[];
+  createdPersonIds?: string[];
+  createdHouseIds?: string[];
+  rowDetails?: Array<{ rowNumber: number; action: string; status: string; errorMessage?: string | null; confidenceLevel?: string; matchedRecordId?: string | null }>;
 };
 
 function getStageBadgeVariant(stage: PopulationImportStage) {
@@ -102,6 +106,10 @@ export default async function Page({ params }: PageProps) {
       createdAt: true,
       startedAt: true,
       completedAt: true,
+      createdRows: true,
+      updatedRows: true,
+      skippedRows: true,
+      conflictRows: true,
       village: { select: { name: true } },
     },
   });
@@ -115,9 +123,10 @@ export default async function Page({ params }: PageProps) {
   const sourceHeaders = payload.sourceHeaders ?? [];
   const previewColumns = payload.previewColumns ?? [];
   const previewRows = payload.previewRows ?? [];
-  const importedPersonIds = payload.importedPersonIds ?? [];
+  const importedPersonIds = payload.createdPersonIds ?? [];
   const importedUserIds = payload.importedUserIds ?? [];
-  const importedHouseIds = payload.importedHouseIds ?? [];
+  const importedHouseIds = payload.createdHouseIds ?? [];
+  const rowDetails = payload.rowDetails ?? [];
 
   const importedPeople = importedPersonIds.length
     ? await prisma.person.findMany({
@@ -171,6 +180,7 @@ export default async function Page({ params }: PageProps) {
         </p>
         <form action={deleteImportJobDatasetAction} className="mt-3">
           <input type="hidden" name="jobId" value={job.id} />
+          <input name="supportReason" required minLength={5} placeholder="เหตุผลการ rollback" className="mr-2 rounded-lg border border-red-300 px-3 py-2 text-sm" />
           <button
             type="submit"
             className="inline-flex w-full sm:w-auto items-center justify-center rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
@@ -198,6 +208,15 @@ export default async function Page({ params }: PageProps) {
           <p className="mt-1 text-2xl font-bold text-red-700">{job.failedRows.toLocaleString("th-TH")}</p>
         </div>
       </section>
+
+      {job.stage === PopulationImportStage.PENDING ? (
+        <section className="rounded-xl border border-amber-300 bg-amber-50 p-5">
+          <h2 className="text-lg font-semibold text-amber-950">ตรวจสอบ Preview ก่อนยืนยันนำเข้า</h2>
+          <p className="mt-1 text-sm text-amber-900">ยังไม่มีการเขียนข้อมูลจริง บ้านใหม่และรายการที่เปลี่ยนแปลงจะแสดงจากผลตรวจสอบนี้</p>
+          <div className="mt-3 flex flex-wrap gap-2 text-sm"><Badge variant="success">CREATE {job.createdRows}</Badge><Badge variant="info">UPDATE {job.updatedRows}</Badge><Badge variant="warning">CONFLICT {job.conflictRows}</Badge><Badge variant="danger">FAILED {job.failedRows}</Badge><span className="text-xs text-amber-900">รายละเอียด {rowDetails.length} แถว</span></div>
+          <ImportConfirmForm jobId={job.id} />
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-gray-200 bg-white p-5">
         <h2 className="text-lg font-semibold text-gray-900">เวลาและไฟล์</h2>

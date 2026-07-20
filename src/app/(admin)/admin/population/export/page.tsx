@@ -23,11 +23,12 @@ export default async function Page() {
   );
   if (!adminMembership) redirect(computeLandingPath(session));
 
-  const [village, houseCount, peopleCount, accountCount] = await Promise.all([
+  const [village, houseCount, peopleCount, accountCount, zones] = await Promise.all([
     prisma.village.findUnique({ where: { id: adminMembership.villageId }, select: { name: true } }),
     prisma.house.count({ where: { villageId: adminMembership.villageId } }),
     prisma.person.count({ where: { villageId: adminMembership.villageId } }),
     prisma.villageMembership.count({ where: { villageId: adminMembership.villageId } }),
+    prisma.villageZone.findMany({ where: { villageId: adminMembership.villageId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   return (
@@ -42,6 +43,15 @@ export default async function Page() {
             <Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Excel
           </Button>
         </a>
+        <form action="/api/admin/population/export" method="get" className="flex flex-wrap items-center gap-2">
+          <select name="sheets" defaultValue="houses,people,accounts" className="rounded-lg border px-2 py-2 text-sm"><option value="houses,people,accounts">บ้าน บุคคล บัญชี</option><option value="houses">เฉพาะบ้าน</option><option value="people">เฉพาะบุคคล</option><option value="accounts">เฉพาะบัญชี</option></select>
+          <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="activeOnly" value="true" /> Active only</label>
+          <select name="zoneId" className="rounded-lg border px-2 py-2 text-sm"><option value="">ทุกโซน</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select>
+          <select name="status" className="rounded-lg border px-2 py-2 text-sm"><option value="">ทุกสถานะบ้าน</option><option value="OCCUPIED">มีผู้อยู่อาศัย</option><option value="VACANT">ว่าง</option><option value="UNDER_CONSTRUCTION">ก่อสร้าง</option><option value="DEMOLISHED">รื้อถอน</option></select>
+          <input type="date" name="from" className="rounded-lg border px-2 py-2 text-sm" /><input type="date" name="to" className="rounded-lg border px-2 py-2 text-sm" />
+          <input type="hidden" name="masked" value="true" />
+          <Button type="submit"><Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Masked Excel</Button>
+        </form>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

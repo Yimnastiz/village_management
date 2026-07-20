@@ -18,6 +18,14 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     aliases: ["house number", "house no", "house no.", "เลขที่บ้าน", "บ้านเลขที่", "เลขบ้าน"],
   },
   {
+    key: "external_person_id",
+    label: "รหัสบุคคลจากทะเบียน",
+    required: false,
+    description: "รหัสอ้างอิงจากระบบทะเบียน ใช้ช่วยตรวจสอบซ้ำ ไม่ใช้ยืนยันตัวตน",
+    example: "PERSON-0001",
+    aliases: ["external person id", "person id", "รหัสบุคคล"],
+  },
+  {
     key: "first_name",
     label: "ชื่อ",
     required: true,
