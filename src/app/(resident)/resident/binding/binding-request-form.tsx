@@ -1,9 +1,9 @@
 "use client";
 
 import { CheckCircle2, ChevronDown, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { normalizeHouseNumber } from "@/lib/house-number";
-import { submitBindingRequestAction } from "./actions";
+import { submitBindingRequestAction, type BindingRequestActionState } from "./actions";
 
 type VillageOption = {
   id: string;
@@ -47,6 +47,7 @@ export function BindingRequestForm({
   isRejected: boolean;
   signedIn: boolean;
 }) {
+  const [actionState, formAction, isPending] = useActionState<BindingRequestActionState, FormData>(submitBindingRequestAction, { success: false });
   const initialVillage = villages.find((village) => village.id === latestRequest?.villageId) ?? villages[0] ?? null;
   const initialHouse = houses.find((house) => house.id === latestRequest?.houseId) ?? null;
   const [selectedVillageId, setSelectedVillageId] = useState(initialVillage?.id ?? "");
@@ -80,11 +81,12 @@ export function BindingRequestForm({
   const switchToSuggest = () => {
     setMode("suggest");
     setSelectedHouseId("");
-    setHouseQuery("");
   };
 
+  const canSubmit = mode === "existing" ? Boolean(selectedHouseId) : Boolean(houseQuery.trim());
+
   return (
-    <form action={submitBindingRequestAction} className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <div className="relative">
         <label htmlFor="village-search" className="mb-1 block text-sm font-medium text-gray-700">หมู่บ้าน</label>
         <input type="hidden" name="villageId" value={selectedVillageId} />
@@ -152,6 +154,16 @@ export function BindingRequestForm({
                 setHouseQuery(event.target.value);
                 setSelectedHouseId("");
               }}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter") return;
+                event.preventDefault();
+                if (filteredHouses.length === 1) {
+                  setSelectedHouseId(filteredHouses[0].id);
+                  setHouseQuery(filteredHouses[0].houseNumber);
+                } else if (houseQuery.trim()) {
+                  switchToSuggest();
+                }
+              }}
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
             />
           </div>
@@ -210,7 +222,8 @@ export function BindingRequestForm({
               name="houseNumber"
               required
               disabled={hasPending}
-              defaultValue={latestRequest?.houseNumber ?? ""}
+              value={houseQuery}
+              onChange={(event) => setHouseQuery(event.target.value)}
               placeholder="เช่น 96/4"
               className="block w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"
             />
@@ -236,7 +249,11 @@ export function BindingRequestForm({
         />
       </div>
 
-      <button type="submit" className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+      {actionState.fieldErrors?.house ? <p role="alert" className="text-sm text-red-700">{actionState.fieldErrors.house}</p> : null}
+      {actionState.fieldErrors?.village ? <p role="alert" className="text-sm text-red-700">{actionState.fieldErrors.village}</p> : null}
+      {actionState.message ? <p role="alert" className="text-sm text-red-700">{actionState.message}</p> : null}
+
+      <button type="submit" disabled={!canSubmit || isPending || hasPending} className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">
         {hasPending ? "อัปเดตคำขอผูกบ้านเดิม" : isRejected ? "แก้ไขคำขอและส่งใหม่" : "ส่งคำขอผูกบ้าน"}
       </button>
 

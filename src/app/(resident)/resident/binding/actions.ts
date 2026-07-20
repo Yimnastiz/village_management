@@ -1,1 +1,1 @@
-export { cancelBindingRequestAction, submitBindingRequestAction } from "@/app/(auth)/auth/binding/actions";
+export { cancelBindingRequestAction, submitBindingRequestAction, type BindingRequestActionState } from "@/app/(auth)/auth/binding/actions";
