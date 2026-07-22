@@ -27,11 +27,11 @@ CREATE TABLE "ThailandVillageMaster" (
   CONSTRAINT "ThailandVillageMaster_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "Village_catalogVillageId_key" ON "Village"("catalogVillageId");
-CREATE UNIQUE INDEX "ThailandVillageMaster_officialCode_key" ON "ThailandVillageMaster"("officialCode");
-CREATE UNIQUE INDEX "ThailandVillageMaster_province_district_subdistrict_villageName_moo_key" ON "ThailandVillageMaster"("province", "district", "subdistrict", "villageName", "moo");
-CREATE INDEX "ThailandVillageMaster_province_district_subdistrict_idx" ON "ThailandVillageMaster"("province", "district", "subdistrict");
-CREATE INDEX "ThailandVillageMaster_villageName_idx" ON "ThailandVillageMaster"("villageName");
-CREATE INDEX "ThailandVillageMaster_province_district_subdistrict_villageName_idx" ON "ThailandVillageMaster"("province", "district", "subdistrict", "villageName");
+CREATE UNIQUE INDEX "village_catalog_village_id_key" ON "Village"("catalogVillageId");
+CREATE UNIQUE INDEX "tvm_official_code_key" ON "ThailandVillageMaster"("officialCode");
+CREATE UNIQUE INDEX "tvm_area_name_moo_key" ON "ThailandVillageMaster"("province", "district", "subdistrict", "villageName", "moo");
+CREATE INDEX "tvm_area_idx" ON "ThailandVillageMaster"("province", "district", "subdistrict");
+CREATE INDEX "tvm_village_name_idx" ON "ThailandVillageMaster"("villageName");
+CREATE INDEX "tvm_area_name_idx" ON "ThailandVillageMaster"("province", "district", "subdistrict", "villageName");
 
 ALTER TABLE "Village" ADD CONSTRAINT "Village_catalogVillageId_fkey" FOREIGN KEY ("catalogVillageId") REFERENCES "ThailandVillageMaster"("id") ON DELETE SET NULL ON UPDATE CASCADE;

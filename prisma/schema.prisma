@@ -294,22 +294,22 @@ enum HouseSourceType {
 // ========== MODELS ==========
 
 model User {
-  id                      String     @id @default(cuid())
-  phoneNumber             String     @unique
-  phoneNumberVerified     Boolean    @default(false)
+  id                      String        @id @default(cuid())
+  phoneNumber             String        @unique
+  phoneNumberVerified     Boolean       @default(false)
   name                    String
-  email                   String?    @unique
-  emailVerified           Boolean    @default(false)
+  email                   String?       @unique
+  emailVerified           Boolean       @default(false)
   image                   String?
-  systemRole              SystemRole @default(USER)
+  systemRole              SystemRole    @default(USER)
   registrationProvince    String?
   registrationDistrict    String?
   registrationSubdistrict String?
   registrationVillageId   String?
   citizenVerifiedAt       DateTime?
   consentAt               DateTime?
-  createdAt               DateTime   @default(now())
-  updatedAt               DateTime   @updatedAt
+  createdAt               DateTime      @default(now())
+  updatedAt               DateTime      @updatedAt
   accountStatus           AccountStatus @default(ACTIVE)
   deletionRequestedAt     DateTime?
   scheduledDeletionAt     DateTime?
@@ -378,25 +378,25 @@ model AuthAccount {
 }
 
 model Village {
-  id          String   @id @default(cuid())
-  slug        String   @unique
-  name        String
-  moo         String?
-  description String?
-  address     String?
-  district    String?
-  province    String?
-  subdistrict String?
-  phone       String?
-  email       String?
-  website     String?
-  sourceNote  String?
-  catalogVillageId String? @unique
-  logoUrl     String?
-  bannerUrl   String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  slug             String   @unique
+  name             String
+  moo              String?
+  description      String?
+  address          String?
+  district         String?
+  province         String?
+  subdistrict      String?
+  phone            String?
+  email            String?
+  website          String?
+  sourceNote       String?
+  catalogVillageId String?  @unique(map: "village_catalog_village_id_key")
+  logoUrl          String?
+  bannerUrl        String?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   memberships             VillageMembership[]
   zones                   VillageZone[]
@@ -425,14 +425,14 @@ model Village {
   registeredUsers         User[]                       @relation("UserRegistrationVillage")
   phoneRoleSeeds          PhoneRoleSeed[]
   bindingRequests         BindingRequest[]
-  catalogVillage          ThailandVillageMaster? @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
+  catalogVillage          ThailandVillageMaster?       @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
 
   @@index([slug])
 }
 
 model ThailandVillageMaster {
-  id              String   @id @default(cuid())
-  officialCode    String?  @unique
+  id              String    @id @default(cuid())
+  officialCode    String?   @unique(map: "tvm_official_code_key")
   villageName     String
   moo             String?
   subdistrict     String
@@ -443,16 +443,16 @@ model ThailandVillageMaster {
   sourceName      String?
   sourceUrl       String?
   sourceUpdatedAt DateTime?
-  importedAt      DateTime @default(now())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  importedAt      DateTime  @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  village         Village?
+  village Village?
 
-  @@index([province, district, subdistrict])
-  @@index([villageName])
-  @@index([province, district, subdistrict, villageName])
-  @@unique([province, district, subdistrict, villageName, moo])
+  @@unique([province, district, subdistrict, villageName, moo], map: "tvm_area_name_moo_key")
+  @@index([province, district, subdistrict], map: "tvm_area_idx")
+  @@index([villageName], map: "tvm_village_name_idx")
+  @@index([province, district, subdistrict, villageName], map: "tvm_area_name_idx")
 }
 
 model VillageMembership {
@@ -491,21 +491,21 @@ model VillageZone {
 }
 
 model House {
-  id              String                   @id @default(cuid())
-  villageId       String
-  zoneId          String?
-  houseNumber     String
+  id                    String                   @id @default(cuid())
+  villageId             String
+  zoneId                String?
+  houseNumber           String
   normalizedHouseNumber String
-  address         String?
-  occupancyStatus HouseholdOccupancyStatus @default(OCCUPIED)
-  sourceType      HouseSourceType          @default(ADMIN_CREATED)
-  sourceNote      String?
-  verifiedByUserId String?
-  verifiedAt      DateTime?
-  latitude        Float?
-  longitude       Float?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
+  address               String?
+  occupancyStatus       HouseholdOccupancyStatus @default(OCCUPIED)
+  sourceType            HouseSourceType          @default(ADMIN_CREATED)
+  sourceNote            String?
+  verifiedByUserId      String?
+  verifiedAt            DateTime?
+  latitude              Float?
+  longitude             Float?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
 
   village            Village                      @relation(fields: [villageId], references: [id], onDelete: Cascade)
   zone               VillageZone?                 @relation(fields: [zoneId], references: [id])
@@ -1068,28 +1068,28 @@ model FileObject {
 }
 
 model PopulationImportJob {
-  id           String                @id @default(cuid())
-  villageId    String
-  createdBy    String
-  fileName     String
-  fileKey      String?
-  stage        PopulationImportStage @default(PENDING)
-  totalRows    Int                   @default(0)
-  importedRows Int                   @default(0)
-  failedRows   Int                   @default(0)
-  createdRows  Int                   @default(0)
-  updatedRows  Int                   @default(0)
-  skippedRows  Int                   @default(0)
-  conflictRows Int                   @default(0)
-  errors       Json?
-  sourceRows   Json?
-  confirmedBy  String?
-  confirmedAt  DateTime?
+  id            String                @id @default(cuid())
+  villageId     String
+  createdBy     String
+  fileName      String
+  fileKey       String?
+  stage         PopulationImportStage @default(PENDING)
+  totalRows     Int                   @default(0)
+  importedRows  Int                   @default(0)
+  failedRows    Int                   @default(0)
+  createdRows   Int                   @default(0)
+  updatedRows   Int                   @default(0)
+  skippedRows   Int                   @default(0)
+  conflictRows  Int                   @default(0)
+  errors        Json?
+  sourceRows    Json?
+  confirmedBy   String?
+  confirmedAt   DateTime?
   supportReason String?
-  startedAt    DateTime?
-  completedAt  DateTime?
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
 
   village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
 
@@ -1210,21 +1210,21 @@ enum LoginOtpChallengeStatus {
 }
 
 model LoginOtpChallenge {
-  id                    String                  @id @default(cuid())
-  phoneNumber           String                  @unique
-  otpIdentifier         String
-  challengeToken        String                  @unique
-  status                LoginOtpChallengeStatus @default(PENDING_SEND)
-  otpSentAt             DateTime?
-  otpExpiresAt          DateTime?
-  resendAvailableAt     DateTime?
-  failedAttempts        Int                     @default(0)
-  lockedUntil           DateTime?
-  sendWindowStartedAt   DateTime
-  sendCount             Int                     @default(0)
-  ipHash                String?
-  createdAt             DateTime                @default(now())
-  updatedAt             DateTime                @updatedAt
+  id                  String                  @id @default(cuid())
+  phoneNumber         String                  @unique
+  otpIdentifier       String
+  challengeToken      String                  @unique
+  status              LoginOtpChallengeStatus @default(PENDING_SEND)
+  otpSentAt           DateTime?
+  otpExpiresAt        DateTime?
+  resendAvailableAt   DateTime?
+  failedAttempts      Int                     @default(0)
+  lockedUntil         DateTime?
+  sendWindowStartedAt DateTime
+  sendCount           Int                     @default(0)
+  ipHash              String?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
 
   @@index([status])
   @@index([lockedUntil])
@@ -1261,32 +1261,32 @@ model RegistrationTemp {
 }
 
 model RegistrationOtpChallenge {
-  id                    String                         @id @default(cuid())
-  phoneNumber           String                         @unique
-  otpIdentifier         String
-  status                RegistrationOtpChallengeStatus @default(PENDING_SEND)
-  otpSentAt             DateTime?
-  otpExpiresAt          DateTime?
-  resendAvailableAt     DateTime?
-  resendCount           Int                            @default(0)
-  sendWindowStartedAt   DateTime
-  sendCount             Int                            @default(0)
-  createdAt             DateTime                       @default(now())
-  updatedAt             DateTime                       @updatedAt
+  id                  String                         @id @default(cuid())
+  phoneNumber         String                         @unique
+  otpIdentifier       String
+  status              RegistrationOtpChallengeStatus @default(PENDING_SEND)
+  otpSentAt           DateTime?
+  otpExpiresAt        DateTime?
+  resendAvailableAt   DateTime?
+  resendCount         Int                            @default(0)
+  sendWindowStartedAt DateTime
+  sendCount           Int                            @default(0)
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
 
   @@index([status])
 }
 
 model RegistrationVerifierSession {
-  id              String           @id @default(cuid())
-  registrationId  String
-  ipHash          String
-  failedAttempts  Int              @default(0)
-  nextAttemptAt   DateTime?
-  lockedUntil     DateTime?
-  expiresAt       DateTime
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id             String    @id @default(cuid())
+  registrationId String
+  ipHash         String
+  failedAttempts Int       @default(0)
+  nextAttemptAt  DateTime?
+  lockedUntil    DateTime?
+  expiresAt      DateTime
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   registration RegistrationTemp @relation(fields: [registrationId], references: [id], onDelete: Cascade)
 
@@ -1296,17 +1296,17 @@ model RegistrationVerifierSession {
 }
 
 model AccountDeletionChallenge {
-  id                String   @id @default(cuid())
-  userId            String   @unique
+  id                String    @id @default(cuid())
+  userId            String    @unique
   phoneNumber       String
   otpSentAt         DateTime
   otpExpiresAt      DateTime
   resendAvailableAt DateTime
-  failedAttempts    Int      @default(0)
+  failedAttempts    Int       @default(0)
   lockedUntil       DateTime?
   verifiedAt        DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([otpExpiresAt])
 }
