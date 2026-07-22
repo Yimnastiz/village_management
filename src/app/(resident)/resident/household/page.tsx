@@ -63,10 +63,16 @@ export default async function HouseholdPage() {
     },
   });
 
-  const resolvedHouseId = primaryMembership?.houseId ?? latestBindingRequest?.houseId ?? null;
+  const linkedPerson = await prisma.person.findUnique({
+    where: { userId: session.id },
+    include: { house: { select: { id: true, houseNumber: true } } },
+  });
+
+  const resolvedHouseId = primaryMembership?.houseId ?? linkedPerson?.houseId ?? latestBindingRequest?.houseId ?? null;
   const effectiveHouseId = residentMembership?.houseId ?? resolvedHouseId;
   const resolvedHouseNumber =
     primaryMembership?.house?.houseNumber ??
+    linkedPerson?.house?.houseNumber ??
     latestBindingRequest?.house?.houseNumber ??
     latestBindingRequest?.houseNumber ??
     "-";

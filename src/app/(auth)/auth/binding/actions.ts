@@ -50,6 +50,7 @@ export async function submitBindingRequestAction(
 
   let houseId: string | null = null;
   let houseNumber: string | null = null;
+  const linkedPerson = await prisma.person.findUnique({ where: { userId: session.id }, select: { houseId: true, house: { select: { houseNumber: true } } } });
   if (requestedHouseId) {
     const house = await prisma.house.findFirst({ where: { id: requestedHouseId, villageId }, select: { id: true } });
     if (!house) return { success: false, fieldErrors: { house: "บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้" } };
@@ -63,6 +64,11 @@ export async function submitBindingRequestAction(
     if (existing) return { success: false, fieldErrors: { house: "เลขบ้านนี้มีอยู่ในระบบแล้ว กรุณาเลือกจากรายการ" } };
     if (existing) throw new Error("พบเลขบ้านนี้ในระบบแล้ว กรุณาเลือกบ้านจากรายการ");
   }
+
+  const personHouseMismatch = Boolean(linkedPerson?.houseId && linkedPerson.houseId !== houseId);
+  const bindingNote = personHouseMismatch
+    ? `${note ?? ""}${note ? " " : ""}ข้อมูลทะเบียนประชากรระบุบ้านเลขที่ ${linkedPerson?.house?.houseNumber ?? "ไม่ระบุ"} แต่คำขอนี้เลือกหรือเสนอเลขบ้านต่างกัน กรุณาตรวจสอบ`
+    : note;
 
   // This is the selected public village context; it grants no membership access.
   await prisma.user.update({ where: { id: session.id }, data: { registrationVillageId: villageId } });
@@ -84,7 +90,7 @@ export async function submitBindingRequestAction(
         // Keep original village while request is pending to avoid duplicate multi-village requests.
         houseId,
         houseNumber,
-        note,
+        note: bindingNote,
       },
     });
 
@@ -117,7 +123,7 @@ export async function submitBindingRequestAction(
         villageId,
         houseId,
         houseNumber,
-        note,
+        note: bindingNote,
         status: BindingRequestStatus.PENDING,
       },
       include: {

@@ -30,7 +30,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
 
   const membership = getResidentMembership(session);
   if (!membership) {
-    const [latestBindingRequest, unreadNotifications] = await Promise.all([
+    const [latestBindingRequest, unreadNotifications, linkedPerson] = await Promise.all([
       prisma.bindingRequest.findFirst({
         where: {
           userId: session.id,
@@ -51,6 +51,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
       prisma.notification.count({
         where: { userId: session.id, status: NotificationStatus.UNREAD },
       }),
+      prisma.person.findUnique({ where: { userId: session.id }, select: { house: { select: { houseNumber: true } } } }),
     ]);
     const isPending = latestBindingRequest?.status === "PENDING";
     const isRejected = latestBindingRequest?.status === "REJECTED";
@@ -75,6 +76,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
         )}
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+          {linkedPerson?.house?.houseNumber ? <p className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">พบข้อมูลทะเบียนประชากร: บ้านเลขที่ {linkedPerson.house.houseNumber} — รอผู้ใหญ่บ้านยืนยันสิทธิ์</p> : null}
           <p className="text-sm font-semibold text-amber-900">บัญชีของคุณยังไม่ผูกกับครัวเรือน</p>
           <p className="mt-1 text-sm text-amber-800">
             คุณยังเข้าใช้งานข้อมูลภายในหมู่บ้านไม่ได้จนกว่าจะผูกเลขบ้านและได้รับการอนุมัติ

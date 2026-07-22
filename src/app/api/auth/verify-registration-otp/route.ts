@@ -1,8 +1,9 @@
-import { RegistrationOtpChallengeStatus, RegistrationTempStatus } from "@prisma/client";
+import { AuditAction, RegistrationOtpChallengeStatus, RegistrationTempStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { clearRegistrationCookie, getRegistrationFromRequest, normalizePhone10, toPhoneCandidates } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
+import { maskNationalId } from "@/lib/utils";
 
 const schema = z.object({ code: z.string().trim().regex(/^\d{6}$/), registrationId: z.string().min(1), challengeId: z.string().min(1) });
 const DELAYS = [2, 5, 15, 30, 30] as const;
@@ -57,6 +58,49 @@ export async function POST(request: NextRequest) {
       },
       select: { id: true },
     });
+    if (currentDraft.nationalId && currentDraft.villageId) {
+      const personCandidates = await tx.person.findMany({
+        where: { villageId: currentDraft.villageId, nationalId: currentDraft.nationalId },
+        select: { id: true, userId: true },
+      });
+      if (personCandidates.length === 1) {
+        const person = personCandidates[0];
+        if (!person.userId) {
+          await tx.person.update({ where: { id: person.id }, data: { userId: user.id } });
+          await tx.auditLog.create({
+            data: {
+              userId: user.id,
+              villageId: currentDraft.villageId,
+              action: AuditAction.UPDATE,
+              resource: "Person",
+              resourceId: person.id,
+              metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), linkedUserId: user.id },
+            },
+          });
+        } else if (person.userId !== user.id) {
+          await tx.auditLog.create({
+            data: {
+              userId: user.id,
+              villageId: currentDraft.villageId,
+              action: AuditAction.UPDATE,
+              resource: "Person",
+              resourceId: person.id,
+              metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), conflict: true },
+            },
+          });
+        }
+      } else if (personCandidates.length > 1) {
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            villageId: currentDraft.villageId,
+            action: AuditAction.UPDATE,
+            resource: "Person",
+            metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), conflict: "AMBIGUOUS", candidateCount: personCandidates.length },
+          },
+        });
+      }
+    }
     await tx.registrationTemp.update({ where: { id: currentDraft.id }, data: { status: RegistrationTempStatus.VERIFIED } });
     await tx.registrationTemp.updateMany({ where: { phoneNumber, id: { not: currentDraft.id }, status: RegistrationTempStatus.WAITING_OTP }, data: { status: RegistrationTempStatus.CANCELLED } });
     await tx.registrationOtpChallenge.update({ where: { id: challenge.id }, data: { status: RegistrationOtpChallengeStatus.CONSUMED } });

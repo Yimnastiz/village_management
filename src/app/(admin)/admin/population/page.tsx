@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
+import { maskNationalId } from "@/lib/utils";
 import { BindingReviewForm } from "./binding-review-form";
 
 const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
@@ -37,6 +38,13 @@ type PendingBindingRequest = {
     houseNumber: string;
     normalizedHouseNumber: string;
     villageId: string;
+  } | null;
+  person: {
+    id: string;
+    userId: string | null;
+    nationalId: string | null;
+    houseId: string | null;
+    houseNumber: string | null;
   } | null;
 };
 
@@ -97,6 +105,7 @@ async function getPendingBindingRequests(
           id: true,
           name: true,
           phoneNumber: true,
+          person: { select: { id: true, userId: true, nationalId: true, houseId: true, house: { select: { houseNumber: true } } } },
         },
       },
       village: {
@@ -114,7 +123,14 @@ async function getPendingBindingRequests(
         },
       },
     },
-  });
+  }).then((requests) => requests.map((request) => ({
+    ...request,
+    person: request.user.person && request.user.person.house
+      ? { ...request.user.person, houseNumber: request.user.person.house.houseNumber }
+      : request.user.person
+        ? { ...request.user.person, houseNumber: null }
+        : null,
+  })));
 }
 
 export async function handleBindingRequestAction(_previousState: BindingReviewActionState, formData: FormData): Promise<BindingReviewActionState> {
@@ -141,6 +157,8 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   if (!binding) return { success: false, message: "ไม่พบคำขอผูกบ้าน" };
   if (!binding.villageId) return { success: false, message: "คำขอไม่มีข้อมูลหมู่บ้าน" };
 
+  if (binding.status !== BindingRequestStatus.PENDING) return { success: false, message: "คำขอนี้ได้รับการดำเนินการแล้ว" };
+
   const canManage =
     session.systemRole !== SystemRole.SUPERADMIN &&
     session.memberships.some(
@@ -156,6 +174,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   const now = new Date();
   const status = action === "approve" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED;
   const membershipStatus = action === "approve" ? MembershipStatus.ACTIVE : MembershipStatus.REJECTED;
+  const confirmPersonHouseChange = formData.get("confirmPersonHouseChange") === "true";
 
   try { await prisma.$transaction(async (tx) => {
     let resolvedHouseId: string | null = null;
@@ -227,13 +246,21 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
         if (residentUser) {
           const names = splitDisplayName(residentUser.name);
-          const existingPerson = await tx.person.findFirst({
-            where: {
-              phone: residentUser.phoneNumber,
-              villageId: binding.villageId,
-            },
-            select: { id: true, houseId: true },
-          });
+          const registration = residentUser.phoneNumber ? await tx.registrationTemp.findFirst({
+            where: { phoneNumber: residentUser.phoneNumber, villageId: binding.villageId!, status: RegistrationTempStatus.VERIFIED },
+            orderBy: { updatedAt: "desc" },
+            select: { nationalId: true },
+          }) : null;
+          const linkedPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true } });
+          if (linkedPerson && linkedPerson.villageId !== binding.villageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้อยู่คนละหมู่บ้านกับคำขอ");
+          const nationalIdCandidates = registration?.nationalId
+            ? await tx.person.findMany({ where: { villageId: binding.villageId, nationalId: registration.nationalId }, select: { id: true, userId: true, houseId: true, villageId: true } })
+            : [];
+          if (nationalIdCandidates.length > 1) throw new BindingReviewValidationError("พบข้อมูลบุคคลจากเลขบัตรประชาชนมากกว่าหนึ่งรายการ ต้องตรวจสอบข้อมูลก่อนอนุมัติ");
+          const phonePerson = residentUser.phoneNumber ? await tx.person.findFirst({ where: { phone: residentUser.phoneNumber, villageId: binding.villageId }, select: { id: true, userId: true, houseId: true, villageId: true } }) : null;
+          const existingPerson = linkedPerson ?? nationalIdCandidates[0] ?? phonePerson;
+          if (existingPerson?.userId && existingPerson.userId !== binding.userId) throw new BindingReviewValidationError("ข้อมูลบุคคลนี้ถูกผูกกับบัญชีอื่นแล้ว ไม่สามารถผูกทับได้");
+          if (existingPerson?.houseId && existingPerson.houseId !== resolvedHouseId && !confirmPersonHouseChange) throw new BindingReviewValidationError("บ้านที่คำขอเลือกไม่ตรงกับข้อมูลทะเบียนประชากร กรุณายืนยันการแก้ไขข้อมูลทะเบียนก่อนอนุมัติ");
 
           if (existingPerson) {
             await tx.person.update({
@@ -241,6 +268,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
               data: {
                 villageId: binding.villageId,
                 houseId: resolvedHouseId,
+                userId: binding.userId,
               },
             });
             if (existingPerson.houseId !== resolvedHouseId) {
@@ -255,6 +283,8 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
                 firstName: names.firstName,
                 lastName: names.lastName,
                 phone: residentUser.phoneNumber,
+                userId: binding.userId,
+                nationalId: registration?.nationalId ?? null,
               },
             });
             await tx.personMovement.create({ data: { personId: person.id, houseId: resolvedHouseId, movementType: MovementType.MOVE_IN, date: new Date() } });
@@ -828,12 +858,16 @@ export default async function Page({ searchParams }: PageProps) {
                     <div className="text-sm text-gray-900">{request.note ?? "-"}</div>
                   </div>
                 </div>
+                {request.person ? <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                  ข้อมูลจากทะเบียนประชากร: {request.person.houseNumber ? `บ้านเลขที่ ${request.person.houseNumber}` : "ยังไม่มีบ้าน"} {request.person.nationalId ? `เลขบัตร ${maskNationalId(request.person.nationalId)}` : ""}
+                  {request.person.houseId && request.houseId && request.person.houseId !== request.houseId ? <p className="mt-1 font-medium text-red-700">คำเตือน: บ้านที่ผู้ใช้เลือกไม่ตรงกับบ้านในข้อมูลทะเบียนประชากร</p> : null}
+                </div> : null}
 
                 {session.memberships.some((membership) =>
                   membership.villageId === request.villageId &&
                   membership.status === MembershipStatus.ACTIVE &&
                   (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN)
-                ) ? <><BindingReviewForm reviewAction={handleBindingRequestAction} verifyAction={verifyHouseForBindingAction} requestId={request.id} houseId={request.houseId} houseNumber={request.houseNumber} villageId={request.villageId ?? ""} houses={houses} /><div className="hidden space-y-2">
+                ) ? <><BindingReviewForm reviewAction={handleBindingRequestAction} verifyAction={verifyHouseForBindingAction} requestId={request.id} houseId={request.houseId} houseNumber={request.houseNumber} villageId={request.villageId ?? ""} houses={houses} personHouseNumber={request.person?.houseNumber} personNationalId={request.person?.nationalId ? maskNationalId(request.person.nationalId) : null} houseMismatch={Boolean(request.person?.houseId && request.houseId && request.person.houseId !== request.houseId)} /><div className="hidden space-y-2">
                   <input type="hidden" name="requestId" value={request.id} />
                   {!request.houseId ? <div className="col-span-1 md:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
                     <p className="mb-2 text-sm font-medium text-amber-900">คำขอนี้เป็นข้อมูลที่ลูกบ้านแจ้ง ยังไม่ใช่ข้อมูลบ้านจริง ต้องจับคู่หรือสร้างบ้านหลังตรวจสอบก่อน</p>

@@ -8,6 +8,7 @@ import {
   MovementType,
   PopulationImportStage,
   Prisma,
+  RegistrationTempStatus,
   VillageMembershipRole,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -695,9 +696,25 @@ async function importRowIntoVillage(
     return { resolvedUserId, resolvedPersonId: null, resolvedHouseId: house.id };
   }
 
+  if (!resolvedUserId && row.phoneNumber) {
+    const phoneUser = await tx.user.findUnique({ where: { phoneNumber: row.phoneNumber }, select: { id: true } });
+    resolvedUserId = phoneUser?.id ?? null;
+  }
+  if (!resolvedUserId && row.nationalId) {
+    const verifiedRegistration = await tx.registrationTemp.findFirst({
+      where: { nationalId: row.nationalId, villageId: ctx.villageId, status: RegistrationTempStatus.VERIFIED },
+      orderBy: { updatedAt: "desc" },
+      select: { phoneNumber: true },
+    });
+    if (verifiedRegistration) {
+      const registrationUser = await tx.user.findUnique({ where: { phoneNumber: verifiedRegistration.phoneNumber }, select: { id: true } });
+      resolvedUserId = registrationUser?.id ?? null;
+    }
+  }
+
   const personSearchConditions: Prisma.PersonWhereInput[] = [];
   if (row.nationalId) {
-    personSearchConditions.push({ nationalId: row.nationalId });
+    personSearchConditions.push({ nationalId: row.nationalId, villageId: ctx.villageId });
   }
   if (row.phoneNumber) {
     personSearchConditions.push({ phone: row.phoneNumber, villageId: ctx.villageId });
@@ -708,11 +725,12 @@ async function importRowIntoVillage(
         where: {
           OR: personSearchConditions,
         },
-        select: { id: true },
+        select: { id: true, userId: true },
         orderBy: { updatedAt: "desc" },
       })
     : null;
 
+  const canLinkUser = Boolean(resolvedUserId && (!existingPerson?.userId || existingPerson.userId === resolvedUserId));
   const personData = {
     villageId: ctx.villageId,
     houseId: house.id,
@@ -724,6 +742,7 @@ async function importRowIntoVillage(
     phone: row.phoneNumber,
     email: row.email,
     status: row.personStatus ?? PersonStatus.ACTIVE,
+    ...(canLinkUser ? { userId: resolvedUserId } : {}),
   };
 
   let resolvedPersonId: string;
@@ -827,6 +846,12 @@ async function validateRowsForPreview(
       if (byNationalId && byPhone && byNationalId.id !== byPhone.id) {
         conflictRows += 1;
         details.push({ rowNumber, action: "CONFLICT", status: "CONFLICT", errorCode: "IDENTIFIER_CONFLICT", errorMessage: "national_id และ phone_number อ้างถึงคนละบุคคล", confidenceLevel: "CONFLICT" });
+        storedRows.push({ ...parsed, rowNumber, matchedPersonId: null, action: "CONFLICT" });
+        continue;
+      }
+      if (byNationalId && byPhone && byNationalId.id !== byPhone.id) {
+        conflictRows += 1;
+        details.push({ rowNumber, action: "CONFLICT", status: "CONFLICT", errorCode: "IDENTITY_MATCH_CONFLICT", errorMessage: "เลขบัตรประชาชนและเบอร์โทรศัพท์ชี้ไปยังบุคคลคนละรายการ", confidenceLevel: "CONFLICT" });
         storedRows.push({ ...parsed, rowNumber, matchedPersonId: null, action: "CONFLICT" });
         continue;
       }

@@ -72,17 +72,12 @@ export default async function ProfilePage() {
     redirect("/auth/login?callbackUrl=/resident/profile");
   }
 
-  const person = await prisma.person.findFirst({
-    where: {
-      phone: user.phoneNumber,
-    },
-    include: {
-      house: {
-        select: {
-          houseNumber: true,
-        },
-      },
-    },
+  const person = await prisma.person.findUnique({
+    where: { userId: user.id },
+    include: { house: { select: { houseNumber: true } } },
+  }) ?? await prisma.person.findFirst({
+    where: { phone: user.phoneNumber, villageId: user.registrationVillageId },
+    include: { house: { select: { houseNumber: true } } },
     orderBy: { updatedAt: "desc" },
   });
 
