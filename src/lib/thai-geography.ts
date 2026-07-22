@@ -12,6 +12,10 @@ export type ThaiProvince = {
   districts: ThaiDistrict[];
 };
 
+export type ThaiLocationValidationResult =
+  | { ok: true; province: string; district: string; subdistrict: string }
+  | { ok: false; error: string };
+
 function normalizeText(value: string | undefined): string {
   return (value ?? "").trim();
 }
@@ -126,4 +130,54 @@ export function getThaiGeographyHierarchy(): ThaiProvince[] {
 
   warnIfInvalidProvinceCount(result);
   return result;
+}
+
+export function getThaiProvinceNames(): string[] {
+  return getThaiGeographyHierarchy().map((province) => province.name);
+}
+
+export function getThaiDistrictNames(provinceName: string): string[] {
+  const province = getThaiGeographyHierarchy().find((item) => item.name === provinceName.trim());
+  return province?.districts.map((district) => district.name) ?? [];
+}
+
+export function getThaiSubdistrictNames(provinceName: string, districtName: string): string[] {
+  const province = getThaiGeographyHierarchy().find((item) => item.name === provinceName.trim());
+  const district = province?.districts.find((item) => item.name === districtName.trim());
+  return district?.subdistricts ?? [];
+}
+
+export function validateThaiLocation(input: {
+  province: string;
+  district: string;
+  subdistrict: string;
+}): ThaiLocationValidationResult {
+  const provinceName = input.province.trim();
+  const districtName = input.district.trim();
+  const subdistrictName = input.subdistrict.trim();
+
+  if (!provinceName || !districtName || !subdistrictName) {
+    return { ok: false, error: "กรุณาเลือกจากรายการที่ระบบแนะนำ" };
+  }
+
+  const province = getThaiGeographyHierarchy().find((item) => item.name === provinceName);
+  if (!province) {
+    return { ok: false, error: "กรุณาเลือกจังหวัดจากรายการที่ระบบแนะนำ" };
+  }
+
+  const district = province.districts.find((item) => item.name === districtName);
+  if (!district) {
+    return { ok: false, error: "กรุณาเลือกอำเภอจากรายการที่สัมพันธ์กับจังหวัด" };
+  }
+
+  if (!district.subdistricts.includes(subdistrictName)) {
+    return { ok: false, error: "กรุณาเลือกตำบลจากรายการที่สัมพันธ์กับอำเภอ" };
+  }
+
+  return {
+    ok: true,
+    province: province.name,
+    district: district.name,
+    subdistrict: subdistrictName,
+  };
 }
