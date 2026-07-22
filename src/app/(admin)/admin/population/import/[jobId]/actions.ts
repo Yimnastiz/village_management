@@ -96,7 +96,10 @@ export async function confirmPopulationImportAction(formData: FormData) {
     for (const row of access.sourceRows) {
       if (row.action === "CONFLICT" || row.action === "FAILED") { failedRows += 1; continue; }
       const result = await applyStoredImportRow(tx, ctx, row);
-      if (row.action === "CREATE") { createdPersonIds.push(result.personId); createdHouseIds.push(result.houseId); }
+      if (row.action === "CREATE") {
+        if (result.personId) createdPersonIds.push(result.personId);
+        createdHouseIds.push(result.houseId);
+      }
       importedRows += 1;
     }
     const stage = failedRows > 0 ? PopulationImportStage.PARTIAL : PopulationImportStage.COMPLETED;

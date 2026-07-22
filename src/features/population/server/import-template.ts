@@ -28,7 +28,7 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   {
     key: "first_name",
     label: "ชื่อ",
-    required: true,
+    required: false,
     description: "ชื่อจริงของบุคคล",
     example: "สมชาย",
     aliases: ["first name", "firstname", "given_name", "ชื่อ", "ชื่อจริง"],
@@ -36,7 +36,7 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   {
     key: "last_name",
     label: "นามสกุล",
-    required: true,
+    required: false,
     description: "นามสกุลของบุคคล",
     example: "ใจดี",
     aliases: ["last name", "lastname", "family_name", "surname", "นามสกุล", "สกุล"],
@@ -149,6 +149,23 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     description: "พิกัดบ้านสำหรับแผนที่",
     example: "100.5018",
     aliases: ["lng", "lon", "long", "ลองจิจูด", "longitude_house"],
+  },
+  {
+    key: "movement_type",
+    label: "ประเภทการย้าย",
+    required: false,
+    description: "MOVE_IN, MOVE_OUT หรือ TRANSFER",
+    example: "MOVE_IN",
+    acceptedValues: "MOVE_IN, MOVE_OUT, TRANSFER, BIRTH, DEATH",
+    aliases: ["movement", "movement type", "ประเภทการย้าย"],
+  },
+  {
+    key: "movement_date",
+    label: "วันที่ย้าย",
+    required: false,
+    description: "วันที่บันทึกการย้ายเข้า/ออก",
+    example: "2026-01-15",
+    aliases: ["movement date", "วันที่ย้าย"],
   },
   {
     key: "create_user_account",

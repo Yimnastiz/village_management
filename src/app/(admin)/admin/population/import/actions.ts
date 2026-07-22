@@ -5,6 +5,7 @@ import {
   AuditAction,
   MembershipStatus,
   PersonStatus,
+  MovementType,
   PopulationImportStage,
   Prisma,
   VillageMembershipRole,
@@ -45,6 +46,8 @@ type CanonicalColumnKey =
   | "zone_name"
   | "occupancy_status"
   | "person_status"
+  | "movement_type"
+  | "movement_date"
   | "latitude"
   | "longitude"
   | "create_user_account"
@@ -95,7 +98,7 @@ export type StoredImportRow = NormalizedImportRow & {
 
 type RowImportResult = {
   resolvedUserId: string | null;
-  resolvedPersonId: string;
+  resolvedPersonId: string | null;
   resolvedHouseId: string;
 };
 
@@ -112,8 +115,8 @@ type SpreadsheetRow = Record<string, unknown>;
 
 type NormalizedImportRow = {
   houseNumber: string;
-  firstName: string;
-  lastName: string;
+  firstName: string | null;
+  lastName: string | null;
   externalPersonId: string | null;
   phoneNumber: string | null;
   nationalId: string | null;
@@ -124,6 +127,8 @@ type NormalizedImportRow = {
   zoneName: string | null;
   occupancyStatus: HouseholdOccupancyStatus | null;
   personStatus: PersonStatus | null;
+  movementType: MovementType | null;
+  movementDate: Date | null;
   latitude: number | null;
   longitude: number | null;
   createUserAccount: boolean;
@@ -293,6 +298,13 @@ function parsePersonStatus(value: unknown): PersonStatus | null {
   return matched;
 }
 
+function parseMovementType(value: unknown): MovementType | null {
+  const normalized = toTrimmedString(value)?.toUpperCase().replace(/[ -]+/g, "_");
+  if (!normalized) return null;
+  if (!Object.values(MovementType).includes(normalized as MovementType)) throw new Error(`ประเภทการย้ายไม่ถูกต้อง: ${value}`);
+  return normalized as MovementType;
+}
+
 function canonicalizeSpreadsheetRow(row: SpreadsheetRow) {
   const normalized: Partial<Record<CanonicalColumnKey, unknown>> = {};
 
@@ -318,7 +330,7 @@ function ensureRequiredHeaders(rows: SpreadsheetRow[]) {
       .filter(Boolean),
   );
 
-  const missingHeaders = ["house_number", "first_name", "last_name"].filter(
+  const missingHeaders = ["house_number"].filter(
     (header) => !presentHeaders.has(header as CanonicalColumnKey),
   );
 
@@ -333,8 +345,11 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
   const firstName = toTrimmedString(row.first_name);
   const lastName = toTrimmedString(row.last_name);
 
-  if (!rawHouseNumber || !isValidHouseNumber(houseNumber) || !firstName || !lastName) {
-    throw new Error("ต้องมี house_number, first_name และ last_name");
+  if (!rawHouseNumber || !isValidHouseNumber(houseNumber)) {
+    throw new Error("ต้องมี house_number ที่ถูกต้อง");
+  }
+  if (Boolean(firstName) !== Boolean(lastName)) {
+    throw new Error("หากนำเข้าบุคคล ต้องระบุทั้ง first_name และ last_name");
   }
 
   const phoneNumberRaw = toTrimmedString(row.phone_number);
@@ -379,6 +394,8 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     zoneName: toTrimmedString(row.zone_name),
     occupancyStatus: parseHouseholdOccupancyStatus(row.occupancy_status),
     personStatus: parsePersonStatus(row.person_status),
+    movementType: parseMovementType(row.movement_type),
+    movementDate: parseSpreadsheetDate(row.movement_date),
     latitude: parseNumericValue(row.latitude, "latitude"),
     longitude: parseNumericValue(row.longitude, "longitude"),
     createUserAccount,
@@ -591,7 +608,7 @@ async function importRowIntoVillage(
   });
 
   let resolvedUserId: string | null = null;
-  if (row.phoneNumber) {
+  if (row.phoneNumber && row.firstName && row.lastName) {
     const existingUser = await tx.user.findUnique({
       where: { phoneNumber: row.phoneNumber },
       select: { id: true },
@@ -599,40 +616,30 @@ async function importRowIntoVillage(
 
     if (existingUser || row.createUserAccount) {
       const fullName = `${row.firstName} ${row.lastName}`;
-      const verifiedAt = row.isCitizenVerified ? new Date() : undefined;
-
       const user = existingUser
         ? await tx.user.update({
             where: { phoneNumber: row.phoneNumber },
             data: {
               name: fullName,
               ...(row.email ? { email: row.email } : {}),
-              phoneNumberVerified: true,
               registrationProvince: ctx.province,
               registrationDistrict: ctx.district,
               registrationSubdistrict: ctx.subdistrict,
               registrationVillageId: ctx.villageId,
-              ...(verifiedAt
-                ? {
-                    citizenVerifiedAt: verifiedAt,
-                    consentAt: verifiedAt,
-                  }
-                : {}),
             },
             select: { id: true },
           })
         : await tx.user.create({
             data: {
               phoneNumber: row.phoneNumber,
-              phoneNumberVerified: true,
               name: fullName,
               email: row.email,
               registrationProvince: ctx.province,
               registrationDistrict: ctx.district,
               registrationSubdistrict: ctx.subdistrict,
               registrationVillageId: ctx.villageId,
-              citizenVerifiedAt: verifiedAt ?? null,
-              consentAt: verifiedAt ?? null,
+              citizenVerifiedAt: null,
+              consentAt: null,
             },
             select: { id: true },
           });
@@ -648,17 +655,17 @@ async function importRowIntoVillage(
         },
         update: {
           role: VillageMembershipRole.RESIDENT,
-          status: MembershipStatus.ACTIVE,
+          status: MembershipStatus.PENDING,
           houseId: house.id,
-          joinedAt: new Date(),
+          joinedAt: null,
         },
         create: {
           userId: user.id,
           villageId: ctx.villageId,
           role: VillageMembershipRole.RESIDENT,
-          status: MembershipStatus.ACTIVE,
+          status: MembershipStatus.PENDING,
           houseId: house.id,
-          joinedAt: new Date(),
+          joinedAt: null,
         },
       });
 
@@ -668,7 +675,7 @@ async function importRowIntoVillage(
           villageId: ctx.villageId,
           membershipRole: VillageMembershipRole.RESIDENT,
           systemRole: null,
-          isCitizenVerified: row.isCitizenVerified,
+          isCitizenVerified: false,
           note:
             row.note ?? `Imported from admin population import / house ${row.houseNumber}`,
         },
@@ -676,12 +683,16 @@ async function importRowIntoVillage(
           phoneNumber: row.phoneNumber,
           villageId: ctx.villageId,
           membershipRole: VillageMembershipRole.RESIDENT,
-          isCitizenVerified: row.isCitizenVerified,
+          isCitizenVerified: false,
           note:
             row.note ?? `Imported from admin population import / house ${row.houseNumber}`,
         },
       });
     }
+  }
+
+  if (!row.firstName || !row.lastName) {
+    return { resolvedUserId, resolvedPersonId: null, resolvedHouseId: house.id };
   }
 
   const personSearchConditions: Prisma.PersonWhereInput[] = [];
@@ -731,6 +742,12 @@ async function importRowIntoVillage(
     resolvedPersonId = createdPerson.id;
   }
 
+  if (row.movementType && resolvedPersonId) {
+    await tx.personMovement.create({ data: { personId: resolvedPersonId, houseId: house.id, movementType: row.movementType, date: row.movementDate ?? new Date() } });
+  } else if (resolvedPersonId && !existingPerson) {
+    await tx.personMovement.create({ data: { personId: resolvedPersonId, houseId: house.id, movementType: MovementType.MOVE_IN, date: row.movementDate ?? new Date() } });
+  }
+
   return {
     resolvedUserId,
     resolvedPersonId,
@@ -758,10 +775,12 @@ export async function applyStoredImportRow(
     : await tx.house.create({ data: { villageId: ctx.villageId, houseNumber: row.houseNumber, normalizedHouseNumber: row.houseNumber, address: row.houseAddress, occupancyStatus: row.occupancyStatus ?? HouseholdOccupancyStatus.OCCUPIED, zoneId: zone?.id ?? null, latitude: row.latitude, longitude: row.longitude, sourceType: "IMPORT", sourceNote: row.note ?? "Population import confirmed by administrator", verifiedByUserId: ctx.userId, verifiedAt: new Date() }, select: { id: true } });
 
   const dateOfBirth = row.dateOfBirth ? new Date(row.dateOfBirth) : null;
+  if (!row.firstName || !row.lastName) return { personId: null, houseId: house.id };
   const personData = { villageId: ctx.villageId, houseId: house.id, nationalId: row.nationalId, firstName: row.firstName, lastName: row.lastName, dateOfBirth, gender: row.gender, phone: row.phoneNumber, email: row.email, status: row.personStatus ?? PersonStatus.ACTIVE };
   const person = row.matchedPersonId
     ? await tx.person.update({ where: { id: row.matchedPersonId }, data: personData, select: { id: true } })
     : await tx.person.create({ data: personData, select: { id: true } });
+  if (person.id && (row.movementType || !row.matchedPersonId)) await tx.personMovement.create({ data: { personId: person.id, houseId: house.id, movementType: row.movementType ?? MovementType.MOVE_IN, date: row.movementDate ?? new Date() } });
   return { personId: person.id, houseId: house.id };
 }
 
@@ -781,7 +800,9 @@ async function validateRowsForPreview(
     const rowNumber = index + 2;
     try {
       const parsed = parseImportRow(rawRow);
-      const duplicateKey = parsed.nationalId ? `nid:${parsed.nationalId}` : parsed.phoneNumber ? `phone:${parsed.phoneNumber}` : `person:${parsed.firstName.toLowerCase()}|${parsed.lastName.toLowerCase()}|${parsed.dateOfBirth?.toISOString() ?? ""}|${parsed.houseNumber}`;
+      const duplicateKey = parsed.firstName && parsed.lastName
+        ? parsed.nationalId ? `nid:${parsed.nationalId}` : parsed.phoneNumber ? `phone:${parsed.phoneNumber}` : `person:${parsed.firstName.toLowerCase()}|${parsed.lastName.toLowerCase()}|${parsed.dateOfBirth?.toISOString() ?? ""}|${parsed.houseNumber}`
+        : `house:${parsed.houseNumber}`;
       if (seenKeys.has(duplicateKey)) {
         conflictRows += 1;
         details.push({ rowNumber, action: "CONFLICT", status: "CONFLICT", errorCode: "DUPLICATE_IN_FILE", errorMessage: "พบข้อมูลบุคคลซ้ำภายในไฟล์เดียวกัน", confidenceLevel: "CONFLICT" });
@@ -793,9 +814,16 @@ async function validateRowsForPreview(
       const [byNationalId, byPhone, byIdentity, existingHouse] = await Promise.all([
         parsed.nationalId ? prisma.person.findFirst({ where: { villageId: ctx.villageId, nationalId: parsed.nationalId }, select: { id: true, phone: true } }) : null,
         parsed.phoneNumber ? prisma.person.findFirst({ where: { villageId: ctx.villageId, phone: parsed.phoneNumber }, select: { id: true, nationalId: true } }) : null,
-        prisma.person.findFirst({ where: { villageId: ctx.villageId, firstName: parsed.firstName, lastName: parsed.lastName, dateOfBirth: parsed.dateOfBirth, house: { normalizedHouseNumber: parsed.houseNumber } }, select: { id: true } }),
+        parsed.firstName && parsed.lastName ? prisma.person.findFirst({ where: { villageId: ctx.villageId, firstName: parsed.firstName, lastName: parsed.lastName, dateOfBirth: parsed.dateOfBirth, house: { normalizedHouseNumber: parsed.houseNumber } }, select: { id: true } }) : null,
         prisma.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId: ctx.villageId, normalizedHouseNumber: parsed.houseNumber } }, select: { id: true } }),
       ]);
+      if (!parsed.firstName || !parsed.lastName) {
+        const action = existingHouse ? "UPDATE" : "CREATE";
+        if (action === "CREATE") createdRows += 1; else updatedRows += 1;
+        details.push({ rowNumber, action, status: "VALID", matchedRecordId: existingHouse?.id ?? null, changedFields: existingHouse ? ["house"] : ["NEW_HOUSE_REQUIRES_CONFIRM"], confidenceLevel: existingHouse ? "HIGH_CONFIDENCE_MATCH" : "NEW_RECORD" });
+        storedRows.push({ ...parsed, rowNumber, matchedPersonId: null, action });
+        continue;
+      }
       if (byNationalId && byPhone && byNationalId.id !== byPhone.id) {
         conflictRows += 1;
         details.push({ rowNumber, action: "CONFLICT", status: "CONFLICT", errorCode: "IDENTIFIER_CONFLICT", errorMessage: "national_id และ phone_number อ้างถึงคนละบุคคล", confidenceLevel: "CONFLICT" });
@@ -811,7 +839,7 @@ async function validateRowsForPreview(
     } catch (error) {
       failedRows += 1;
       details.push({ rowNumber, action: "FAILED", status: "INVALID", errorCode: "INVALID_ROW", errorMessage: formatError(error), confidenceLevel: "INVALID" });
-        storedRows.push({ houseNumber: "", firstName: "", lastName: "", externalPersonId: null, phoneNumber: null, nationalId: null, dateOfBirth: null, gender: null, email: null, houseAddress: null, zoneName: null, occupancyStatus: null, personStatus: null, latitude: null, longitude: null, createUserAccount: false, isCitizenVerified: false, note: null, rowNumber, matchedPersonId: null, action: "FAILED" });
+        storedRows.push({ houseNumber: "", firstName: null, lastName: null, externalPersonId: null, phoneNumber: null, nationalId: null, dateOfBirth: null, gender: null, email: null, houseAddress: null, zoneName: null, occupancyStatus: null, personStatus: null, movementType: null, movementDate: null, latitude: null, longitude: null, createUserAccount: false, isCitizenVerified: false, note: null, rowNumber, matchedPersonId: null, action: "FAILED" });
     }
   }
   return { details, storedRows, createdRows, updatedRows, conflictRows, failedRows };
@@ -938,11 +966,11 @@ export async function importPopulationWorkbookAction(
           return importRowIntoVillage(tx, ctx, parsedRow);
         });
 
-        importedPersonIds.add(rowResult.resolvedPersonId);
+        const resolvedPersonId = rowResult.resolvedPersonId;
+        if (resolvedPersonId !== null) importedPersonIds.add(resolvedPersonId as string);
         importedHouseIds.add(rowResult.resolvedHouseId);
-        if (rowResult.resolvedUserId !== null) {
-          importedUserIds.add(rowResult.resolvedUserId!);
-        }
+        const resolvedUserId = rowResult.resolvedUserId;
+        if (resolvedUserId !== null) importedUserIds.add(resolvedUserId as string);
 
         importedRows += 1;
       } catch (error) {

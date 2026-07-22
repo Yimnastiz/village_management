@@ -1,6 +1,6 @@
 "use server";
 
-import { PersonStatus } from "@prisma/client";
+import { AuditAction, MembershipStatus, MovementType, PersonStatus, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
@@ -86,12 +86,20 @@ export async function createPersonAction(data: PersonInput): Promise<{ success: 
     if (!house) return { success: false, error: "บ้านที่เลือกไม่ถูกต้อง" };
   }
 
-  const created = await prisma.person.create({
-    data: {
-      villageId: ctx.villageId,
-      ...normalized.value,
-    },
-    select: { id: true },
+  const created = await prisma.$transaction(async (tx) => {
+    const person = await tx.person.create({ data: { villageId: ctx.villageId, ...normalized.value }, select: { id: true } });
+    if (normalized.value.houseId) {
+      await tx.personMovement.create({ data: { personId: person.id, houseId: normalized.value.houseId, movementType: MovementType.MOVE_IN, date: new Date() } });
+      if (normalized.value.phone) {
+        const user = await tx.user.findUnique({ where: { phoneNumber: normalized.value.phone }, select: { id: true, systemRole: true } });
+        if (user && user.systemRole !== "SUPERADMIN") {
+          const activeAdmin = await tx.villageMembership.findFirst({ where: { userId: user.id, villageId: ctx.villageId, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } }, select: { id: true } });
+          if (!activeAdmin) await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId: ctx.villageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: normalized.value.houseId }, create: { userId: user.id, villageId: ctx.villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: normalized.value.houseId } });
+        }
+      }
+    }
+    await tx.auditLog.create({ data: { userId: (await getSessionContextFromServerCookies())!.id, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actionName: "PERSON_CREATED", houseId: normalized.value.houseId } } });
+    return person;
   });
 
   revalidatePath("/admin/population/people");
@@ -107,7 +115,7 @@ export async function updatePersonAction(personId: string, data: PersonInput): P
 
   const person = await prisma.person.findFirst({
     where: { id: personId, villageId: ctx.villageId },
-    select: { id: true },
+    select: { id: true, houseId: true },
   });
   if (!person) return { success: false, error: "ไม่พบบุคคล" };
 
@@ -119,9 +127,13 @@ export async function updatePersonAction(personId: string, data: PersonInput): P
     if (!house) return { success: false, error: "บ้านที่เลือกไม่ถูกต้อง" };
   }
 
-  await prisma.person.update({
-    where: { id: personId },
-    data: normalized.value,
+  await prisma.$transaction(async (tx) => {
+    await tx.person.update({ where: { id: personId }, data: normalized.value });
+    if (person.houseId !== normalized.value.houseId) {
+      if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date() } });
+      if (normalized.value.houseId) await tx.personMovement.create({ data: { personId, houseId: normalized.value.houseId, movementType: MovementType.MOVE_IN, date: new Date() } });
+    }
+    await tx.auditLog.create({ data: { userId: (await getSessionContextFromServerCookies())!.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actionName: "PERSON_UPDATED", previousHouseId: person.houseId, houseId: normalized.value.houseId } } });
   });
 
   revalidatePath("/admin/population/people");
@@ -135,11 +147,15 @@ export async function deletePersonAction(personId: string): Promise<{ success: t
 
   const person = await prisma.person.findFirst({
     where: { id: personId, villageId: ctx.villageId },
-    select: { id: true },
+    select: { id: true, houseId: true },
   });
   if (!person) return { success: false, error: "ไม่พบบุคคล" };
 
-  await prisma.person.delete({ where: { id: personId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.person.update({ where: { id: personId }, data: { status: PersonStatus.MOVED_OUT } });
+    if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date() } });
+    await tx.auditLog.create({ data: { userId: (await getSessionContextFromServerCookies())!.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actionName: "PERSON_MOVED_OUT", houseId: person.houseId } } });
+  });
 
   revalidatePath("/admin/population/people");
   return { success: true };
