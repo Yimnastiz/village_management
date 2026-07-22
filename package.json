@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "catalog:import": "node scripts/import-thailand-villages.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1010.0",

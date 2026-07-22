@@ -1,0 +1,11 @@
+[
+  {
+    "officialCode": "EXAMPLE-001",
+    "villageName": "บ้านตัวอย่าง",
+    "moo": "1",
+    "subdistrict": "สุเทพ",
+    "district": "เมืองเชียงใหม่",
+    "province": "เชียงใหม่",
+    "sourceName": "ตัวอย่างสำหรับทดสอบ importer"
+  }
+]

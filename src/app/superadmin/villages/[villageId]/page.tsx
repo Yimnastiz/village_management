@@ -10,7 +10,7 @@ import { BindingReviewForm } from "./binding-review-form";
 export default async function SuperAdminVillageContextPage({ params }: { params: Promise<{ villageId: string }> }) {
   await requireSuperAdminPageSession();
   const { villageId } = await params;
-  const village = await prisma.village.findUnique({ where: { id: villageId }, select: { id: true, name: true, province: true, district: true, subdistrict: true, isActive: true, _count: { select: { memberships: true, houses: true } } } });
+  const village = await prisma.village.findUnique({ where: { id: villageId }, select: { id: true, name: true, province: true, district: true, subdistrict: true, isActive: true, catalogVillageId: true, sourceNote: true, _count: { select: { memberships: true, houses: true } } } });
   if (!village) notFound();
 
   const [memberships, houses, populationCount, bindings, issueCount, appointmentCount, news, auditLogs, eligibleUsers] = await Promise.all([
@@ -29,6 +29,8 @@ export default async function SuperAdminVillageContextPage({ params }: { params:
   return <div className="space-y-6">
     <Link href="/superadmin/villages" className="text-sm text-cyan-700 hover:underline">← กลับรายการหมู่บ้าน</Link>
     <header className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
+      <p className="mb-2 text-sm text-slate-600">ที่มา: {village.catalogVillageId ? "ฐานข้อมูลหมู่บ้านอ้างอิง" : "เพิ่มเองโดยผู้ดูแลระบบ"}</p>
+      {village.sourceNote ? <p className="mb-2 text-xs text-muted-foreground">ที่มาเพิ่มเติม: {village.sourceNote}</p> : null}
       <p className="text-xs font-semibold uppercase text-cyan-700">Village Management Context</p>
       <h1 className="text-xl font-bold text-slate-900">กำลังจัดการหมู่บ้าน: {village.name}</h1>
       <p className="text-sm text-slate-600">ต.{village.subdistrict ?? "-"} อ.{village.district ?? "-"} จ.{village.province ?? "-"} · {village.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}</p>

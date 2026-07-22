@@ -277,6 +277,10 @@ enum AuditAction {
   POPULATION_IMPORT_FAILED
   POPULATION_IMPORT_ROLLBACK
   POPULATION_EXPORT_CREATED
+  VILLAGE_CREATED_FROM_CATALOG
+  VILLAGE_CREATED_MANUAL
+  VILLAGE_CATALOG_IMPORTED
+  VILLAGE_CATALOG_UPDATED
 }
 
 enum HouseSourceType {
@@ -377,6 +381,7 @@ model Village {
   id          String   @id @default(cuid())
   slug        String   @unique
   name        String
+  moo         String?
   description String?
   address     String?
   district    String?
@@ -385,6 +390,8 @@ model Village {
   phone       String?
   email       String?
   website     String?
+  sourceNote  String?
+  catalogVillageId String? @unique
   logoUrl     String?
   bannerUrl   String?
   isActive    Boolean  @default(true)
@@ -418,8 +425,34 @@ model Village {
   registeredUsers         User[]                       @relation("UserRegistrationVillage")
   phoneRoleSeeds          PhoneRoleSeed[]
   bindingRequests         BindingRequest[]
+  catalogVillage          ThailandVillageMaster? @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
 
   @@index([slug])
+}
+
+model ThailandVillageMaster {
+  id              String   @id @default(cuid())
+  officialCode    String?  @unique
+  villageName     String
+  moo             String?
+  subdistrict     String
+  district        String
+  province        String
+  latitude        Float?
+  longitude       Float?
+  sourceName      String?
+  sourceUrl       String?
+  sourceUpdatedAt DateTime?
+  importedAt      DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  village         Village?
+
+  @@index([province, district, subdistrict])
+  @@index([villageName])
+  @@index([province, district, subdistrict, villageName])
+  @@unique([province, district, subdistrict, villageName, moo])
 }
 
 model VillageMembership {
