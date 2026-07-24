@@ -99,18 +99,18 @@ export async function updateVillageAction(formData: FormData) {
   revalidatePath("/superadmin/dashboard");
 }
 
-export async function searchVillageCatalogAction(input: { province: string; district: string; subdistrict: string; query: string }) {
+export async function searchVillageCatalogAction(input: { province: string; district: string; subdistrict: string; query?: string }) {
   await requireSuperAdminActionSession();
   const province = input.province.trim();
   const district = input.district.trim();
   const subdistrict = input.subdistrict.trim();
-  const query = input.query.trim();
-  if (!province || !district || !subdistrict || query.length < 2) return [];
+  const query = (input.query ?? "").trim();
+  if (!province || !district || !subdistrict) return [];
   return prisma.thailandVillageMaster.findMany({
-    where: { province, district, subdistrict, OR: [{ villageName: { contains: query, mode: "insensitive" } }, { officialCode: { contains: query, mode: "insensitive" } }, { moo: { contains: query, mode: "insensitive" } }] },
-    select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true },
+    where: { province, district, subdistrict, ...(query ? { OR: [{ villageName: { contains: query, mode: "insensitive" } }, { officialCode: { contains: query, mode: "insensitive" } }, { moo: { contains: query, mode: "insensitive" } }] } : {}) },
+    select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } },
     orderBy: [{ villageName: "asc" }, { moo: "asc" }],
-    take: 20,
+    take: 100,
   });
 }
 
