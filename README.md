@@ -20,6 +20,18 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Village Catalog
+
+The Super Admin village form works immediately after cloning. It includes a small built-in demo catalog, including `บ้านเขาพระ` in `ต.เขาทราย อ.ทับคล้อ จ.พิจิตร`, so the Catalog flow does not require a download or import first. Demo records are clearly labeled in the UI and are not an official nationwide dataset.
+
+For real nationwide reference data, prepare `data/thailand-villages.json` and run:
+
+```bash
+npm run catalog:import -- data/thailand-villages.json
+```
+
+The import is optional for local demo use. `data/thailand-villages.example.json` documents the supported input format.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

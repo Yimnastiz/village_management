@@ -2,6 +2,7 @@
 
 import { AuditAction } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { BUILT_IN_THAILAND_VILLAGE_CATALOG, findBuiltInVillageCatalogItem } from "@/data/thailand-village-catalog";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession, writeSuperAdminAuditLog } from "@/lib/superadmin";
 import { normalizeThaiAreaName, normalizeThaiVillageName, validateThaiLocation } from "@/lib/thai-geography";
@@ -13,36 +14,47 @@ function readString(formData: FormData, key: string): string {
 }
 
 function optionalString(formData: FormData, key: string): string | null {
-  const value = readString(formData, key);
-  return value || null;
+  return readString(formData, key) || null;
 }
 
 function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
 }
 
-function areaCandidates(value: string, prefix: string) {
-  return Array.from(new Set([value, `${prefix}${value}`, `${prefix} ${value}`]));
+function areaCandidates(value: string, prefixes: string[]) {
+  return Array.from(new Set([value, ...prefixes.flatMap((prefix) => [`${prefix}${value}`, `${prefix} ${value}`])]));
 }
 
 async function readVillagePayload(formData: FormData) {
   const mode = readString(formData, "mode") === "manual" ? "manual" : "catalog";
+  const catalogSource = readString(formData, "catalogSource") === "BUILT_IN_DEMO" ? "BUILT_IN_DEMO" : "DATABASE";
   const catalogVillageId = optionalString(formData, "catalogVillageId");
+  const builtInCatalogId = optionalString(formData, "builtInCatalogId");
   const sourceNote = optionalString(formData, "sourceNote");
   const typedName = readString(formData, "name");
   const slug = normalizeVillageSlugInput(readString(formData, "slug") || typedName);
-  if (!typedName && mode === "manual") throw new Error("กรุณากรอกชื่อหมู่บ้าน");
   if (!slug) throw new Error("กรุณากรอก slug ที่ถูกต้อง");
 
   let canonical: { name: string; moo: string | null; province: string; district: string; subdistrict: string; catalogVillageId: string | null };
+  let resolvedBuiltInCatalogId: string | null = null;
   if (mode === "catalog") {
-    if (!catalogVillageId) throw new Error("กรุณาเลือกหมู่บ้านจากฐานข้อมูลอ้างอิง");
-    const catalog = await prisma.thailandVillageMaster.findUnique({ where: { id: catalogVillageId } });
-    if (!catalog) throw new Error("ไม่พบหมู่บ้านในฐานข้อมูลอ้างอิง");
-    const linkedVillage = await prisma.village.findFirst({ where: { catalogVillageId }, select: { id: true } });
     const currentVillageId = optionalString(formData, "id");
-    if (linkedVillage && linkedVillage.id !== currentVillageId) throw new Error("หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว");
-    canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id };
+    if (catalogSource === "BUILT_IN_DEMO") {
+      if (!builtInCatalogId) throw new Error("กรุณาเลือกหมู่บ้านจากข้อมูลตัวอย่างในโปรเจกต์");
+      const catalog = findBuiltInVillageCatalogItem(builtInCatalogId);
+      if (!catalog) throw new Error("ไม่พบหมู่บ้านตัวอย่างในโปรเจกต์");
+      resolvedBuiltInCatalogId = catalog.officialCode;
+      const duplicate = await prisma.village.findFirst({ where: { name: catalog.villageName, moo: catalog.moo ?? null, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict) }, select: { id: true } });
+      if (duplicate && duplicate.id !== currentVillageId) throw new Error("หมู่บ้านตัวอย่างนี้ถูกเปิดใช้งานแล้ว");
+      canonical = { name: catalog.villageName, moo: catalog.moo ?? null, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: null };
+    } else {
+      if (!catalogVillageId) throw new Error("กรุณาเลือกหมู่บ้านจากฐานข้อมูลอ้างอิง");
+      const catalog = await prisma.thailandVillageMaster.findUnique({ where: { id: catalogVillageId } });
+      if (!catalog) throw new Error("ไม่พบหมู่บ้านในฐานข้อมูลอ้างอิง");
+      const linkedVillage = await prisma.village.findFirst({ where: { catalogVillageId }, select: { id: true } });
+      if (linkedVillage && linkedVillage.id !== currentVillageId) throw new Error("หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว");
+      canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id };
+    }
   } else {
     if (!typedName) throw new Error("กรุณากรอกชื่อหมู่บ้าน");
     if (!sourceNote) throw new Error("กรุณาระบุเหตุผลหรือที่มาสำหรับการเพิ่มแบบ Manual");
@@ -64,7 +76,9 @@ async function readVillagePayload(formData: FormData) {
     email: optionalString(formData, "email"),
     website: optionalString(formData, "website"),
     catalogVillageId: canonical.catalogVillageId,
-    sourceNote,
+    sourceNote: mode === "catalog" && catalogSource === "BUILT_IN_DEMO" ? "Created from built-in demo village catalog" : sourceNote,
+    catalogSource,
+    builtInCatalogId: resolvedBuiltInCatalogId,
     mode,
   };
 }
@@ -72,15 +86,15 @@ async function readVillagePayload(formData: FormData) {
 export async function createVillageAction(formData: FormData) {
   const session = await requireSuperAdminActionSession();
   const payload = await readVillagePayload(formData);
-  const { mode, ...data } = payload;
+  const { mode, catalogSource, builtInCatalogId, ...data } = payload;
   let created;
   try {
     created = await prisma.village.create({ data: { ...data, isActive: true } });
   } catch (error) {
-    if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านจาก Catalog นี้ถูกเปิดใช้งานแล้ว");
+    if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านนี้ถูกเปิดใช้งานแล้ว");
     throw error;
   }
-  await writeSuperAdminAuditLog({ userId: session.id, action: mode === "catalog" ? AuditAction.VILLAGE_CREATED_FROM_CATALOG : AuditAction.VILLAGE_CREATED_MANUAL, resource: "Village", resourceId: created.id, villageId: created.id, metadata: { name: created.name, slug: created.slug, sourceNote: created.sourceNote, catalogVillageId: created.catalogVillageId } });
+  await writeSuperAdminAuditLog({ userId: session.id, action: mode === "catalog" ? AuditAction.VILLAGE_CREATED_FROM_CATALOG : AuditAction.VILLAGE_CREATED_MANUAL, resource: "Village", resourceId: created.id, villageId: created.id, metadata: { name: created.name, slug: created.slug, sourceNote: created.sourceNote, catalogVillageId: created.catalogVillageId, catalogSource, builtInCatalogId } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }
@@ -90,15 +104,15 @@ export async function updateVillageAction(formData: FormData) {
   const id = readString(formData, "id");
   if (!id) throw new Error("ไม่พบรหัสหมู่บ้าน");
   const payload = await readVillagePayload(formData);
-  const { mode, ...data } = payload;
+  const { mode, catalogSource, builtInCatalogId, ...data } = payload;
   let updated;
   try {
     updated = await prisma.village.update({ where: { id }, data });
   } catch (error) {
-    if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านจาก Catalog นี้ถูกเปิดใช้งานแล้ว");
+    if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านนี้ถูกเปิดใช้งานแล้ว");
     throw error;
   }
-  await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { name: updated.name, slug: updated.slug, mode, sourceNote: updated.sourceNote, catalogVillageId: updated.catalogVillageId } });
+  await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { name: updated.name, slug: updated.slug, mode, sourceNote: updated.sourceNote, catalogVillageId: updated.catalogVillageId, catalogSource, builtInCatalogId } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }
@@ -109,18 +123,19 @@ export async function searchVillageCatalogAction(input: { province: string; dist
   const district = normalizeThaiAreaName(input.district);
   const subdistrict = normalizeThaiAreaName(input.subdistrict);
   const query = (input.query ?? "").trim();
-  if (!province || !district || !subdistrict) return { items: [], totalCount: 0 };
+  if (!province || !district || !subdistrict) return { items: [], totalCount: 0, source: "DATABASE" as const, note: "" };
+  const areaWhere = { province: { in: areaCandidates(province, ["จังหวัด", "จ."]) }, district: { in: areaCandidates(district, ["อำเภอ", "อ."]) }, subdistrict: { in: areaCandidates(subdistrict, ["ตำบล", "ต."]) } };
   const villageKeyword = normalizeThaiVillageName(query);
-  const areaWhere = { province: { in: areaCandidates(province, "จ.") }, district: { in: areaCandidates(district, "อ.") }, subdistrict: { in: areaCandidates(subdistrict, "ต.") } };
   const keywordWhere = query ? { OR: [{ villageName: { contains: query, mode: "insensitive" as const } }, { villageName: { contains: villageKeyword, mode: "insensitive" as const } }, { officialCode: { contains: query, mode: "insensitive" as const } }, { moo: { contains: query, mode: "insensitive" as const } }] } : {};
   const where = { ...areaWhere, ...keywordWhere };
-  const [items, totalCount] = await Promise.all([prisma.thailandVillageMaster.findMany({
-    where,
-    select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } },
-    orderBy: [{ villageName: "asc" }, { moo: "asc" }],
-    take: 100,
-  }), prisma.thailandVillageMaster.count({ where: areaWhere })]);
-  return { items, totalCount };
+  const databaseTotal = await prisma.thailandVillageMaster.count();
+  if (databaseTotal > 0) {
+    const [items, totalCount] = await Promise.all([prisma.thailandVillageMaster.findMany({ where, select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } }, orderBy: [{ villageName: "asc" }, { moo: "asc" }], take: 100 }), prisma.thailandVillageMaster.count({ where: areaWhere })]);
+    return { items: items.map((item) => ({ ...item, source: "DATABASE" as const })), totalCount, source: "DATABASE" as const, note: "พบข้อมูลจากฐานข้อมูลอ้างอิง" };
+  }
+
+  const normalizedItems = BUILT_IN_THAILAND_VILLAGE_CATALOG.filter((item) => normalizeThaiAreaName(item.province) === province && normalizeThaiAreaName(item.district) === district && normalizeThaiAreaName(item.subdistrict) === subdistrict && (!query || [item.villageName, normalizeThaiVillageName(item.villageName), item.moo, item.officialCode].filter(Boolean).some((value) => value!.toLowerCase().includes(query.toLowerCase()) || value!.toLowerCase().includes(villageKeyword.toLowerCase()))));
+  return { items: normalizedItems.slice(0, 100).map((item) => ({ id: item.officialCode, officialCode: item.officialCode, villageName: item.villageName, moo: item.moo ?? null, province: item.province, district: item.district, subdistrict: item.subdistrict, sourceName: item.sourceName, village: null, source: "BUILT_IN_DEMO" as const })), totalCount: BUILT_IN_THAILAND_VILLAGE_CATALOG.filter((item) => normalizeThaiAreaName(item.province) === province && normalizeThaiAreaName(item.district) === district && normalizeThaiAreaName(item.subdistrict) === subdistrict).length, source: "BUILT_IN_DEMO" as const, note: "ข้อมูลนี้เป็นข้อมูลตัวอย่างที่ติดมากับโปรเจกต์ สำหรับสาธิตการเลือกหมู่บ้าน" };
 }
 
 export async function toggleVillageActiveAction(formData: FormData) {
@@ -140,8 +155,7 @@ export async function deleteVillageAction(formData: FormData) {
   if (!id) throw new Error("ไม่พบรหัสหมู่บ้าน");
   const usage = await prisma.village.findUnique({ where: { id }, select: { name: true, _count: { select: { houses: true, memberships: true, news: true, issues: true, appointments: true } } } });
   if (!usage) throw new Error("ไม่พบหมู่บ้าน");
-  const hasDependencies = usage._count.houses > 0 || usage._count.memberships > 0 || usage._count.news > 0 || usage._count.issues > 0 || usage._count.appointments > 0;
-  if (hasDependencies) throw new Error("ลบหมู่บ้านนี้ไม่ได้เพราะมีข้อมูลใช้งานอยู่ ให้ปิดการใช้งานแทน");
+  if (usage._count.houses > 0 || usage._count.memberships > 0 || usage._count.news > 0 || usage._count.issues > 0 || usage._count.appointments > 0) throw new Error("ลบหมู่บ้านนี้ไม่ได้เพราะมีข้อมูลใช้งานอยู่ ให้ปิดการใช้งานแทน");
   await prisma.village.delete({ where: { id } });
   await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.DELETE, resource: "Village", resourceId: id, villageId: id, metadata: { name: usage.name } });
   revalidatePath("/superadmin/villages");
