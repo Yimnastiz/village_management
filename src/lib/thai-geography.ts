@@ -17,7 +17,15 @@ export type ThaiLocationValidationResult =
   | { ok: false; error: string };
 
 function normalizeText(value: string | undefined): string {
-  return (value ?? "").trim();
+  return (value ?? "").normalize("NFC").trim().replace(/\s+/g, " ");
+}
+
+export function normalizeThaiAreaName(value: string): string {
+  return normalizeText(value).replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|ตำบล|ต\.)\s*/u, "");
+}
+
+export function normalizeThaiVillageName(value: string): string {
+  return normalizeText(value).replace(/^(หมู่บ้าน|บ้าน)\s*/u, "");
 }
 
 function uniqueSorted(values: string[]): string[] {

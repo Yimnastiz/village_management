@@ -4,7 +4,7 @@ import { AuditAction } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession, writeSuperAdminAuditLog } from "@/lib/superadmin";
-import { validateThaiLocation } from "@/lib/thai-geography";
+import { normalizeThaiAreaName, normalizeThaiVillageName, validateThaiLocation } from "@/lib/thai-geography";
 import { normalizeVillageSlugInput } from "@/lib/village-slug";
 
 function readString(formData: FormData, key: string): string {
@@ -19,6 +19,10 @@ function optionalString(formData: FormData, key: string): string | null {
 
 function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
+}
+
+function areaCandidates(value: string, prefix: string) {
+  return Array.from(new Set([value, `${prefix}${value}`, `${prefix} ${value}`]));
 }
 
 async function readVillagePayload(formData: FormData) {
@@ -38,7 +42,7 @@ async function readVillagePayload(formData: FormData) {
     const linkedVillage = await prisma.village.findFirst({ where: { catalogVillageId }, select: { id: true } });
     const currentVillageId = optionalString(formData, "id");
     if (linkedVillage && linkedVillage.id !== currentVillageId) throw new Error("หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว");
-    canonical = { name: catalog.villageName, moo: catalog.moo, province: catalog.province, district: catalog.district, subdistrict: catalog.subdistrict, catalogVillageId: catalog.id };
+    canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id };
   } else {
     if (!typedName) throw new Error("กรุณากรอกชื่อหมู่บ้าน");
     if (!sourceNote) throw new Error("กรุณาระบุเหตุผลหรือที่มาสำหรับการเพิ่มแบบ Manual");
@@ -101,17 +105,22 @@ export async function updateVillageAction(formData: FormData) {
 
 export async function searchVillageCatalogAction(input: { province: string; district: string; subdistrict: string; query?: string }) {
   await requireSuperAdminActionSession();
-  const province = input.province.trim();
-  const district = input.district.trim();
-  const subdistrict = input.subdistrict.trim();
+  const province = normalizeThaiAreaName(input.province);
+  const district = normalizeThaiAreaName(input.district);
+  const subdistrict = normalizeThaiAreaName(input.subdistrict);
   const query = (input.query ?? "").trim();
-  if (!province || !district || !subdistrict) return [];
-  return prisma.thailandVillageMaster.findMany({
-    where: { province, district, subdistrict, ...(query ? { OR: [{ villageName: { contains: query, mode: "insensitive" } }, { officialCode: { contains: query, mode: "insensitive" } }, { moo: { contains: query, mode: "insensitive" } }] } : {}) },
+  if (!province || !district || !subdistrict) return { items: [], totalCount: 0 };
+  const villageKeyword = normalizeThaiVillageName(query);
+  const areaWhere = { province: { in: areaCandidates(province, "จ.") }, district: { in: areaCandidates(district, "อ.") }, subdistrict: { in: areaCandidates(subdistrict, "ต.") } };
+  const keywordWhere = query ? { OR: [{ villageName: { contains: query, mode: "insensitive" as const } }, { villageName: { contains: villageKeyword, mode: "insensitive" as const } }, { officialCode: { contains: query, mode: "insensitive" as const } }, { moo: { contains: query, mode: "insensitive" as const } }] } : {};
+  const where = { ...areaWhere, ...keywordWhere };
+  const [items, totalCount] = await Promise.all([prisma.thailandVillageMaster.findMany({
+    where,
     select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } },
     orderBy: [{ villageName: "asc" }, { moo: "asc" }],
     take: 100,
-  });
+  }), prisma.thailandVillageMaster.count({ where: areaWhere })]);
+  return { items, totalCount };
 }
 
 export async function toggleVillageActiveAction(formData: FormData) {

@@ -19,6 +19,14 @@ function clean(value) {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value == null ? "" : String(value).trim();
 }
 
+function normalizeArea(value) {
+  return clean(value).normalize("NFC").replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|ตำบล|ต\.)\s*/u, "");
+}
+
+function normalizeVillage(value) {
+  return clean(value).normalize("NFC");
+}
+
 function first(record, keys) {
   for (const key of keys) {
     if (record[key] !== undefined && record[key] !== null && clean(record[key])) return clean(record[key]);
@@ -71,11 +79,11 @@ function geographyIndex() {
 function normalizeRecord(record) {
   return {
     officialCode: first(record, ["officialCode", "official_code", "villageCode", "village_code", "รหัสหมู่บ้าน"]) || null,
-    villageName: first(record, ["villageName", "village_name", "name", "ชื่อหมู่บ้าน"]),
+    villageName: normalizeVillage(first(record, ["villageName", "village_name", "name", "ชื่อหมู่บ้าน"])),
     moo: first(record, ["moo", "หมู่ที่", "หมู่ท่ี"]) || null,
-    subdistrict: first(record, ["subdistrict", "subdistrictName", "ตำบล"]),
-    district: first(record, ["district", "districtName", "อำเภอ"]),
-    province: first(record, ["province", "provinceName", "จังหวัด"]),
+    subdistrict: normalizeArea(first(record, ["subdistrict", "subdistrictName", "ตำบล"])),
+    district: normalizeArea(first(record, ["district", "districtName", "อำเภอ"])),
+    province: normalizeArea(first(record, ["province", "provinceName", "จังหวัด"])),
     latitude: first(record, ["latitude", "lat", "ละติจูด"]),
     longitude: first(record, ["longitude", "lng", "ลองจิจูด"]),
     sourceName: first(record, ["sourceName", "source_name", "แหล่งข้อมูล"]) || sourceNameOverride,
@@ -101,6 +109,7 @@ const extension = path.extname(absolutePath).toLowerCase();
 const records = parseInput(await fs.readFile(absolutePath, "utf8"), extension);
 const geography = geographyIndex();
 const summary = { created: 0, updated: 0, skipped: 0, errors: 0 };
+const importedAreas = { provinces: new Set(), districts: new Set(), subdistricts: new Set() };
 
 for (let index = 0; index < records.length; index += 1) {
   const item = normalizeRecord(records[index]);
@@ -112,6 +121,9 @@ for (let index = 0; index < records.length; index += 1) {
     console.error(`row ${index + 2}: invalid village or GeoThai location`);
     continue;
   }
+  importedAreas.provinces.add(item.province);
+  importedAreas.districts.add(`${item.province}/${item.district}`);
+  importedAreas.subdistricts.add(`${item.province}/${item.district}/${item.subdistrict}`);
 
   const data = {
     officialCode: item.officialCode,
@@ -146,5 +158,6 @@ for (let index = 0; index < records.length; index += 1) {
   }
 }
 
-console.log(JSON.stringify({ input: absolutePath, rows: records.length, ...summary }, null, 2));
+const sampleCheck = await prisma.thailandVillageMaster.count({ where: { province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย", villageName: { contains: "เขาพระ", mode: "insensitive" } } });
+console.log(JSON.stringify({ input: absolutePath, rows: records.length, ...summary, areasImported: { provinces: importedAreas.provinces.size, districts: importedAreas.districts.size, subdistricts: importedAreas.subdistricts.size }, sampleCheck: { area: "พิจิตร / ทับคล้อ / เขาทราย", villageKeyword: "เขาพระ", records: sampleCheck } }, null, 2));
 await prisma.$disconnect();
