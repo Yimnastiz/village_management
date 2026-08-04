@@ -21,10 +21,12 @@ function buildContactsHref(keyword: string) {
 
 interface ResidentContactsToolbarProps {
   keyword: string;
+  category: string;
+  categories: string[];
   canSubmit: boolean;
 }
 
-export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContactsToolbarProps) {
+export function ResidentContactsToolbar({ keyword, category, categories, canSubmit }: ResidentContactsToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
   const [searchKeyword, setSearchKeyword] = useState(keyword);
@@ -51,13 +53,13 @@ export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContacts
         actions={canSubmit ? <>
           <Link
             href="/resident/contacts/new"
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            className="inline-flex h-9 items-center justify-center rounded-lg bg-green-600 px-3 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
             ส่งคำขอเพิ่มผู้ติดต่อ
           </Link>
           <Link
             href="/resident/contacts/requests"
-            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
             ติดตามคำขอของฉัน
           </Link>
@@ -104,6 +106,7 @@ export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContacts
             ล้างตัวกรอง
           </Link>
         </div>
+        {categories.length > 0 ? <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3"><span className="mr-1 self-center text-xs font-medium text-gray-500">ประเภท</span><Link href={buildContactsHref(keyword)} className={`rounded-full px-3 py-1 text-xs font-medium ${!category ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>ทั้งหมด</Link>{categories.map((item) => <Link key={item} href={`/resident/contacts?${new URLSearchParams({ ...(keyword ? { q: keyword } : {}), category: item })}`} className={`rounded-full px-3 py-1 text-xs font-medium ${category === item ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{item}</Link>)}</div> : null}
       </FilterBar>
     </div>
   );

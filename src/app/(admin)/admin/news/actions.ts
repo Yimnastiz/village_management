@@ -28,6 +28,7 @@ type NewsInput = {
   visibility: string;
   stage: string;
   isPinned?: boolean;
+  coverUrl?: string | null;
 };
 
 const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
@@ -81,6 +82,7 @@ function normalizeNewsInput(data: NewsInput) {
       visibility,
       stage,
       isPinned: Boolean(parsed.data.isPinned),
+      coverUrl: parsed.data.imageUrls?.includes((data as NewsInput).coverUrl ?? "") ? (data as NewsInput).coverUrl ?? null : parsed.data.imageUrls?.[0] ?? null,
     },
   };
 }
@@ -101,6 +103,7 @@ export async function adminCreateNewsAction(
       summary: normalized.value.summary,
       content: normalized.value.content,
       imageUrls: normalized.value.imageUrls,
+      coverUrl: normalized.value.coverUrl,
       visibility: normalized.value.visibility,
       stage: normalized.value.stage,
       isPinned: normalized.value.isPinned,
@@ -141,6 +144,7 @@ export async function adminUpdateNewsAction(
       summary: normalized.value.summary,
       content: normalized.value.content,
       imageUrls: normalized.value.imageUrls,
+      coverUrl: normalized.value.coverUrl,
       visibility: normalized.value.visibility,
       stage: normalized.value.stage,
       isPinned: normalized.value.isPinned,

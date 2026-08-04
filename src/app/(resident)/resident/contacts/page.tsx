@@ -12,7 +12,7 @@ import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 export const dynamic = "force-dynamic";
 
 type ResidentContactsPageProps = {
-  searchParams?: Promise<{ q?: string }>;
+  searchParams?: Promise<{ q?: string; category?: string }>;
 };
 
 export default async function ResidentContactsPage({ searchParams }: ResidentContactsPageProps) {
@@ -24,6 +24,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
 
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
+  const category = query.category?.trim() ?? "";
 
   const [contacts, savedContacts] = await Promise.all([
     prisma.contactDirectory.findMany({
@@ -38,6 +39,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
               ],
             }
           : {}),
+        ...(category ? { category } : {}),
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     }),
@@ -51,7 +53,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
 
   return (
     <div className="space-y-6">
-      <ResidentContactsToolbar keyword={keyword} canSubmit={membership.hasResidentAccess} />
+      <ResidentContactsToolbar keyword={keyword} category={category} categories={Array.from(new Set(contacts.map((contact) => contact.category).filter((value): value is string => Boolean(value)))).sort()} canSubmit={membership.hasResidentAccess} />
 
       {contacts.length === 0 ? (
         <EmptyState
