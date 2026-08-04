@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicNewsToolbar } from "./public-news-toolbar";
+import { NewsCard } from "@/components/news/news-card";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
@@ -65,6 +66,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
       id: true,
       title: true,
       summary: true,
+      coverUrl: true,
       publishedAt: true,
       createdAt: true,
       isPinned: true,
@@ -123,38 +125,18 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
       {filteredNewsList.length === 0 ? (
         <EmptyState icon={Newspaper} title={SOURCE_EMPTY_STATE[source].title} description={SOURCE_EMPTY_STATE[source].description} />
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredNewsList.map((news) => (
-            <Link
+            <NewsCard
               key={news.id}
               href={`/${villageSlug}/news/${news.id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-4 sm:p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    {news.isPinned && (
-                      <span className="text-[11px] rounded-full bg-yellow-100 text-yellow-700 px-2 py-0.5">
-                        ปักหมุด
-                      </span>
-                    )}
-                    <Badge variant="outline">
-                      {(() => {
-                        if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN;
-                        const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
-                        const isAdminSource = roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number]));
-                        return isAdminSource ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
-                      })()}
-                    </Badge>
-                  </div>
-                  <p className="font-medium text-gray-900 line-clamp-1">{news.title}</p>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{news.summary || "-"}</p>
-                </div>
-                <p className="text-xs text-gray-400 whitespace-nowrap self-start sm:self-auto">
-                  {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
-                </p>
-              </div>
-            </Link>
+              title={news.title}
+              summary={news.summary}
+              imageUrl={news.coverUrl}
+              isPinned={news.isPinned}
+              badge={<Badge variant="outline">{(() => { if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? []; return roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number])) ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT; })()}</Badge>}
+              meta={(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
+            />
           ))}
         </div>
       )}

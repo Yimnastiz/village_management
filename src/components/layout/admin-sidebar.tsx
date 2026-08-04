@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -18,6 +19,8 @@ import {
   Upload,
   MapPin,
   ClipboardList,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 export type AdminMenuItem = {
@@ -47,17 +50,20 @@ export const adminMenuItems: AdminMenuItem[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => setCollapsed(localStorage.getItem("village-admin-sidebar-collapsed") === "true"), []);
+  const toggle = () => setCollapsed((value) => { localStorage.setItem("village-admin-sidebar-collapsed", String(!value)); return !value; });
   return (
-    <aside className="sticky top-0 hidden h-screen w-64 overflow-y-auto bg-gray-900 text-gray-300 flex-shrink-0 md:flex flex-col">
+    <aside className={cn("sticky top-0 hidden h-screen overflow-y-auto bg-gray-900 text-gray-300 transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-16" : "w-64")}>
       <div className="p-4 border-b border-gray-700">
-        <Link href="/admin" className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2"><Link href="/admin" className="flex min-w-0 items-center gap-2">
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
             <LayoutDashboard className="h-4 w-4 text-white" />
           </div>
-          <div>
+          <div className={collapsed ? "sr-only" : ""}>
             <p className="text-sm font-semibold text-white">ระบบผู้ดูแล</p>
           </div>
-        </Link>
+        </Link><button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button></div>
       </div>
       <nav className="flex-1 p-4 space-y-1">
         {adminMenuItems.map((item) => {
@@ -66,6 +72,7 @@ export function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -74,7 +81,7 @@ export function AdminSidebar() {
               )}
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
-              {item.label}
+              <span className={collapsed ? "sr-only" : ""}>{item.label}</span>
             </Link>
           );
         })}

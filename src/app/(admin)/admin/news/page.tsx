@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
+import { NewsCard } from "@/components/news/news-card";
 import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
@@ -63,6 +64,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       id: true,
       title: true,
       summary: true,
+      coverUrl: true,
       stage: true,
       visibility: true,
       isPinned: true,
@@ -199,39 +201,18 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
           <p className="text-gray-600">ยังไม่มีข่าวในระบบ</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {newsList.map((news) => (
-            <Link
+            <NewsCard
               key={news.id}
               href={`/admin/news/${news.id}`}
-              className="block bg-white rounded-xl border border-gray-200 p-4 sm:p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    {news.isPinned && (
-                      <span className="text-[11px] rounded-full bg-yellow-100 text-yellow-700 px-2 py-0.5">
-                        ปักหมุด
-                      </span>
-                    )}
-                    <Badge variant={stageVariant[news.stage] ?? "default"}>
-                      {NEWS_STAGE_LABELS[news.stage]}
-                    </Badge>
-                    <Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>
-                  </div>
-                  <p className="font-medium text-gray-900 line-clamp-1">{news.title}</p>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">
-                    {news.summary || "-"}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    ผู้สร้าง: {news.author?.name || (news.authorId ? "ผู้ใช้ที่ไม่พบข้อมูล" : "ไม่ระบุ")}
-                  </p>
-                </div>
-                <p className="text-xs text-gray-400 whitespace-nowrap self-start sm:self-auto">
-                  {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
-                </p>
-              </div>
-            </Link>
+              title={news.title}
+              summary={news.summary}
+              imageUrl={news.coverUrl}
+              isPinned={news.isPinned}
+              badge={<><Badge variant={stageVariant[news.stage] ?? "default"}>{NEWS_STAGE_LABELS[news.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge></>}
+              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${news.author?.name || "ไม่ระบุผู้สร้าง"}`}
+            />
           ))}
         </div>
       )}

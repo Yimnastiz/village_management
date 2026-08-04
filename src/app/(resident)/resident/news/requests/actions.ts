@@ -12,8 +12,8 @@ const requestSchema = z.object({
   summary: z.string().optional(),
   content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
   imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).optional(),
-  visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
-  stage: z.string().min(1, "กรุณาเลือกสถานะ"),
+  visibility: z.string().optional(),
+  stage: z.string().optional(),
   isPinned: z.boolean().optional(),
 });
 
@@ -81,8 +81,8 @@ function normalizeInput(data: RequestInput) {
     };
   }
 
-  const visibility = parsed.data.visibility as NewsVisibility;
-  const stage = parsed.data.stage as NewsStage;
+  const visibility = (parsed.data.visibility || "PUBLIC") as NewsVisibility;
+  const stage = (parsed.data.stage || "DRAFT") as NewsStage;
 
   if (!VALID_VISIBILITY.includes(visibility)) {
     return { ok: false as const, error: "ประเภทการแสดงผลไม่ถูกต้อง" };
@@ -118,29 +118,6 @@ export async function createNewsCreateRequestAction(
 
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
-
-  // Resident can save drafts directly without waiting for admin approval.
-  if (normalized.value.stage === "DRAFT") {
-    const createdDraft = await prisma.news.create({
-      data: {
-        villageId: ctx.villageId,
-        authorId: ctx.userId,
-        title: normalized.value.title,
-        summary: normalized.value.summary || null,
-        content: normalized.value.content,
-        imageUrls: normalized.value.imageUrls,
-        visibility: normalized.value.visibility,
-        stage: "DRAFT",
-        isPinned: normalized.value.isPinned,
-      },
-      select: { id: true },
-    });
-
-    revalidatePath("/resident/news");
-    revalidatePath("/resident/dashboard");
-
-    return { success: true, newsId: createdDraft.id };
-  }
 
   const created = await prisma.newsSubmission.create({
     data: {

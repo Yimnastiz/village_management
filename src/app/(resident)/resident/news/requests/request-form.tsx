@@ -7,10 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import {
   createNewsCreateRequestAction,
   createNewsUpdateRequestAction,
@@ -22,9 +20,6 @@ const schema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
   summary: z.string().optional(),
   content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
-  stage: z.string().min(1, "กรุณาเลือกสถานะ"),
-  isPinned: z.boolean().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -69,17 +64,11 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
         title: defaultValues.title,
         summary: defaultValues.summary,
         content: defaultValues.content,
-        visibility: defaultValues.visibility,
-        stage: defaultValues.stage,
-        isPinned: defaultValues.isPinned,
       }
     : {
         title: "",
         summary: "",
         content: "",
-        visibility: "PUBLIC",
-        stage: "DRAFT",
-        isPinned: false,
       };
 
   const {
@@ -91,15 +80,6 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
     resolver: zodResolver(schema),
     defaultValues: resolvedDefaults,
   });
-
-  const visibilityOptions = Object.entries(NEWS_VISIBILITY_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
-  const stageOptions = Object.entries(NEWS_STAGE_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
 
   const onSubmit = async (data: FormData) => {
     let uploadedImageDataUrls: string[] = [];
@@ -117,9 +97,6 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
       summary: data.summary,
       content: data.content,
       imageUrls: [...existingImageUrls, ...uploadedImageDataUrls],
-      visibility: data.visibility,
-      stage: data.stage,
-      isPinned: Boolean(data.isPinned),
     };
 
     const result =
@@ -139,29 +116,10 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">ข่าวที่ส่งจะเข้าสู่คิวรอตรวจสอบ ผู้ดูแลหมู่บ้านจะเป็นผู้อนุมัติก่อนเผยแพร่</p>
       <Input label="หัวข้อข่าว" {...register("title")} error={errors.title?.message} />
       <Input label="สรุปข่าว" {...register("summary")} error={errors.summary?.message} />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select
-          label="การแสดงผล"
-          {...register("visibility")}
-          options={visibilityOptions}
-          error={errors.visibility?.message}
-        />
-        <Select
-          label="สถานะที่ต้องการ"
-          {...register("stage")}
-          options={stageOptions}
-          error={errors.stage?.message}
-        />
-      </div>
-
-      <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
-        <input type="checkbox" {...register("isPinned")} />
-        ขอปักหมุดข่าว
-      </label>
-
       <Textarea label="เนื้อหา" {...register("content")} error={errors.content?.message} rows={10} />
 
       <div className="space-y-3 rounded-xl border border-gray-200 p-4">
@@ -211,7 +169,7 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
       <div className="flex flex-wrap gap-3">
         <Button type="submit" isLoading={isSubmitting}>
           {mode === "create"
-            ? "บันทึกข่าวใหม่"
+            ? "ส่งคำขอเพิ่มข่าว"
             : mode === "update"
               ? "ส่งคำขอแก้ไขข่าว"
               : "บันทึกการแก้ไขคำขอ"}

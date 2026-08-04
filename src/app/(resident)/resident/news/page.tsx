@@ -4,16 +4,16 @@ import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NEWS_AUTHOR_SOURCE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ResidentNewsToolbar } from "./resident-news-toolbar";
+import { NewsCard } from "@/components/news/news-card";
 
 interface PageProps {
   searchParams: Promise<{ sort?: string; source?: string; visibility?: string; q?: string }>;
 }
 
-const ADMIN_MEMBERSHIP_ROLES = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; description: string }> = {
   all: {
     title: "ยังไม่มีข่าว",
@@ -87,6 +87,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         id: true,
         title: true,
         summary: true,
+        coverUrl: true,
         visibility: true,
         isPinned: true,
         publishedAt: true,
@@ -142,9 +143,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   const filteredNewsList = newsList.filter((newsItem) => {
     if (source === "all") return true;
     const roles = newsItem.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
-    const isAdminSource = roles.some((role) =>
-      ADMIN_MEMBERSHIP_ROLES.includes(role as (typeof ADMIN_MEMBERSHIP_ROLES)[number])
-    );
+    const isAdminSource = roles.some((role) => ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"].includes(role));
     return source === "admin" ? isAdminSource : !isAdminSource;
   });
 
@@ -198,76 +197,18 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
           description={SOURCE_EMPTY_STATE[source].description}
         />
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {filteredNewsList.map((news) => (
-            <Link
+            <NewsCard
               key={news.id}
               href={`/resident/news/${news.id}`}
-              className="block bg-white rounded-xl border border-gray-200 p-4 sm:p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                <div className="min-w-0">
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    {news.isPinned && (
-                      <span className="text-[11px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
-                        ปักหมุด
-                      </span>
-                    )}
-                    <Badge
-                      variant="outline"
-                      className={
-                        news.visibility === "PUBLIC"
-                          ? "border-sky-200 bg-sky-50 text-sky-700"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      }
-                    >
-                      {NEWS_VISIBILITY_LABELS[news.visibility]}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className={
-                        (() => {
-                          if (!news.authorId) {
-                            return "border-gray-300 bg-gray-50 text-gray-700";
-                          }
-
-                          const roles = news.author?.memberships.map(
-                            (membershipItem: { role: string }) => membershipItem.role
-                          ) ?? [];
-
-                          const isAdminSource = roles.some((role: string) =>
-                            ADMIN_MEMBERSHIP_ROLES.includes(role as (typeof ADMIN_MEMBERSHIP_ROLES)[number])
-                          );
-
-                          return isAdminSource
-                            ? "border-violet-200 bg-violet-50 text-violet-700"
-                            : "border-amber-200 bg-amber-50 text-amber-700";
-                        })()
-                      }
-                    >
-                      {(() => {
-                        if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN;
-                        const roles = news.author?.memberships.map(
-                          (membershipItem: { role: string }) => membershipItem.role
-                        ) ?? [];
-                        const isAdminSource = roles.some((role: string) =>
-                          ADMIN_MEMBERSHIP_ROLES.includes(role as (typeof ADMIN_MEMBERSHIP_ROLES)[number])
-                        );
-                        return isAdminSource ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
-                      })()}
-                    </Badge>
-                  </div>
-                  <p className="font-medium text-gray-900 line-clamp-1">{news.title}</p>
-                  <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{news.summary || "-"}</p>
-                  <p className="text-xs text-gray-400 mt-1 sm:hidden">
-                    {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} {(news.publishedAt ?? news.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
-                  </p>
-                </div>
-                <p className="text-xs text-gray-400 whitespace-nowrap hidden sm:block">
-                  {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} {(news.publishedAt ?? news.createdAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.
-                </p>
-              </div>
-            </Link>
+              title={news.title}
+              summary={news.summary}
+              imageUrl={news.coverUrl}
+              isPinned={news.isPinned}
+              badge={<Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>}
+              meta={(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
+            />
           ))}
         </div>
       )}
