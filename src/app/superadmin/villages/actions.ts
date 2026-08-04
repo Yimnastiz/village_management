@@ -129,13 +129,14 @@ export async function searchVillageCatalogAction(input: { province: string; dist
   const keywordWhere = query ? { OR: [{ villageName: { contains: query, mode: "insensitive" as const } }, { villageName: { contains: villageKeyword, mode: "insensitive" as const } }, { officialCode: { contains: query, mode: "insensitive" as const } }, { moo: { contains: query, mode: "insensitive" as const } }] } : {};
   const where = { ...areaWhere, ...keywordWhere };
   const databaseTotal = await prisma.thailandVillageMaster.count();
-  if (databaseTotal > 0) {
-    const [items, totalCount] = await Promise.all([prisma.thailandVillageMaster.findMany({ where, select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } }, orderBy: [{ villageName: "asc" }, { moo: "asc" }], take: 100 }), prisma.thailandVillageMaster.count({ where: areaWhere })]);
-    return { items: items.map((item) => ({ ...item, source: "DATABASE" as const })), totalCount, source: "DATABASE" as const, note: "พบข้อมูลจากฐานข้อมูลอ้างอิง" };
+  if (databaseTotal === 0) {
+    return { items: [], totalCount: 0, source: "DATABASE" as const, note: "Catalog ยังไม่ถูก import: วาง JSON ดิบใน data/raw/gdcatalog-villages/ แล้วรัน npm run catalog:setup" };
   }
-
-  const normalizedItems = BUILT_IN_THAILAND_VILLAGE_CATALOG.filter((item) => normalizeThaiAreaName(item.province) === province && normalizeThaiAreaName(item.district) === district && normalizeThaiAreaName(item.subdistrict) === subdistrict && (!query || [item.villageName, normalizeThaiVillageName(item.villageName), item.moo, item.officialCode].filter(Boolean).some((value) => value!.toLowerCase().includes(query.toLowerCase()) || value!.toLowerCase().includes(villageKeyword.toLowerCase()))));
-  return { items: normalizedItems.slice(0, 100).map((item) => ({ id: item.officialCode, officialCode: item.officialCode, villageName: item.villageName, moo: item.moo ?? null, province: item.province, district: item.district, subdistrict: item.subdistrict, sourceName: item.sourceName, village: null, source: "BUILT_IN_DEMO" as const })), totalCount: BUILT_IN_THAILAND_VILLAGE_CATALOG.filter((item) => normalizeThaiAreaName(item.province) === province && normalizeThaiAreaName(item.district) === district && normalizeThaiAreaName(item.subdistrict) === subdistrict).length, source: "BUILT_IN_DEMO" as const, note: "ข้อมูลนี้เป็นข้อมูลตัวอย่างที่ติดมากับโปรเจกต์ สำหรับสาธิตการเลือกหมู่บ้าน" };
+  const [items, totalCount] = await Promise.all([
+    prisma.thailandVillageMaster.findMany({ where, select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } }, orderBy: [{ villageName: "asc" }, { moo: "asc" }], take: 100 }),
+    prisma.thailandVillageMaster.count({ where: areaWhere }),
+  ]);
+  return { items: items.map((item) => ({ ...item, source: "DATABASE" as const })), totalCount, source: "DATABASE" as const, note: totalCount === 0 ? "พื้นที่นี้ไม่มีข้อมูลใน Catalog" : "พบข้อมูลจากฐานข้อมูลอ้างอิง" };
 }
 
 export async function toggleVillageActiveAction(formData: FormData) {

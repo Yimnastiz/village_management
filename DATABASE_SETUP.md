@@ -127,3 +127,13 @@ npx prisma studio
   - manage existing users and membership roles
 - Signup now requires location dropdowns from village source data.
 - After OTP verify, system checks phone seed and routes user by role automatically.
+
+## 10) นำเข้ารายชื่อหมู่บ้านประเทศไทย
+
+ข้อมูล Catalog เป็นเพียงรายชื่อ/ที่ตั้งหมู่บ้านอ้างอิง ไม่ใช่เลขบ้านหรือข้อมูลประชาชน และจะ import เข้า ThailandVillageMaster โดยไม่สร้าง Village จริงทั้งหมด
+
+1. ดาวน์โหลด JSON จากชุดข้อมูล “ข้อมูลที่ตั้งและสภาพทั่วไปของหมู่บ้านใน 76 จังหวัด” ของ data.go.th / Government Data Catalog
+2. วางไฟล์ดิบทุกจังหวัดไว้ที่ data/raw/gdcatalog-villages/
+3. รัน npm run catalog:setup
+
+คำสั่งนี้จะเตรียมไฟล์ data/processed/thailand-villages.json, import และแสดงสถานะ Catalog ให้ครบ หรือรัน catalog:prepare, catalog:import, catalog:status แยกได้ หลัง import ให้เปิด /superadmin/villages เลือก จังหวัด → อำเภอ → ตำบล เลือกรายการจาก Catalog แล้วกดเปิดใช้งานเพื่อสร้าง Village จริงที่เชื่อมด้วย catalogVillageId

@@ -431,27 +431,42 @@ model Village {
 }
 
 model ThailandVillageMaster {
-  id              String    @id @default(cuid())
-  officialCode    String?   @unique(map: "tvm_official_code_key")
-  villageName     String
-  moo             String?
-  subdistrict     String
-  district        String
-  province        String
-  latitude        Float?
-  longitude       Float?
-  sourceName      String?
-  sourceUrl       String?
-  sourceUpdatedAt DateTime?
-  importedAt      DateTime  @default(now())
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  officialCode          String?   @unique(map: "tvm_official_code_key")
+  lookupKey             String?   @unique(map: "tvm_lookup_key")
+  villageName           String
+  normalizedName        String?
+  moo                   String?
+  provinceCode          String?
+  province              String
+  normalizedProvince    String?
+  districtCode          String?
+  district              String
+  normalizedDistrict    String?
+  subdistrictCode       String?
+  subdistrict           String
+  normalizedSubdistrict String?
+  latitude              Float?
+  longitude             Float?
+  populationTotal       Int?
+  malePopulation        Int?
+  femalePopulation      Int?
+  householdCount        Int?
+  sourceName            String?
+  sourceUrl             String?
+  sourceUpdatedAt       DateTime?
+  importedAt            DateTime  @default(now())
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   village Village?
 
   @@unique([province, district, subdistrict, villageName, moo], map: "tvm_area_name_moo_key")
   @@index([province, district, subdistrict], map: "tvm_area_idx")
+  @@index([provinceCode, districtCode, subdistrictCode], map: "tvm_area_code_idx")
+  @@index([normalizedProvince, normalizedDistrict, normalizedSubdistrict], map: "tvm_norm_area_idx")
   @@index([villageName], map: "tvm_village_name_idx")
+  @@index([normalizedName], map: "tvm_norm_name_idx")
   @@index([province, district, subdistrict, villageName], map: "tvm_area_name_idx")
 }
 

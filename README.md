@@ -22,15 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Village Catalog
 
-The Super Admin village form works immediately after cloning. It includes a small built-in demo catalog, including `บ้านเขาพระ` in `ต.เขาทราย อ.ทับคล้อ จ.พิจิตร`, so the Catalog flow does not require a download or import first. Demo records are clearly labeled in the UI and are not an official nationwide dataset.
-
-For real nationwide reference data, prepare `data/thailand-villages.json` and run:
-
-```bash
-npm run catalog:import -- data/thailand-villages.json
-```
-
-The import is optional for local demo use. `data/thailand-villages.example.json` documents the supported input format.
+See “นำเข้ารายชื่อหมู่บ้านประเทศไทย” below. The Super Admin Catalog reads ThailandVillageMaster; it does not create operational Village records until a Super Admin explicitly selects and activates one.
 
 ## Learn More
 
@@ -46,3 +38,15 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## นำเข้ารายชื่อหมู่บ้านประเทศไทย
+
+Catalog นี้เป็นรายชื่อและที่ตั้งหมู่บ้านอ้างอิง ไม่ใช่เลขบ้านรายหลังหรือรายชื่อประชาชน ข้อมูลจะเข้า ThailandVillageMaster เท่านั้น และจะยังไม่สร้าง Village ที่ใช้งานจริงจนกว่า Super Admin จะเลือกและกดเปิดใช้งาน
+
+1. ดาวน์โหลดไฟล์ JSON จาก data.go.th / Government Data Catalog ชุด “ข้อมูลที่ตั้งและสภาพทั่วไปของหมู่บ้านใน 76 จังหวัด”
+2. วางไฟล์ JSON ดิบทุกจังหวัดไว้ใน data/raw/gdcatalog-villages/ โดยไม่ต้องแก้ field ในไฟล์
+3. รัน npm run catalog:setup
+
+หรือรัน npm run catalog:prepare, npm run catalog:import, npm run catalog:status แยกกัน ไฟล์ที่ผ่านการคัด field แล้วจะอยู่ที่ data/processed/thailand-villages.json จากนั้นเปิด /superadmin/villages กดเพิ่มหมู่บ้าน เลือกจังหวัด → อำเภอ → ตำบล แล้วเลือกหมู่บ้านจาก Catalog เพื่อสร้าง Village จริง
+
+สำหรับทดสอบโดยไม่ใช้ไฟล์รัฐ: npm run catalog:import:demo

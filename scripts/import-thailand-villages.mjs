@@ -4,160 +4,77 @@ import path from "node:path";
 import process from "node:process";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { AuditAction, PrismaClient } from "@prisma/client";
-import { getAllProvinces } from "geothai";
 
-const inputPath = process.argv[2] || "data/thailand-villages.json";
-const sourceNameOverride = process.env.VILLAGE_CATALOG_SOURCE_NAME || null;
-const sourceUrlOverride = process.env.VILLAGE_CATALOG_SOURCE_URL || null;
-const connectionString = process.env.DATABASE_URL;
+const defaultInput = "data/processed/thailand-villages.json";
+const inputPath = process.argv[2] || defaultInput;
+if (!process.env.DATABASE_URL) throw new Error("Missing DATABASE_URL");
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const clean = (value) => value == null ? "" : String(value).normalize("NFC").replace(/\s+/gu, " ").trim();
+const normalizeArea = (value) => clean(value).replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|ตำบล|ต\.)\s*/u, "").trim();
+const normalized = (value) => clean(value).toLocaleLowerCase("th-TH");
+const numberOrNull = (value, integer = false) => {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(String(value).replace(/[๐-๙]/gu, (digit) => "0123456789"["๐๑๒๓๔๕๖๗๘๙".indexOf(digit)]).replace(/,/gu, ""));
+  return Number.isFinite(parsed) ? (integer ? Math.trunc(parsed) : parsed) : null;
+};
+const buildLookupKey = (item) => {
+  const base = [item.province, item.district, item.subdistrict, item.villageName].map(normalized).join("|");
+  return item.officialCode ? base + "|" + clean(item.officialCode) : base;
+};
 
-if (!connectionString) throw new Error("Missing DATABASE_URL");
-
-const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
-
-function clean(value) {
-  return typeof value === "string" ? value.trim().replace(/\s+/g, " ") : value == null ? "" : String(value).trim();
-}
-
-function normalizeArea(value) {
-  return clean(value).normalize("NFC").replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|ตำบล|ต\.)\s*/u, "");
-}
-
-function normalizeVillage(value) {
-  return clean(value).normalize("NFC");
-}
-
-function first(record, keys) {
-  for (const key of keys) {
-    if (record[key] !== undefined && record[key] !== null && clean(record[key])) return clean(record[key]);
+async function main() {
+  const absoluteInput = path.resolve(process.cwd(), inputPath);
+  let rows;
+  try {
+    rows = JSON.parse(await fs.readFile(absoluteInput, "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") throw new Error("ไม่พบไฟล์ " + inputPath + "\nให้วางไฟล์ JSON ดิบไว้ที่ data/raw/gdcatalog-villages/ แล้วรัน npm run catalog:prepare ก่อน");
+    throw error;
   }
-  return "";
-}
-
-function parseCsv(text) {
-  const rows = [];
-  let row = [], cell = "", quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (char === '"' && quoted && text[i + 1] === '"') { cell += '"'; i += 1; continue; }
-    if (char === '"') { quoted = !quoted; continue; }
-    if (char === "," && !quoted) { row.push(cell); cell = ""; continue; }
-    if ((char === "\n" || char === "\r") && !quoted) {
-      if (char === "\r" && text[i + 1] === "\n") i += 1;
-      row.push(cell); cell = "";
-      if (row.some((item) => clean(item))) rows.push(row);
-      row = [];
+  if (!Array.isArray(rows)) throw new Error("ไฟล์ processed ต้องเป็น JSON array");
+  const summary = { rows: rows.length, created: 0, updated: 0, skipped: 0, errors: 0 };
+  for (let index = 0; index < rows.length; index += 1) {
+    const raw = rows[index] ?? {};
+    const item = {
+      officialCode: clean(raw.officialCode) || null, villageName: clean(raw.villageName),
+      provinceCode: clean(raw.provinceCode) || null, province: normalizeArea(raw.province),
+      districtCode: clean(raw.districtCode) || null, district: normalizeArea(raw.district),
+      subdistrictCode: clean(raw.subdistrictCode) || null, subdistrict: normalizeArea(raw.subdistrict),
+      latitude: numberOrNull(raw.latitude), longitude: numberOrNull(raw.longitude),
+      populationTotal: numberOrNull(raw.populationTotal, true), malePopulation: numberOrNull(raw.malePopulation, true),
+      femalePopulation: numberOrNull(raw.femalePopulation, true), householdCount: numberOrNull(raw.householdCount, true),
+      sourceName: clean(raw.sourceName) || null, sourceUrl: clean(raw.sourceUrl) || null,
+    };
+    const lookupKey = clean(raw.lookupKey) || buildLookupKey(item);
+    if (!item.villageName || !item.province || !item.district || !item.subdistrict || (!item.officialCode && !lookupKey)) {
+      summary.skipped += 1;
       continue;
     }
-    cell += char;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  const [headers, ...data] = rows;
-  return data.map((values) => Object.fromEntries(headers.map((header, index) => [clean(header), values[index] ?? ""])));
-}
-
-function parseInput(text, extension) {
-  if (extension === ".csv") return parseCsv(text);
-  const parsed = JSON.parse(text);
-  return Array.isArray(parsed) ? parsed : parsed.villages || parsed.data || [];
-}
-
-function geographyIndex() {
-  const index = new Map();
-  for (const province of getAllProvinces()) {
-    const provinceName = clean(province.name_th);
-    const districts = new Map();
-    for (const district of province.districts || []) {
-      const districtName = clean(district.name_th);
-      districts.set(districtName, new Set((district.subdistricts || []).map((item) => clean(item.name_th))));
+    const data = { ...item, lookupKey, normalizedName: normalized(item.villageName), normalizedProvince: normalized(item.province), normalizedDistrict: normalized(item.district), normalizedSubdistrict: normalized(item.subdistrict), importedAt: new Date() };
+    try {
+      const existing = item.officialCode
+        ? await prisma.thailandVillageMaster.findUnique({ where: { officialCode: item.officialCode }, select: { id: true } })
+        : await prisma.thailandVillageMaster.findUnique({ where: { lookupKey }, select: { id: true } });
+      if (existing) {
+        await prisma.thailandVillageMaster.update({ where: { id: existing.id }, data });
+        summary.updated += 1;
+      } else {
+        const created = await prisma.thailandVillageMaster.create({ data });
+        await prisma.auditLog.create({ data: { action: AuditAction.VILLAGE_CATALOG_IMPORTED, resource: "ThailandVillageMaster", resourceId: created.id, metadata: { officialCode: item.officialCode, lookupKey, sourceName: item.sourceName } } });
+        summary.created += 1;
+      }
+    } catch (error) {
+      summary.errors += 1;
+      console.error("row " + (index + 1) + ": " + (error instanceof Error ? error.message : String(error)));
     }
-    index.set(provinceName, districts);
+    if ((index + 1) % 1000 === 0) console.log("นำเข้าแล้ว " + (index + 1) + "/" + rows.length);
   }
-  return index;
+  const [total, khaoSai, naiMueang] = await Promise.all([
+    prisma.thailandVillageMaster.count(),
+    prisma.thailandVillageMaster.count({ where: { province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย" } }),
+    prisma.thailandVillageMaster.count({ where: { province: "พิจิตร", district: "เมืองพิจิตร", subdistrict: "ในเมือง" } }),
+  ]);
+  console.log(JSON.stringify({ input: absoluteInput, ...summary, total, sampleAreas: { "พิจิตร/ทับคล้อ/เขาทราย": khaoSai, "พิจิตร/เมืองพิจิตร/ในเมือง": naiMueang } }, null, 2));
 }
 
-function normalizeRecord(record) {
-  return {
-    officialCode: first(record, ["officialCode", "official_code", "villageCode", "village_code", "รหัสหมู่บ้าน"]) || null,
-    villageName: normalizeVillage(first(record, ["villageName", "village_name", "name", "ชื่อหมู่บ้าน"])),
-    moo: first(record, ["moo", "หมู่ที่", "หมู่ท่ี"]) || null,
-    subdistrict: normalizeArea(first(record, ["subdistrict", "subdistrictName", "ตำบล"])),
-    district: normalizeArea(first(record, ["district", "districtName", "อำเภอ"])),
-    province: normalizeArea(first(record, ["province", "provinceName", "จังหวัด"])),
-    latitude: first(record, ["latitude", "lat", "ละติจูด"]),
-    longitude: first(record, ["longitude", "lng", "ลองจิจูด"]),
-    sourceName: first(record, ["sourceName", "source_name", "แหล่งข้อมูล"]) || sourceNameOverride,
-    sourceUrl: first(record, ["sourceUrl", "source_url", "ที่มา"]) || sourceUrlOverride,
-    sourceUpdatedAt: first(record, ["sourceUpdatedAt", "source_updated_at", "วันที่ปรับปรุง"]),
-  };
-}
-
-function numberOrNull(value) {
-  if (!value) return null;
-  const number = Number(value);
-  return Number.isFinite(number) ? number : null;
-}
-
-function dateOrNull(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-const absolutePath = path.resolve(process.cwd(), inputPath);
-const extension = path.extname(absolutePath).toLowerCase();
-const records = parseInput(await fs.readFile(absolutePath, "utf8"), extension);
-const geography = geographyIndex();
-const summary = { created: 0, updated: 0, skipped: 0, errors: 0 };
-const importedAreas = { provinces: new Set(), districts: new Set(), subdistricts: new Set() };
-
-for (let index = 0; index < records.length; index += 1) {
-  const item = normalizeRecord(records[index]);
-  const parent = geography.get(item.province);
-  const subdistricts = parent?.get(item.district);
-  const valid = item.villageName && parent && subdistricts && subdistricts.has(item.subdistrict);
-  if (!valid) {
-    summary.errors += 1;
-    console.error(`row ${index + 2}: invalid village or GeoThai location`);
-    continue;
-  }
-  importedAreas.provinces.add(item.province);
-  importedAreas.districts.add(`${item.province}/${item.district}`);
-  importedAreas.subdistricts.add(`${item.province}/${item.district}/${item.subdistrict}`);
-
-  const data = {
-    officialCode: item.officialCode,
-    villageName: item.villageName,
-    moo: item.moo,
-    subdistrict: item.subdistrict,
-    district: item.district,
-    province: item.province,
-    latitude: numberOrNull(item.latitude),
-    longitude: numberOrNull(item.longitude),
-    sourceName: item.sourceName,
-    sourceUrl: item.sourceUrl,
-    sourceUpdatedAt: dateOrNull(item.sourceUpdatedAt),
-  };
-
-  try {
-    const existing = item.officialCode
-      ? await prisma.thailandVillageMaster.findUnique({ where: { officialCode: item.officialCode }, select: { id: true } })
-      : await prisma.thailandVillageMaster.findFirst({ where: { province: item.province, district: item.district, subdistrict: item.subdistrict, villageName: item.villageName, moo: item.moo }, select: { id: true } });
-    if (existing) {
-      await prisma.thailandVillageMaster.update({ where: { id: existing.id }, data });
-      await prisma.auditLog.create({ data: { action: AuditAction.VILLAGE_CATALOG_UPDATED, resource: "ThailandVillageMaster", resourceId: existing.id, metadata: { officialCode: item.officialCode, villageName: item.villageName, sourceName: item.sourceName } } });
-      summary.updated += 1;
-    } else {
-      const created = await prisma.thailandVillageMaster.create({ data });
-      await prisma.auditLog.create({ data: { action: AuditAction.VILLAGE_CATALOG_IMPORTED, resource: "ThailandVillageMaster", resourceId: created.id, metadata: { officialCode: item.officialCode, villageName: item.villageName, sourceName: item.sourceName } } });
-      summary.created += 1;
-    }
-  } catch (error) {
-    summary.errors += 1;
-    console.error(`row ${index + 2}: ${error instanceof Error ? error.message : String(error)}`);
-  }
-}
-
-const sampleCheck = await prisma.thailandVillageMaster.count({ where: { province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย", villageName: { contains: "เขาพระ", mode: "insensitive" } } });
-console.log(JSON.stringify({ input: absolutePath, rows: records.length, ...summary, areasImported: { provinces: importedAreas.provinces.size, districts: importedAreas.districts.size, subdistricts: importedAreas.subdistricts.size }, sampleCheck: { area: "พิจิตร / ทับคล้อ / เขาทราย", villageKeyword: "เขาพระ", records: sampleCheck } }, null, 2));
-await prisma.$disconnect();
+main().catch((error) => { console.error(error.message || error); process.exitCode = 1; }).finally(() => prisma.$disconnect());
