@@ -54,7 +54,7 @@ export function AdminListToolbar({
     <div className="space-y-4">
       <PageHeader title={title} description={description} actions={actions} />
 
-      <FilterBar>
+      <FilterBar activeFilterCount={groups.reduce((count, group) => count + Number(group.options.some((option) => option.active && option.href !== (clearHref ?? searchAction))), 0)}>
         <div className="flex flex-wrap items-center gap-2">
           <form action={searchAction} className="flex items-center gap-2">
             {Object.entries(hiddenInputs ?? {}).map(([name, value]) => (

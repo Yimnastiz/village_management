@@ -57,6 +57,7 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
   const imageUrls = Array.isArray(news.imageUrls)
     ? news.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
     : [];
+  if (news.coverUrl && imageUrls.includes(news.coverUrl)) imageUrls.splice(0, 0, ...imageUrls.splice(imageUrls.indexOf(news.coverUrl), 1));
 
   return (
     <div className="max-w-3xl space-y-6">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
 import {
   LayoutDashboard,
   Newspaper,
@@ -51,11 +52,11 @@ export const adminMenuItems: AdminMenuItem[] = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => setCollapsed(localStorage.getItem("village-admin-sidebar-collapsed") === "true"), []);
+  useEffect(() => { const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-admin-sidebar-collapsed") === "true")); return () => cancelAnimationFrame(frame); }, []);
   const toggle = () => setCollapsed((value) => { localStorage.setItem("village-admin-sidebar-collapsed", String(!value)); return !value; });
   return (
-    <aside className={cn("sticky top-0 hidden h-screen overflow-y-auto bg-gray-900 text-gray-300 transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-16" : "w-64")}>
-      <div className="p-4 border-b border-gray-700">
+    <aside className={cn("sticky top-0 hidden h-screen overflow-hidden bg-gray-900 text-gray-300 transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-[72px]" : "w-60")}>
+      <div className={cn("border-b border-gray-700", collapsed ? "p-3" : "p-4")}>
         <div className="flex items-center justify-between gap-2"><Link href="/admin" className="flex min-w-0 items-center gap-2">
           <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
             <LayoutDashboard className="h-4 w-4 text-white" />
@@ -65,14 +66,13 @@ export function AdminSidebar() {
           </div>
         </Link><button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button></div>
       </div>
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className={cn("sidebar-scroll flex-1 space-y-1 overflow-y-auto", collapsed ? "p-3" : "p-4")}>
         {adminMenuItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
-            <Link
-              key={item.href}
+            <SidebarTooltip key={item.href} label={item.label} disabled={!collapsed}><Link
               href={item.href}
-              title={collapsed ? item.label : undefined}
+              aria-label={item.label}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -82,7 +82,7 @@ export function AdminSidebar() {
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
               <span className={collapsed ? "sr-only" : ""}>{item.label}</span>
-            </Link>
+            </Link></SidebarTooltip>
           );
         })}
       </nav>

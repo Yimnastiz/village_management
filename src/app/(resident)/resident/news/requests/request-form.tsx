@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,7 @@ import {
   createNewsUpdateRequestAction,
   updatePendingNewsSubmissionAction,
 } from "./actions";
-import { FileUpload } from "@/components/ui/file-upload";
+import { NewsImageManager } from "@/components/news/news-image-manager";
 
 const schema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -33,20 +32,12 @@ type RequestFormProps = {
     summary: string;
     content: string;
     imageUrls: string[];
+    coverUrl?: string | null;
     visibility: string;
     stage: string;
     isPinned: boolean;
   };
 };
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("ไม่สามารถอ่านไฟล์ได้"));
-    reader.readAsDataURL(file);
-  });
-}
 
 function normalizeExistingImageUrls(imageUrls: string[]) {
   return imageUrls.filter((url) => url.trim().length > 0);
@@ -54,9 +45,13 @@ function normalizeExistingImageUrls(imageUrls: string[]) {
 
 export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValues }: RequestFormProps) {
   const router = useRouter();
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(
+  const [imageUrls, setImageUrls] = useState<string[]>(
     normalizeExistingImageUrls(defaultValues?.imageUrls ?? [])
+  );
+  const [coverUrl, setCoverUrl] = useState<string | null>(
+    defaultValues?.coverUrl && defaultValues.imageUrls.includes(defaultValues.coverUrl)
+      ? defaultValues.coverUrl
+      : defaultValues?.imageUrls[0] ?? null,
   );
 
   const resolvedDefaults: FormData = defaultValues
@@ -82,21 +77,12 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
   });
 
   const onSubmit = async (data: FormData) => {
-    let uploadedImageDataUrls: string[] = [];
-    if (selectedFiles.length > 0) {
-      try {
-        uploadedImageDataUrls = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
-      } catch {
-        setError("root", { message: "ไม่สามารถอ่านไฟล์รูปที่อัปโหลดได้" });
-        return;
-      }
-    }
-
     const payload = {
       title: data.title,
       summary: data.summary,
       content: data.content,
-      imageUrls: [...existingImageUrls, ...uploadedImageDataUrls],
+      imageUrls,
+      coverUrl,
     };
 
     const result =
@@ -122,47 +108,7 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
       <Input label="สรุปข่าว" {...register("summary")} error={errors.summary?.message} />
       <Textarea label="เนื้อหา" {...register("content")} error={errors.content?.message} rows={10} />
 
-      <div className="space-y-3 rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-gray-800">รูปภาพประกอบข่าว</p>
-        </div>
-
-        <FileUpload
-          label="อัปโหลดรูปภาพ"
-          accept="image/*"
-          multiple
-          maxSize={5 * 1024 * 1024}
-          onFilesChange={(files) => setSelectedFiles(files)}
-        />
-
-        {existingImageUrls.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs text-gray-500">รูปที่มีอยู่แล้ว (กดลบได้)</p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {existingImageUrls.map((url) => (
-                <div key={url} className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                  <img src={url} alt="existing" className="h-24 w-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => setExistingImageUrls((prev) => prev.filter((item) => item !== url))}
-                    className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-red-500 hover:bg-white"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {selectedFiles.length > 0 && (
-          <p className="text-xs text-gray-500">ไฟล์ใหม่ที่เลือก: {selectedFiles.length} รูป</p>
-        )}
-
-        {existingImageUrls.length === 0 && selectedFiles.length === 0 && (
-          <p className="text-sm text-gray-500">ยังไม่มีรูปภาพ</p>
-        )}
-      </div>
+      <NewsImageManager imageUrls={imageUrls} coverUrl={coverUrl} onChange={setImageUrls} onCoverChange={setCoverUrl} />
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 

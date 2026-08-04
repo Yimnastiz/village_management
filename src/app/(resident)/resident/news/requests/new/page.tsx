@@ -37,6 +37,7 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
         imageUrls: Array.isArray(targetNews.imageUrls)
           ? targetNews.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
           : [],
+        coverUrl: targetNews.coverUrl,
         visibility: targetNews.visibility,
         stage: targetNews.stage,
         isPinned: targetNews.isPinned,

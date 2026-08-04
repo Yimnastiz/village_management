@@ -67,6 +67,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
       title: true,
       summary: true,
       coverUrl: true,
+      imageUrls: true,
       publishedAt: true,
       createdAt: true,
       isPinned: true,
@@ -132,7 +133,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
               href={`/${villageSlug}/news/${news.id}`}
               title={news.title}
               summary={news.summary}
-              imageUrl={news.coverUrl}
+              imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               badge={<Badge variant="outline">{(() => { if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? []; return roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number])) ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT; })()}</Badge>}
               meta={(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}

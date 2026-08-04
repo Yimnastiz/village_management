@@ -9,12 +9,13 @@ import {
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { areSafeImageSources } from "@/lib/image-input";
 
 const newsInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
   summary: z.string().optional(),
   content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  imageUrls: z.array(z.string().url("URL รูปภาพไม่ถูกต้อง")).optional(),
+  imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).optional(),
   visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
   stage: z.string().min(1, "กรุณาเลือกสถานะ"),
   isPinned: z.boolean().optional(),
@@ -72,17 +73,20 @@ function normalizeNewsInput(data: NewsInput) {
     return { ok: false as const, error: "สถานะข่าวไม่ถูกต้อง" };
   }
 
+  const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter(Boolean);
+  if (!areSafeImageSources(imageUrls)) return { ok: false as const, error: "รูปภาพต้องเป็น JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB และไม่เกิน 10 รูป" };
+
   return {
     ok: true as const,
     value: {
       title: parsed.data.title.trim(),
       summary: parsed.data.summary?.trim() || null,
       content: parsed.data.content.trim(),
-      imageUrls: (parsed.data.imageUrls ?? []).filter((url) => url.trim().length > 0),
+      imageUrls,
       visibility,
       stage,
       isPinned: Boolean(parsed.data.isPinned),
-      coverUrl: parsed.data.imageUrls?.includes((data as NewsInput).coverUrl ?? "") ? (data as NewsInput).coverUrl ?? null : parsed.data.imageUrls?.[0] ?? null,
+      coverUrl: imageUrls.includes((data as NewsInput).coverUrl ?? "") ? (data as NewsInput).coverUrl ?? null : imageUrls[0] ?? null,
     },
   };
 }
@@ -202,6 +206,7 @@ export async function adminApproveNewsSubmissionAction(
     visibility: String(payload.visibility ?? "PUBLIC"),
     stage: String(payload.stage ?? "DRAFT"),
     isPinned: Boolean(payload.isPinned),
+    coverUrl: payload.coverUrl ? String(payload.coverUrl) : null,
   });
   if (!parsed.ok) {
     return { success: false, error: `ข้อมูลคำขอไม่ถูกต้อง: ${parsed.error}` };
@@ -260,6 +265,7 @@ export async function adminApproveNewsSubmissionAction(
           summary: parsed.value.summary,
           content: parsed.value.content,
           imageUrls: parsed.value.imageUrls,
+          coverUrl: parsed.value.coverUrl,
           visibility: parsed.value.visibility,
           stage: parsed.value.stage,
           isPinned: parsed.value.isPinned,
@@ -324,6 +330,7 @@ export async function adminApproveNewsSubmissionAction(
         summary: parsed.value.summary,
         content: parsed.value.content,
         imageUrls: parsed.value.imageUrls,
+        coverUrl: parsed.value.coverUrl,
         visibility: parsed.value.visibility,
         stage: parsed.value.stage,
         isPinned: parsed.value.isPinned,

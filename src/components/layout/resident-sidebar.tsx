@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
 import {
   Home,
   Newspaper,
@@ -98,13 +99,13 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
   const pathname = usePathname();
   const [lockedMenuLabel, setLockedMenuLabel] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => setCollapsed(localStorage.getItem("village-resident-sidebar-collapsed") === "true"), []);
+  useEffect(() => { const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-resident-sidebar-collapsed") === "true")); return () => cancelAnimationFrame(frame); }, []);
   const toggle = () => setCollapsed((value) => { localStorage.setItem("village-resident-sidebar-collapsed", String(!value)); return !value; });
   const navItems = getResidentNavigationItems(state);
   const desktopItems = [...navItems].sort((left, right) => left.desktopPriority - right.desktopPriority);
   return (
-    <aside className={cn("sticky top-0 hidden h-screen overflow-y-auto border-r border-gray-200 bg-white transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-16" : "w-64")}>
-      <div className="p-4 border-b border-gray-200">
+    <aside className={cn("sticky top-0 hidden h-screen overflow-hidden border-r border-gray-200 bg-white transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-[72px]" : "w-60")}>
+      <div className={cn("border-b border-gray-200", collapsed ? "p-3" : "p-4")}>
         <div className="flex items-center justify-between gap-2"><Link href="/resident" className="flex min-w-0 items-center gap-2">
           <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
             <Home className="h-4 w-4 text-white" />
@@ -117,12 +118,11 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           </div>
         </Link><button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-500 hover:bg-gray-100">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button></div>
       </div>
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className={cn("sidebar-scroll flex-1 space-y-1 overflow-y-auto", collapsed ? "p-3" : "p-4")}>
         {desktopItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
-            <Link
-              key={item.href}
+            <SidebarTooltip key={item.href} label={item.label} disabled={!collapsed}><Link
               href={item.href}
               onClick={(event) => {
                 if (item.locked) {
@@ -130,7 +130,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
                   setLockedMenuLabel(item.label);
                 }
               }}
-              title={collapsed ? item.label : undefined}
+              aria-label={item.label}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -141,7 +141,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
               <item.icon className="h-4 w-4 flex-shrink-0" />
               <span className={cn("min-w-0 flex-1", collapsed && "sr-only")}>{item.label}</span>
               {item.locked && !collapsed ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องผูกเลขบ้านก่อน" /> : null}
-            </Link>
+            </Link></SidebarTooltip>
           );
         })}
       </nav>

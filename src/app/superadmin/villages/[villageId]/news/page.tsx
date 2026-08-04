@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SuperAdminNewsImageField } from "@/components/news/superadmin-news-image-field";
 import { prisma } from "@/lib/prisma";
 import {
   EmptyState,
@@ -50,7 +51,7 @@ export default async function SuperAdminVillageNewsPage({
       orderBy: [{ updatedAt: "desc" }],
       skip: (page - 1) * TAKE,
       take: TAKE,
-      select: { id: true, title: true, summary: true, stage: true, visibility: true, isPinned: true, publishedAt: true, updatedAt: true, author: { select: { name: true } }, imageUrls: true, content: true },
+      select: { id: true, title: true, summary: true, stage: true, visibility: true, isPinned: true, publishedAt: true, updatedAt: true, author: { select: { name: true } }, imageUrls: true, coverUrl: true, content: true },
     }),
     prisma.news.count({ where }),
     query.edit ? prisma.news.findFirst({ where: { id: query.edit, villageId } }) : null,
@@ -99,7 +100,7 @@ export default async function SuperAdminVillageNewsPage({
         </div>
         <Textarea name="summary" label="สรุป" rows={2} defaultValue={editing?.summary ?? ""} />
         <Textarea name="content" label="เนื้อหา" rows={6} defaultValue={editing?.content ?? ""} required />
-        <Textarea name="imageUrls" label="รูปภาพ (URL หรือ data URL แยกบรรทัด)" rows={2} defaultValue={Array.isArray(editing?.imageUrls) ? editing.imageUrls.map(String).join("\n") : ""} />
+        <SuperAdminNewsImageField initialUrls={Array.isArray(editing?.imageUrls) ? editing.imageUrls.map(String) : []} initialCoverUrl={editing?.coverUrl} />
         <ReasonField />
         <Button type="submit">{editing ? "บันทึกการแก้ไข" : "สร้างข่าว"}</Button>
       </form>
@@ -145,4 +146,3 @@ export default async function SuperAdminVillageNewsPage({
     </div>
   );
 }
-

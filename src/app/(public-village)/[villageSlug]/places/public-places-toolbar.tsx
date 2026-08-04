@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 
 type SortValue = "newest" | "oldest" | "name_asc" | "name_desc";
@@ -77,12 +78,12 @@ export function PublicPlacesToolbar({
   }, [searchKeyword, searchOpen, villageSlug, category, sort, router]);
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">สถานที่สำคัญในหมู่บ้าน {villageName}</h1>
       </div>
 
-      <div className="mt-3 flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+      <FilterBar activeFilterCount={Number(category !== "ALL") + Number(sort !== "newest")}><div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
         <button
           type="button"
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"
@@ -163,7 +164,7 @@ export function PublicPlacesToolbar({
         >
           ล้างตัวกรอง
         </Link>
-      </div>
+      </div></FilterBar>
     </div>
   );
 }

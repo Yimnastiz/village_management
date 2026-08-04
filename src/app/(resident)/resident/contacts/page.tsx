@@ -12,7 +12,7 @@ import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 export const dynamic = "force-dynamic";
 
 type ResidentContactsPageProps = {
-  searchParams?: Promise<{ q?: string; category?: string }>;
+  searchParams?: Promise<{ q?: string; category?: string; sort?: string }>;
 };
 
 export default async function ResidentContactsPage({ searchParams }: ResidentContactsPageProps) {
@@ -25,8 +25,9 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const category = query.category?.trim() ?? "";
+  const sort = query.sort === "name" ? "name" : "default";
 
-  const [contacts, savedContacts] = await Promise.all([
+  const [contacts, categoryRows, savedContacts] = await Promise.all([
     prisma.contactDirectory.findMany({
       where: {
         villageId: membership.villageId,
@@ -36,12 +37,20 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
               OR: [
                 { name: { contains: keyword, mode: "insensitive" as const } },
                 { phone: { contains: keyword, mode: "insensitive" as const } },
+                { role: { contains: keyword, mode: "insensitive" as const } },
+                { address: { contains: keyword, mode: "insensitive" as const } },
               ],
             }
           : {}),
         ...(category ? { category } : {}),
       },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      orderBy: sort === "name" ? [{ name: "asc" }] : [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    }),
+    prisma.contactDirectory.findMany({
+      where: { villageId: membership.villageId, ...(!membership.hasResidentAccess ? { isPublic: true } : {}), category: { not: null } },
+      distinct: ["category"],
+      select: { category: true },
+      orderBy: { category: "asc" },
     }),
     prisma.savedItem.findMany({
       where: { userId: session.id, contactId: { not: null } },
@@ -53,7 +62,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
 
   return (
     <div className="space-y-6">
-      <ResidentContactsToolbar keyword={keyword} category={category} categories={Array.from(new Set(contacts.map((contact) => contact.category).filter((value): value is string => Boolean(value)))).sort()} canSubmit={membership.hasResidentAccess} />
+      <ResidentContactsToolbar keyword={keyword} category={category} sort={sort} categories={categoryRows.map((item) => item.category).filter((value): value is string => Boolean(value))} canSubmit={membership.hasResidentAccess} />
 
       {contacts.length === 0 ? (
         <EmptyState

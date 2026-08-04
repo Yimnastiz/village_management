@@ -43,6 +43,7 @@ export async function superAdminSaveNewsAction(villageId: string, formData: Form
     summary: value(formData, "summary"),
     content: value(formData, "content"),
     imageUrls: value(formData, "imageUrls").split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean),
+    coverUrl: value(formData, "coverUrl") || null,
     visibility: value(formData, "visibility") || "PUBLIC",
     stage: value(formData, "stage") || "DRAFT",
     isPinned: boolValue(formData, "isPinned"),
@@ -56,13 +57,14 @@ export async function superAdminSetNewsStageAction(villageId: string, formData: 
   const context = await superContext(villageId, formData);
   const newsId = value(formData, "resourceId");
   const targetStage = value(formData, "stage") || "DRAFT";
-  const existing = await prisma.news.findFirst({ where: { id: newsId, villageId }, select: { title: true, summary: true, content: true, imageUrls: true, visibility: true, isPinned: true } });
+  const existing = await prisma.news.findFirst({ where: { id: newsId, villageId }, select: { title: true, summary: true, content: true, imageUrls: true, coverUrl: true, visibility: true, isPinned: true } });
   if (!existing) throw new Error("ไม่พบข่าวในหมู่บ้านเป้าหมาย");
   const result = await updateNews(context, newsId, {
     title: existing.title,
     summary: existing.summary ?? "",
     content: existing.content,
     imageUrls: Array.isArray(existing.imageUrls) ? existing.imageUrls.map(String) : [],
+    coverUrl: existing.coverUrl,
     visibility: existing.visibility,
     stage: targetStage,
     isPinned: existing.isPinned,
@@ -180,4 +182,3 @@ export async function superAdminDeleteTransparencyAction(villageId: string, form
   if (!result.success) throw new Error(result.error);
   redirect(`/superadmin/villages/${villageId}/transparency`);
 }
-

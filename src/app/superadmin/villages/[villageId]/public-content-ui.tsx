@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 export function SupportNotice({ villageName }: { villageName: string }) {
   return (
@@ -48,11 +49,11 @@ export function SearchBar({
   children?: React.ReactNode;
 }) {
   return (
-    <form action={action} className="flex flex-wrap items-end gap-2 rounded-lg border bg-white p-3">
+    <FilterBar activeFilterCount={Number(Boolean(search))}><form action={action} className="flex flex-wrap items-end gap-2">
       <Input className="w-64" name="q" label="ค้นหา" defaultValue={search} placeholder="พิมพ์คำค้น..." />
       {children}
       <Button type="submit" variant="outline">ค้นหา</Button>
-    </form>
+    </form></FilterBar>
   );
 }
 
@@ -106,4 +107,3 @@ export function formatDate(value: Date | null | undefined) {
   if (!value) return "-";
   return new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(value);
 }
-

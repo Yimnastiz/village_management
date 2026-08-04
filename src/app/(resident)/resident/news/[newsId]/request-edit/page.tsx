@@ -48,6 +48,7 @@ export default async function ResidentEditNewsRequestPage({ params }: PageProps)
           summary: news.summary || "",
           content: news.content,
           imageUrls,
+          coverUrl: news.coverUrl,
           visibility: news.visibility,
           stage: news.stage,
           isPinned: news.isPinned,

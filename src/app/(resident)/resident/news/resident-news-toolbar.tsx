@@ -5,6 +5,7 @@ import { Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FilterBar } from "@/components/ui/filter-bar";
 
 type NewsSource = "resident" | "admin";
 type NewsVisibilityValue = "PUBLIC" | "RESIDENT_ONLY";
@@ -104,7 +105,7 @@ export function ResidentNewsToolbar({
         </div> : null}
       </div>
 
-      <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
+      <FilterBar className="mt-3" activeFilterCount={Number(source !== "all") + selectedVisibilities.length + Number(sort !== "newest")}>
         <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
           <form action="/resident/news" className="flex items-center gap-2">
             <input
@@ -208,7 +209,7 @@ export function ResidentNewsToolbar({
             ล้างตัวกรอง
           </Link>
         </div>
-      </div>
+      </FilterBar>
     </div>
   );
 }

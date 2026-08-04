@@ -47,6 +47,7 @@ export default async function ResidentEditNewsSubmissionPage({ params }: PagePro
           summary: String(payload.summary ?? ""),
           content: String(payload.content ?? ""),
           imageUrls,
+          coverUrl: payload.coverUrl ? String(payload.coverUrl) : null,
           visibility: String(payload.visibility ?? "PUBLIC"),
           stage: String(payload.stage ?? "DRAFT"),
           isPinned: Boolean(payload.isPinned),

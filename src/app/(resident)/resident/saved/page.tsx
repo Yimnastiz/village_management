@@ -77,7 +77,7 @@ export default async function SavedPage({
       />
 
       {/* Filters */}
-      <FilterBar>
+      <FilterBar activeFilterCount={Number(type !== "ALL") + Number(sort !== "newest")}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(TYPE_LABELS).map(([key, label]) => (

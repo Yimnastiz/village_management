@@ -62,7 +62,6 @@ export function NewsForm({ mode, newsId, defaultValues }: NewsFormProps) {
       };
 
   const {
-    control,
     register,
     handleSubmit,
     setError,

@@ -88,6 +88,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         title: true,
         summary: true,
         coverUrl: true,
+        imageUrls: true,
         visibility: true,
         isPinned: true,
         publishedAt: true,
@@ -204,7 +205,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
               href={`/resident/news/${news.id}`}
               title={news.title}
               summary={news.summary}
-              imageUrl={news.coverUrl}
+              imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               badge={<Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>}
               meta={(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}

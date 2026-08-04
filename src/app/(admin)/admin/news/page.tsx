@@ -65,6 +65,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       title: true,
       summary: true,
       coverUrl: true,
+      imageUrls: true,
       stage: true,
       visibility: true,
       isPinned: true,
@@ -208,7 +209,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
               href={`/admin/news/${news.id}`}
               title={news.title}
               summary={news.summary}
-              imageUrl={news.coverUrl}
+              imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               badge={<><Badge variant={stageVariant[news.stage] ?? "default"}>{NEWS_STAGE_LABELS[news.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge></>}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${news.author?.name || "ไม่ระบุผู้สร้าง"}`}

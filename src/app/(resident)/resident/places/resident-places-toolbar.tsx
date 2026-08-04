@@ -6,6 +6,7 @@ import { Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FilterBar } from "@/components/ui/filter-bar";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 
 type SortValue = "newest" | "oldest" | "name_asc" | "name_desc";
@@ -83,7 +84,7 @@ export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitle
         </div> : null}
       </div>
 
-      <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
+      <FilterBar className="mt-3" activeFilterCount={Number(category !== "ALL") + Number(sort !== "newest")}>
         <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
           <button
             type="button"
@@ -166,7 +167,7 @@ export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitle
             ล้างตัวกรอง
           </Link>
         </div>
-      </div>
+      </FilterBar>
     </div>
   );
 }

@@ -7,13 +7,15 @@ import { useEffect, useState } from "react";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { PageHeader } from "@/components/ui/page-header";
 
-function buildContactsHref(keyword: string) {
+function buildContactsHref(keyword: string, category = "", sort = "default") {
   const query = new URLSearchParams();
   const trimmedKeyword = keyword.trim();
 
   if (trimmedKeyword) {
     query.set("q", trimmedKeyword);
   }
+  if (category) query.set("category", category);
+  if (sort !== "default") query.set("sort", sort);
 
   const queryString = query.toString();
   return queryString ? `/resident/contacts?${queryString}` : "/resident/contacts";
@@ -22,11 +24,12 @@ function buildContactsHref(keyword: string) {
 interface ResidentContactsToolbarProps {
   keyword: string;
   category: string;
+  sort: string;
   categories: string[];
   canSubmit: boolean;
 }
 
-export function ResidentContactsToolbar({ keyword, category, categories, canSubmit }: ResidentContactsToolbarProps) {
+export function ResidentContactsToolbar({ keyword, category, sort, categories, canSubmit }: ResidentContactsToolbarProps) {
   const router = useRouter();
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
   const [searchKeyword, setSearchKeyword] = useState(keyword);
@@ -39,11 +42,11 @@ export function ResidentContactsToolbar({ keyword, category, categories, canSubm
     if (!searchOpen) return;
 
     const timeoutId = setTimeout(() => {
-      router.push(buildContactsHref(searchKeyword));
+      router.push(buildContactsHref(searchKeyword, category, sort));
     }, 350);
 
     return () => clearTimeout(timeoutId);
-  }, [searchKeyword, searchOpen, router]);
+  }, [searchKeyword, searchOpen, category, sort, router]);
 
   return (
     <div className="space-y-4">
@@ -66,7 +69,7 @@ export function ResidentContactsToolbar({ keyword, category, categories, canSubm
         </> : undefined}
       />
 
-      <FilterBar>
+      <FilterBar activeFilterCount={Number(Boolean(category)) + Number(sort !== "default")}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
@@ -106,7 +109,10 @@ export function ResidentContactsToolbar({ keyword, category, categories, canSubm
             ล้างตัวกรอง
           </Link>
         </div>
-        {categories.length > 0 ? <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3"><span className="mr-1 self-center text-xs font-medium text-gray-500">ประเภท</span><Link href={buildContactsHref(keyword)} className={`rounded-full px-3 py-1 text-xs font-medium ${!category ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>ทั้งหมด</Link>{categories.map((item) => <Link key={item} href={`/resident/contacts?${new URLSearchParams({ ...(keyword ? { q: keyword } : {}), category: item })}`} className={`rounded-full px-3 py-1 text-xs font-medium ${category === item ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{item}</Link>)}</div> : null}
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+          {categories.length > 0 ? <><span className="text-xs font-medium text-gray-500">ประเภท</span><Link href={buildContactsHref(keyword, "", sort)} className={`rounded-full px-3 py-1 text-xs font-medium ${!category ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>ทั้งหมด</Link>{categories.map((item) => <Link key={item} href={buildContactsHref(keyword, item, sort)} className={`rounded-full px-3 py-1 text-xs font-medium ${category === item ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>{item}</Link>)}</> : null}
+          <label className="ml-auto flex items-center gap-2 text-xs font-medium text-gray-500">เรียงลำดับ<select value={sort} onChange={(event) => router.push(buildContactsHref(keyword, category, event.target.value))} className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-700"><option value="default">ลำดับที่กำหนด</option><option value="name">ชื่อ ก-ฮ</option></select></label>
+        </div>
       </FilterBar>
     </div>
   );
