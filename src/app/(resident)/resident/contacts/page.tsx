@@ -53,15 +53,6 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
     <div className="space-y-6">
       <ResidentContactsToolbar keyword={keyword} canSubmit={membership.hasResidentAccess} />
 
-      {membership.hasResidentAccess ? <div className="flex flex-wrap items-center gap-2">
-        <Link href="/resident/contacts/new" className="rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
-          ส่งคำขอเพิ่มผู้ติดต่อ
-        </Link>
-        <Link href="/resident/contacts/requests" className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-          ติดตามคำขอของฉัน
-        </Link>
-      </div> : null}
-
       {contacts.length === 0 ? (
         <EmptyState
           icon={PhoneCall}

@@ -94,7 +94,7 @@ function LoginContent() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
+    <div className="mx-auto max-w-md rounded-2xl border border-gray-200 bg-white p-6 shadow-xl shadow-green-950/5 sm:p-8">
       <h2 className="text-xl font-bold text-gray-900 mb-2">เข้าสู่ระบบ</h2>
       <p className="text-sm text-gray-500 mb-6">
         กรอกเบอร์โทรศัพท์เพื่อรับรหัส OTP สำหรับผู้ใช้ที่มีบัญชีแล้ว

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { PageHeader } from "@/components/ui/page-header";
 
 function buildContactsHref(keyword: string) {
   const query = new URLSearchParams();
@@ -42,28 +44,29 @@ export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContacts
   }, [searchKeyword, searchOpen, router]);
 
   return (
-    <div className="sticky top-16 z-30 -mx-6 border-b border-gray-200 bg-gray-50/95 px-6 pb-4 pt-3 backdrop-blur">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">รายชื่อผู้ติดต่อ</h1>
-          <p className="mt-1 text-sm text-gray-500">ช่องทางติดต่อหน่วยงานและผู้ประสานงานในหมู่บ้าน</p>
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
-        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
-          {canSubmit ? <><Link
+    <div className="space-y-4">
+      <PageHeader
+        title="รายชื่อผู้ติดต่อ"
+        description="ช่องทางติดต่อหน่วยงานและผู้ประสานงานในหมู่บ้าน"
+        actions={canSubmit ? <>
+          <Link
             href="/resident/contacts/new"
-            className="inline-flex h-9 items-center rounded-lg border border-green-300 bg-green-50 px-3 text-xs font-medium text-green-700 hover:bg-green-100"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
             ส่งคำขอเพิ่มผู้ติดต่อ
           </Link>
           <Link
             href="/resident/contacts/requests"
-            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
           >
-            ติดตามคำขอ
-          </Link></> : null}
+            ติดตามคำขอของฉัน
+          </Link>
+        </> : undefined}
+      />
+
+      <FilterBar>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"
@@ -79,7 +82,7 @@ export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContacts
               placeholder="ค้นหาชื่อหรือเบอร์โทรศัพท์"
               value={searchKeyword}
               onChange={(event) => setSearchKeyword(event.target.value)}
-              className="h-9 w-64 rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1 sm:max-w-md"
             />
           )}
 
@@ -93,14 +96,15 @@ export function ResidentContactsToolbar({ keyword, canSubmit }: ResidentContacts
               <X className="h-4 w-4" />
             </button>
           )}
-            <Link
-              href="/resident/contacts"
-              className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
-            >
-              ล้างตัวกรอง
-            </Link>
+          </div>
+          <Link
+            href="/resident/contacts"
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            ล้างตัวกรอง
+          </Link>
         </div>
-      </div>
+      </FilterBar>
     </div>
   );
 }

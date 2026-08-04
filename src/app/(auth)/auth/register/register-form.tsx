@@ -316,7 +316,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
+    <div className="mx-auto max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl shadow-green-950/5 sm:p-8">
       <div className="mb-3">
         <Link href="/landing" className="text-sm font-medium text-green-700 hover:underline">
           กลับไปหน้าเว็บไซต์หมู่บ้าน
@@ -331,7 +331,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         สมัครสมาชิกสำหรับลูกบ้านทั่วไปเท่านั้น หลังสมัครแล้วถ้ายังไม่ผูกเลขบ้าน จะใช้งานได้เฉพาะข้อมูลสาธารณะและหน้าขอผูกเลขบ้าน
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-900">ข้อมูลบัญชีและยืนยันตัวตน</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label="ชื่อ"
@@ -379,6 +381,10 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           required
         />
 
+        </section>
+
+        <section className="space-y-4 border-t border-gray-100 pt-5">
+          <h3 className="text-sm font-semibold text-gray-900">พื้นที่และหมู่บ้านที่เกี่ยวข้อง</h3>
         <div className="space-y-1">
           <label htmlFor="province" className="text-sm font-medium text-gray-700">
             จังหวัด
@@ -489,7 +495,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           <p className="mt-1 text-xs text-gray-500">เลือกหมู่บ้านจากรายการหลังจากระบุตำบลแล้ว</p>
         </div>
 
-        <div className="flex items-start gap-3">
+        </section>
+
+        <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-3">
           <input type="checkbox" required className="mt-1" id="consent" />
           <label htmlFor="consent" className="text-sm text-gray-600">
             ฉันยอมรับ{" "}

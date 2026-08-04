@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FilterBar } from "@/components/ui/filter-bar";
+import { PageHeader } from "@/components/ui/page-header";
 
 type ToolbarChip = {
   label: string;
@@ -49,17 +51,11 @@ export function AdminListToolbar({
   );
 
   return (
-    <div className="sticky top-16 z-30 -mx-6 border-b border-gray-200 bg-gray-50/95 px-6 pb-4 pt-3 backdrop-blur">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-          {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
-        </div>
-        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
-      </div>
+    <div className="space-y-4">
+      <PageHeader title={title} description={description} actions={actions} />
 
-      <div className="mt-3 rounded-xl border border-gray-200 bg-white p-3">
-        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+      <FilterBar>
+        <div className="flex flex-wrap items-center gap-2">
           <form action={searchAction} className="flex items-center gap-2">
             {Object.entries(hiddenInputs ?? {}).map(([name, value]) => (
               <input key={name} type="hidden" name={name} value={value} />
@@ -135,7 +131,7 @@ export function AdminListToolbar({
             ล้างตัวกรอง
           </Link>
         </div>
-      </div>
+      </FilterBar>
     </div>
   );
 }
