@@ -141,6 +141,62 @@ function revalidateAppointmentViews(appointmentId: string) {
   revalidatePath("/admin/appointments");
   revalidatePath(`/resident/appointments/${appointmentId}`);
   revalidatePath(`/admin/appointments/${appointmentId}`);
+  revalidatePath("/admin/appointments/calendar");
+}
+
+const simpleRequestSchema = z.object({
+  title: z.string().min(3, "กรุณาระบุเรื่องที่ต้องการนัด"),
+  description: z.string().optional(),
+  preferredTime: z.string().max(250).optional(),
+  targetAdminUserId: z.string().optional(),
+});
+
+/** Resident creates only a request. No availability or slot is exposed or accepted. */
+export async function requestAppointmentAction(input: z.input<typeof simpleRequestSchema>): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
+  const parsed = simpleRequestSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
+  const membership = getResidentMembership(session);
+  if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
+
+  const target = parsed.data.targetAdminUserId ? await getAdminResponderSummary(membership.villageId, parsed.data.targetAdminUserId) : null;
+  if (parsed.data.targetAdminUserId && !target) return { success: false, error: "ผู้รับนัดหมายไม่ถูกต้อง" };
+  const appointment = await prisma.appointment.create({ data: {
+    villageId: membership.villageId, userId: session.id, title: parsed.data.title.trim(),
+    description: [parsed.data.description?.trim(), parsed.data.preferredTime?.trim() ? `ช่วงเวลาที่สะดวก: ${parsed.data.preferredTime.trim()}` : null].filter(Boolean).join("\n") || null,
+    stage: "PENDING_APPROVAL",
+  } });
+  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "CREATED", description: "ลูกบ้านส่งคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } });
+  const text = `เรื่อง: ${appointment.title}${parsed.data.preferredTime?.trim() ? ` | ช่วงที่สะดวก: ${parsed.data.preferredTime.trim()}` : ""}`;
+  if (target) await notifyUser(target.userId, membership.villageId, "คำขอนัดหมายใหม่", text, { appointmentId: appointment.id });
+  else await notifyVillageAdmins(membership.villageId, "คำขอนัดหมายใหม่", text, { appointmentId: appointment.id });
+  revalidateAppointmentViews(appointment.id);
+  return { success: true, appointmentId: appointment.id };
+}
+
+const manualSuggestionSchema = z.object({ appointmentId: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/), endTime: z.string().regex(/^\d{2}:\d{2}$/), message: z.string().max(500).optional() });
+
+/** Admin proposes a one-off time; this creates no reusable availability. */
+export async function proposeAppointmentTimeAction(input: z.input<typeof manualSuggestionSchema>): Promise<{ success: true } | { success: false; error: string }> {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
+  const parsed = manualSuggestionSchema.safeParse(input);
+  if (!parsed.success || (parsed.success && parsed.data.endTime <= parsed.data.startTime)) return { success: false, error: "กรุณาระบุวันและเวลาที่ถูกต้อง" };
+  const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } });
+  if (!appointment) return { success: false, error: "ไม่พบคำขอนัดหมาย" };
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, villageId: appointment.villageId, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } });
+  if (!membership || !["PENDING_APPROVAL", "TIME_SUGGESTED"].includes(appointment.stage)) return { success: false, error: "ไม่สามารถเสนอเวลาในสถานะนี้ได้" };
+  const date = new Date(`${parsed.data.date}T00:00:00.000Z`);
+  const slot = await prisma.appointmentSlot.create({ data: { villageId: appointment.villageId, date, startTime: parsed.data.startTime, endTime: parsed.data.endTime, maxCapacity: 1, note: `เวลาที่เสนอสำหรับคำขอนัด ${appointment.id}` } });
+  const responder = await getAdminResponderSummary(appointment.villageId, session.id);
+  await prisma.$transaction([
+    prisma.appointment.update({ where: { id: appointment.id }, data: { stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date(), reviewNote: parsed.data.message?.trim() || null } }),
+    prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "TIME_SUGGESTED", description: "ผู้ใหญ่บ้านเสนอวันเวลาให้ลูกบ้านยืนยัน", metadata: { adminMessage: parsed.data.message?.trim() || null, responderName: responder?.name ?? null, slotDate: date, slotTime: `${slot.startTime}-${slot.endTime}` } } }),
+  ]);
+  await notifyUser(appointment.userId, appointment.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}`, { appointmentId: appointment.id });
+  revalidateAppointmentViews(appointment.id);
+  return { success: true };
 }
 
 export async function createAppointmentAction(formData: FormData): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
@@ -673,15 +729,15 @@ export async function rejectSuggestionAction(
 
   await prisma.appointment.update({
     where: { id: appointmentId },
-    data: { stage: "CANCELLED", slotId: null, scheduledAt: null },
+    data: { stage: "PENDING_APPROVAL", slotId: null, scheduledAt: null, reviewNote: null },
   });
 
   await prisma.appointmentTimeline.create({
     data: {
       appointmentId,
       actorId: session.id,
-      action: "CANCELLED",
-      description: "ลูกบ้านปฏิเสธเวลาที่ผู้บริหารแนะนำ",
+      action: "TIME_CHANGE_REQUESTED",
+      description: "ลูกบ้านขอให้ผู้ใหญ่บ้านเสนอเวลาใหม่",
     },
   });
 

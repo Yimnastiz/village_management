@@ -74,7 +74,7 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
             disabled={isRejecting}
             className="flex-1"
           >
-            <CheckCircle className="h-4 w-4 mr-1" /> ยืนยันเวลานี้
+            <CheckCircle className="h-4 w-4 mr-1" /> ยืนยันนัดหมาย
           </Button>
           <Button
             onClick={handleReject}
@@ -83,7 +83,7 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
             variant="outline"
             className="flex-1"
           >
-            <XCircle className="h-4 w-4 mr-1" /> ปฏิเสธและยกเลิก
+            <XCircle className="h-4 w-4 mr-1" /> ขอเปลี่ยนเวลา
           </Button>
         </div>
       </div>
@@ -94,7 +94,7 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <p className="text-sm text-yellow-800">
-          รออนุมัติจากผู้บริหาร คุณสามารถตรวจสอบสถานะได้ที่นี่
+          รอผู้ใหญ่บ้านตอบกลับ ผู้ใหญ่บ้านจะเสนอวันเวลาที่เหมาะสมให้คุณยืนยัน
         </p>
       </div>
     );

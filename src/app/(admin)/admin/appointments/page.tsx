@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
-import { Check, X, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
 
 type PageProps = {
@@ -157,9 +157,6 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
             <Link href="/admin/appointments/calendar">
               <Button size="sm" variant="outline">ปฏิทินนัดหมาย</Button>
             </Link>
-            <Link href="/admin/appointments/slots">
-              <Button size="sm">จัดการเวลาว่าง</Button>
-            </Link>
           </>
         }
       />
@@ -213,46 +210,13 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                 <div className="text-left lg:text-right">
                   {apt.stage === "PENDING_APPROVAL" && (
                     <div className="flex flex-wrap gap-2 lg:justify-end">
-                      {apt.slotId ? (
-                        <Link href={`/admin/appointments/${apt.id}?action=approve`}>
-                          <Button size="sm" variant="primary">
-                            <Check className="h-4 w-4" /> อนุมัติ
-                          </Button>
-                        </Link>
-                      ) : (
-                        <Link href={`/admin/appointments/${apt.id}?action=suggest`}>
-                          <Button size="sm" variant="secondary">
-                            <AlertCircle className="h-4 w-4" /> แนะนำเวลา
-                          </Button>
-                        </Link>
-                      )}
-                      <Link href={`/admin/appointments/${apt.id}?action=reject`}>
-                        <Button size="sm" variant="outline">
-                          <X className="h-4 w-4" /> ปฏิเสธ
-                        </Button>
-                      </Link>
+                      <Link href={`/admin/appointments/${apt.id}`}><Button size="sm" variant="secondary"><AlertCircle className="h-4 w-4" /> เสนอวันเวลา</Button></Link>
                     </div>
                   )}
                   {apt.stage === "TIME_SUGGESTED" && (
                     <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link href={`/admin/appointments/${apt.id}`}>
-                        <Button size="sm" variant="secondary">
-                          <AlertCircle className="h-4 w-4" /> รอยืนยัน
-                        </Button>
-                      </Link>
-                      <Link href={`/admin/appointments/${apt.id}`}>
-                        <Button size="sm" variant="outline">
-                          <X className="h-4 w-4" /> ยกเลิก
-                        </Button>
-                      </Link>
-                    </div>
-                  )}
-                  {apt.stage === "APPROVED" && (
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <Link href={`/admin/appointments/${apt.id}`}>
-                        <Button size="sm" variant="outline">
-                          <X className="h-4 w-4" /> ยกเลิก
-                        </Button>
+                        <Button size="sm" variant="secondary"><AlertCircle className="h-4 w-4" /> รอลูกบ้านยืนยัน</Button>
                       </Link>
                     </div>
                   )}

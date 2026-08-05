@@ -59,7 +59,7 @@ export default async function Page({ searchParams }: PageProps) {
   const appointments = await prisma.appointment.findMany({
     where: {
       villageId: membership.villageId,
-      stage: { notIn: ["CANCELLED", "REJECTED"] },
+      stage: "APPROVED",
       scheduledAt: {
         gte: monthStart,
         lt: nextMonthStart,
@@ -74,6 +74,7 @@ export default async function Page({ searchParams }: PageProps) {
           name: true,
         },
       },
+      slot: { select: { startTime: true, endTime: true } },
     },
     orderBy: [{ scheduledAt: "asc" }],
   });
@@ -172,8 +173,8 @@ export default async function Page({ searchParams }: PageProps) {
                         key={apt.id}
                         className="block truncate rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-800 hover:bg-blue-100"
                       >
-                        <div className="font-medium truncate">{apt.title}</div>
-                        <div className="text-blue-600 truncate">{apt.user.name}</div>
+                        <div className="font-medium truncate">{apt.slot?.startTime ?? ""} นัดกับ {apt.user.name}</div>
+                        <div className="text-blue-600 truncate">{apt.title}</div>
                       </Link>
                     ))}
                     {dayAppointments.length > 2 && (
@@ -210,8 +211,8 @@ export default async function Page({ searchParams }: PageProps) {
           <div className="space-y-2">
             {selectedDayAppointments.map((apt) => (
               <Link key={apt.id} href={`/admin/appointments/${apt.id}`} className="block rounded-lg border border-gray-200 p-3 hover:border-blue-300 hover:bg-blue-50/40">
-                <p className="font-medium text-gray-900">{apt.title}</p>
-                <p className="text-sm text-gray-600">{apt.user.name}</p>
+                <p className="font-medium text-gray-900">{apt.slot?.startTime ?? ""} นัดกับ {apt.user.name}</p>
+                <p className="text-sm text-gray-600">เรื่อง: {apt.title}</p>
               </Link>
             ))}
           </div>

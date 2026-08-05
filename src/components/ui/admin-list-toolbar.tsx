@@ -54,6 +54,7 @@ export function AdminListToolbar({
     <div className="space-y-4">
       <PageHeader title={title} description={description} actions={actions} />
 
+      <div className="sticky top-0 z-30 -mx-4 border-y border-gray-200 bg-gray-50/95 px-4 py-2 shadow-sm backdrop-blur md:static md:mx-0 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
       <FilterBar activeFilterCount={groups.reduce((count, group) => count + Number(group.options.some((option) => option.active && option.href !== (clearHref ?? searchAction))), 0)}>
         <div className="flex flex-wrap items-center gap-2">
           <form action={searchAction} className="flex items-center gap-2">
@@ -132,6 +133,7 @@ export function AdminListToolbar({
           </Link>
         </div>
       </FilterBar>
+      </div>
     </div>
   );
 }

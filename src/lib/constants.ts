@@ -26,9 +26,9 @@ export const ISSUE_CATEGORY_LABELS: Record<string, string> = {
 };
 
 export const APPOINTMENT_STAGE_LABELS: Record<string, string> = {
-  PENDING_APPROVAL: "รออนุมัติ",
-  TIME_SUGGESTED: "รอยืนยันเวลา",
-  APPROVED: "อนุมัติแล้ว",
+    PENDING_APPROVAL: "รอผู้ใหญ่บ้านตอบกลับ",
+    TIME_SUGGESTED: "รอคุณยืนยันวันเวลา",
+    APPROVED: "ยืนยันนัดหมายแล้ว",
   REJECTED: "ปฏิเสธ",
   CANCELLED: "ยกเลิก",
   COMPLETED: "เสร็จสิ้น",
