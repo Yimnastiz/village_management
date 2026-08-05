@@ -81,7 +81,7 @@ export function AdminEditForm({
         {...register("title")}
         error={errors.title?.message}
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Select
           label="หมวดหมู่"
           {...register("category")}
@@ -103,7 +103,7 @@ export function AdminEditForm({
       />
       <Input label="สถานที่ (ไม่บังคับ)" {...register("location")} />
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="submit" size="sm" isLoading={isSubmitting}>
           บันทึก
         </Button>

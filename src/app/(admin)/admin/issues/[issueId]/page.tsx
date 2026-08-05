@@ -3,9 +3,12 @@ import { ArrowLeft, Clock, Lock } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Timeline } from "@/components/ui/timeline";
+import { ImageCarousel } from "@/components/ui/image-carousel";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { formatThaiDateTime } from "@/lib/utils";
+import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
 import {
   AdminEditForm,
   AdminStageForm,
@@ -57,6 +60,26 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   });
   if (!issue) notFound();
 
+  const userIds = Array.from(new Set([
+    issue.reporterId,
+    ...issue.messages.map((message) => message.senderId),
+    ...issue.timeline.map((item) => item.actorId).filter((id): id is string => Boolean(id)),
+  ]));
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: {
+      id: true, name: true, phoneNumber: true, systemRole: true,
+      memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 },
+    },
+  });
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const reporter = userById.get(issue.reporterId);
+  const imageUrls = Array.isArray(issue.imageUrls) ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0) : [];
+  const timelineItems = issue.timeline.map((item) => {
+    const actor = item.actorId ? userById.get(item.actorId) : undefined;
+    return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
+  });
+
   const categoryOptions = Object.entries(ISSUE_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }));
   const priorityOptions = Object.entries(ISSUE_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }));
   const stageOptions = Object.entries(ISSUE_STAGE_LABELS).map(([v, l]) => ({ value: v, label: l }));
@@ -65,7 +88,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   const internalMessages = issue.messages.filter((m) => m.isInternal);
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/admin/issues"
@@ -115,6 +138,16 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
               <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
             </div>
+            <div className="mb-4 rounded-lg border bg-gray-50 p-4 text-sm">
+              <p className="mb-2 font-medium text-gray-800">ข้อมูลผู้แจ้ง</p>
+              <dl className="grid gap-2 sm:grid-cols-2">
+                <div><dt className="text-gray-500">ชื่อ</dt><dd className="break-words font-medium">{getUserDisplayName(reporter)}</dd></div>
+                <div><dt className="text-gray-500">เบอร์โทร</dt><dd>{reporter?.phoneNumber ? <a className="font-medium text-blue-700 hover:underline" href={`tel:${reporter.phoneNumber}`}>{reporter.phoneNumber}</a> : "ไม่พบข้อมูลผู้แจ้ง"}</dd></div>
+                <div><dt className="text-gray-500">บทบาท</dt><dd>{reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"}</dd></div>
+                <div><dt className="text-gray-500">แจ้งเมื่อ</dt><dd>{formatThaiDateTime(issue.createdAt)}</dd></div>
+              </dl>
+            </div>
+            {imageUrls.length > 0 && <div className="mb-4 border-t pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} /></div>}
             <AdminEditForm
               issueId={issueId}
               defaultValues={{
@@ -136,12 +169,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความสาธารณะ</p>
             ) : (
               <div className="space-y-3 mb-4">
-                {publicMessages.map((msg) => (
-                  <div key={msg.id} className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
-                    <p className="text-gray-700 whitespace-pre-wrap">{msg.content}</p>
-                    <p className="text-xs text-gray-400 mt-1">{formatDate(msg.createdAt)}</p>
-                  </div>
-                ))}
+                {publicMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId)} />)}
               </div>
             )}
             {internalMessages.length > 0 && (
@@ -151,15 +179,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
                   <p className="text-xs font-medium text-amber-700">บันทึกภายใน (ลูกบ้านไม่เห็น)</p>
                 </div>
                 <div className="space-y-3 mb-4">
-                  {internalMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className="rounded-lg bg-amber-50 border border-amber-100 px-4 py-3 text-sm"
-                    >
-                      <p className="text-gray-700 whitespace-pre-wrap">{msg.content}</p>
-                      <p className="text-xs text-gray-400 mt-1">{formatDate(msg.createdAt)}</p>
-                    </div>
-                  ))}
+                  {internalMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId)} internal />)}
                 </div>
               </>
             )}
@@ -183,11 +203,20 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-gray-400" /> ความคืบหน้า
               </h2>
-              <Timeline items={issue.timeline} />
+              <Timeline items={timelineItems} />
             </div>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: { name: string; phoneNumber: string; systemRole: string; memberships: { role: string }[] }; internal?: boolean }) {
+  return <div className={`rounded-xl border p-3 text-sm sm:p-4 ${internal ? "border-amber-100 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
+    <p className="break-words font-medium text-gray-900">{getUserDisplayName(user)} <span className="font-normal text-gray-500">· {user ? getUserRoleLabel(user) : "ผู้ใช้งาน"}</span></p>
+    <p className="mt-1 text-xs text-gray-500">{user?.phoneNumber ? <a className="hover:underline" href={`tel:${user.phoneNumber}`}>{user.phoneNumber}</a> : "ไม่พบข้อมูลผู้ใช้งาน"}</p>
+    <time className="mt-1 block text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</time>
+    <p className="mt-3 whitespace-pre-wrap break-words text-gray-700">{msg.content}</p>
+  </div>;
 }

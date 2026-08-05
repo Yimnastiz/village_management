@@ -5,6 +5,8 @@ interface TimelineItem {
   action: string;
   description?: string | null;
   actorId?: string | null;
+  actorName?: string | null;
+  actorRoleLabel?: string | null;
   createdAt: Date | string;
 }
 
@@ -22,8 +24,13 @@ export function Timeline({ items }: TimelineProps) {
           </span>
           <p className="font-medium text-sm text-gray-900">{item.action}</p>
           {item.description && (
-            <p className="text-sm text-gray-600 mt-0.5">{item.description}</p>
+            <p className="break-words text-sm text-gray-600 mt-0.5">{item.description}</p>
           )}
+          <p className="mt-1 text-xs text-gray-500">
+            {item.actorId
+              ? `อัปเดตโดย ${item.actorName ?? "ไม่พบข้อมูลผู้ดำเนินการ"}${item.actorRoleLabel ? ` (${item.actorRoleLabel})` : ""}`
+              : "อัปเดตโดยระบบ"}
+          </p>
           <time className="text-xs text-gray-400 mt-1 block">
             {formatThaiDateTime(item.createdAt)}
           </time>

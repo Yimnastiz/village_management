@@ -144,6 +144,10 @@ export async function editIssueAction(
 
   const issue = await prisma.issue.findUnique({ where: { id: issueId } });
   if (!issue) return { success: false, error: "ไม่พบคำร้อง" };
+  const membership = getResidentMembership(session);
+  if (!membership || membership.villageId !== issue.villageId) {
+    return { success: false, error: "ไม่มีสิทธิ์เข้าถึงคำร้องในหมู่บ้านนี้" };
+  }
   if (issue.reporterId !== session.id) return { success: false, error: "ไม่มีสิทธิ์แก้ไขคำร้องนี้" };
   if (issue.stage !== "OPEN") {
     return { success: false, error: "แก้ไขได้เฉพาะคำร้องที่ยังไม่ถูกรับไปดำเนินการ" };
@@ -193,6 +197,10 @@ export async function deleteIssueAction(
 
   const issue = await prisma.issue.findUnique({ where: { id: issueId } });
   if (!issue) return { success: false, error: "ไม่พบคำร้อง" };
+  const membership = getResidentMembership(session);
+  if (!membership || membership.villageId !== issue.villageId) {
+    return { success: false, error: "ไม่มีสิทธิ์เข้าถึงคำร้องในหมู่บ้านนี้" };
+  }
   if (issue.reporterId !== session.id) return { success: false, error: "ไม่มีสิทธิ์ลบคำร้องนี้" };
   if (issue.stage !== "OPEN") {
     return { success: false, error: "ลบได้เฉพาะคำร้องที่สถานะ 'เปิด' เท่านั้น" };
@@ -217,11 +225,9 @@ export async function addIssueMessageAction(
   const issue = await prisma.issue.findUnique({ where: { id: issueId } });
   if (!issue) return { success: false, error: "ไม่พบคำร้อง" };
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, villageId: issue.villageId, status: "ACTIVE" },
-  });
-  if (!membership && issue.reporterId !== session.id) {
-    return { success: false, error: "ไม่มีสิทธิ์แสดงความคิดเห็น" };
+  const membership = getResidentMembership(session);
+  if (!membership || membership.villageId !== issue.villageId) {
+    return { success: false, error: "ไม่มีสิทธิ์แสดงความคิดเห็นในหมู่บ้านนี้" };
   }
 
   if (issue.reporterId !== session.id && !issue.isPublic) {

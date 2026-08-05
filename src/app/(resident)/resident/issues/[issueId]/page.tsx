@@ -9,6 +9,8 @@ import { SaveButton } from "@/components/ui/save-button";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { formatThaiDateTime } from "@/lib/utils";
+import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
 import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
 
@@ -61,6 +63,23 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   const isOwner = issue.reporterId === session.id;
   if (!isOwner && !issue.isPublic) notFound();
 
+  const userIds = Array.from(new Set([
+    issue.reporterId,
+    ...issue.messages.map((message) => message.senderId),
+    ...issue.timeline.map((item) => item.actorId).filter((id): id is string => Boolean(id)),
+  ]));
+  // Deliberately exclude phoneNumber: this object is serialized to the resident client view.
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: { id: true, name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } },
+  });
+  const userById = new Map(users.map((user) => [user.id, user]));
+  const reporter = userById.get(issue.reporterId);
+  const timelineItems = issue.timeline.map((item) => {
+    const actor = item.actorId ? userById.get(item.actorId) : undefined;
+    return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
+  });
+
   const imageUrls = Array.isArray(issue.imageUrls)
     ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
     : [];
@@ -69,7 +88,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
     issue.stage !== "CLOSED" && issue.stage !== "REJECTED" && (isOwner || issue.isPublic);
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/resident/issues" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> กลับรายการปัญหา
@@ -137,6 +156,11 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
               {issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}
             </span>
           </div>
+          <div className="col-span-2 rounded-lg border bg-gray-50 p-3">
+            <p className="text-gray-500">ผู้แจ้งปัญหา</p>
+            <p className="mt-1 font-medium text-gray-800">{isOwner ? "คุณเป็นผู้แจ้งปัญหานี้" : `แจ้งโดย ${getUserDisplayName(reporter)}`}</p>
+            <p className="text-xs text-gray-500">{reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"} · {formatThaiDateTime(issue.createdAt)}</p>
+          </div>
           {!isOwner && (
             <div className="col-span-2">
               <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
@@ -162,7 +186,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
           <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-400" /> ความคืบหน้า
           </h2>
-          <Timeline items={issue.timeline} />
+          <Timeline items={timelineItems} />
         </div>
       )}
 
@@ -172,12 +196,14 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
           <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความ</p>
         ) : (
           <div className="space-y-3 mb-4">
-            {issue.messages.map((msg) => (
-              <div key={msg.id} className="rounded-lg bg-gray-50 px-4 py-3 text-sm">
-                <p className="text-gray-700 whitespace-pre-wrap">{msg.content}</p>
-                <p className="text-xs text-gray-400 mt-1">{formatDate(msg.createdAt)}</p>
-              </div>
-            ))}
+            {issue.messages.map((msg) => {
+              const sender = userById.get(msg.senderId);
+              return <div key={msg.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm sm:p-4">
+                <p className="break-words font-medium text-gray-900">{msg.senderId === session.id ? "คุณ" : getUserDisplayName(sender)} <span className="font-normal text-gray-500">· {sender ? getUserRoleLabel(sender) : "ผู้ใช้งาน"}</span></p>
+                <time className="mt-1 block text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</time>
+                <p className="mt-3 whitespace-pre-wrap break-words text-gray-700">{msg.content}</p>
+              </div>;
+            })}
           </div>
         )}
         {canMessage && <MessageForm issueId={issueId} />}

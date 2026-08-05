@@ -9,6 +9,7 @@ import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { QueryPagination } from "@/components/ui/query-pagination";
+import { getUserDisplayName } from "@/lib/user-display";
 
 interface PageProps {
   searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
@@ -56,10 +57,18 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   if (activeStage !== "ALL") whereClause.stage = activeStage as Prisma.IssueWhereInput["stage"];
   if (activeCategory !== "ALL") whereClause.category = activeCategory as Prisma.IssueWhereInput["category"];
   if (keyword) {
+    const matchingReporters = await prisma.user.findMany({
+      where: {
+        memberships: { some: { villageId: membership.villageId, status: "ACTIVE" } },
+        OR: [{ name: { contains: keyword, mode: "insensitive" } }, { phoneNumber: { contains: keyword } }],
+      },
+      select: { id: true },
+    });
     whereClause.OR = [
       { title: { contains: keyword, mode: "insensitive" } },
       { location: { contains: keyword, mode: "insensitive" } },
       { description: { contains: keyword, mode: "insensitive" } },
+      ...(matchingReporters.length ? [{ reporterId: { in: matchingReporters.map((user) => user.id) } }] : []),
     ];
   }
 
@@ -78,6 +87,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
       take: pageSize,
       select: {
         id: true,
+        reporterId: true,
         title: true,
         category: true,
         priority: true,
@@ -95,6 +105,11 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   ]);
 
   const counts: Record<string, number> = {};
+  const reporters = await prisma.user.findMany({
+    where: { id: { in: Array.from(new Set(issues.map((issue) => issue.reporterId))) } },
+    select: { id: true, name: true, phoneNumber: true },
+  });
+  const reporterById = new Map(reporters.map((reporter) => [reporter.id, reporter]));
   for (const c of stageCounts) counts[c.stage] = c._count;
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
   const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
@@ -134,7 +149,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         description={`เปิด ${counts["OPEN"] ?? 0} • กำลังดำเนินการ ${counts["IN_PROGRESS"] ?? 0} • รอ ${counts["WAITING"] ?? 0}`}
         searchAction="/admin/issues"
         keyword={keyword}
-        searchPlaceholder="ค้นหาหัวข้อ สถานที่ หรือรายละเอียด"
+        searchPlaceholder="ค้นหาหัวข้อ ผู้แจ้ง เบอร์โทร หรือรายละเอียด"
         hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, category: activeCategory === "ALL" ? "" : activeCategory, sort: activeSort === "newest" ? "" : activeSort }}
         suggestionTitles={suggestionTitles}
         groups={[
@@ -186,11 +201,11 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
           <p className="font-medium text-gray-700">ไม่พบคำร้อง</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="min-w-full text-sm">
+        <div className="rounded-xl border border-gray-200 bg-white">
+          <table className="w-full table-fixed text-sm">
             <thead>
               <tr className="border-b bg-gray-50 text-left text-gray-600">
-                <th className="px-4 py-3 font-medium">หัวข้อ</th>
+                <th className="px-4 py-3 font-medium">หัวข้อ / ผู้แจ้ง</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">หมวดหมู่</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">ความสำคัญ</th>
                 <th className="px-4 py-3 font-medium">สถานะ</th>
@@ -204,8 +219,10 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                   <td className="px-4 py-3">
                     <div className="flex items-start gap-2">
                       <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium text-gray-900 line-clamp-1">{issue.title}</p>
+                        <p className="mt-1 truncate text-xs font-medium text-gray-700">{getUserDisplayName(reporterById.get(issue.reporterId))}</p>
+                        <p className="truncate text-xs text-gray-500">{reporterById.get(issue.reporterId)?.phoneNumber ?? "ไม่พบข้อมูลผู้แจ้ง"}</p>
                         {issue.location && (
                           <p className="text-xs text-gray-400">{issue.location}</p>
                         )}
