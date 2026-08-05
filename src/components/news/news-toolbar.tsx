@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Filter, Search, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTransition } from "react";
 import { cn } from "@/lib/utils";
 
 type ExpandedPanel = "search" | "filter" | null;
@@ -37,6 +39,11 @@ export function NewsToolbar({
 }: NewsToolbarProps) {
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(keyword ? "search" : null);
   const [searchValue, setSearchValue] = useState(keyword);
+  const [, startTransition] = useTransition();
+  const router = useRouter();
+  const pathname = usePathname();
+  const currentSearchParams = useSearchParams();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +57,23 @@ export function NewsToolbar({
     if (searchExpanded) searchInputRef.current?.focus();
   }, [searchExpanded]);
 
+  const applySearch = (value: string) => {
+    const normalized = value.trim();
+    const params = new URLSearchParams(currentSearchParams.toString());
+    if (normalized) params.set("q", normalized); else params.delete("q");
+    params.delete("page");
+    const query = params.toString();
+    startTransition(() => router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false }));
+  };
+
+  useEffect(() => {
+    if (searchValue.trim() === keyword.trim()) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => applySearch(searchValue), 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchValue, keyword]);
+
   const closeSearch = () => {
     setExpandedPanel(null);
     requestAnimationFrame(() => searchButtonRef.current?.focus());
@@ -60,7 +84,7 @@ export function NewsToolbar({
   };
 
   return (
-    <section className="sticky top-16 z-30 -mx-4 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-gray-50/90 sm:-mx-6 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4" aria-label={`เครื่องมือ${title}`}>
+    <section className="sticky top-[var(--app-sticky-top,4rem)] z-30 -mx-4 -mt-2 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4" aria-label={`เครื่องมือ${title}`}>
       <div className="flex min-w-0 items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
@@ -87,7 +111,7 @@ export function NewsToolbar({
         </button>
 
         {searchExpanded ? (
-          <form id={searchPanelId} action={searchAction} role="search" className="flex min-w-0 flex-1 items-center gap-1.5">
+          <form id={searchPanelId} action={searchAction} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className="flex min-w-0 flex-1 items-center gap-1.5">
             {Object.entries(hiddenInputs ?? {}).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
             <label htmlFor={`${namespace}-search-input`} className="sr-only">ค้นหาข่าว</label>
             <input
@@ -116,7 +140,7 @@ export function NewsToolbar({
           className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
         >
           <Filter className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden min-[360px]:inline">ตัวกรอง</span>
+          <span className="hidden md:inline">ตัวกรอง</span>
           {activeFilterCount > 0 ? <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-xs font-semibold text-white">{activeFilterCount}</span> : null}
         </button>
 

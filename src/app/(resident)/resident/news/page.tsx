@@ -164,7 +164,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <ResidentNewsToolbar
+      <ResidentNewsToolbar key={`${keyword}|${source}|${selectedVisibilities.join(",")}|${sort}`}
         keyword={keyword}
         source={source}
         selectedVisibilities={selectedVisibilities}

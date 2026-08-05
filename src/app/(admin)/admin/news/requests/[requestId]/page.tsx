@@ -49,7 +49,7 @@ export default async function AdminNewsRequestDetailPage({ params }: PageProps) 
   const visibility = String(payload.visibility ?? "PUBLIC");
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-4 px-0 sm:space-y-6">
       <Link
         href="/admin/news/requests"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -57,7 +57,7 @@ export default async function AdminNewsRequestDetailPage({ params }: PageProps) 
         <ArrowLeft className="h-4 w-4" /> กลับรายการคำขอ
       </Link>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-4">
+      <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2">
           <Badge variant="outline">
             {Boolean(payload.isDeleteRequest) ? "คำขอลบข่าว" : NEWS_SUBMISSION_TYPE_LABELS[request.type]}
@@ -93,7 +93,7 @@ export default async function AdminNewsRequestDetailPage({ params }: PageProps) 
         {imageUrls.length > 0 && <ImageCarousel images={imageUrls} altPrefix={String(payload.title ?? "news")} />}
 
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-          <p className="whitespace-pre-wrap text-gray-700 leading-7">{String(payload.content ?? "-")}</p>
+          <p className="break-words whitespace-pre-wrap text-gray-700 leading-7">{String(payload.content ?? "-")}</p>
         </div>
 
         {request.status === "PENDING" ? (

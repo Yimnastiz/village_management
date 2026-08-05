@@ -11,15 +11,18 @@ export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const openerRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const galleryTouchRef = useRef<number | null>(null);
   const draggedRef = useRef(false);
+  const panStartRef = useRef<{ x: number; y: number; originX: number; originY: number } | null>(null);
 
-  const previous = useCallback(() => { setIndex((value) => (value - 1 + images.length) % images.length); setZoom(1); }, [images.length]);
-  const next = useCallback(() => { setIndex((value) => (value + 1) % images.length); setZoom(1); }, [images.length]);
-  const close = useCallback(() => setOpen(false), []);
-  const openAt = (nextIndex: number, opener: HTMLButtonElement) => { openerRef.current = opener; setIndex(nextIndex); setZoom(1); setOpen(true); };
+  const previous = useCallback(() => { setIndex((value) => (value - 1 + images.length) % images.length); setZoom(1); setPan({ x: 0, y: 0 }); }, [images.length]);
+  const next = useCallback(() => { setIndex((value) => (value + 1) % images.length); setZoom(1); setPan({ x: 0, y: 0 }); }, [images.length]);
+  const close = useCallback(() => { setOpen(false); setZoom(1); setPan({ x: 0, y: 0 }); }, []);
+  const openAt = (nextIndex: number, opener: HTMLButtonElement) => { openerRef.current = opener; setIndex(nextIndex); setZoom(1); setPan({ x: 0, y: 0 }); setOpen(true); };
 
   useEffect(() => {
     if (!open) return;
@@ -68,15 +71,18 @@ export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
         <button ref={closeRef} type="button" onClick={close} aria-label="ปิดตัวดูรูปภาพ" className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white"><X className="h-5 w-5" /></button>
       </div>
       <div
-        className="relative flex min-h-0 touch-none items-center justify-center overflow-auto p-2 sm:p-4"
-        onPointerUp={(event) => { if (event.target === event.currentTarget && !draggedRef.current && zoom === 1) close(); }}
+        className={`relative flex min-h-0 touch-none items-center justify-center overflow-hidden p-2 sm:p-4 ${zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+        onPointerDown={(event) => { draggedRef.current = false; if (zoom > 1) { event.currentTarget.setPointerCapture(event.pointerId); panStartRef.current = { x: event.clientX, y: event.clientY, originX: pan.x, originY: pan.y }; } }}
+        onPointerMove={(event) => { const start = panStartRef.current; if (!start || zoom <= 1) return; const bounds = event.currentTarget.getBoundingClientRect(); const maxX = bounds.width * (zoom - 1) / 2; const maxY = bounds.height * (zoom - 1) / 2; const x = Math.max(-maxX, Math.min(maxX, start.originX + event.clientX - start.x)); const y = Math.max(-maxY, Math.min(maxY, start.originY + event.clientY - start.y)); if (Math.abs(event.clientX - start.x) > 4 || Math.abs(event.clientY - start.y) > 4) draggedRef.current = true; setPan({ x, y }); }}
+        onPointerCancel={() => { panStartRef.current = null; }}
+        onPointerUp={(event) => { panStartRef.current = null; if (event.target === event.currentTarget && !draggedRef.current && zoom === 1) close(); }}
         onTouchStart={(event) => { const touch = event.touches[0]; touchStartRef.current = { x: touch.clientX, y: touch.clientY }; draggedRef.current = false; }}
         onTouchMove={(event) => { const start = touchStartRef.current; const touch = event.touches[0]; if (start && (Math.abs(touch.clientX - start.x) > 8 || Math.abs(touch.clientY - start.y) > 8)) draggedRef.current = true; }}
         onTouchEnd={(event) => { const start = touchStartRef.current; touchStartRef.current = null; if (!start || zoom > 1 || images.length < 2) return; const touch = event.changedTouches[0]; const dx = touch.clientX - start.x; const dy = touch.clientY - start.y; if (Math.abs(dx) >= 56 && Math.abs(dx) > Math.abs(dy) * 1.25) { if (dx > 0) previous(); else next(); } }}
-        onDoubleClick={() => setZoom((value) => value === 1 ? 2 : 1)}
+        onDoubleClick={() => { setZoom((value) => value === 1 ? 2 : 1); setPan({ x: 0, y: 0 }); }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} draggable={false} className="max-h-full max-w-full select-none object-contain transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `scale(${zoom})`, transformOrigin: "center" }} />
+        <img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} draggable={false} className="max-h-full max-w-full select-none object-contain transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`, transformOrigin: "center" }} />
       </div>
       <div className="flex min-h-16 items-center justify-center gap-2 border-t border-white/10 px-3 py-2">
         {images.length > 1 ? <Button type="button" variant="outline" onClick={previous} aria-label="ดูรูปก่อนหน้า" className="h-11 min-w-11 border-white/30 bg-white/10 px-3 text-white hover:bg-white/20"><ChevronLeft className="h-5 w-5" /></Button> : null}
@@ -88,10 +94,13 @@ export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
     </div>
   ) : null;
 
-  return <div className="min-w-0 space-y-3">
-    <button type="button" onClick={(event) => openAt(index, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${index + 1} แบบขยาย`} className="block w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-600">
-      {/* eslint-disable-next-line @next/next/no-img-element */}<img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} className="max-h-[min(60dvh,520px)] w-full object-contain" />
-    </button>
+  return <div className="min-w-0 space-y-3" onKeyDown={(event) => { if (event.key === "ArrowLeft" && images.length > 1) previous(); if (event.key === "ArrowRight" && images.length > 1) next(); }}>
+    <div className="relative" onTouchStart={(event) => { galleryTouchRef.current = event.touches[0].clientX; }} onTouchEnd={(event) => { const start = galleryTouchRef.current; galleryTouchRef.current = null; if (start === null || images.length < 2) return; const delta = event.changedTouches[0].clientX - start; if (Math.abs(delta) >= 48) { if (delta > 0) previous(); else next(); } }}>
+      <button type="button" onClick={(event) => openAt(index, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${index + 1} แบบขยาย`} className="block w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-600">
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} className="max-h-[min(60dvh,520px)] w-full object-contain" />
+      </button>
+      {images.length > 1 ? <><Button type="button" variant="outline" onClick={previous} aria-label="ดูรูปก่อนหน้า" className="absolute left-2 top-1/2 h-11 w-11 -translate-y-1/2 bg-white/90 p-0"><ChevronLeft className="h-5 w-5" /></Button><Button type="button" variant="outline" onClick={next} aria-label="ดูรูปถัดไป" className="absolute right-2 top-1/2 h-11 w-11 -translate-y-1/2 bg-white/90 p-0"><ChevronRight className="h-5 w-5" /></Button><span aria-live="polite" className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-1 text-xs text-white">{index + 1} / {images.length}</span></> : null}
+    </div>
     {images.length > 1 ? <div className="flex max-w-full gap-2 overflow-x-auto pb-1">{images.map((url, itemIndex) => <button key={`${url}-${itemIndex}`} type="button" onClick={(event) => openAt(itemIndex, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${itemIndex + 1} แบบขยาย`} className={`h-14 w-20 shrink-0 overflow-hidden rounded-md border focus:outline-none focus:ring-2 focus:ring-green-600 ${itemIndex === index ? "border-green-500" : "border-gray-200"}`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={url} alt="" className="h-full w-full object-cover" /></button>)}</div> : null}
     {lightbox && typeof document !== "undefined" ? createPortal(lightbox, document.body) : null}
   </div>;

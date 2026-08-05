@@ -113,7 +113,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <AdminNewsToolbar keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} />
+      <AdminNewsToolbar key={`${keyword}|${activeStage}|${activeVisibility}|${activeSort}`} keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} />
 
       {visibleSuperAdminAnnouncements.length > 0 ? (
         <section className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 sm:p-5">

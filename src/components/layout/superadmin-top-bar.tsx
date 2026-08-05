@@ -7,6 +7,7 @@ import { useMemo, useState } from "react";
 import { LogoutButton } from "@/components/layout/logout-button";
 import { superAdminMenuItems } from "@/components/layout/superadmin-sidebar";
 import { cn } from "@/lib/utils";
+import { useAutoHideTopBar } from "@/components/layout/use-auto-hide-top-bar";
 
 type SuperAdminTopBarProps = {
   userName: string;
@@ -16,13 +17,15 @@ type SuperAdminTopBarProps = {
 export function SuperAdminTopBar({ userName, unreadNotificationCount }: SuperAdminTopBarProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
+  const topBarHidden = useAutoHideTopBar(mobileMenuOpen || focusWithin);
 
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const mobileItems = useMemo(() => superAdminMenuItems, []);
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm md:px-6">
+      <header onFocusCapture={() => setFocusWithin(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusWithin(false); }} className={cn("sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm transition-transform duration-[var(--app-topbar-motion,180ms)] md:px-6 md:translate-y-0", topBarHidden ? "-translate-y-full" : "translate-y-0")}>
         <div className="flex items-center gap-2">
           <div>
             <p className="text-sm font-semibold text-slate-900">Super Admin Control Center</p>

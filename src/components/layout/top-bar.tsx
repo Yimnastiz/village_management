@@ -11,6 +11,7 @@ import {
 } from "./resident-sidebar";
 import { adminMenuItems } from "./admin-sidebar";
 import { cn } from "@/lib/utils";
+import { useAutoHideTopBar } from "./use-auto-hide-top-bar";
 
 interface TopBarProps {
   userArea: "resident" | "admin";
@@ -33,6 +34,7 @@ export function TopBar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [lockedMenuLabel, setLockedMenuLabel] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
   const notificationsHref = userArea === "admin" ? "/admin/notifications" : "/resident/notifications";
   const profileHref = userArea === "admin" ? "/admin/settings" : "/resident/profile";
   const mobileNavItems = useMemo(() => {
@@ -49,6 +51,7 @@ export function TopBar({
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
   const adminVillageLabel = villageName?.trim() ? `แอดมินหมู่บ้าน ${villageName.trim()}` : "แอดมินหมู่บ้าน";
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
+  const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 4);
@@ -62,8 +65,12 @@ export function TopBar({
   return (
     <>
       <header
+        onFocusCapture={() => setFocusWithin(true)}
+        onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusWithin(false); }}
         className={cn(
-          "sticky top-0 z-40 backdrop-blur border-b h-16 flex items-center justify-between px-4 md:px-6 flex-shrink-0 transition-shadow",
+          "sticky top-0 z-40 h-16 flex-shrink-0 border-b px-4 backdrop-blur transition-[transform,box-shadow] duration-[var(--app-topbar-motion,180ms)] md:px-6 md:translate-y-0",
+          "flex items-center justify-between",
+          topBarHidden ? "-translate-y-full" : "translate-y-0",
           isAdminArea
             ? "bg-gray-900/95 border-gray-700"
             : "bg-white/95 border-gray-200",
