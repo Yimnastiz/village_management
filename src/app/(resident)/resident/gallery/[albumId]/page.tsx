@@ -102,9 +102,9 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
     <p className="text-sm text-gray-500">วันที่อัลบั้ม {formatThaiDate(album.albumDate)}</p>
         {album.description && <p className="text-sm text-gray-600">{album.description}</p>}
 
-        {query.submitted === "1" && (
+        {query.submitted && (
           <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            ส่งคำขอเพิ่มรูปเรียบร้อยแล้ว รอแอดมินอนุมัติ
+            ส่งคำขอเพิ่มรูป {query.submitted} รูปเรียบร้อยแล้ว รอแอดมินอนุมัติ
           </div>
         )}
 

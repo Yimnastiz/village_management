@@ -51,7 +51,7 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
   if (!submission) notFound();
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">
       <Link
         href="/admin/gallery/submissions"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -59,7 +59,7 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
         <ArrowLeft className="h-4 w-4" /> กลับรายการคำขอ
       </Link>
 
-      <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-6">
+      <article className="min-w-0 space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={statusVariant[submission.status] ?? "default"}>{statusLabel[submission.status]}</Badge>
           <Badge variant="outline">{submission.album.title}</Badge>
@@ -67,14 +67,14 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
 
         <h1 className="text-xl font-bold text-gray-900">{submission.title || "(ไม่มีหัวข้อรูปภาพ)"}</h1>
 
-        <div className="text-sm text-gray-600 space-y-1">
+        <div className="space-y-1 break-words text-sm text-gray-600">
           <p>ผู้ส่งคำขอ: {submission.requester.name} ({submission.requester.phoneNumber})</p>
           <p>วันที่ส่ง: {submission.createdAt.toLocaleString("th-TH")}</p>
           {submission.reviewedAt && <p>วันที่รีวิว: {submission.reviewedAt.toLocaleString("th-TH")}</p>}
         </div>
 
         <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-          <img src={submission.fileUrl} alt={submission.title || "submission image"} className="w-full max-h-[420px] object-contain" />
+          <img src={submission.fileUrl} alt={submission.title || "submission image"} className="max-h-[420px] w-full object-contain" />
         </div>
 
         {submission.note && (

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { isSafeImageSource } from "@/lib/image-input";
+import { hasSafeTotalImageDataSize, isSafeImageSource } from "@/lib/image-input";
 
 const db = prisma;
 
@@ -13,13 +13,13 @@ const albumSchema = z.object({
   title: z.string().min(2, "กรุณาระบุชื่ออัลบั้ม"),
   description: z.string().optional(),
   albumDate: z.string().min(1, "กรุณาระบุวันที่อัลบั้ม"),
-  coverUrl: z.string().url("URL รูปหน้าปกไม่ถูกต้อง").optional().or(z.literal("")),
+  coverUrl: z.string().optional(),
   isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
   allowResidentSubmissions: z.string().min(1, "กรุณาเลือกการรับคำขอเพิ่มรูป"),
 });
 
 const itemSchema = z.object({
-  title: z.string().optional(),
+  title: z.string().trim().max(500, "คำอธิบายรูปภาพยาวเกินไป").optional(),
   fileUrl: z.string().min(1, "กรุณาอัปโหลดรูปภาพ"),
   mimeType: z.string().optional(),
   sortOrder: z.string().optional(),
@@ -53,13 +53,18 @@ function normalizeAlbumInput(data: AlbumInput) {
     return { ok: false as const, error: "วันที่อัลบั้มไม่ถูกต้อง" };
   }
 
+  const coverUrl = parsed.data.coverUrl?.trim() || null;
+  if (coverUrl && !isSafeImageSource(coverUrl)) {
+    return { ok: false as const, error: "รูปหน้าปกไม่ถูกต้องหรือมีขนาดเกินกำหนด" };
+  }
+
   return {
     ok: true as const,
     value: {
       title: parsed.data.title.trim(),
       description: parsed.data.description?.trim() || null,
       albumDate,
-      coverUrl: parsed.data.coverUrl?.trim() || null,
+      coverUrl,
       isPublic: parsed.data.isPublic === "PUBLIC",
       allowResidentSubmissions: parsed.data.allowResidentSubmissions === "ALLOW",
     },
@@ -280,6 +285,30 @@ export async function createGalleryItemAction(
   revalidateGalleryViews(albumId);
 
   return { success: true, id: created.id };
+}
+
+const batchItemsSchema = z.object({
+  items: z.array(z.object({ fileUrl: z.string().min(1), title: z.string().trim().max(500).optional() })).min(1, "กรุณาเพิ่มรูปภาพ").max(10, "เพิ่มรูปภาพได้สูงสุด 10 รูปต่อครั้ง"),
+});
+
+export async function createGalleryItemsAction(
+  albumId: string,
+  data: z.infer<typeof batchItemsSchema>
+): Promise<{ success: true; count: number } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const parsed = batchItemsSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
+  const urls = parsed.data.items.map((item) => item.fileUrl.trim());
+  if (!urls.every(isSafeImageSource) || !hasSafeTotalImageDataSize(urls)) return { success: false, error: "รูปภาพไม่ถูกต้องหรือขนาดรวมเกินกำหนด" };
+  const album = await db.galleryAlbum.findFirst({ where: { id: albumId, villageId: ctx.villageId }, select: { id: true, title: true } });
+  if (!album) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์" };
+  const latest = await db.galleryItem.aggregate({ where: { albumId }, _max: { sortOrder: true } });
+  const start = (latest._max.sortOrder ?? -1) + 1;
+  await db.$transaction((tx) => tx.galleryItem.createMany({ data: parsed.data.items.map((item, index) => ({ albumId, title: item.title?.trim() || null, fileUrl: urls[index], mimeType: /^data:(image\/[^;]+)/.exec(urls[index])?.[1] ?? null, sortOrder: start + index })) }));
+  await notifyResidents(ctx.villageId, "แกลเลอรีหมู่บ้าน: มีรูปภาพใหม่", `อัลบั้ม ${album.title} มีรูปใหม่ ${parsed.data.items.length} รูป`, { albumId, actionUrl: `/resident/gallery/${albumId}` });
+  revalidateGalleryViews(albumId);
+  return { success: true, count: parsed.data.items.length };
 }
 
 export async function updateGalleryItemAction(

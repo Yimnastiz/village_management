@@ -12,10 +12,12 @@ const db = prisma;
 
 interface PageProps {
   params: Promise<{ albumId: string }>;
+  searchParams?: Promise<{ success?: string }>;
 }
 
-export default async function GalleryAlbumDetailPage({ params }: PageProps) {
+export default async function GalleryAlbumDetailPage({ params, searchParams }: PageProps) {
   const { albumId } = await params;
+  const query = (searchParams ? await searchParams : {}) ?? {};
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
@@ -47,13 +49,14 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
   if (!album) notFound();
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-1 sm:px-0">
+      {query.success && <div role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{query.success === "items" ? "เพิ่มรูปภาพเรียบร้อยแล้ว" : query.success === "created" ? "สร้างอัลบั้มเรียบร้อยแล้ว" : "บันทึกการแก้ไขเรียบร้อยแล้ว"}</div>}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">{album.title}</h1>
           <p className="text-sm text-gray-500 mt-1">จัดการรายละเอียดอัลบั้มและรูปภาพ</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href={`/admin/gallery/${album.id}/edit`}>
             <Button variant="outline">แก้ไขอัลบั้ม</Button>
           </Link>
@@ -82,7 +85,7 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
         {album.description && <p className="text-sm text-gray-700 whitespace-pre-wrap">{album.description}</p>}
         {album.coverUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={album.coverUrl} alt={album.title} className="w-full max-w-xl rounded-lg border border-gray-200" />
+          <img src={album.coverUrl} alt={album.title} className="h-auto w-full max-w-xl rounded-lg border border-gray-200 object-contain" />
         )}
       </div>
 
@@ -91,7 +94,7 @@ export default async function GalleryAlbumDetailPage({ params }: PageProps) {
         {album.items.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500">ยังไม่มีรูปภาพ</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3">
             {album.items.map((item) => (
               <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
                 <div className="aspect-video bg-gray-100">
