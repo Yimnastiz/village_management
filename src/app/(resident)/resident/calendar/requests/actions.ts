@@ -1,6 +1,7 @@
 "use server";
 
 import { NotificationType, VillageMembershipRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -74,48 +75,56 @@ export async function createVillageEventSubmissionAction(
     prisma as unknown as { villageEventSubmission: VillageEventSubmissionCreateDelegate }
   ).villageEventSubmission;
 
-  const created = await villageEventSubmission.create({
-    data: {
-      villageId: membership.villageId,
-      requesterId: session.id,
-      title: normalized.value.title,
-      description: normalized.value.description,
-      location: normalized.value.location,
-      startsAt: normalized.value.startsAt,
-      endsAt: normalized.value.endsAt,
-      isPublic: normalized.value.isPublic,
-    },
-    select: { id: true },
-  });
-
-  const admins = await prisma.villageMembership.findMany({
-    where: {
-      villageId: membership.villageId,
-      status: "ACTIVE",
-      role: {
-        in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE],
-      },
-    },
-    distinct: ["userId"],
-    select: { userId: true },
-  });
-
-  if (admins.length > 0) {
-    await prisma.notification.createMany({
-      data: admins.map((admin) => ({
-        userId: admin.userId,
+  try {
+    const created = await villageEventSubmission.create({
+      data: {
         villageId: membership.villageId,
-        type: NotificationType.SYSTEM,
-        title: "มีคำขอเพิ่มกิจกรรมใหม่",
-        body: `${session.name} ขอเพิ่มกิจกรรม \"${normalized.value.title}\"`,
-        metadata: {
-          actionUrl: `/admin/calendar/requests/${created.id}`,
-          actionLabel: "ตรวจสอบคำขอ",
-          requestId: created.id,
-        },
-      })),
+        requesterId: session.id,
+        title: normalized.value.title,
+        description: normalized.value.description,
+        location: normalized.value.location,
+        startsAt: normalized.value.startsAt,
+        endsAt: normalized.value.endsAt,
+        isPublic: normalized.value.isPublic,
+      },
+      select: { id: true },
     });
-  }
 
-  return { success: true, requestId: created.id };
+    const admins = await prisma.villageMembership.findMany({
+      where: {
+        villageId: membership.villageId,
+        status: "ACTIVE",
+        role: {
+          in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE],
+        },
+      },
+      distinct: ["userId"],
+      select: { userId: true },
+    });
+
+    if (admins.length > 0) {
+      await prisma.notification.createMany({
+        data: admins.map((admin) => ({
+          userId: admin.userId,
+          villageId: membership.villageId,
+          type: NotificationType.SYSTEM,
+          title: "มีคำขอเพิ่มกิจกรรมใหม่",
+          body: `${session.name} ขอเพิ่มกิจกรรม \"${normalized.value.title}\"`,
+          metadata: {
+            actionUrl: `/admin/calendar/requests/${created.id}`,
+            actionLabel: "ตรวจสอบคำขอ",
+            requestId: created.id,
+          },
+        })),
+      });
+    }
+
+    revalidatePath("/resident/calendar/requests");
+    revalidatePath("/admin/calendar/requests");
+    revalidatePath("/admin/notifications");
+
+    return { success: true, requestId: created.id };
+  } catch {
+    return { success: false, error: "ส่งคำขอไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง" };
+  }
 }

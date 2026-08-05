@@ -2,6 +2,7 @@
 
 import { NotificationType } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -100,20 +101,27 @@ export async function createVillageEventAction(
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
-  const created = await prisma.villageEvent.create({
-    data: {
-      villageId: ctx.villageId,
-      title: normalized.value.title,
-      description: normalized.value.description,
-      location: normalized.value.location,
-      startsAt: normalized.value.startsAt,
-      endsAt: normalized.value.endsAt,
-      isPublic: normalized.value.isPublic,
-    },
-    select: { id: true },
-  });
+  try {
+    const created = await prisma.villageEvent.create({
+      data: {
+        villageId: ctx.villageId,
+        title: normalized.value.title,
+        description: normalized.value.description,
+        location: normalized.value.location,
+        startsAt: normalized.value.startsAt,
+        endsAt: normalized.value.endsAt,
+        isPublic: normalized.value.isPublic,
+      },
+      select: { id: true },
+    });
 
-  return { success: true, id: created.id };
+    revalidatePath("/admin/calendar");
+    revalidatePath("/resident/calendar");
+
+    return { success: true, id: created.id };
+  } catch {
+    return { success: false, error: "สร้างกิจกรรมไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง" };
+  }
 }
 
 export async function updateVillageEventAction(
@@ -134,19 +142,27 @@ export async function updateVillageEventAction(
     return { success: false, error: "ไม่พบกิจกรรมนี้หรือไม่มีสิทธิ์แก้ไข" };
   }
 
-  await prisma.villageEvent.update({
-    where: { id },
-    data: {
-      title: normalized.value.title,
-      description: normalized.value.description,
-      location: normalized.value.location,
-      startsAt: normalized.value.startsAt,
-      endsAt: normalized.value.endsAt,
-      isPublic: normalized.value.isPublic,
-    },
-  });
+  try {
+    await prisma.villageEvent.update({
+      where: { id },
+      data: {
+        title: normalized.value.title,
+        description: normalized.value.description,
+        location: normalized.value.location,
+        startsAt: normalized.value.startsAt,
+        endsAt: normalized.value.endsAt,
+        isPublic: normalized.value.isPublic,
+      },
+    });
 
-  return { success: true };
+    revalidatePath("/admin/calendar");
+    revalidatePath(`/admin/calendar/${id}`);
+    revalidatePath("/resident/calendar");
+
+    return { success: true };
+  } catch {
+    return { success: false, error: "บันทึกกิจกรรมไม่สำเร็จ กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง" };
+  }
 }
 
 export async function deleteVillageEventAction(
@@ -163,8 +179,14 @@ export async function deleteVillageEventAction(
     return { success: false, error: "ไม่พบกิจกรรมนี้หรือไม่มีสิทธิ์ลบ" };
   }
 
-  await prisma.villageEvent.delete({ where: { id } });
-  return { success: true };
+  try {
+    await prisma.villageEvent.delete({ where: { id } });
+    revalidatePath("/admin/calendar");
+    revalidatePath("/resident/calendar");
+    return { success: true };
+  } catch {
+    return { success: false, error: "ลบกิจกรรมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
 }
 
 export async function adminApproveVillageEventSubmissionAction(
@@ -186,55 +208,66 @@ export async function adminApproveVillageEventSubmissionAction(
     return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   }
 
-  const now = new Date();
-  const approved = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const event = await tx.villageEvent.create({
-      data: {
-        villageId: request.villageId,
-        title: request.title,
-        description: request.description,
-        location: request.location,
-        startsAt: request.startsAt,
-        endsAt: request.endsAt,
-        isPublic: request.isPublic,
-      },
-      select: { id: true },
-    });
-
-    const txWithSubmission = tx as Prisma.TransactionClient & {
-      villageEventSubmission: VillageEventSubmissionTransactionDelegate;
-    };
-
-    await txWithSubmission.villageEventSubmission.update({
-      where: { id: request.id },
-      data: {
-        status: "APPROVED",
-        reviewedBy: ctx.userId,
-        reviewedAt: now,
-        reviewNote: reviewNote?.trim() || null,
-      },
-    });
-
-    await tx.notification.create({
-      data: {
-        userId: request.requesterId,
-        villageId: request.villageId,
-        type: NotificationType.SYSTEM,
-        title: "คำขอเพิ่มกิจกรรมได้รับการอนุมัติ",
-        body: `กิจกรรม \"${request.title}\" ได้รับการอนุมัติแล้ว`,
-        metadata: {
-          actionUrl: `/resident/calendar/${event.id}`,
-          actionLabel: "ดูกิจกรรม",
-          requestId: request.id,
-          status: "APPROVED",
+  try {
+    const now = new Date();
+    const approved = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const event = await tx.villageEvent.create({
+        data: {
+          villageId: request.villageId,
+          title: request.title,
+          description: request.description,
+          location: request.location,
+          startsAt: request.startsAt,
+          endsAt: request.endsAt,
+          isPublic: request.isPublic,
         },
-      },
+        select: { id: true },
+      });
+
+      const txWithSubmission = tx as Prisma.TransactionClient & {
+        villageEventSubmission: VillageEventSubmissionTransactionDelegate;
+      };
+
+      await txWithSubmission.villageEventSubmission.update({
+        where: { id: request.id },
+        data: {
+          status: "APPROVED",
+          reviewedBy: ctx.userId,
+          reviewedAt: now,
+          reviewNote: reviewNote?.trim() || null,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: request.requesterId,
+          villageId: request.villageId,
+          type: NotificationType.SYSTEM,
+          title: "คำขอเพิ่มกิจกรรมได้รับการอนุมัติ",
+          body: `กิจกรรม \"${request.title}\" ได้รับการอนุมัติแล้ว`,
+          metadata: {
+            actionUrl: `/resident/calendar/${event.id}`,
+            actionLabel: "ดูกิจกรรม",
+            requestId: request.id,
+            status: "APPROVED",
+          },
+        },
+      });
+
+      return event;
     });
 
-    return event;
-  });
+    revalidatePath("/admin/calendar");
+    revalidatePath("/resident/calendar");
+    revalidatePath("/admin/calendar/requests");
+    revalidatePath(`/admin/calendar/requests/${requestId}`);
+    revalidatePath("/resident/calendar/requests");
+    revalidatePath("/resident/notifications");
 
-  return { success: true, eventId: approved.id };
+    return { success: true, eventId: approved.id };
+  } catch {
+    return { success: false, error: "อนุมัติคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
 }
 
 export async function adminRejectVillageEventSubmissionAction(
@@ -256,37 +289,46 @@ export async function adminRejectVillageEventSubmissionAction(
     return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   }
 
-  await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    const txWithSubmission = tx as Prisma.TransactionClient & {
-      villageEventSubmission: VillageEventSubmissionTransactionDelegate;
-    };
+  try {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const txWithSubmission = tx as Prisma.TransactionClient & {
+        villageEventSubmission: VillageEventSubmissionTransactionDelegate;
+      };
 
-    await txWithSubmission.villageEventSubmission.update({
-      where: { id: request.id },
-      data: {
-        status: "REJECTED",
-        reviewedBy: ctx.userId,
-        reviewedAt: new Date(),
-        reviewNote: reviewNote?.trim() || "ไม่ผ่านเงื่อนไขการอนุมัติ",
-      },
-    });
-
-    await tx.notification.create({
-      data: {
-        userId: request.requesterId,
-        villageId: request.villageId,
-        type: NotificationType.SYSTEM,
-        title: "คำขอเพิ่มกิจกรรมไม่ผ่านการอนุมัติ",
-        body: `กิจกรรม \"${request.title}\" ไม่ผ่านการอนุมัติ`,
-        metadata: {
-          actionUrl: "/resident/calendar/requests",
-          actionLabel: "ดูคำขอของฉัน",
-          requestId: request.id,
+      await txWithSubmission.villageEventSubmission.update({
+        where: { id: request.id },
+        data: {
           status: "REJECTED",
+          reviewedBy: ctx.userId,
+          reviewedAt: new Date(),
+          reviewNote: reviewNote?.trim() || "ไม่ผ่านเงื่อนไขการอนุมัติ",
         },
-      },
-    });
-  });
+      });
 
-  return { success: true };
+      await tx.notification.create({
+        data: {
+          userId: request.requesterId,
+          villageId: request.villageId,
+          type: NotificationType.SYSTEM,
+          title: "คำขอเพิ่มกิจกรรมไม่ผ่านการอนุมัติ",
+          body: `กิจกรรม \"${request.title}\" ไม่ผ่านการอนุมัติ`,
+          metadata: {
+            actionUrl: "/resident/calendar/requests",
+            actionLabel: "ดูคำขอของฉัน",
+            requestId: request.id,
+            status: "REJECTED",
+          },
+        },
+      });
+    });
+
+    revalidatePath("/admin/calendar/requests");
+    revalidatePath(`/admin/calendar/requests/${requestId}`);
+    revalidatePath("/resident/calendar/requests");
+    revalidatePath("/resident/notifications");
+
+    return { success: true };
+  } catch {
+    return { success: false, error: "ปฏิเสธคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
 }

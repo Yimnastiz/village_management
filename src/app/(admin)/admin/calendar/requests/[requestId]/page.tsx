@@ -69,7 +69,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
   if (!request) notFound();
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <main className="mx-auto w-full max-w-4xl space-y-6">
       <Link
         href="/admin/calendar/requests"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -77,8 +77,8 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
         <ArrowLeft className="h-4 w-4" /> กลับรายการคำขอ
       </Link>
 
-      <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
-        <div className="flex items-center gap-2">
+      <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant={statusVariant[request.status] ?? "default"}>
             {VILLAGE_EVENT_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}
           </Badge>
@@ -91,7 +91,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
           ผู้ส่งคำขอ: {request.requester.name} ({request.requester.phoneNumber})
         </p>
 
-        <h1 className="text-2xl font-bold text-gray-900">{request.title}</h1>
+        <h1 className="break-words text-2xl font-bold text-gray-900">{request.title}</h1>
 
         <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
           <div>
@@ -125,6 +125,6 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }

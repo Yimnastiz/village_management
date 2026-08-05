@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { createVillageEventSubmissionAction } from "./actions";
 
 const schema = z.object({
@@ -23,10 +24,13 @@ type FormData = z.infer<typeof schema>;
 
 export function CalendarRequestForm() {
   const router = useRouter();
+  const { pushToast } = useToast();
   const {
     register,
     handleSubmit,
     setError,
+    clearErrors,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -41,18 +45,40 @@ export function CalendarRequestForm() {
   });
 
   const onSubmit = async (data: FormData) => {
-    const result = await createVillageEventSubmissionAction(data);
-    if (!result.success) {
-      setError("root", { message: result.error });
-      return;
-    }
+    clearErrors("root");
 
-    router.push("/resident/calendar/requests?submitted=1");
-    router.refresh();
+    try {
+      const result = await createVillageEventSubmissionAction(data);
+      if (!result.success) {
+        setError("root", { message: result.error });
+        pushToast({
+          tone: "error",
+          title: "ส่งคำขอไม่สำเร็จ",
+          description: result.error || "กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง",
+        });
+        return;
+      }
+
+      reset();
+      pushToast({
+        tone: "success",
+        title: "ส่งคำขอกิจกรรมเรียบร้อยแล้ว",
+        description: "ระบบได้ส่งคำขอให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
+      });
+      router.push("/resident/calendar/requests?submitted=1");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง";
+      setError("root", { message });
+      pushToast({
+        tone: "error",
+        title: "ส่งคำขอไม่สำเร็จ",
+        description: message,
+      });
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
       <Input label="ชื่อกิจกรรม" {...register("title")} error={errors.title?.message} />
       <Textarea label="รายละเอียด" {...register("description")} error={errors.description?.message} rows={4} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -74,9 +100,9 @@ export function CalendarRequestForm() {
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" isLoading={isSubmitting}>ส่งคำขอเพิ่มกิจกรรม</Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>ย้อนกลับ</Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Button type="submit" isLoading={isSubmitting} className="w-full sm:w-auto">ส่งคำขอเพิ่มกิจกรรม</Button>
+        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting} className="w-full sm:w-auto">ย้อนกลับ</Button>
       </div>
     </form>
   );

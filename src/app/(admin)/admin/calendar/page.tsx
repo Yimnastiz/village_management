@@ -1,12 +1,14 @@
 import Link from "next/link";
-import { CalendarPlus, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { CalendarPlus, Inbox, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
+import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
+import { NewsFilterChip } from "@/components/news/news-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 
 type VillageEventSubmissionCountDelegate = {
   count(args: unknown): Promise<number>;
@@ -15,34 +17,6 @@ type VillageEventSubmissionCountDelegate = {
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; month?: string; date?: string }>;
 };
-
-function parseMonth(month?: string) {
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-    const now = new Date();
-    return { year: now.getFullYear(), monthIndex: now.getMonth() };
-  }
-
-  const [yearStr, monthStr] = month.split("-");
-  const year = Number(yearStr);
-  const monthIndex = Number(monthStr) - 1;
-
-  if (Number.isNaN(year) || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
-    const now = new Date();
-    return { year: now.getFullYear(), monthIndex: now.getMonth() };
-  }
-
-  return { year, monthIndex };
-}
-
-function toDateKey(value: Date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(value);
-}
-
-function toMonthKey(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
-}
 
 export default async function AdminCalendarPage({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
@@ -57,9 +31,9 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
   if (!membership) redirect("/auth/login");
 
   const keyword = params.q?.trim() ?? "";
-  const activeVisibility = params.visibility ?? "ALL";
+  const activeVisibility = params.visibility === "PUBLIC" || params.visibility === "RESIDENT_ONLY" ? params.visibility : "ALL";
 
-  const { year, monthIndex } = parseMonth(params.month);
+  const { year, monthIndex, yearStart, yearEnd } = parseCalendarMonth(params.month);
   const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
   const nextMonthStart = new Date(year, monthIndex + 1, 1, 0, 0, 0, 0);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -137,8 +111,6 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
 
   const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
   const selectedDayAppointments = selectedDateKey ? appointmentsByDay.get(selectedDateKey) ?? [] : [];
-  const prevMonth = new Date(year, monthIndex - 1, 1);
-  const nextMonth = new Date(year, monthIndex + 1, 1);
   const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
   const villageEventSubmission = (
@@ -170,58 +142,42 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <AdminListToolbar
-        title="ปฏิทินกิจกรรม"
+      <CalendarToolbar
+        namespace="admin-calendar"
+        title="ปฏิทิน"
         description="เพิ่ม แก้ไข และลบกิจกรรมของหมู่บ้าน"
-        searchAction="/admin/calendar"
-        clearHref="/admin/calendar"
-        keyword={keyword}
-        searchPlaceholder="ค้นหาชื่อกิจกรรม สถานที่ หรือรายละเอียด"
-        hiddenInputs={{ visibility: activeVisibility === "ALL" ? "" : activeVisibility, month: toMonthKey(monthStart), date: selectedDateKey ?? "" }}
-        suggestionTitles={suggestionTitles}
-        groups={[
-          {
-            label: "การมองเห็น",
-            options: [
-              { label: "ทั้งหมด", href: buildCalendarHref({ q: keyword, visibility: "ALL", month: toMonthKey(monthStart), date: selectedDateKey ?? undefined }), active: activeVisibility === "ALL" },
-              { label: "สาธารณะ", href: buildCalendarHref({ q: keyword, visibility: "PUBLIC", month: toMonthKey(monthStart), date: selectedDateKey ?? undefined }), active: activeVisibility === "PUBLIC" },
-              { label: "ลูกบ้าน", href: buildCalendarHref({ q: keyword, visibility: "RESIDENT_ONLY", month: toMonthKey(monthStart), date: selectedDateKey ?? undefined }), active: activeVisibility === "RESIDENT_ONLY" },
-            ],
-          },
-        ]}
+        currentYear={year}
+        currentMonth={monthIndex + 1}
+        yearStart={yearStart}
+        yearEnd={yearEnd}
+        search={{ keyword, placeholder: "ค้นหาชื่อกิจกรรม สถานที่ หรือรายละเอียด", suggestions: suggestionTitles }}
         actions={
           <>
-            <Link href="/admin/calendar/requests">
-              <Button size="sm" variant="outline">
-                คำขอกิจกรรม {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}
+            <Link href="/admin/calendar/requests" aria-label="คำขอกิจกรรม">
+              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3">
+                <Inbox className="h-4 w-4" />
+                <span className="hidden sm:ml-1.5 sm:inline">คำขอกิจกรรม</span>
+                {pendingRequestCount > 0 ? <span className="ml-1.5">({pendingRequestCount})</span> : null}
               </Button>
             </Link>
             <Link href="/admin/calendar/new">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-1" /> เพิ่มกิจกรรม
+              <Button size="sm" className="h-10 px-2 sm:px-3">
+                <Plus className="h-4 w-4" />
+                <span className="ml-1 hidden min-[360px]:inline">เพิ่มกิจกรรม</span>
               </Button>
             </Link>
           </>
         }
+        filters={
+          <>
+            <span className="text-xs font-semibold text-gray-500">การมองเห็น</span>
+            <NewsFilterChip href={buildCalendarHref({ q: keyword, visibility: "ALL", month: toMonthKey(monthStart) })} active={activeVisibility === "ALL"}>ทั้งหมด</NewsFilterChip>
+            <NewsFilterChip href={buildCalendarHref({ q: keyword, visibility: "PUBLIC", month: toMonthKey(monthStart) })} active={activeVisibility === "PUBLIC"}>สาธารณะ</NewsFilterChip>
+            <NewsFilterChip href={buildCalendarHref({ q: keyword, visibility: "RESIDENT_ONLY", month: toMonthKey(monthStart) })} active={activeVisibility === "RESIDENT_ONLY"}>ลูกบ้าน</NewsFilterChip>
+            <NewsFilterChip href={buildCalendarHref({ month: toMonthKey(monthStart) })} active={false}>ล้างตัวกรอง</NewsFilterChip>
+          </>
+        }
       />
-
-      <div className="flex items-center justify-end gap-2">
-        <Link
-          href={buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(prevMonth) })}
-          className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Link>
-        <p className="min-w-28 text-center text-sm font-medium text-gray-800">
-          {monthStart.toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
-        </p>
-        <Link
-          href={buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(nextMonth) })}
-          className="inline-flex items-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Link>
-      </div>
 
       {daysInMonth === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
@@ -239,7 +195,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
           </div>
           <div className="grid grid-cols-7">
             {Array.from({ length: leadingBlankDays }).map((_, index) => (
-              <div key={`blank-${index}`} className="min-h-28 border-b border-r border-gray-100 bg-gray-50/70" />
+              <div key={`blank-${index}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/70 sm:min-h-24 lg:min-h-28" />
             ))}
 
             {Array.from({ length: daysInMonth }).map((_, index) => {
@@ -253,8 +209,8 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
               const totalCount = dayEvents.length + dayAppointments.length;
 
               return (
-                <div key={dayKey} className={`min-h-28 border-b border-r border-gray-100 p-2 ${isSelected ? "bg-blue-50" : "bg-white"}`}>
-                  <div className="mb-2 flex items-center justify-between">
+                <div key={dayKey} className={`min-h-16 min-w-0 border-b border-r border-gray-100 p-1 sm:min-h-24 sm:p-2 lg:min-h-28 ${isSelected ? "bg-blue-50" : "bg-white"}`}>
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
                     <Link
                       href={buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(monthStart), date: dayKey })}
                       className={`text-sm font-medium hover:text-blue-700 ${isToday ? "text-red-600" : "text-gray-800"}`}
@@ -273,19 +229,19 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
                       <Link
                         key={event.id}
                         href={`/admin/calendar/${event.id}`}
-                        className="block truncate rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-800 hover:bg-blue-100"
+                        className="hidden truncate rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-800 hover:bg-blue-100 sm:block"
                       >
                         {event.title}
                       </Link>
                     ))}
                     {dayAppointments.slice(0, 1).map((apt) => (
-                                   <Link
-                                    href={`/admin/appointments/${apt.id}`}
+                      <Link
                         key={apt.id}
-                                    className="block truncate rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-800 hover:bg-purple-100"
+                        href={`/admin/appointments/${apt.id}`}
+                        className="hidden truncate rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-800 hover:bg-purple-100 sm:block"
                       >
-                        <div className="font-medium truncate">{apt.title}</div>
-                                   </Link>
+                        <div className="truncate font-medium">{apt.title}</div>
+                      </Link>
                     ))}
                     {totalCount > 2 && (
                       <Link
@@ -310,8 +266,8 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
 
       {selectedDateKey && (
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
               รายการในวันที่ {new Date(selectedDateKey).toLocaleDateString("th-TH")}
             </h2>
             <Badge variant="outline">
@@ -335,8 +291,8 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
                   href={`/admin/calendar/${event.id}`}
                   className="block rounded-lg border border-gray-200 px-4 py-3 hover:border-blue-300 hover:bg-blue-50/40"
                 >
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{event.title}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="min-w-0 font-medium text-gray-900">{event.title}</p>
                     <Badge variant={event.isPublic ? "success" : "info"}>
                       {event.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
                     </Badge>

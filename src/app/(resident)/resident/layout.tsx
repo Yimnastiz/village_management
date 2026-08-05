@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { ResidentSidebar } from "@/components/layout/resident-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
+import { ToastProvider } from "@/components/ui/toast";
 import { prisma } from "@/lib/prisma";
 import {
   getAuthenticatedAccessRedirectPath,
@@ -84,7 +85,9 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           villageName={publicVillage?.name ?? null}
           residentNavigationState={residentNavigationState}
         />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <ToastProvider>
+          <main className="flex-1 p-4 sm:p-6">{children}</main>
+        </ToastProvider>
       </div>
     </div>
   );

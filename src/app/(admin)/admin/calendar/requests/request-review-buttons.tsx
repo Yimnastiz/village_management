@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import {
   adminApproveVillageEventSubmissionAction,
   adminRejectVillageEventSubmissionAction,
@@ -10,48 +12,74 @@ import {
 
 export function CalendarRequestReviewButtons({ requestId }: { requestId: string }) {
   const router = useRouter();
+  const { pushToast } = useToast();
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const isPending = isApproving || isRejecting;
 
   const onApprove = async () => {
-    const reviewNote = window.prompt("หมายเหตุถึงผู้ส่งคำขอ (ไม่บังคับ)") || "";
     setIsApproving(true);
     setError(null);
 
-    const result = await adminApproveVillageEventSubmissionAction(requestId, reviewNote);
+    try {
+      const result = await adminApproveVillageEventSubmissionAction(requestId, reviewNote);
+      if (!result.success) {
+        setError(result.error);
+        pushToast({ tone: "error", title: "อนุมัติคำขอไม่สำเร็จ", description: result.error });
+        return;
+      }
 
-    setIsApproving(false);
-    if (!result.success) {
-      setError(result.error);
-      return;
+      setReviewNote("");
+      pushToast({ tone: "success", title: "อนุมัติคำขอเรียบร้อยแล้ว" });
+      router.push(`/admin/calendar/${result.eventId}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "กรุณาลองใหม่อีกครั้ง";
+      setError(message);
+      pushToast({ tone: "error", title: "อนุมัติคำขอไม่สำเร็จ", description: message });
+    } finally {
+      setIsApproving(false);
     }
-
-    router.push(`/admin/calendar/${result.eventId}`);
-    router.refresh();
   };
 
   const onReject = async () => {
-    const reviewNote = window.prompt("ระบุเหตุผลที่ไม่อนุมัติ") || "";
     setIsRejecting(true);
     setError(null);
 
-    const result = await adminRejectVillageEventSubmissionAction(requestId, reviewNote);
+    try {
+      const result = await adminRejectVillageEventSubmissionAction(requestId, reviewNote);
+      if (!result.success) {
+        setError(result.error);
+        pushToast({ tone: "error", title: "ปฏิเสธคำขอไม่สำเร็จ", description: result.error });
+        return;
+      }
 
-    setIsRejecting(false);
-    if (!result.success) {
-      setError(result.error);
-      return;
+      setReviewNote("");
+      pushToast({ tone: "success", title: "ปฏิเสธคำขอเรียบร้อยแล้ว" });
+      router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "กรุณาลองใหม่อีกครั้ง";
+      setError(message);
+      pushToast({ tone: "error", title: "ปฏิเสธคำขอไม่สำเร็จ", description: message });
+    } finally {
+      setIsRejecting(false);
     }
-
-    router.refresh();
   };
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <Button onClick={onApprove} isLoading={isApproving}>อนุมัติ</Button>
-        <Button variant="danger" onClick={onReject} isLoading={isRejecting}>ไม่อนุมัติ</Button>
+    <div className="space-y-3">
+      <Textarea
+        label="หมายเหตุถึงผู้ส่งคำขอ"
+        value={reviewNote}
+        onChange={(event) => setReviewNote(event.target.value)}
+        rows={3}
+        disabled={isPending}
+        placeholder="ไม่บังคับ ยกเว้นกรณีไม่อนุมัติควรระบุเหตุผล"
+      />
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button onClick={onApprove} isLoading={isApproving} disabled={isPending} className="w-full sm:w-auto">อนุมัติ</Button>
+        <Button variant="danger" onClick={onReject} isLoading={isRejecting} disabled={isPending} className="w-full sm:w-auto">ไม่อนุมัติ</Button>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

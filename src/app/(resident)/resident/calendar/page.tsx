@@ -1,44 +1,18 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, FilePlus2 } from "lucide-react";
+import { FilePlus2, ListChecks } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { getVillageCalendarEvents } from "@/features/public-village/server/public-village-data";
+import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 
 type ResidentCalendarPageProps = {
   searchParams?: Promise<{ month?: string; date?: string }>;
 };
-
-function parseMonth(month?: string) {
-  if (!month || !/^\d{4}-\d{2}$/.test(month)) {
-    const now = new Date();
-    return { year: now.getFullYear(), monthIndex: now.getMonth() };
-  }
-
-  const [yearStr, monthStr] = month.split("-");
-  const year = Number(yearStr);
-  const monthIndex = Number(monthStr) - 1;
-
-  if (Number.isNaN(year) || Number.isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) {
-    const now = new Date();
-    return { year: now.getFullYear(), monthIndex: now.getMonth() };
-  }
-
-  return { year, monthIndex };
-}
-
-function toDateKey(value: Date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(value);
-}
-
-function toMonthKey(date: Date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  return `${y}-${m}`;
-}
 
 export default async function ResidentVillageCalendarPage({ searchParams }: ResidentCalendarPageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
@@ -55,7 +29,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
   });
   if (!village) redirect("/auth/login");
 
-  const { year, monthIndex } = parseMonth(params.month);
+  const { year, monthIndex, yearStart, yearEnd } = parseCalendarMonth(params.month);
   const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
   const nextMonthStart = new Date(year, monthIndex + 1, 1, 0, 0, 0, 0);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -103,51 +77,35 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
   const selectedDateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
   const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
 
-  const prevMonth = new Date(year, monthIndex - 1, 1);
-  const nextMonth = new Date(year, monthIndex + 1, 1);
   const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">ปฏิทินกิจกรรมหมู่บ้าน</h1>
-          <p className="mt-1 text-sm text-gray-500">ดูกิจกรรมทั้งหมดของ {village.name}</p>
-        </div>
-        <div className="flex w-full flex-col gap-3 lg:w-auto lg:items-end">
-          <div className="flex flex-wrap gap-2 lg:justify-end">
-          {membership.hasResidentAccess ? <>
-          <Link href="/resident/calendar/requests">
-            <Button size="sm" variant="outline">คำขอกิจกรรมของฉัน</Button>
-          </Link>
-          <Link href="/resident/calendar/requests/new">
-            <Button size="sm">
-              <FilePlus2 className="mr-1 h-4 w-4" /> ขอเพิ่มกิจกรรม
-            </Button>
-          </Link>
-          </> : null}
-          </div>
-          <div className="grid w-full grid-cols-[44px_1fr_44px] items-center gap-2 sm:w-auto sm:min-w-72">
-          <Link
-            href={`/resident/calendar?month=${toMonthKey(prevMonth)}`}
-            aria-label="เดือนก่อนหน้า"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-          <p className="text-center text-sm font-semibold text-gray-800 sm:text-base">
-            {monthStart.toLocaleDateString("th-TH", { month: "long", year: "numeric" })}
-          </p>
-          <Link
-            href={`/resident/calendar?month=${toMonthKey(nextMonth)}`}
-            aria-label="เดือนถัดไป"
-            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-          </div>
-        </div>
-      </div>
+      <CalendarToolbar
+        namespace="resident-calendar"
+        title="ปฏิทิน"
+        description={`ดูกิจกรรมทั้งหมดของ ${village.name}`}
+        currentYear={year}
+        currentMonth={monthIndex + 1}
+        yearStart={yearStart}
+        yearEnd={yearEnd}
+        actions={membership.hasResidentAccess ? (
+          <>
+            <Link href="/resident/calendar/requests" aria-label="คำขอกิจกรรมของฉัน">
+              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3">
+                <ListChecks className="h-4 w-4" />
+                <span className="hidden sm:ml-1.5 sm:inline">คำขอของฉัน</span>
+              </Button>
+            </Link>
+            <Link href="/resident/calendar/requests/new">
+              <Button size="sm" className="h-10 px-2 sm:px-3">
+                <FilePlus2 className="h-4 w-4" />
+                <span className="ml-1 hidden min-[390px]:inline">ขอเพิ่มกิจกรรม</span>
+              </Button>
+            </Link>
+          </>
+        ) : undefined}
+      />
 
       {daysInMonth === 0 ? (
         <EmptyState title="ไม่พบข้อมูลปฏิทิน" description="ลองเปลี่ยนเดือนอีกครั้ง" />
@@ -183,7 +141,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                     hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
                   } ${isToday ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300" : ""}`}
                 >
-                  <div className="mb-2 flex items-center justify-between">
+                  <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
                     <Link
                       href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
                       aria-label={`${isToday ? "วันนี้ " : ""}${cellDate.toLocaleDateString("th-TH")}`}
@@ -195,7 +153,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                     </Link>
                     {isToday && (
                       <span className="hidden items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 lg:inline-flex">
-                        TODAY
+                        วันนี้
                       </span>
                     )}
                     {dayEvents.length > 0 && (
@@ -236,7 +194,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
           <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
             <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600">
               <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-rose-600" /> วันนี้ (ขอบแดง + ป้าย TODAY)
+                <span className="h-2 w-2 rounded-full bg-rose-600" /> วันนี้
               </span>
               <span className="inline-flex items-center gap-1">
                 <span className="h-2 w-2 rounded-full bg-sky-500" /> มีนัดหมายของคุณ
@@ -248,8 +206,8 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
 
       {selectedDateKey && (
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
               รายการกิจกรรมวันที่ {new Date(selectedDateKey).toLocaleDateString("th-TH")}
             </h2>
             <Badge variant="outline">{selectedDayEvents.length} รายการ</Badge>
@@ -265,8 +223,8 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                   href={`/resident/calendar/${event.id}`}
                   className="block rounded-lg border border-gray-200 px-4 py-3 hover:border-green-300 hover:bg-green-50/40"
                 >
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-gray-900">{event.title}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="min-w-0 font-medium text-gray-900">{event.title}</p>
                     <Badge variant={event.isPublic ? "success" : "info"}>
                       {event.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
                     </Badge>
