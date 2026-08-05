@@ -1,6 +1,7 @@
+import { MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, MAX_TOTAL_IMAGE_DATA_URL_BYTES } from "@/lib/image-constraints";
+
 const DATA_URL_PATTERN = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/;
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-export const MAX_IMAGES_PER_REQUEST = 10;
+export { MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, MAX_TOTAL_IMAGE_DATA_URL_BYTES };
 
 export function isSafeImageSource(value: string): boolean {
   const source = value.trim();
@@ -20,5 +21,11 @@ export function isSafeImageSource(value: string): boolean {
 }
 
 export function areSafeImageSources(values: readonly string[]): boolean {
-  return values.length <= MAX_IMAGES_PER_REQUEST && values.every(isSafeImageSource);
+  return values.length <= MAX_IMAGES_PER_REQUEST
+    && values.reduce((total, value) => total + Buffer.byteLength(value, "utf8"), 0) <= MAX_TOTAL_IMAGE_DATA_URL_BYTES
+    && values.every(isSafeImageSource);
+}
+
+export function hasSafeTotalImageDataSize(values: readonly string[]): boolean {
+  return values.reduce((total, value) => total + Buffer.byteLength(value, "utf8"), 0) <= MAX_TOTAL_IMAGE_DATA_URL_BYTES;
 }

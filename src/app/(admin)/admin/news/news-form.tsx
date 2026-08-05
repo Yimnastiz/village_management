@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { adminCreateNewsAction, adminUpdateNewsAction } from "./actions";
 import { NewsImageManager } from "@/components/news/news-image-manager";
+import { MAX_TOTAL_IMAGE_DATA_URL_BYTES } from "@/lib/image-constraints";
 
 const schema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -97,6 +98,11 @@ export function NewsForm({ mode, newsId, defaultValues }: NewsFormProps) {
       stage: data.stage,
       isPinned: Boolean(data.isPinned),
     };
+
+    if (payload.imageUrls.reduce((total, url) => total + new TextEncoder().encode(url).length, 0) > MAX_TOTAL_IMAGE_DATA_URL_BYTES) {
+      setError("root", { message: "ขนาดรวมของรูปภาพเกินขีดจำกัดสำหรับการบันทึก กรุณาลดจำนวนหรือเลือกไฟล์ขนาดเล็กลง" });
+      return;
+    }
 
     if (mode === "create") {
       const result = await adminCreateNewsAction(payload);

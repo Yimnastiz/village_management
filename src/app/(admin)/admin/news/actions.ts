@@ -9,7 +9,7 @@ import {
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { areSafeImageSources } from "@/lib/image-input";
+import { areSafeImageSources, hasSafeTotalImageDataSize } from "@/lib/image-input";
 
 const newsInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -74,6 +74,7 @@ function normalizeNewsInput(data: NewsInput) {
   }
 
   const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter(Boolean);
+  if (!hasSafeTotalImageDataSize(imageUrls)) return { ok: false as const, error: "ขนาดรวมของรูปภาพเกินขีดจำกัดสำหรับการบันทึก กรุณาลดจำนวนหรือเลือกไฟล์ขนาดเล็กลง" };
   if (!areSafeImageSources(imageUrls)) return { ok: false as const, error: "รูปภาพต้องเป็น JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB และไม่เกิน 10 รูป" };
 
   return {
