@@ -175,6 +175,23 @@ export async function requestAppointmentAction(input: z.input<typeof simpleReque
   return { success: true, appointmentId: appointment.id };
 }
 
+export async function updateAppointmentRequestAction(appointmentId: string, input: z.input<typeof simpleRequestSchema>): Promise<{ success: true } | { success: false; error: string }> {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
+  const parsed = simpleRequestSchema.safeParse(input);
+  if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
+  const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, userId: session.id } });
+  if (!appointment || !["PENDING_APPROVAL"].includes(appointment.stage)) return { success: false, error: "แก้ไขคำขอนัดหมายนี้ไม่ได้แล้ว" };
+  const target = parsed.data.targetAdminUserId ? await getAdminResponderSummary(appointment.villageId, parsed.data.targetAdminUserId) : null;
+  if (parsed.data.targetAdminUserId && !target) return { success: false, error: "ผู้รับนัดหมายไม่ถูกต้อง" };
+  await prisma.$transaction([
+    prisma.appointment.update({ where: { id: appointment.id }, data: { title: parsed.data.title.trim(), description: [parsed.data.description?.trim(), parsed.data.preferredTime?.trim() ? `ช่วงเวลาที่สะดวก: ${parsed.data.preferredTime.trim()}` : null].filter(Boolean).join("\n") || null } }),
+    prisma.appointmentTimeline.create({ data: { appointmentId, actorId: session.id, action: "UPDATED", description: "ลูกบ้านแก้ไขคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } }),
+  ]);
+  revalidateAppointmentViews(appointmentId);
+  return { success: true };
+}
+
 const manualSuggestionSchema = z.object({ appointmentId: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/), endTime: z.string().regex(/^\d{2}:\d{2}$/), message: z.string().max(500).optional() });
 
 /** Admin proposes a one-off time; this creates no reusable availability. */
@@ -197,6 +214,18 @@ export async function proposeAppointmentTimeAction(input: z.input<typeof manualS
   await notifyUser(appointment.userId, appointment.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}`, { appointmentId: appointment.id });
   revalidateAppointmentViews(appointment.id);
   return { success: true };
+}
+
+const adminCreatedSchema = manualSuggestionSchema.omit({ appointmentId: true }).extend({ residentUserId: z.string(), title: z.string().min(3), description: z.string().optional() });
+export async function adminCreateAppointmentAction(input: z.input<typeof adminCreatedSchema>): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
+  const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
+  const parsed = adminCreatedSchema.safeParse(input); if (!parsed.success || (parsed.success && parsed.data.endTime <= parsed.data.startTime)) return { success: false, error: "กรอกข้อมูลนัดหมายให้ครบถ้วน" };
+  const admin = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } }); if (!admin) return { success: false, error: "ไม่พบหมู่บ้านที่คุณดูแล" };
+  const resident = await prisma.villageMembership.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" } }); if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านของคุณ" };
+  const date = new Date(`${parsed.data.date}T00:00:00.000Z`); const slot = await prisma.appointmentSlot.create({ data: { villageId: admin.villageId, date, startTime: parsed.data.startTime, endTime: parsed.data.endTime, maxCapacity: 1, note: "นัดหมายที่ผู้ใหญ่บ้านสร้าง" } });
+  const appointment = await prisma.appointment.create({ data: { villageId: admin.villageId, userId: resident.userId, title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date(), reviewNote: parsed.data.message?.trim() || null } });
+  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "TIME_SUGGESTED", description: "ผู้ใหญ่บ้านสร้างนัดหมายและเสนอวันเวลา", metadata: { adminCreated: true, adminMessage: parsed.data.message?.trim() || null } } });
+  await notifyUser(resident.userId, admin.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}`, { appointmentId: appointment.id }); revalidateAppointmentViews(appointment.id); return { success: true, appointmentId: appointment.id };
 }
 
 export async function createAppointmentAction(formData: FormData): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
@@ -709,7 +738,7 @@ export async function confirmSuggestionAction(
 }
 
 export async function rejectSuggestionAction(
-  appointmentId: string
+  appointmentId: string, reason: string
 ): Promise<{ success: true } | { success: false; error: string }> {
   "use server";
   const session = await getSessionContextFromServerCookies();
@@ -722,6 +751,8 @@ export async function rejectSuggestionAction(
   if (!appointment || appointment.userId !== session.id) {
     return { success: false, error: "ไม่พบนัดหมาย" };
   }
+  const cleanedReason = reason.trim();
+  if (cleanedReason.length < 10 || cleanedReason.length > 500) return { success: false, error: "กรุณาระบุเหตุผล 10–500 ตัวอักษร" };
 
   if (appointment.stage !== "TIME_SUGGESTED") {
     return { success: false, error: "นัดหมายนี้ไม่ได้อยู่ในสถานะรอยืนยันเวลา" };
@@ -729,7 +760,7 @@ export async function rejectSuggestionAction(
 
   await prisma.appointment.update({
     where: { id: appointmentId },
-    data: { stage: "PENDING_APPROVAL", slotId: null, scheduledAt: null, reviewNote: null },
+    data: { stage: "PENDING_APPROVAL", slotId: null, scheduledAt: null, reviewNote: cleanedReason },
   });
 
   await prisma.appointmentTimeline.create({
@@ -737,7 +768,7 @@ export async function rejectSuggestionAction(
       appointmentId,
       actorId: session.id,
       action: "TIME_CHANGE_REQUESTED",
-      description: "ลูกบ้านขอให้ผู้ใหญ่บ้านเสนอเวลาใหม่",
+      description: `ลูกบ้านขอให้ผู้ใหญ่บ้านเสนอเวลาใหม่: ${cleanedReason}`,
     },
   });
 

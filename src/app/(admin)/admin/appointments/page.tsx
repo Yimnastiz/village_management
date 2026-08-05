@@ -11,6 +11,7 @@ import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
+import { CreateAppointmentButton } from "./create-appointment-button";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; sort?: string; page?: string }>;
@@ -154,6 +155,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
         ]}
         actions={
           <>
+            <CreateAppointmentButton />
             <Link href="/admin/appointments/calendar">
               <Button size="sm" variant="outline">ปฏิทินนัดหมาย</Button>
             </Link>

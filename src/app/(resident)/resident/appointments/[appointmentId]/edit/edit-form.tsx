@@ -1,0 +1,8 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { updateAppointmentRequestAction } from "../../actions";
+export function EditAppointmentForm({ appointmentId, title: initialTitle, description: initialDescription }: { appointmentId: string; title: string; description: string }) { const router = useRouter(); const [title, setTitle] = useState(initialTitle); const [description, setDescription] = useState(initialDescription); const [error, setError] = useState<string | null>(null); const [pending, setPending] = useState(false); return <form className="space-y-4 rounded-xl border border-gray-200 bg-white p-5" onSubmit={async (event) => { event.preventDefault(); setPending(true); const result = await updateAppointmentRequestAction(appointmentId, { title, description }); if (!result.success) { setError(result.error); setPending(false); return; } router.push(`/resident/appointments/${appointmentId}`); router.refresh(); }}><Input label="เรื่องที่ต้องการนัด" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} /><Textarea label="รายละเอียด" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} />{error ? <p className="text-sm text-red-600">{error}</p> : null}<div className="flex gap-2"><Button type="submit" isLoading={pending}>บันทึก</Button><Button type="button" variant="outline" onClick={() => router.back()}>ยกเลิก</Button></div></form>; }

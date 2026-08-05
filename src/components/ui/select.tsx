@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { SelectHTMLAttributes, forwardRef } from "react";
+import { SelectHTMLAttributes, forwardRef, useMemo } from "react";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
@@ -12,6 +12,15 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, helperText, options, placeholder, id, ...props }, ref) => {
     const inputId = id ?? label;
+    const normalizedOptions = useMemo(() => {
+      const seen = new Set<string>();
+      return options.filter((option) => {
+        const value = option.value?.trim();
+        if (!value || seen.has(value)) return false;
+        seen.add(value);
+        return true;
+      });
+    }, [options]);
     return (
       <div className="w-full">
         {label && (
@@ -31,7 +40,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           {...props}
         >
           {placeholder && <option value="">{placeholder}</option>}
-          {options.map((opt) => (
+          {normalizedOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, XCircle, Clock, AlertCircle, Info } from "lucide-react";
 import { confirmSuggestionAction, rejectSuggestionAction } from "../actions";
 
@@ -19,6 +20,8 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
   const [isConfirming, setIsConfirming] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  const [showReason, setShowReason] = useState(false);
 
   if (stage === "TIME_SUGGESTED") {
     const handleConfirm = async () => {
@@ -36,7 +39,7 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
     const handleReject = async () => {
       setIsRejecting(true);
       setError(null);
-      const result = await rejectSuggestionAction(appointmentId);
+      const result = await rejectSuggestionAction(appointmentId, reason);
       if (!result.success) {
         setError(result.error);
         setIsRejecting(false);
@@ -76,16 +79,14 @@ export function AppointmentActions({ appointmentId, stage, suggestionMessage, wa
           >
             <CheckCircle className="h-4 w-4 mr-1" /> ยืนยันนัดหมาย
           </Button>
-          <Button
-            onClick={handleReject}
-            isLoading={isRejecting}
-            disabled={isConfirming}
+          <Button onClick={() => setShowReason(true)} disabled={isConfirming}
             variant="outline"
             className="flex-1"
           >
             <XCircle className="h-4 w-4 mr-1" /> ขอเปลี่ยนเวลา
           </Button>
         </div>
+        {showReason ? <div className="space-y-2 rounded-lg border border-blue-200 bg-white p-3"><Textarea label="เหตุผลที่ปฏิเสธหรือขอเปลี่ยนเวลา" value={reason} onChange={(event) => setReason(event.target.value)} rows={3} required helperText="กรุณาระบุ 10–500 ตัวอักษร" /><Button onClick={handleReject} isLoading={isRejecting} disabled={isConfirming || reason.trim().length < 10}>ส่งเหตุผลและขอเวลาใหม่</Button></div> : null}
       </div>
     );
   }

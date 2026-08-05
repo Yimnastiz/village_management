@@ -77,6 +77,7 @@ export function ResidentAppointmentCard(props: ResidentAppointmentCardProps) {
         <Link href={`/resident/appointments/${props.id}`}>
           <Button size="sm" variant="outline" className="w-full sm:w-auto">ดูรายละเอียด</Button>
         </Link>
+        {props.stage === "PENDING_APPROVAL" ? <Link href={`/resident/appointments/${props.id}/edit`}><Button size="sm" variant="outline" className="w-full sm:w-auto">แก้ไข</Button></Link> : null}
         {canCancel && (
           <Button
             size="sm"
