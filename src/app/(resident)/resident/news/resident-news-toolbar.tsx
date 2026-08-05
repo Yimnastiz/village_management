@@ -1,215 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { FilePlus2, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { FilterBar } from "@/components/ui/filter-bar";
+import { NewsFilterChip, NewsToolbar } from "@/components/news/news-toolbar";
 
-type NewsSource = "resident" | "admin";
 type NewsVisibilityValue = "PUBLIC" | "RESIDENT_ONLY";
 type NewsSort = "newest" | "oldest";
-type SourceValue = "all" | NewsSource;
+type SourceValue = "all" | "resident" | "admin";
+type Props = { keyword: string; source: SourceValue; selectedVisibilities: NewsVisibilityValue[]; sort: NewsSort; suggestionTitles: string[]; canSubmit: boolean };
 
-interface ResidentNewsToolbarProps {
-  keyword: string;
-  source: SourceValue;
-  selectedVisibilities: NewsVisibilityValue[];
-  sort: NewsSort;
-  suggestionTitles: string[];
-  canSubmit: boolean;
-}
-
-const sourceOptions: Array<{ value: SourceValue; label: string }> = [
-  { value: "all", label: "ทั้งหมด" },
-  { value: "admin", label: "จากแอดมิน" },
-  { value: "resident", label: "จากลูกบ้าน" },
-];
-
-const sortOptions: Array<{ value: NewsSort; label: string }> = [
-  { value: "newest", label: "ล่าสุดก่อน" },
-  { value: "oldest", label: "เก่าก่อน" },
-];
-
-const visibilityOptions: Array<{ value: NewsVisibilityValue; label: string }> = [
-  { value: "PUBLIC", label: "สาธารณะ" },
-  { value: "RESIDENT_ONLY", label: "ภายในหมู่บ้าน" },
-];
-
-function buildNewsHref(
-  nextSource: SourceValue,
-  nextVisibilities: NewsVisibilityValue[],
-  nextSort: NewsSort,
-  nextKeyword: string
-) {
+function href(source: SourceValue, visibilities: NewsVisibilityValue[], sort: NewsSort, keyword: string) {
   const params = new URLSearchParams();
-  const trimmedKeyword = nextKeyword.trim();
-  const normalizedVisibilities = Array.from(new Set(nextVisibilities)).sort();
-
-  if (nextSource !== "all") {
-    params.set("source", nextSource);
-  }
-
-  if (normalizedVisibilities.length > 0) {
-    params.set("visibility", normalizedVisibilities.join(","));
-  }
-
-  if (nextSort !== "newest") {
-    params.set("sort", nextSort);
-  }
-
-  if (trimmedKeyword) {
-    params.set("q", trimmedKeyword);
-  }
-
-  const queryString = params.toString();
-  return queryString ? `/resident/news?${queryString}` : "/resident/news";
+  if (source !== "all") params.set("source", source);
+  if (visibilities.length) params.set("visibility", Array.from(new Set(visibilities)).sort().join(","));
+  if (sort !== "newest") params.set("sort", sort);
+  if (keyword.trim()) params.set("q", keyword.trim());
+  const query = params.toString(); return query ? `/resident/news?${query}` : "/resident/news";
 }
 
-export function ResidentNewsToolbar({
-  keyword,
-  source,
-  selectedVisibilities,
-  sort,
-  suggestionTitles,
-  canSubmit,
-}: ResidentNewsToolbarProps) {
-  const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
-
-  const visibilitySet = useMemo(() => new Set(selectedVisibilities), [selectedVisibilities]);
-
-  const getVisibilityToggleHref = (visibilityToToggle: NewsVisibilityValue) => {
-    const nextSet = new Set(visibilitySet);
-
-    if (nextSet.has(visibilityToToggle)) {
-      nextSet.delete(visibilityToToggle);
-    } else {
-      nextSet.add(visibilityToToggle);
-    }
-
-    return buildNewsHref(source, Array.from(nextSet), sort, keyword);
+export function ResidentNewsToolbar({ keyword, source, selectedVisibilities, sort, suggestionTitles, canSubmit }: Props) {
+  const visibilitySet = new Set(selectedVisibilities);
+  const toggle = (value: NewsVisibilityValue) => {
+    const next = new Set(visibilitySet); if (next.has(value)) next.delete(value); else next.add(value);
+    return href(source, Array.from(next), sort, keyword);
   };
-
-  return (
-    <div className="sticky top-0 z-30 -mx-4 border-y border-gray-200 bg-gray-50/95 px-4 pb-3 pt-3 shadow-sm backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900">ข่าว/ประกาศ</h1>
-        {canSubmit ? <div className="flex items-center gap-2">
-          <Link href="/resident/news/requests">
-            <Button size="sm" variant="outline">คำขอของฉัน</Button>
-          </Link>
-          <Link href="/resident/news/requests/new">
-            <Button size="sm">ขอเพิ่มข่าว</Button>
-          </Link>
-        </div> : null}
-      </div>
-
-      <FilterBar className="mt-3" activeFilterCount={Number(source !== "all") + selectedVisibilities.length + Number(sort !== "newest")}>
-        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
-          <form action="/resident/news" className="flex items-center gap-2">
-            <input
-              type="hidden"
-              name="source"
-              value={source === "all" ? "" : source}
-            />
-            <input type="hidden" name="visibility" value={selectedVisibilities.join(",")} />
-            <input type="hidden" name="sort" value={sort} />
-
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"
-              aria-label="ค้นหาข่าว"
-              onClick={() => setSearchOpen((currentValue) => !currentValue)}
-            >
-              <Search className="h-4 w-4" />
-            </button>
-
-            {searchOpen && (
-              <div className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  name="q"
-                  list="resident-news-title-suggestions"
-                  placeholder="พิมพ์ชื่อข่าว"
-                  defaultValue={keyword}
-                  className="h-10 w-[min(14rem,calc(100vw-9rem))] rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
-                />
-                <Button type="submit" size="sm">ค้นหา</Button>
-              </div>
-            )}
-          </form>
-
-          {searchOpen && (
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100"
-              aria-label="ปิดค้นหา"
-              onClick={() => setSearchOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-
-          <datalist id="resident-news-title-suggestions">
-            {suggestionTitles.map((title) => (
-              <option key={title} value={title} />
-            ))}
-          </datalist>
-
-          <span className="ml-1 text-xs font-medium text-gray-500">แหล่งข่าว:</span>
-          {sourceOptions.map((option) => (
-            <Link
-              key={option.value}
-              href={buildNewsHref(option.value, selectedVisibilities, sort, keyword)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                source === option.value
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {option.label}
-            </Link>
-          ))}
-          <span className="ml-1 text-xs font-medium text-gray-500">การมองเห็น:</span>
-          {visibilityOptions.map((option) => (
-            <Link
-              key={option.value}
-              href={getVisibilityToggleHref(option.value)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                visibilitySet.has(option.value)
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {option.label}
-            </Link>
-          ))}
-          <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
-          {sortOptions.map((option) => (
-            <Link
-              key={option.value}
-              href={buildNewsHref(source, selectedVisibilities, option.value, keyword)}
-              className={cn(
-                "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
-                sort === option.value
-                  ? "bg-gray-800 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {option.label}
-            </Link>
-          ))}
-          <Link
-            href="/resident/news"
-            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
-          >
-            ล้างตัวกรอง
-          </Link>
-        </div>
-      </FilterBar>
-    </div>
-  );
+  const count = Number(source !== "all") + selectedVisibilities.length + Number(sort !== "newest");
+  return <NewsToolbar namespace="resident-news" title="ข่าว/ประกาศ" description="ข่าวสารและประกาศล่าสุดของหมู่บ้าน" searchAction="/resident/news" keyword={keyword} searchPlaceholder="ค้นหาชื่อข่าว" suggestionTitles={suggestionTitles} activeFilterCount={count} hiddenInputs={{ source: source === "all" ? "" : source, visibility: selectedVisibilities.join(","), sort: sort === "newest" ? "" : sort }} actions={canSubmit ? <><Link href="/resident/news/requests" aria-label="คำขอข่าวของฉัน"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอของฉัน</span></Button></Link><Link href="/resident/news/requests/new"><Button size="sm" className="h-10 px-2 sm:px-3"><FilePlus2 className="h-4 w-4" /><span className="ml-1 hidden min-[390px]:inline">ขอเพิ่มข่าว</span></Button></Link></> : undefined} filters={<><span className="text-xs font-semibold text-gray-500">แหล่งข่าว</span>{([['all','ทั้งหมด'],['admin','จากผู้ดูแล'],['resident','จากลูกบ้าน']] as const).map(([value,label]) => <NewsFilterChip key={value} href={href(value,selectedVisibilities,sort,keyword)} active={source===value}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">การมองเห็น</span>{([['PUBLIC','สาธารณะ'],['RESIDENT_ONLY','ภายในหมู่บ้าน']] as const).map(([value,label]) => <NewsFilterChip key={value} href={toggle(value)} active={visibilitySet.has(value)}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span>{([['newest','ล่าสุด'],['oldest','เก่าสุด']] as const).map(([value,label]) => <NewsFilterChip key={value} href={href(source,selectedVisibilities,value,keyword)} active={sort===value}>{label}</NewsFilterChip>)}<NewsFilterChip href="/resident/news" active={false}>ล้างตัวกรอง</NewsFilterChip></>} />;
 }

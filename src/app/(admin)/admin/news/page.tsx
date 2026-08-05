@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { Newspaper, Plus } from "lucide-react";
+import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { NewsCard } from "@/components/news/news-card";
 import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatNewsAuthor } from "@/lib/news-author";
+import { AdminNewsToolbar } from "./admin-news-toolbar";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
@@ -112,71 +111,9 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
 
   const suggestionTitles = Array.from(new Set(newsList.map((news) => news.title))).slice(0, 12);
 
-  function buildNewsHref(next: { q?: string; stage?: string; visibility?: string; sort?: string }) {
-    const query = new URLSearchParams();
-    const q = next.q?.trim() ?? "";
-    const stage = next.stage ?? "ALL";
-    const visibility = next.visibility ?? "ALL";
-    const sort = next.sort ?? "newest";
-
-    if (q) query.set("q", q);
-    if (stage !== "ALL") query.set("stage", stage);
-    if (visibility !== "ALL") query.set("visibility", visibility);
-    if (sort !== "newest") query.set("sort", sort);
-
-    const queryString = query.toString();
-    return queryString ? `/admin/news?${queryString}` : "/admin/news";
-  }
-
   return (
     <div className="space-y-6">
-      <AdminListToolbar
-        title="จัดการข่าว"
-        description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น"
-        searchAction="/admin/news"
-        keyword={keyword}
-        searchPlaceholder="ค้นหาชื่อข่าวหรือสรุปข่าว"
-        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "newest" ? "" : activeSort }}
-        suggestionTitles={suggestionTitles}
-        groups={[
-          {
-            label: "สถานะ",
-            options: [
-              { label: "ทั้งหมด", href: buildNewsHref({ q: keyword, stage: "ALL", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ALL" },
-              { label: "ร่าง", href: buildNewsHref({ q: keyword, stage: "DRAFT", visibility: activeVisibility, sort: activeSort }), active: activeStage === "DRAFT" },
-              { label: "เผยแพร่", href: buildNewsHref({ q: keyword, stage: "PUBLISHED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "PUBLISHED" },
-              { label: "เก็บถาวร", href: buildNewsHref({ q: keyword, stage: "ARCHIVED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ARCHIVED" },
-            ],
-          },
-          {
-            label: "การมองเห็น",
-            options: [
-              { label: "ทั้งหมด", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: "ALL", sort: activeSort }), active: activeVisibility === "ALL" },
-              { label: "สาธารณะ", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: "PUBLIC", sort: activeSort }), active: activeVisibility === "PUBLIC" },
-              { label: "ลูกบ้าน", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: "RESIDENT_ONLY", sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
-            ],
-          },
-          {
-            label: "เรียง",
-            options: [
-              { label: "ล่าสุดก่อน", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest" },
-              { label: "เก่าก่อน", href: buildNewsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "oldest" }), active: activeSort === "oldest" },
-            ],
-          },
-        ]}
-        actions={
-          <>
-            <Link href="/admin/news/requests">
-              <Button size="sm" variant="outline">คำขอข่าวจากลูกบ้าน</Button>
-            </Link>
-            <Link href="/admin/news/new">
-              <Button size="sm">
-                <Plus className="h-4 w-4 mr-1" /> เพิ่มข่าว
-              </Button>
-            </Link>
-          </>
-        }
-      />
+      <AdminNewsToolbar keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} />
 
       {visibleSuperAdminAnnouncements.length > 0 ? (
         <section className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 sm:p-5">
