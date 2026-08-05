@@ -224,7 +224,8 @@ export async function adminCreateAppointmentAction(input: z.input<typeof adminCr
   const resident = await prisma.villageMembership.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" } }); if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านของคุณ" };
   const date = new Date(`${parsed.data.date}T00:00:00.000Z`); const slot = await prisma.appointmentSlot.create({ data: { villageId: admin.villageId, date, startTime: parsed.data.startTime, endTime: parsed.data.endTime, maxCapacity: 1, note: "นัดหมายที่ผู้ใหญ่บ้านสร้าง" } });
   const appointment = await prisma.appointment.create({ data: { villageId: admin.villageId, userId: resident.userId, title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date(), reviewNote: parsed.data.message?.trim() || null } });
-  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "TIME_SUGGESTED", description: "ผู้ใหญ่บ้านสร้างนัดหมายและเสนอวันเวลา", metadata: { adminCreated: true, adminMessage: parsed.data.message?.trim() || null } } });
+  const creator = await getAdminResponderSummary(admin.villageId, session.id);
+  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "TIME_SUGGESTED", description: "ผู้ใหญ่บ้านสร้างนัดหมายและเสนอวันเวลา", metadata: { adminCreated: true, adminMessage: parsed.data.message?.trim() || null, creatorName: creator?.name ?? null, creatorRole: creator?.role ?? null } } });
   await notifyUser(resident.userId, admin.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}`, { appointmentId: appointment.id }); revalidateAppointmentViews(appointment.id); return { success: true, appointmentId: appointment.id };
 }
 
@@ -837,7 +838,7 @@ export async function adminCancelAppointmentAction(
 
   await prisma.appointment.update({
     where: { id: appointmentId },
-    data: { stage: "CANCELLED" },
+    data: { stage: "CANCELLED", reviewNote: reason.trim(), reviewedBy: session.id, reviewedAt: new Date() },
   });
 
   await prisma.appointmentTimeline.create({
@@ -845,7 +846,8 @@ export async function adminCancelAppointmentAction(
       appointmentId,
       actorId: session.id,
       action: "CANCELLED",
-      description: `ผู้บริหารยกเลิกนัดหมาย${reason ? ` - ${reason}` : ""}`,
+      description: `ผู้บริหารยกเลิกนัดหมาย - ${reason.trim()}`,
+      metadata: { reason: reason.trim() },
     },
   });
 
