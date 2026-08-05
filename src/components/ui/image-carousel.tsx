@@ -1,73 +1,13 @@
 "use client";
-
-import { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-type ImageCarouselProps = {
-  images: string[];
-  altPrefix: string;
-};
-
+type ImageCarouselProps = { images: string[]; altPrefix: string };
 export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
-  const [index, setIndex] = useState(0);
-
-  if (images.length === 0) return null;
-
-  const prev = () => setIndex((current) => (current - 1 + images.length) % images.length);
-  const next = () => setIndex((current) => (current + 1) % images.length);
-
-  return (
-    <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={images[index]}
-          alt={`${altPrefix} ${index + 1}`}
-          className="w-full max-h-[420px] object-cover"
-        />
-
-        {images.length > 1 && (
-          <>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-      </div>
-
-      {images.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {images.map((url, thumbnailIndex) => (
-            <button
-              key={`${url}-${thumbnailIndex}`}
-              type="button"
-              onClick={() => setIndex(thumbnailIndex)}
-              className={`rounded-md overflow-hidden border ${
-                thumbnailIndex === index ? "border-green-500" : "border-gray-200"
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={`${altPrefix} thumb ${thumbnailIndex + 1}`} className="h-14 w-20 object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  const [index, setIndex] = useState(0); const [open, setOpen] = useState(false); const triggerRef = useRef<HTMLButtonElement>(null); const closeRef = useRef<HTMLButtonElement>(null);
+  const previous = () => setIndex((value) => (value - 1 + images.length) % images.length); const next = () => setIndex((value) => (value + 1) % images.length);
+  useEffect(() => { if (!open) return; const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); if (event.key === "ArrowLeft") previous(); if (event.key === "ArrowRight") next(); }; document.addEventListener("keydown", onKey); const overflow = document.body.style.overflow; document.body.style.overflow = "hidden"; closeRef.current?.focus(); return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; triggerRef.current?.focus(); }; }, [open, images.length]);
+  if (!images.length) return null;
+  return <div className="space-y-3"><div className="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-50"><button ref={triggerRef} type="button" onClick={() => setOpen(true)} aria-label={`เปิดดูรูปที่ ${index + 1} แบบขยาย`} className="block w-full focus:outline-none focus:ring-2 focus:ring-green-600">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} className="max-h-[420px] w-full object-contain" /></button>{images.length > 1 && <><Button type="button" variant="outline" size="sm" aria-label="รูปก่อนหน้า" onClick={previous} className="absolute left-2 top-1/2 h-10 w-10 -translate-y-1/2 bg-white/90"><ChevronLeft /></Button><Button type="button" variant="outline" size="sm" aria-label="รูปถัดไป" onClick={next} className="absolute right-2 top-1/2 h-10 w-10 -translate-y-1/2 bg-white/90"><ChevronRight /></Button></>}</div>{images.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">{images.map((url, itemIndex) => <button key={`${url}-${itemIndex}`} type="button" onClick={() => setIndex(itemIndex)} aria-label={`เลือกรูปที่ ${itemIndex + 1}`} className={`shrink-0 overflow-hidden rounded-md border ${itemIndex === index ? "border-green-500" : "border-gray-200"}`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={url} alt="" className="h-14 w-20 object-cover" /></button>)}</div>}{open && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-3 sm:p-8" role="dialog" aria-modal="true" aria-label="ดูรูปภาพแบบขยาย" onMouseDown={(event) => { if (event.target === event.currentTarget) setOpen(false); }}><button ref={closeRef} type="button" aria-label="ปิดการดูรูปภาพ" onClick={() => setOpen(false)} className="absolute right-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-800"><X /></button>{images.length > 1 && <Button type="button" aria-label="รูปก่อนหน้า" variant="outline" onClick={previous} className="absolute left-2 top-1/2 h-11 w-11 -translate-y-1/2 bg-white/90 sm:left-6"><ChevronLeft /></Button>}<div className="flex max-h-[calc(100dvh-2rem)] max-w-[calc(100vw-2rem)] flex-col items-center">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} className="max-h-[calc(100dvh-5rem)] max-w-full object-contain" /><span className="mt-2 rounded bg-black/60 px-2 py-1 text-sm text-white">{index + 1} / {images.length}</span></div>{images.length > 1 && <Button type="button" aria-label="รูปถัดไป" variant="outline" onClick={next} className="absolute right-2 top-1/2 h-11 w-11 -translate-y-1/2 bg-white/90 sm:right-6"><ChevronRight /></Button>}</div>}</div>;
 }
+

@@ -92,7 +92,7 @@ export function ResidentNewsToolbar({
   };
 
   return (
-    <div className="sticky top-16 z-30 -mx-6 border-b border-gray-200 bg-gray-50/95 px-6 pb-4 pt-3 backdrop-blur">
+    <div className="sticky top-0 z-30 -mx-4 border-y border-gray-200 bg-gray-50/95 px-4 pb-3 pt-3 shadow-sm backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-gray-900">ข่าว/ประกาศ</h1>
         {canSubmit ? <div className="flex items-center gap-2">
@@ -133,7 +133,7 @@ export function ResidentNewsToolbar({
                   list="resident-news-title-suggestions"
                   placeholder="พิมพ์ชื่อข่าว"
                   defaultValue={keyword}
-                  className="h-9 w-56 rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
+                  className="h-10 w-[min(14rem,calc(100vw-9rem))] rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
                 />
                 <Button type="submit" size="sm">ค้นหา</Button>
               </div>

@@ -9,6 +9,7 @@ import { NewsCard } from "@/components/news/news-card";
 import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { formatNewsAuthor } from "@/lib/news-author";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
@@ -73,7 +74,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       publishedAt: true,
       createdAt: true,
       author: {
-        select: { name: true },
+        select: { name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
       },
     },
   });
@@ -212,7 +213,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               badge={<><Badge variant={stageVariant[news.stage] ?? "default"}>{NEWS_STAGE_LABELS[news.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge></>}
-              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${news.author?.name || "ไม่ระบุผู้สร้าง"}`}
+              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
             />
           ))}
         </div>

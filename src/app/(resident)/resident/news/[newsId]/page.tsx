@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsSaveButton } from "./news-save-button";
+import { formatNewsAuthor } from "@/lib/news-author";
 
 interface PageProps {
   params: Promise<{ newsId: string }>;
@@ -33,7 +34,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
       include: {
         author: {
           select: {
-            name: true,
+            name: true, systemRole: true,
             memberships: {
               where: {
                 villageId: membership.villageId,
@@ -68,7 +69,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
   if (news.coverUrl && imageUrls.includes(news.coverUrl)) imageUrls.splice(0, 0, ...imageUrls.splice(imageUrls.indexOf(news.coverUrl), 1));
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-1 sm:px-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/resident/news"
@@ -100,7 +101,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
             {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            ผู้สร้างข่าว: {news.author?.name || "ไม่ระบุ"}
+            ผู้สร้างข่าว: {formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}
           </p>
           {news.summary && <p className="text-sm text-gray-600 mt-3">{news.summary}</p>}
         </div>
@@ -112,7 +113,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
         )}
 
         <div className="border-t pt-6">
-          <p className="whitespace-pre-wrap text-gray-700 leading-7">{news.content}</p>
+          <p className="break-words whitespace-pre-wrap text-gray-700 leading-7">{news.content}</p>
         </div>
       </div>
     </div>

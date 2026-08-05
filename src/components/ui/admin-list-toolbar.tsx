@@ -51,7 +51,7 @@ export function AdminListToolbar({
   );
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 space-y-3 border-y border-gray-200 bg-gray-50/95 px-4 py-3 shadow-sm backdrop-blur md:static md:mx-0 md:space-y-4 md:border-0 md:bg-transparent md:p-0 md:shadow-none">
+    <div className="sticky top-0 z-30 -mx-4 space-y-3 border-y border-gray-200 bg-gray-50/95 px-4 py-3 shadow-sm backdrop-blur md:mx-0 md:space-y-4 md:border md:px-4">
       <PageHeader title={title} description={description} actions={actions} />
 
       <div>
@@ -79,7 +79,7 @@ export function AdminListToolbar({
                   list={suggestionTitles.length > 0 ? datalistId : undefined}
                   placeholder={searchPlaceholder}
                   defaultValue={keyword}
-                  className="h-9 w-56 rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
+                  className="h-10 w-[min(14rem,calc(100vw-9rem))] rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
                 />
                 <Button type="submit" size="sm">ค้นหา</Button>
               </div>

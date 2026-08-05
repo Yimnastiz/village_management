@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsDeleteButton } from "./news-delete-button";
+import { formatNewsAuthor } from "@/lib/news-author";
 
 interface PageProps {
   params: Promise<{ newsId: string }>;
@@ -35,9 +36,7 @@ export default async function AdminNewsDetailPage({ params }: PageProps) {
   const news = await prisma.news.findFirst({
     where: { id: newsId, villageId: membership.villageId },
     include: {
-      author: {
-        select: { name: true },
-      },
+      author: { select: { name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } } },
     },
   });
   if (!news) notFound();
@@ -48,7 +47,7 @@ export default async function AdminNewsDetailPage({ params }: PageProps) {
   if (news.coverUrl && imageUrls.includes(news.coverUrl)) imageUrls.splice(0, 0, ...imageUrls.splice(imageUrls.indexOf(news.coverUrl), 1));
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-1 sm:px-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/admin/news" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> กลับรายการข่าว
@@ -79,7 +78,7 @@ export default async function AdminNewsDetailPage({ params }: PageProps) {
             : `สร้างเมื่อ ${news.createdAt.toLocaleDateString("th-TH")}`}
         </p>
         <p className="text-sm text-gray-500 mt-1">
-          ผู้สร้างข่าว: {news.author?.name || (news.authorId ? "ผู้ใช้ที่ไม่พบข้อมูล" : "ไม่ระบุ")}
+          ผู้สร้างข่าว: {formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}
         </p>
 
         {news.summary && <p className="mt-4 text-gray-600">{news.summary}</p>}
@@ -91,7 +90,7 @@ export default async function AdminNewsDetailPage({ params }: PageProps) {
         )}
 
         <div className="mt-6 border-t pt-6">
-          <p className="whitespace-pre-wrap text-gray-700 leading-7">{news.content}</p>
+          <p className="break-words whitespace-pre-wrap text-gray-700 leading-7">{news.content}</p>
         </div>
       </div>
     </div>
