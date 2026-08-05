@@ -316,7 +316,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   };
 
   return (
-    <div className="mx-auto max-w-2xl rounded-2xl border border-gray-200 bg-white p-6 shadow-xl shadow-green-950/5 sm:p-8">
+    <div className="mx-auto max-w-2xl rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
       <div className="mb-3">
         <Link href="/landing" className="text-sm font-medium text-green-700 hover:underline">
           กลับไปหน้าเว็บไซต์หมู่บ้าน

@@ -132,10 +132,10 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
   };
 
   return (
-    <div className="mx-auto mt-10 max-w-5xl rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur md:p-6">
-      <div className="mb-4 flex items-start gap-3 text-left">
-        <div className="rounded-2xl bg-white/15 p-3">
-          <MapPinned className="h-6 w-6 text-white" />
+    <div className="mx-auto mt-8 max-w-5xl rounded-2xl border border-white/15 bg-white/10 p-4 shadow-xl backdrop-blur sm:p-5">
+      <div className="mb-3 flex items-start gap-2.5 text-left">
+        <div className="rounded-xl bg-white/15 p-2">
+          <MapPinned className="h-5 w-5 text-white" />
         </div>
         <div>
           <h2 className="text-xl font-semibold text-white">ค้นหาหน้าสาธารณะของหมู่บ้าน</h2>
@@ -145,7 +145,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         <SuggestCombobox
           id="public-province"
           label="จังหวัด"
@@ -154,7 +154,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           placeholder="เลือกหรือพิมพ์จังหวัด"
           labelClassName="text-white"
           helperClassName="text-green-100"
-          inputClassName="bg-white text-gray-900"
+          inputClassName="h-10 bg-white py-2 text-gray-900"
           onChange={(nextValue) => {
             setProvince(nextValue);
             setDistrict("");
@@ -173,7 +173,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           disabled={!province}
           labelClassName="text-white"
           helperClassName="text-green-100"
-          inputClassName="bg-white text-gray-900"
+          inputClassName="h-10 bg-white py-2 text-gray-900"
           onChange={(nextValue) => {
             setDistrict(nextValue);
             setSubdistrict("");
@@ -191,7 +191,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           disabled={!district}
           labelClassName="text-white"
           helperClassName="text-green-100"
-          inputClassName="bg-white text-gray-900"
+          inputClassName="h-10 bg-white py-2 text-gray-900"
           onChange={(nextValue) => {
             setSubdistrict(nextValue);
             setVillageName("");
@@ -220,7 +220,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             emptyMessage="ไม่พบชื่อหมู่บ้านในเงื่อนไขที่เลือก"
             labelClassName="text-white"
             helperClassName="text-green-100"
-            inputClassName="bg-white text-gray-900"
+            inputClassName="h-10 bg-white py-2 text-gray-900"
             onChange={(nextValue) => {
               setVillageName(nextValue);
               setError(null);
@@ -228,8 +228,8 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           />
         </div>
 
-        <div className="xl:col-span-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-          <div className="text-left text-sm text-green-100">
+        <div className="xl:col-span-5 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-left text-xs text-green-100 sm:text-sm">
             {matchedVillage ? (
               <span>
                 หมู่บ้านที่เลือก: <strong className="text-white">{matchedVillage.name}</strong>
@@ -240,7 +240,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           </div>
           <button
             type="submit"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-green-800 transition hover:bg-green-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-green-800 transition hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-green-800"
           >
             <Search className="h-4 w-4" />
             ดูข้อมูลหมู่บ้าน

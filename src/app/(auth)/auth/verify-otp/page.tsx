@@ -333,7 +333,7 @@ function VerifyOTPContent() {
   };
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-lg sm:p-8">
+    <div className="mx-auto max-w-md rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
       <h2 className="mb-2 text-xl font-bold text-gray-900">ยืนยันรหัส OTP</h2>
       <p className="mb-2 text-sm text-gray-500">กรอกรหัส OTP 6 หลักที่ส่งไปยังเบอร์ {maskedPhone}</p>
       <p className={`mb-6 text-xs ${otpSeconds === 0 ? "text-red-600" : "text-gray-400"}`}>{otpSeconds === 0 ? "OTP หมดอายุแล้ว กรุณากดส่งอีกครั้ง" : <>รหัสจะหมดอายุใน {Math.floor(otpSeconds / 60)}:{String(otpSeconds % 60).padStart(2, "0")} นาที</>}</p>

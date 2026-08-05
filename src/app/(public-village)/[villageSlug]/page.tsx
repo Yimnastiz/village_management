@@ -1,171 +1,81 @@
 import Link from "next/link";
-import { Newspaper, Calendar, Eye, Phone, Users, Home as HomeIcon, Compass, HeartPulse, UserCheck, MapPin, Mail, Info } from "lucide-react";
+import { Calendar, Compass, Eye, HeartPulse, Info, Mail, MapPin, Newspaper, Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { getSlugVariants, normalizeVillageSlugParam } from "@/lib/village-slug";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
 }
 
+/** Guest home: deliberately uses only village-managed public fields and public places. */
 export default async function VillageHomePage({ params }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
-
   const village = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) } },
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      address: true,
-      phone: true,
-      email: true,
-    },
+    where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
+    select: { id: true, name: true, description: true, address: true, phone: true, email: true },
   });
   if (!village) notFound();
 
-  const [residentCount, houseCount, templeCount, clinicCount, headmanMembership] = await Promise.all([
-    prisma.person.count({ where: { villageId: village.id, status: "ACTIVE" } }),
-    prisma.house.count({ where: { villageId: village.id } }),
+  const [templeCount, clinicCount] = await Promise.all([
     prisma.villagePlace.count({ where: { villageId: village.id, category: "TEMPLE", isPublic: true } }),
     prisma.villagePlace.count({ where: { villageId: village.id, category: "CLINIC", isPublic: true } }),
-    prisma.villageMembership.findFirst({
-      where: { villageId: village.id, role: "HEADMAN", status: "ACTIVE" },
-      include: { user: true },
-    }),
   ]);
 
+  const links = [
+    { href: `/${villageSlug}/news`, icon: Newspaper, label: "ข่าวสาร" },
+    { href: `/${villageSlug}/calendar`, icon: Calendar, label: "ปฏิทินกิจกรรม" },
+    { href: `/${villageSlug}/transparency`, icon: Eye, label: "ความโปร่งใส" },
+    { href: `/${villageSlug}/contacts`, icon: Phone, label: "ช่องทางติดต่อ" },
+  ];
+
   return (
-    <div className="space-y-8">
-      {/* Banner */}
-      <div className="bg-gradient-to-r from-green-600 to-green-800 rounded-2xl p-8 text-white shadow-sm relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1),transparent_50%)]" />
-        <div className="relative z-10">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">ยินดีต้อนรับสู่หมู่บ้าน {village.name}</h1>
-          <p className="text-green-100 text-sm sm:text-base">ข้อมูล ข่าวสาร และบริการสำหรับชุมชนแบบครบวงจร</p>
+    <div className="space-y-6 sm:space-y-8">
+      <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-700 to-teal-800 p-5 text-white shadow-sm sm:p-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.13),transparent_48%)]" />
+        <div className="relative">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-100">ข้อมูลสาธารณะของชุมชน</p>
+          <h1 className="text-2xl font-bold sm:text-3xl">ยินดีต้อนรับสู่หมู่บ้าน {village.name}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50">ข่าวสาร กิจกรรม และช่องทางติดต่อที่หมู่บ้านเผยแพร่สู่สาธารณะ</p>
         </div>
-      </div>
+      </section>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          { href: `/${villageSlug}/news`, icon: Newspaper, label: "ข่าวสาร" },
-          { href: `/${villageSlug}/calendar`, icon: Calendar, label: "ปฏิทินกิจกรรม" },
-          { href: `/${villageSlug}/transparency`, icon: Eye, label: "ความโปร่งใส" },
-          { href: `/${villageSlug}/contacts`, icon: Phone, label: "ติดต่อ" },
-        ].map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="bg-white rounded-xl border border-gray-200 p-6 text-center hover:shadow-md hover:border-green-300 transition-all duration-200 group"
-          >
-            <div className="inline-flex p-3 bg-green-50 rounded-xl mb-3 group-hover:bg-green-100 transition-colors">
-              <item.icon className="h-5 w-5 text-green-600 group-hover:scale-110 transition-transform" />
-            </div>
-            <p className="text-sm font-semibold text-gray-700 group-hover:text-green-700 transition-colors">{item.label}</p>
-          </Link>
-        ))}
-      </div>
+      <nav aria-label="ข้อมูลสาธารณะ" className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        {links.map((item) => <Link key={item.href} href={item.href} className="group rounded-xl border border-gray-200 bg-white p-4 text-center transition hover:border-emerald-300 hover:shadow-md sm:p-5">
+          <span className="mx-auto mb-2 inline-flex rounded-xl bg-emerald-50 p-2.5"><item.icon className="h-5 w-5 text-emerald-700" /></span>
+          <span className="block text-sm font-semibold text-gray-700 group-hover:text-emerald-800">{item.label}</span>
+        </Link>)}
+      </nav>
 
-      {/* Info & Stats Dashboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Quick Stats */}
-        <div className="lg:col-span-2 space-y-6">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <Info className="h-5 w-5 text-green-600" />
-            สถิติและข้อมูลพื้นฐานของหมู่บ้าน
-          </h2>
-          
-          <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="space-y-5 lg:col-span-2">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900"><Info className="h-5 w-5 text-emerald-700" />ข้อมูลสาธารณะของหมู่บ้าน</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             {[
-              { label: "ประชากร (คน)", value: residentCount, icon: Users, color: "from-blue-500 to-indigo-600", bg: "bg-blue-50" },
-              { label: "ครัวเรือน (หลัง)", value: houseCount, icon: HomeIcon, color: "from-amber-500 to-orange-600", bg: "bg-amber-50" },
-              { label: "วัดและศาสนสถาน (แห่ง)", value: templeCount, icon: Compass, color: "from-emerald-500 to-teal-600", bg: "bg-emerald-50" },
-              { label: "โรงพยาบาล/คลินิก (แห่ง)", value: clinicCount, icon: HeartPulse, color: "from-rose-500 to-pink-600", bg: "bg-rose-50" },
-            ].map((stat, i) => (
-              <div
-                key={i}
-                className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow"
-              >
-                <div className={`p-3 rounded-lg ${stat.bg}`}>
-                  <stat.icon className="h-6 w-6 text-gray-700" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500">{stat.label}</p>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-800 mt-0.5">{stat.value}</p>
-                </div>
-              </div>
-            ))}
+              { label: "วัดและศาสนสถาน", value: templeCount, icon: Compass, tone: "bg-emerald-50 text-emerald-700" },
+              { label: "โรงพยาบาล/คลินิก", value: clinicCount, icon: HeartPulse, tone: "bg-sky-50 text-sky-700" },
+            ].map((stat) => <div key={stat.label} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+              <span className={`rounded-xl p-2.5 ${stat.tone}`}><stat.icon className="h-5 w-5" /></span>
+              <div><p className="text-xs font-medium text-gray-500">{stat.label}</p><p className="mt-0.5 text-xl font-bold text-gray-900">{stat.value}</p></div>
+            </div>)}
           </div>
+          <article className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+            <h3 className="font-semibold text-gray-900">เกี่ยวกับหมู่บ้าน</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-600">{village.description || `ยินดีต้อนรับสู่หมู่บ้าน ${village.name} แหล่งข้อมูลและบริการออนไลน์สำหรับชุมชน`}</p>
+          </article>
+        </section>
 
-          {/* Description / About */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              เกี่ยวกับหมู่บ้าน
-            </h3>
-            <p className="text-sm text-gray-600 leading-relaxed">
-              {village.description || `ยินดีต้อนรับสู่หมู่บ้าน ${village.name} แหล่งข้อมูลและบริการออนไลน์ที่มุ่งอำนวยความสะดวกให้แก่ทุกคนในชุมชน`}
-            </p>
+        <aside className="space-y-5">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900"><Phone className="h-5 w-5 text-emerald-700" />ช่องทางติดต่อสาธารณะ</h2>
+          <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            {village.address && <div className="flex gap-3 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" /><span className="text-gray-600">{village.address}</span></div>}
+            {village.phone && <div className="flex gap-3 text-sm"><Phone className="h-4 w-4 shrink-0 text-gray-400" /><a href={`tel:${village.phone}`} className="text-emerald-700 hover:underline">{village.phone}</a></div>}
+            {village.email && <div className="flex gap-3 text-sm"><Mail className="h-4 w-4 shrink-0 text-gray-400" /><a href={`mailto:${village.email}`} className="break-all text-emerald-700 hover:underline">{village.email}</a></div>}
+            {!village.address && !village.phone && !village.email && <p className="text-sm text-gray-500">ยังไม่มีช่องทางติดต่อที่เผยแพร่สาธารณะ</p>}
           </div>
-        </div>
-
-        {/* Right: Headman & Contact Details */}
-        <div className="space-y-6">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <UserCheck className="h-5 w-5 text-green-600" />
-            ผู้ใหญ่บ้านและติดต่อ
-          </h2>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6 shadow-sm">
-            {/* Headman Profile */}
-            <div className="flex items-center gap-4 border-b border-gray-100 pb-4">
-              <div className="h-14 w-14 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-700 font-bold text-lg shrink-0">
-                {headmanMembership?.user?.name ? headmanMembership.user.name.charAt(0) : "ผ"}
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">ผู้ใหญ่บ้าน</p>
-                <p className="font-bold text-gray-900 truncate mt-0.5">
-                  {headmanMembership?.user?.name || "ไม่ระบุข้อมูล"}
-                </p>
-                {headmanMembership?.user?.phoneNumber && (
-                  <p className="text-xs text-gray-500 mt-1">โทร: {headmanMembership.user.phoneNumber}</p>
-                )}
-              </div>
-            </div>
-
-            {/* General Contact Info */}
-            <div className="space-y-3 text-sm">
-              {village.address && (
-                <div className="flex gap-3">
-                  <MapPin className="h-4 w-4 text-gray-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-gray-700">ที่ทำการหมู่บ้าน</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{village.address}</p>
-                  </div>
-                </div>
-              )}
-              {village.phone && (
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-gray-400 shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500">เบอร์โทรศัพท์: {village.phone}</p>
-                  </div>
-                </div>
-              )}
-              {village.email && (
-                <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-gray-400 shrink-0" />
-                  <div>
-                    <p className="text-xs text-gray-500">อีเมล: {village.email}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );
 }
-

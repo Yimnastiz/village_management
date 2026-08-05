@@ -10,7 +10,7 @@ const mockVillages = [
 export default function SelectVillagePage() {
   const router = useRouter();
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8">
+    <div className="mx-auto max-w-md rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
       <h2 className="text-xl font-bold text-gray-900 mb-2">เลือกหมู่บ้าน</h2>
       <p className="text-sm text-gray-500 mb-6">คุณมีสมาชิกภาพในหลายหมู่บ้าน กรุณาเลือก</p>
       <div className="space-y-3">
