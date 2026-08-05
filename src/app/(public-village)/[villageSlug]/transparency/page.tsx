@@ -19,7 +19,7 @@ export default async function TransparencyPage({ params, searchParams }: PagePro
   const sort = query.sort === "date_asc" ? "date_asc" : "date_desc";
 
   const village = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) } },
+    where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
     select: { id: true, name: true, slug: true },
   });
   if (!village) notFound();
@@ -31,10 +31,12 @@ export default async function TransparencyPage({ params, searchParams }: PagePro
       visibility: "PUBLIC",
       ...(keyword
         ? {
-            title: {
-              contains: keyword,
-              mode: "insensitive" as const,
-            },
+            OR: [
+              { title: { contains: keyword, mode: "insensitive" as const } },
+              { description: { contains: keyword, mode: "insensitive" as const } },
+              { category: { contains: keyword, mode: "insensitive" as const } },
+              { fiscalYear: { contains: keyword, mode: "insensitive" as const } },
+            ],
           }
         : {}),
     },

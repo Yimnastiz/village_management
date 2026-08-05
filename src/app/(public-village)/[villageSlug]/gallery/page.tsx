@@ -17,7 +17,7 @@ export default async function Page({ params, searchParams }: PageProps) {
   const sort = query.sort === "oldest" ? "oldest" : "newest";
 
   const village = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) } },
+    where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
     select: { id: true, name: true },
   });
   if (!village) notFound();
@@ -28,10 +28,10 @@ export default async function Page({ params, searchParams }: PageProps) {
       isPublic: true,
       ...(keyword
         ? {
-            title: {
-              contains: keyword,
-              mode: "insensitive" as const,
-            },
+            OR: [
+              { title: { contains: keyword, mode: "insensitive" as const } },
+              { description: { contains: keyword, mode: "insensitive" as const } },
+            ],
           }
         : {}),
     },

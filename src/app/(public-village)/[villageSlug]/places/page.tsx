@@ -41,7 +41,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
   const pageSize = 9;
 
   const village = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) } },
+    where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
     select: { id: true, name: true, slug: true },
   });
   if (!village) notFound();

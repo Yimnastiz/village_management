@@ -38,7 +38,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
   const village = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(villageSlug) } },
+    where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
     select: { id: true, name: true },
   });
   if (!village) notFound();
