@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { NotificationItem } from "./notification-item";
 import { MarkAllReadButton } from "./mark-all-read-button";
+import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 
 export default async function ResidentNotificationsPage() {
   const session = await getSessionContextFromServerCookies();
@@ -27,18 +28,12 @@ export default async function ResidentNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">การแจ้งเตือน</h1>
-          {unreadCount > 0 && (
-            <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              {unreadCount} ข้อความใหม่
-            </span>
-          )}
-        </div>
-        {unreadCount > 0 && <MarkAllReadButton />}
-      </div>
+      <ResidentPageToolbar
+        namespace="resident-notifications"
+        title="การแจ้งเตือน"
+        description={unreadCount > 0 ? `${unreadCount} ข้อความใหม่` : undefined}
+        actions={unreadCount > 0 ? <MarkAllReadButton /> : undefined}
+      />
 
       {notifications.length === 0 ? (
         <EmptyState icon={Bell} title="ยังไม่มีการแจ้งเตือน" />

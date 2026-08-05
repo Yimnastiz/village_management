@@ -3,8 +3,8 @@ import { BookmarkCheck, AlertCircle, Images, Download, ShieldCheck, PhoneCall, N
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { FilterBar } from "@/components/ui/filter-bar";
-import { PageHeader } from "@/components/ui/page-header";
+import { NewsFilterChip } from "@/components/news/news-toolbar";
+import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 import { NEWS_VISIBILITY_LABELS, ISSUE_STAGE_LABELS, VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -71,39 +71,13 @@ export default async function SavedPage({
 
   return (
     <div className="space-y-6">
-      <PageHeader
+      <ResidentPageToolbar
+        namespace="resident-saved"
         title="รายการที่บันทึกไว้"
         description="รวมรายการสำคัญที่คุณบันทึกไว้เพื่อกลับมาดูภายหลัง"
+        activeFilterCount={Number(type !== "all") + Number(sort !== "date_desc")}
+        filters={<><span className="text-xs font-semibold text-gray-500">ประเภท</span>{Object.entries(TYPE_LABELS).map(([key, label]) => <NewsFilterChip key={key} href={`/resident/saved?type=${key}&sort=${sort}`} active={type === key}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span><NewsFilterChip href={`/resident/saved?type=${type}&sort=date_desc`} active={sort !== "date_asc"}>ล่าสุดก่อน</NewsFilterChip><NewsFilterChip href={`/resident/saved?type=${type}&sort=date_asc`} active={sort === "date_asc"}>เก่าก่อน</NewsFilterChip></>}
       />
-
-      {/* Filters */}
-      <FilterBar activeFilterCount={Number(type !== "ALL") + Number(sort !== "newest")}>
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(TYPE_LABELS).map(([key, label]) => (
-            <Link
-              key={key}
-              href={`/resident/saved?type=${key}&sort=${sort}`}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                type === key ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {label}
-            </Link>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/resident/saved?type=${type}&sort=date_desc`}
-            className={`inline-flex h-9 items-center rounded-lg px-3 text-xs font-medium transition-colors ${sort !== "date_asc" ? "bg-green-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
-            ล่าสุดก่อน
-          </Link>
-          <Link href={`/resident/saved?type=${type}&sort=date_asc`}
-            className={`inline-flex h-9 items-center rounded-lg px-3 text-xs font-medium transition-colors ${sort === "date_asc" ? "bg-green-600 text-white" : "border border-gray-300 text-gray-600 hover:bg-gray-50"}`}>
-            เก่าก่อน
-          </Link>
-        </div>
-      </div>
-      </FilterBar>
 
       {filtered.length === 0 ? (
         <EmptyState icon={BookmarkCheck} title="ยังไม่มีรายการที่บันทึก"

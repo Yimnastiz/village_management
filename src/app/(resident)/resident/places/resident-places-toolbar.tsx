@@ -1,173 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { FilePlus2, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { FilterBar } from "@/components/ui/filter-bar";
+import { NewsFilterChip } from "@/components/news/news-toolbar";
+import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 
 type SortValue = "newest" | "oldest" | "name_asc" | "name_desc";
+type Props = { keyword: string; category: string; sort: SortValue; suggestionTitles: string[]; canSubmit: boolean };
+const sortOptions: Array<{ value: SortValue; label: string }> = [{ value: "newest", label: "ล่าสุดก่อน" }, { value: "oldest", label: "เก่าก่อน" }, { value: "name_asc", label: "ชื่อ ก-ฮ" }, { value: "name_desc", label: "ชื่อ ฮ-ก" }];
 
-type ResidentPlacesToolbarProps = {
-  keyword: string;
-  category: string;
-  sort: SortValue;
-  suggestionTitles: string[];
-  canSubmit: boolean;
-};
-
-const sortOptions: Array<{ value: SortValue; label: string }> = [
-  { value: "newest", label: "ล่าสุดก่อน" },
-  { value: "oldest", label: "เก่าก่อน" },
-  { value: "name_asc", label: "ชื่อ ก-ฮ" },
-  { value: "name_desc", label: "ชื่อ ฮ-ก" },
-];
-
-function buildHref(params: {
-  keyword: string;
-  category: string;
-  sort: SortValue;
-}) {
+function href({ keyword, category, sort }: { keyword: string; category: string; sort: SortValue }) {
   const query = new URLSearchParams();
-  const trimmedKeyword = params.keyword.trim();
-
-  if (trimmedKeyword) query.set("q", trimmedKeyword);
-  if (params.category !== "ALL") query.set("category", params.category);
-  if (params.sort !== "newest") query.set("sort", params.sort);
-
-  const queryString = query.toString();
-  return queryString ? `/resident/places?${queryString}` : "/resident/places";
+  if (keyword.trim()) query.set("q", keyword.trim());
+  if (category !== "ALL") query.set("category", category);
+  if (sort !== "newest") query.set("sort", sort);
+  return query.size ? `/resident/places?${query}` : "/resident/places";
 }
 
-export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitles, canSubmit }: ResidentPlacesToolbarProps) {
-  const router = useRouter();
-  const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
-  const [searchKeyword, setSearchKeyword] = useState(keyword);
-
-  useEffect(() => {
-    setSearchKeyword(keyword);
-  }, [keyword]);
-
-  useEffect(() => {
-    if (!searchOpen) return;
-
-    const timeoutId = setTimeout(() => {
-      router.push(
-        buildHref({
-          keyword: searchKeyword,
-          category,
-          sort,
-        })
-      );
-    }, 350);
-
-    return () => clearTimeout(timeoutId);
-  }, [searchKeyword, searchOpen, category, sort, router]);
-
-  return (
-    <div className="sticky top-16 z-30 -mx-6 border-b border-gray-200 bg-gray-50/95 px-6 pb-4 pt-3 backdrop-blur">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">สถานที่สำคัญในหมู่บ้าน</h1>
-          <p className="mt-1 text-sm text-gray-500">ค้นหาวัด ร้านค้า โรงเรียน และสถานที่จำเป็นใกล้บ้าน</p>
-        </div>
-        {canSubmit ? <div className="flex gap-2">
-          <Link href="/resident/places/requests">
-            <Button size="sm" variant="outline">คำขอของฉัน</Button>
-          </Link>
-          <Link href="/resident/places/requests/new">
-            <Button size="sm">ขอเพิ่มสถานที่</Button>
-          </Link>
-        </div> : null}
-      </div>
-
-      <FilterBar className="mt-3" activeFilterCount={Number(category !== "ALL") + Number(sort !== "newest")}>
-        <div className="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
-          <button
-            type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-100"
-            aria-label="ค้นหาสถานที่"
-            onClick={() => setSearchOpen((currentValue) => !currentValue)}
-          >
-            <Search className="h-4 w-4" />
-          </button>
-
-          {searchOpen && (
-            <input
-              autoFocus
-              list="resident-places-title-suggestions"
-              placeholder="พิมพ์ชื่อสถานที่"
-              value={searchKeyword}
-              onChange={(event) => setSearchKeyword(event.target.value)}
-              className="h-9 w-56 rounded-lg border border-gray-300 px-3 text-sm outline-none ring-green-600 placeholder:text-gray-400 focus:ring-1"
-            />
-          )}
-
-          {searchOpen && (
-            <button
-              type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-100"
-              aria-label="ปิดค้นหา"
-              onClick={() => setSearchOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-
-          <datalist id="resident-places-title-suggestions">
-            {suggestionTitles.map((title) => (
-              <option key={title} value={title} />
-            ))}
-          </datalist>
-
-          <span className="ml-1 text-xs font-medium text-gray-500">หมวดหมู่:</span>
-          <Link
-            href={buildHref({ keyword: searchKeyword, category: "ALL", sort })}
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-              category === "ALL" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            )}
-          >
-            ทั้งหมด
-          </Link>
-          {Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => (
-            <Link
-              key={value}
-              href={buildHref({ keyword: searchKeyword, category: value, sort })}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                category === value ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {label}
-            </Link>
-          ))}
-
-          <span className="ml-1 text-xs font-medium text-gray-500">เรียงลำดับ:</span>
-          {sortOptions.map((option) => (
-            <Link
-              key={option.value}
-              href={buildHref({ keyword: searchKeyword, category, sort: option.value })}
-              className={cn(
-                "rounded-lg px-3 py-1 text-xs font-medium transition-colors",
-                sort === option.value ? "bg-gray-800 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              )}
-            >
-              {option.label}
-            </Link>
-          ))}
-
-          <Link
-            href="/resident/places"
-            className="inline-flex h-9 items-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-600 hover:bg-gray-100"
-          >
-            ล้างตัวกรอง
-          </Link>
-        </div>
-      </FilterBar>
-    </div>
-  );
+export function ResidentPlacesToolbar({ keyword, category, sort, suggestionTitles, canSubmit }: Props) {
+  const activeFilterCount = Number(category !== "ALL") + Number(sort !== "newest");
+  return <ResidentPageToolbar namespace="resident-places" title="สถานที่สำคัญในหมู่บ้าน" description="ค้นหาวัด ร้านค้า โรงเรียน และสถานที่จำเป็นใกล้บ้าน" search={{ keyword, placeholder: "พิมพ์ชื่อสถานที่", label: "ค้นหาสถานที่", suggestions: suggestionTitles }} activeFilterCount={activeFilterCount} actions={canSubmit ? <><Link href="/resident/places/requests" aria-label="คำขอสถานที่ของฉัน"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอของฉัน</span></Button></Link><Link href="/resident/places/requests/new"><Button size="sm" className="h-10 px-2 sm:px-3"><FilePlus2 className="h-4 w-4" /><span className="hidden min-[390px]:ml-1 min-[390px]:inline">ขอเพิ่มสถานที่</span></Button></Link></> : undefined} filters={<><span className="text-xs font-semibold text-gray-500">หมวดหมู่</span><NewsFilterChip href={href({ keyword, category: "ALL", sort })} active={category === "ALL"}>ทั้งหมด</NewsFilterChip>{Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => <NewsFilterChip key={value} href={href({ keyword, category: value, sort })} active={category === value}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span>{sortOptions.map((option) => <NewsFilterChip key={option.value} href={href({ keyword, category, sort: option.value })} active={sort === option.value}>{option.label}</NewsFilterChip>)}<NewsFilterChip href="/resident/places" active={false}>ล้างตัวกรอง</NewsFilterChip></>} />;
 }

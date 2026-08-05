@@ -6,6 +6,7 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { ResidentAppointmentCard } from "./resident-appointment-card";
+import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING_APPROVAL: "warning",
@@ -35,21 +36,22 @@ export default async function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold text-gray-900">นัดหมาย</h1>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+      <ResidentPageToolbar
+        namespace="resident-appointments"
+        title="นัดหมาย"
+        actions={<>
           <Link href="/resident/calendar">
-            <Button size="sm" variant="outline" className="w-full sm:w-auto">
+            <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3">
               <CalendarDays className="h-4 w-4 mr-1" /> ดูในปฏิทิน
             </Button>
           </Link>
           <Link href="/resident/appointments/new">
-            <Button size="sm" className="w-full sm:w-auto">
+            <Button size="sm" className="h-10 px-2 sm:px-3">
               <Plus className="h-4 w-4 mr-1" /> ขอจองนัด
             </Button>
           </Link>
-        </div>
-      </div>
+        </>}
+      />
 
       {/* ─── Appointment list ─── */}
       <div>

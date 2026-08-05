@@ -68,9 +68,9 @@ export function TopBar({
         onFocusCapture={() => setFocusWithin(true)}
         onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusWithin(false); }}
         className={cn(
-          "sticky top-0 z-40 h-16 flex-shrink-0 border-b px-4 backdrop-blur transition-[transform,box-shadow] duration-[var(--app-topbar-motion,180ms)] md:px-6 md:translate-y-0",
+          "sticky top-0 z-40 h-[var(--app-topbar-visible-offset,4rem)] flex-shrink-0 overflow-visible border-b px-4 backdrop-blur transition-[height,transform,box-shadow,border-color] duration-[var(--app-topbar-motion,180ms)] md:h-16 md:px-6 md:translate-y-0",
           "flex items-center justify-between",
-          topBarHidden ? "-translate-y-full" : "translate-y-0",
+          topBarHidden ? "-translate-y-16 border-transparent" : "translate-y-0",
           isAdminArea
             ? "bg-gray-900/95 border-gray-700"
             : "bg-white/95 border-gray-200",
