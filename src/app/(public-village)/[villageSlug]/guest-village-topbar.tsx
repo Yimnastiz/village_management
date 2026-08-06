@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { Calendar, Download, Eye, Globe2, Home, Image, LogIn, MapPin, Newspaper, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VillageSwitcher } from "./village-switcher";
+import { VillagePublicMobileNav } from "./village-mobile-nav";
 
 type VillageOption = { id: string; slug: string; name: string };
 type Props = { base: string; villageName: string; villages: VillageOption[]; currentSlug: string };
@@ -26,22 +27,23 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
     : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-emerald-950/15 bg-emerald-800 text-white shadow-sm">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-2 px-3 sm:px-6 xl:h-16 xl:px-8">
+    <header className="sticky top-0 z-40 border-b border-emerald-950/15 bg-emerald-800 text-white shadow-sm [&>nav]:hidden">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 xl:h-16 xl:px-8">
         <Link href={base} className="min-w-0 flex-1 truncate text-sm font-bold sm:text-base xl:max-w-40 xl:flex-none">
           หมู่บ้าน {villageName}
         </Link>
 
         <nav aria-label="เมนูข้อมูลสาธารณะ" className="hidden min-w-0 flex-1 items-stretch self-stretch xl:flex">
-          {items.map((item) => {
+          {items.slice(1).map((item) => {
             const active = isActive(item.href);
             return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn(
-              "relative inline-flex min-w-0 flex-1 items-center justify-center gap-1 px-1.5 text-xs font-medium whitespace-nowrap transition",
+              "relative inline-flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-medium whitespace-nowrap transition",
               active ? "bg-white/12 text-white after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-emerald-300" : "text-emerald-100 hover:bg-white/10 hover:text-white"
-            )}><item.icon className="h-3.5 w-3.5 shrink-0" />{item.label}</Link>;
+            )}>{item.label}</Link>;
           })}
         </nav>
 
+        <VillagePublicMobileNav base={base} villageName={villageName} villages={villages} currentSlug={currentSlug} />
         <div className="min-w-0 shrink-0"><VillageSwitcher villages={villages} currentSlug={currentSlug} /></div>
         <Link href="/" aria-label="กลับไปยังหน้าเว็บไซต์สาธารณะ" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/20 xl:px-3">
           <Globe2 className="h-4 w-4" /><span className="hidden 2xl:inline">เว็บไซต์สาธารณะ</span>

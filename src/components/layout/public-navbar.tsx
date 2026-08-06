@@ -1,7 +1,20 @@
+"use client";
+
 import Link from "next/link";
 import { Home, Menu } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export function PublicNavbar() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, []);
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -30,11 +43,17 @@ export function PublicNavbar() {
             </Link>
           </div>
 
-          <details className="relative md:hidden">
-            <summary className="list-none inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="public-mobile-menu"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
               <Menu className="h-5 w-5" />
-            </summary>
-            <div className="absolute right-0 top-12 w-[min(92vw,22rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
+            </button>
+            {mobileMenuOpen ? <div id="public-mobile-menu" className="absolute right-0 top-12 w-[min(92vw,22rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
               <nav className="space-y-1 text-sm text-gray-700">
                 <Link href="/info" className="block rounded-lg px-3 py-2 hover:bg-gray-100">ข้อมูลโครงการ</Link>
                 <Link href="/faq" className="block rounded-lg px-3 py-2 hover:bg-gray-100">คำถามพบบ่อย</Link>
@@ -56,8 +75,8 @@ export function PublicNavbar() {
                   สมัครสมาชิก
                 </Link>
               </div>
-            </div>
-          </details>
+            </div> : null}
+          </div>
         </div>
       </div>
     </header>

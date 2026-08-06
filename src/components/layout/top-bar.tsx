@@ -1,7 +1,7 @@
 "use client";
 import { Bell, ChevronDown, LockKeyhole, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "./logout-button";
 import {
@@ -32,9 +32,11 @@ export function TopBar({
 }: TopBarProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [lockedMenuLabel, setLockedMenuLabel] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [focusWithin, setFocusWithin] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationsHref = userArea === "admin" ? "/admin/notifications" : "/resident/notifications";
   const profileHref = userArea === "admin" ? "/admin/settings" : "/resident/profile";
   const mobileNavItems = useMemo(() => {
@@ -60,6 +62,22 @@ export function TopBar({
     window.addEventListener("scroll", onScroll, { passive: true });
 
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProfileMenuOpen(false);
+    };
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) setProfileMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+    };
   }, []);
 
   return (
@@ -127,8 +145,13 @@ export function TopBar({
             </span>
           )}
         </Link>
-        <details className="relative">
-          <summary className={cn(
+        <div className="relative" ref={profileMenuRef}>
+          <button
+            type="button"
+            aria-expanded={profileMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setProfileMenuOpen((open) => !open)}
+            className={cn(
             "list-none flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 md:px-2",
             isAdminArea ? "hover:bg-gray-800" : "hover:bg-gray-100"
           )}>
@@ -153,8 +176,8 @@ export function TopBar({
               "hidden h-4 w-4 md:block",
               isAdminArea ? "text-gray-300" : "text-gray-400"
             )} />
-          </summary>
-          <div className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
+          </button>
+          {profileMenuOpen ? <div role="menu" className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
             <div className="px-3 py-2">
               <p className="truncate text-sm font-semibold text-gray-900">{userName}</p>
               <p className="text-xs text-gray-500">
@@ -166,16 +189,16 @@ export function TopBar({
               </p>
             </div>
             <div className="my-1 h-px bg-gray-100" />
-            <Link href={profileHref} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <Link href={profileHref} role="menuitem" onClick={() => setProfileMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
               โปรไฟล์ผู้ใช้
             </Link>
-            <Link href={notificationsHref} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <Link href={notificationsHref} role="menuitem" onClick={() => setProfileMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
               การแจ้งเตือน
             </Link>
             <div className="my-1 h-px bg-gray-100" />
             <LogoutButton mode="menu" />
-          </div>
-        </details>
+          </div> : null}
+        </div>
       </div>
       </header>
 

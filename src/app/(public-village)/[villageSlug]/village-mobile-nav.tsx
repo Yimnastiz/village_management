@@ -46,6 +46,14 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
     };
   }, [open]);
 
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, []);
+
   const navItems = [
     { href: base, label: "หน้าแรก", icon: Home },
     { href: `${base}/news`, label: "ข่าวสาร", icon: Newspaper },
@@ -61,7 +69,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
     <>
       <button
         type="button"
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 md:hidden"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 xl:hidden"
         onClick={() => setOpen(true)}
         aria-label="เปิดเมนู"
       >
@@ -69,7 +77,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-50 xl:hidden" role="dialog" aria-modal="true" aria-label="Village navigation">
           {/* Backdrop */}
           <button
             type="button"
@@ -89,7 +97,8 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md p-1.5 text-green-100 hover:bg-green-600"
+                className="rounded-md p-2 text-green-100 hover:bg-green-600"
+                autoFocus
                 aria-label="ปิดเมนู"
               >
                 <X className="h-5 w-5" />
