@@ -46,15 +46,18 @@ export function SuperAdminSidebar() {
   return (
     <aside className={cn("sticky top-0 hidden h-screen overflow-hidden border-r border-slate-800 bg-slate-950 text-slate-200 transition-[width] duration-200 md:flex md:flex-col", collapsed ? "w-[72px]" : "w-60")}>
       <div className={cn("border-b border-slate-800", collapsed ? "p-3" : "p-4")}>
-        <div className="flex items-center justify-between gap-2"><Link href="/superadmin/dashboard" className="flex min-w-0 items-center gap-3">
+        <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "justify-between")}>
+          {!collapsed ? <Link href="/superadmin/dashboard" className="flex min-w-0 items-center gap-3">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500">
             <Shield className="h-5 w-5 text-slate-950" />
           </div>
-          <div className={collapsed ? "sr-only" : ""}>
+          <div>
             <p className="text-sm font-semibold text-white">Super Admin</p>
             <p className="text-xs text-slate-400">Village Management System</p>
           </div>
-        </Link><button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-slate-400 hover:bg-slate-900 hover:text-white">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button></div>
+        </Link> : null}
+          <button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} aria-expanded={!collapsed} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-slate-400 hover:bg-slate-900 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button>
+        </div>
       </div>
 
       <nav className="sidebar-scroll flex-1 space-y-1 overflow-y-auto p-3">

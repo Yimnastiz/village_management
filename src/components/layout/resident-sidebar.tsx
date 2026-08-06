@@ -106,17 +106,20 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
   return (
     <aside className={cn("sticky top-0 hidden h-screen overflow-hidden border-r border-gray-200 bg-white transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-[72px]" : "w-60")}>
       <div className={cn("border-b border-gray-200", collapsed ? "p-3" : "p-4")}>
-        <div className="flex items-center justify-between gap-2"><Link href="/resident" className="flex min-w-0 items-center gap-2">
+        <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "justify-between")}>
+          {!collapsed ? <Link href="/resident" className="flex min-w-0 items-center gap-2">
           <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
             <Home className="h-4 w-4 text-white" />
           </div>
-          <div className={collapsed ? "sr-only" : ""}>
+          <div>
             <p className="text-sm font-semibold text-gray-900">พื้นที่ลูกบ้าน</p>
             <p className="text-xs text-gray-500">
               {state.hasMembership ? "เมนูใช้งานส่วนบุคคล" : "โหมด guest: ยังไม่ผูกเลขบ้าน"}
             </p>
           </div>
-        </Link><button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-500 hover:bg-gray-100">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button></div>
+        </Link> : null}
+          <button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} aria-expanded={!collapsed} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button>
+        </div>
       </div>
       <nav className={cn("sidebar-scroll flex-1 space-y-1 overflow-y-auto", collapsed ? "p-3" : "p-4")}>
         {desktopItems.map((item) => {
