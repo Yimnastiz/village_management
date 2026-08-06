@@ -35,9 +35,9 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
   const base = `/${currentVillage.slug}`;
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-gray-50 [--app-sticky-top:6rem]">
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-gray-50 [--app-sticky-top:6rem] xl:[--app-sticky-top:4rem]">
       <GuestVillageTopbar base={base} villageName={currentVillage.name} villages={villages} currentSlug={currentVillage.slug} />
-      <main className="mx-auto min-h-[60vh] w-full max-w-7xl px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
         {children}
       </main>
       <footer className="bg-emerald-950 px-4 py-5 text-center text-xs text-emerald-100 sm:text-sm">
