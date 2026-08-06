@@ -22,10 +22,13 @@ type EventSubmissionRecord = {
 
 type VillageEventSubmissionDelegate = {
   findFirst(args: unknown): Promise<EventSubmissionRecord | null>;
+  update(args: unknown): Promise<unknown>;
+  delete(args: unknown): Promise<unknown>;
 };
 
 type VillageEventSubmissionTransactionDelegate = {
   update(args: unknown): Promise<unknown>;
+  delete(args: unknown): Promise<unknown>;
 };
 
 const villageEventSubmission = (
@@ -105,6 +108,7 @@ export async function createVillageEventAction(
     const created = await prisma.villageEvent.create({
       data: {
         villageId: ctx.villageId,
+        createdById: ctx.userId,
         title: normalized.value.title,
         description: normalized.value.description,
         location: normalized.value.location,
@@ -214,6 +218,7 @@ export async function adminApproveVillageEventSubmissionAction(
       const event = await tx.villageEvent.create({
         data: {
           villageId: request.villageId,
+          createdById: ctx.userId,
           title: request.title,
           description: request.description,
           location: request.location,
@@ -330,5 +335,61 @@ export async function adminRejectVillageEventSubmissionAction(
     return { success: true };
   } catch {
     return { success: false, error: "ปฏิเสธคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+}
+
+export async function updateVillageEventSubmissionAction(
+  requestId: string,
+  data: EventInput
+): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+
+  const normalized = normalizeInput(data);
+  if (!normalized.ok) return { success: false, error: normalized.error };
+
+  const request = await villageEventSubmission.findFirst({
+    where: { id: requestId, villageId: ctx.villageId, status: "PENDING" },
+  });
+  if (!request) {
+    return { success: false, error: "แก้ไขได้เฉพาะคำขอที่รอพิจารณาเท่านั้น" };
+  }
+
+  try {
+    await villageEventSubmission.update({
+      where: { id: request.id },
+      data: normalized.value,
+    });
+
+    revalidatePath("/admin/calendar/requests");
+    revalidatePath(`/admin/calendar/requests/${requestId}`);
+    revalidatePath("/resident/calendar/requests");
+    return { success: true };
+  } catch {
+    return { success: false, error: "แก้ไขคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
+  }
+}
+
+export async function deleteVillageEventSubmissionAction(
+  requestId: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+
+  const request = await villageEventSubmission.findFirst({
+    where: { id: requestId, villageId: ctx.villageId, status: "PENDING" },
+  });
+  if (!request) {
+    return { success: false, error: "ลบได้เฉพาะคำขอที่รอพิจารณาเท่านั้น เพื่อป้องกันข้อมูลกิจกรรมไม่สอดคล้องกัน" };
+  }
+
+  try {
+    await villageEventSubmission.delete({ where: { id: request.id } });
+    revalidatePath("/admin/calendar/requests");
+    revalidatePath(`/admin/calendar/requests/${requestId}`);
+    revalidatePath("/resident/calendar/requests");
+    return { success: true };
+  } catch {
+    return { success: false, error: "ไม่สามารถลบคำขอได้ กรุณาลองใหม่อีกครั้ง" };
   }
 }

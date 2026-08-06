@@ -442,7 +442,7 @@ export async function createEvent(context: VillageActorContext, input: EventInpu
   const normalized = normalizeEventInput(input);
   if (!normalized.ok) return { success: false, error: normalized.error };
   const created = await prisma.$transaction(async (tx) => {
-    const event = await tx.villageEvent.create({ data: { villageId: context.villageId, ...normalized.value }, select: { id: true } });
+    const event = await tx.villageEvent.create({ data: { villageId: context.villageId, createdById: context.actorUserId, ...normalized.value }, select: { id: true } });
     await auditSuperAdmin(tx, context, { action: AuditAction.CREATE, actionName: "SUPERADMIN_EVENT_CREATED", resource: "VillageEvent", resourceId: event.id, newValue: { title: normalized.value.title, startsAt: normalized.value.startsAt.toISOString(), isPublic: normalized.value.isPublic } });
     return event;
   });

@@ -207,16 +207,20 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
               const isSelected = selectedDateKey === dayKey;
               const isToday = dayKey === todayKey;
               const totalCount = dayEvents.length + dayAppointments.length;
+              const dayDetailHref = buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(monthStart), date: dayKey });
 
               return (
-                <div key={dayKey} className={`min-h-16 min-w-0 border-b border-r border-gray-100 p-1 sm:min-h-24 sm:p-2 lg:min-h-28 ${isSelected ? "bg-blue-50" : "bg-white"}`}>
-                  <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
-                    <Link
-                      href={buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(monthStart), date: dayKey })}
-                      className={`text-sm font-medium hover:text-blue-700 ${isToday ? "text-red-600" : "text-gray-800"}`}
-                    >
+                <div key={dayKey} className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 sm:min-h-24 sm:p-2 lg:min-h-28 ${isSelected ? "bg-blue-50" : "bg-white hover:bg-gray-50/80"}`}>
+                  <Link
+                    href={dayDetailHref}
+                    aria-label={`ดูรายละเอียดวันที่ ${cellDate.toLocaleDateString("th-TH")}`}
+                    className="absolute inset-0 z-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
+                  />
+                  <div className="relative z-10 pointer-events-none">
+                    <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
+                    <span className={`text-sm font-medium ${isToday ? "text-red-600" : "text-gray-800"}`}>
                       {day}
-                    </Link>
+                    </span>
                     {totalCount > 0 && (
                       <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-100 px-1 text-xs font-medium text-blue-700">
                         {totalCount}
@@ -229,7 +233,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
                       <Link
                         key={event.id}
                         href={`/admin/calendar/${event.id}`}
-                        className="hidden truncate rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-800 hover:bg-blue-100 sm:block"
+                        className="pointer-events-auto relative z-20 hidden truncate rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-800 hover:bg-blue-100 sm:block"
                       >
                         {event.title}
                       </Link>
@@ -238,19 +242,20 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
                       <Link
                         key={apt.id}
                         href={`/admin/appointments/${apt.id}`}
-                        className="hidden truncate rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-800 hover:bg-purple-100 sm:block"
+                        className="pointer-events-auto relative z-20 hidden truncate rounded-md bg-purple-50 px-2 py-1 text-xs text-purple-800 hover:bg-purple-100 sm:block"
                       >
                         <div className="truncate font-medium">{apt.title}</div>
                       </Link>
                     ))}
                     {totalCount > 2 && (
                       <Link
-                        href={buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(monthStart), date: dayKey })}
-                        className="block text-xs text-gray-500 hover:text-gray-700"
+                        href={dayDetailHref}
+                        className="pointer-events-auto relative z-20 block text-xs text-gray-500 hover:text-gray-700"
                       >
                         + อีก {totalCount - 2} รายการ
                       </Link>
                     )}
+                  </div>
                   </div>
                 </div>
               );

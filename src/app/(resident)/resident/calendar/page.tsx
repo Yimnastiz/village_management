@@ -131,26 +131,29 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
               const isSelected = selectedDateKey === dayKey;
               const isToday = dayKey === todayKey;
               const hasMyAppointment = userAppointmentDateKeys.has(dayKey);
+              const dayDetailHref = `/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`;
 
               return (
                 <div
                   key={dayKey}
-                  className={`min-h-16 min-w-0 border-b border-r border-gray-100 p-1 transition-colors duration-200 sm:min-h-24 sm:p-2 lg:min-h-28 ${
+                  className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 transition-colors duration-200 sm:min-h-24 sm:p-2 lg:min-h-28 ${
                     isSelected ? "bg-green-50" : "bg-white hover:bg-gray-50/80"
                   } ${
                     hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
                   } ${isToday ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300" : ""}`}
                 >
-                  <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
-                    <Link
-                      href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
-                      aria-label={`${isToday ? "วันนี้ " : ""}${cellDate.toLocaleDateString("th-TH")}`}
-                      className={`text-xs font-medium transition-colors hover:text-green-700 focus-visible:outline-none focus-visible:underline sm:text-sm ${
-                        isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
-                      }`}
-                    >
+                  <Link
+                    href={dayDetailHref}
+                    aria-label={`ดูรายละเอียดวันที่ ${cellDate.toLocaleDateString("th-TH")}`}
+                    className="absolute inset-0 z-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600"
+                  />
+                  <div className="relative z-10 pointer-events-none">
+                    <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
+                    <span className={`text-xs font-medium sm:text-sm ${
+                      isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
+                    }`}>
                       {day}
-                    </Link>
+                    </span>
                     {isToday && (
                       <span className="hidden items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 lg:inline-flex">
                         วันนี้
@@ -173,19 +176,20 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                       <Link
                         key={event.id}
                         href={`/resident/calendar/${event.id}`}
-                        className="hidden truncate rounded-md bg-green-50 px-2 py-1 text-xs text-green-800 hover:bg-green-100 sm:block"
+                        className="pointer-events-auto relative z-20 hidden truncate rounded-md bg-green-50 px-2 py-1 text-xs text-green-800 hover:bg-green-100 sm:block"
                       >
                         {event.title}
                       </Link>
                     ))}
                     {dayEvents.length > 2 && (
                       <Link
-                        href={`/resident/calendar?month=${toMonthKey(monthStart)}&date=${dayKey}`}
-                        className="block text-xs text-gray-500 hover:text-gray-700"
+                        href={dayDetailHref}
+                        className="pointer-events-auto relative z-20 block text-xs text-gray-500 hover:text-gray-700"
                       >
                         + อีก {dayEvents.length - 2} รายการ
                       </Link>
                     )}
+                  </div>
                   </div>
                 </div>
               );

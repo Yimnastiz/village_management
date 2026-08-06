@@ -328,6 +328,7 @@ model User {
   authoredNews            News[]
   newsSubmissions         NewsSubmission[]
   villageEventSubmissions VillageEventSubmission[]
+  villageEventsCreated   VillageEvent[]
   galleryItemSubmissions  GalleryItemSubmission[]
   villagePlacesCreated    VillagePlace[]
   villagePlaceSubmissions VillagePlaceSubmission[]
@@ -877,6 +878,7 @@ model TransparencyRecord {
 model VillageEvent {
   id          String    @id @default(cuid())
   villageId   String
+  createdById String?
   title       String
   description String?   @db.Text
   location    String?
@@ -886,9 +888,11 @@ model VillageEvent {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([villageId])
+  @@index([createdById])
   @@index([startsAt])
   @@index([isPublic])
 }

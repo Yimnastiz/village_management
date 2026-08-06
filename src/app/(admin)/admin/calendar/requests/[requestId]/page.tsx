@@ -8,7 +8,9 @@ import {
 } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, getHeadmanMembership, isAdminUser } from "@/lib/access-control";
+import { formatCalendarPerson } from "@/lib/calendar-person";
 import { CalendarRequestReviewButtons } from "../request-review-buttons";
+import { CalendarRequestManagementActions } from "../request-management-actions";
 
 type RequestDetail = {
   id: string;
@@ -68,6 +70,21 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
 
   if (!request) notFound();
 
+  const reviewer = request.reviewedBy
+    ? await prisma.user.findUnique({
+        where: { id: request.reviewedBy },
+        select: {
+          name: true,
+          systemRole: true,
+          memberships: {
+            where: { villageId: membership.villageId, status: "ACTIVE" },
+            select: { role: true },
+            take: 1,
+          },
+        },
+      })
+    : null;
+
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6">
       <Link
@@ -115,11 +132,14 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
         )}
 
         {request.status === "PENDING" ? (
-          <CalendarRequestReviewButtons requestId={request.id} />
+          <div className="space-y-4 border-t border-gray-100 pt-4">
+            <CalendarRequestReviewButtons requestId={request.id} />
+            <CalendarRequestManagementActions requestId={request.id} />
+          </div>
         ) : (
           <div className="text-sm text-gray-600">
             <p>
-              ผู้พิจารณา: {request.reviewedBy || "-"} • {request.reviewedAt ? new Date(request.reviewedAt).toLocaleString("th-TH") : "-"}
+              ผู้พิจารณา: {request.reviewedBy ? formatCalendarPerson(reviewer, "ไม่พบข้อมูลผู้พิจารณา") : "ยังไม่มีผู้พิจารณา"} • {request.reviewedAt ? new Date(request.reviewedAt).toLocaleString("th-TH") : "-"}
             </p>
             {request.reviewNote && <p className="mt-1">หมายเหตุ: {request.reviewNote}</p>}
           </div>

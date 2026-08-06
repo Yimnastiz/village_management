@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { formatCalendarPerson } from "@/lib/calendar-person";
 import { prisma } from "@/lib/prisma";
 
 type ResidentEventDetailPageProps = {
@@ -30,11 +31,24 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
       villageId: village.id,
       ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
     },
+    include: {
+      createdBy: {
+        select: {
+          name: true,
+          systemRole: true,
+          memberships: {
+            where: { villageId: village.id, status: "ACTIVE" },
+            select: { role: true },
+            take: 1,
+          },
+        },
+      },
+    },
   });
   if (!event) notFound();
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <main className="mx-auto w-full max-w-3xl space-y-6">
       <Link
         href="/resident/calendar"
         className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -42,7 +56,7 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
         <ArrowLeft className="h-4 w-4" /> กลับปฏิทินกิจกรรม
       </Link>
 
-      <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-8">
+      <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2">
           <Badge variant={event.isPublic ? "success" : "info"}>
             {event.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
@@ -67,6 +81,10 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
             <p className="text-gray-500">สถานที่</p>
             <p className="mt-1 text-gray-900">{event.location || "ไม่ระบุ"}</p>
           </div>
+          <div className="min-w-0">
+            <p className="text-gray-500">ผู้สร้างกิจกรรม</p>
+            <p className="mt-1 break-words text-gray-900">{formatCalendarPerson(event.createdBy)}</p>
+          </div>
         </div>
 
         {event.description && (
@@ -75,6 +93,6 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
           </div>
         )}
       </article>
-    </div>
+    </main>
   );
 }
