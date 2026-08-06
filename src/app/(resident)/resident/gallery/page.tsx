@@ -7,6 +7,7 @@ import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/
 import { prisma } from "@/lib/prisma";
 import { formatThaiShortDate } from "@/lib/utils";
 import { ResidentGalleryToolbar } from "./resident-gallery-toolbar";
+import { residentAlbumWhere } from "@/lib/resident-content-access";
 
 type ResidentGalleryPageProps = {
   searchParams?: Promise<{ q?: string; sort?: string; visibility?: string; allowSubmissions?: string }>;
@@ -23,7 +24,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const visibilityParam = (query.visibility ?? "").trim();
-  const selectedVisibilities = Array.from(
+  const requestedVisibilities = Array.from(
     new Set(
       visibilityParam
         .split(",")
@@ -33,7 +34,8 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
         )
     )
   );
-  const allowSubmissionsOnly = query.allowSubmissions === "1";
+  const selectedVisibilities = membership.hasResidentAccess ? requestedVisibilities : [];
+  const allowSubmissionsOnly = membership.hasResidentAccess && query.allowSubmissions === "1";
 
   const village = await prisma.village.findUnique({
     where: { id: membership.villageId },
@@ -44,8 +46,8 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const albums = await prisma.galleryAlbum.findMany({
     where: {
       villageId: village.id,
-      ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
-      ...(selectedVisibilities.length === 1
+      ...residentAlbumWhere(membership.hasResidentAccess),
+      ...(membership.hasResidentAccess && selectedVisibilities.length === 1
         ? { isPublic: selectedVisibilities[0] === "PUBLIC" }
         : {}),
       ...(allowSubmissionsOnly ? { allowResidentSubmissions: true } : {}),
@@ -87,7 +89,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   });
 
   const titleSuggestions = await prisma.galleryAlbum.findMany({
-    where: { villageId: village.id, ...(!membership.hasResidentAccess ? { isPublic: true } : {}) },
+    where: { villageId: village.id, ...residentAlbumWhere(membership.hasResidentAccess) },
     select: { title: true },
     orderBy: [{ albumDate: "desc" }, { createdAt: "desc" }],
     take: 50,
@@ -104,6 +106,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
         allowSubmissionsOnly={allowSubmissionsOnly}
         suggestionTitles={suggestionTitles}
         canSubmit={membership.hasResidentAccess}
+        hasResidentAccess={membership.hasResidentAccess}
       />
 
       {albums.length === 0 ? (
@@ -137,9 +140,9 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
 
               <div className="space-y-2 p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={album.isPublic ? "success" : "info"}>
+                  {membership.hasResidentAccess ? <Badge variant={album.isPublic ? "success" : "info"}>
                     {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
-                  </Badge>
+                  </Badge> : null}
                   {membership.hasResidentAccess && album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
                   <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>

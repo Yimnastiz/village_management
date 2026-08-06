@@ -60,7 +60,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">สวัสดี, {session.name || "ลูกบ้าน"}!</h1>
-          <p className="text-gray-500 text-sm mt-1">คุณเข้าสู่โหมด guest ได้แล้ว ตอนนี้ยังไม่ผูกเลขบ้าน จึงเห็นได้เฉพาะข้อมูลสาธารณะ</p>
+          <p className="mt-1 text-sm text-gray-500">ขณะนี้บัญชีของคุณยังไม่ได้ผูกเลขบ้าน จึงสามารถดูได้เฉพาะข้อมูลสาธารณะของหมู่บ้าน</p>
         </div>
 
         {querySignupSuccess && (
@@ -69,14 +69,14 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
               <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
               <div>
                 <p className="text-sm font-semibold text-green-900">สมัครสมาชิกเรียบร้อยแล้ว</p>
-                <p className="mt-1 text-sm text-green-800">คุณสามารถเข้าใช้งานเว็บในโหมด guest และกดขอผูกเลขบ้านจากเมนูได้เลย</p>
+                <p className="mt-1 text-sm text-green-800">ขั้นตอนถัดไปคือส่งคำขอผูกเลขบ้าน เพื่อเข้าใช้บริการสำหรับลูกบ้าน</p>
               </div>
             </div>
           </div>
         )}
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
-          {linkedPerson?.house?.houseNumber ? <p className="mb-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">พบข้อมูลทะเบียนประชากร: บ้านเลขที่ {linkedPerson.house.houseNumber} — รอผู้ใหญ่บ้านยืนยันสิทธิ์</p> : null}
+          {linkedPerson?.house?.houseNumber ? <p className="mb-3 text-sm text-amber-900">พบข้อมูลของคุณในทะเบียนบ้านเลขที่ {linkedPerson.house.houseNumber} แต่ยังต้องรอผู้ดูแลยืนยันสิทธิ์</p> : null}
           <p className="text-sm font-semibold text-amber-900">บัญชีของคุณยังไม่ผูกกับครัวเรือน</p>
           <p className="mt-1 text-sm text-amber-800">
             คุณยังเข้าใช้งานข้อมูลภายในหมู่บ้านไม่ได้จนกว่าจะผูกเลขบ้านและได้รับการอนุมัติ
@@ -111,6 +111,35 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           </div>
         </div>
 
+        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">บริการที่ใช้งานได้ตอนนี้</h2>
+              <p className="mt-1 text-sm text-gray-500">คุณสามารถดูข้อมูลสาธารณะของหมู่บ้านและจัดการบัญชีของคุณได้</p>
+            </div>
+            <Link href="/resident/notifications" className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900">
+              <Bell className="h-4 w-4" />
+              {unreadNotifications > 0 ? `มีการแจ้งเตือนใหม่ ${unreadNotifications} รายการ` : "ไม่มีการแจ้งเตือนใหม่"}
+            </Link>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["/resident/news", "ข่าวสาธารณะ"],
+              ["/resident/calendar", "ปฏิทินกิจกรรม"],
+              ["/resident/gallery", "แกลเลอรีสาธารณะ"],
+              ["/resident/downloads", "เอกสารสาธารณะ"],
+              ["/resident/places", "สถานที่"],
+              ["/resident/contacts", "ช่องทางติดต่อ"],
+              ["/resident/profile", "โปรไฟล์"],
+              ["/resident/notifications", "การแจ้งเตือน"],
+            ].map(([href, label]) => (
+              <Link key={href} href={href} className="flex min-h-11 items-center rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
+                {label}
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
             <h2 className="text-sm font-semibold text-gray-900">ขั้นตอนต่อไป</h2>
@@ -121,7 +150,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
             </ul>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-gray-900">เมนู guest ที่ใช้งานได้ทันที</h2>
+            <h2 className="text-sm font-semibold text-gray-900">จัดการบัญชี</h2>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href="/resident/profile" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">โปรไฟล์</Link>
               <Link href="/resident/notifications" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">การแจ้งเตือน</Link>

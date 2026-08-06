@@ -10,6 +10,7 @@ import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/
 import { ResidentNewsToolbar } from "./resident-news-toolbar";
 import { NewsCard } from "@/components/news/news-card";
 import { formatNewsAuthor } from "@/lib/news-author";
+import { residentContentVisibility } from "@/lib/resident-content-access";
 
 interface PageProps {
   searchParams: Promise<{ sort?: string; source?: string; visibility?: string; q?: string }>;
@@ -41,7 +42,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const source = query.source === "admin" || query.source === "resident" ? query.source : "all";
   const visibilityParam = (query.visibility ?? "").trim();
-  const selectedVisibilities = Array.from(
+  const requestedVisibilities = Array.from(
     new Set(
       visibilityParam
         .split(",")
@@ -52,6 +53,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
     )
   );
 
+  const selectedVisibilities = membership.hasResidentAccess ? requestedVisibilities : [];
   const visibilityWhereClause: NewsVisibility | { in: NewsVisibility[] } =
     !membership.hasResidentAccess
       ? NewsVisibility.PUBLIC
@@ -153,7 +155,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
     where: {
       villageId: membership.villageId,
       stage: "PUBLISHED",
-      visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] },
+      visibility: residentContentVisibility(membership.hasResidentAccess),
     },
     select: { title: true },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
@@ -171,6 +173,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         sort={sort}
       suggestionTitles={suggestionTitles}
       canSubmit={membership.hasResidentAccess}
+      hasResidentAccess={membership.hasResidentAccess}
       />
 
       {source !== "resident" && visibleSuperAdminAnnouncements.length > 0 ? (
@@ -208,7 +211,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
-              badge={<Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>}
+              badge={membership.hasResidentAccess ? <Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge> : undefined}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
             />
           ))}

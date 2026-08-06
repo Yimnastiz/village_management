@@ -24,7 +24,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const visibilityParam = (query.visibility ?? "").trim();
-  const selectedVisibilities = Array.from(
+  const requestedVisibilities = Array.from(
     new Set(
       visibilityParam
         .split(",")
@@ -35,6 +35,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
     )
   );
 
+  const selectedVisibilities = membership.hasResidentAccess ? requestedVisibilities : [];
   const visibilityWhereClause: NewsVisibility | { in: NewsVisibility[] } =
     !membership.hasResidentAccess
       ? NewsVisibility.PUBLIC
@@ -90,6 +91,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
         selectedVisibilities={selectedVisibilities}
         sort={sort}
         suggestionTitles={suggestionTitles}
+        hasResidentAccess={membership.hasResidentAccess}
       />
 
       {files.length === 0 ? (
@@ -108,7 +110,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="mb-1">
+                  {membership.hasResidentAccess ? <div className="mb-1">
                     <Badge
                       variant="outline"
                       className={
@@ -119,7 +121,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
                     >
                       {NEWS_VISIBILITY_LABELS[file.visibility]}
                     </Badge>
-                  </div>
+                  </div> : null}
                   <p className="font-medium text-gray-900">{file.title}</p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{file.description || "-"}</p>
                   <p className="text-xs text-gray-400 mt-1">{file.category || "ทั่วไป"}</p>
