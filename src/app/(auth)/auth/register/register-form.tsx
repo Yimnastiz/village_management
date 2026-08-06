@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,8 @@ function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
 export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
   const router = useRouter();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const privacyTriggerRef = useRef<HTMLButtonElement>(null);
+  const privacyCloseButtonRef = useRef<HTMLButtonElement>(null);
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -143,14 +146,51 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       return;
     }
 
+    const previousOverflow = document.body.style.overflow;
+    const previousPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    const privacyTrigger = privacyTriggerRef.current;
+
+    document.body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) {
+      document.body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+    privacyCloseButtonRef.current?.focus();
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsPrivacyModalOpen(false);
+        return;
+      }
+
+      if (event.key === "Tab") {
+        const dialog = document.getElementById("privacy-policy-dialog");
+        const focusableElements = dialog?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (!focusableElements?.length) {
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        if (event.shiftKey && document.activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+        } else if (!event.shiftKey && document.activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      document.body.style.paddingRight = previousPaddingRight;
+      privacyTrigger?.focus();
+    };
   }, [isPrivacyModalOpen]);
 
   const provinceOptions = useMemo(() => thaiGeography.map((provinceItem) => provinceItem.name), [thaiGeography]);
@@ -503,6 +543,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             ฉันยอมรับ{" "}
             <button
               type="button"
+              ref={privacyTriggerRef}
               className="text-green-600 hover:underline"
               onClick={() => setIsPrivacyModalOpen(true)}
             >
@@ -526,21 +567,22 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         </Link>
       </div>
 
-      {isPrivacyModalOpen && (
-        <div
-          className="fixed inset-0 z-[100] flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto bg-slate-950/50 p-4"
-          onClick={() => setIsPrivacyModalOpen(false)}
-        >
+      {isPrivacyModalOpen && typeof document !== "undefined"
+        ? createPortal(
+        <div className="fixed inset-0 z-[200] grid min-h-[100dvh] w-screen place-items-center bg-slate-950/50 p-4">
+          <button type="button" aria-label="Close privacy policy" className="absolute inset-0 cursor-default" onClick={() => setIsPrivacyModalOpen(false)} />
           <div
+            id="privacy-policy-dialog"
             role="dialog"
             aria-modal="true"
-            className="my-auto max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-2xl sm:p-6"
-            onClick={(event) => event.stopPropagation()}
+            aria-label="Privacy policy"
+            className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-2xl sm:p-6"
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-lg font-bold text-gray-900">นโยบายความเป็นส่วนตัว</h3>
               <button
                 type="button"
+                ref={privacyCloseButtonRef}
                 onClick={() => setIsPrivacyModalOpen(false)}
                 className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
               >
@@ -572,8 +614,10 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+        : null}
     </div>
   );
 }
