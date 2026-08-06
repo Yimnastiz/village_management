@@ -440,7 +440,7 @@ function VerifyOTPContent() {
             {isResending ? "กำลังส่ง..." : resendSeconds > 0 ? `ส่งอีกครั้งได้ใน ${resendSeconds} วินาที` : "ส่งอีกครั้ง"}
           </button>
         </p>
-        <p>
+        <p className="hidden">
           <Link href="/" className="text-green-600 hover:underline">
             กลับสู่หน้าเว็บไซต์สาธารณะ
           </Link>

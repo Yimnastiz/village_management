@@ -40,7 +40,7 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
-      <header className="bg-green-700 text-white">
+      <header className="sticky top-0 z-40 bg-green-700 text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between gap-3">
             <Link href={base} className="min-w-0 font-bold text-base sm:text-lg truncate">

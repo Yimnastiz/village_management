@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Landmark, ShieldCheck } from "lucide-react";
+import { House } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -10,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="mb-5 rounded-2xl border border-white/80 bg-white/75 px-5 py-4 shadow-lg shadow-emerald-950/5 backdrop-blur sm:mb-6 sm:px-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-sm"><Landmark className="h-5 w-5" /></span>
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white shadow-sm"><House className="h-5 w-5" /></span>
               <div>
               <h1 className="text-2xl font-bold text-green-800">ระบบหมู่บ้านอัจฉริยะ</h1>
               <p className="mt-1 text-sm text-emerald-700">Smart Village Management System</p>
