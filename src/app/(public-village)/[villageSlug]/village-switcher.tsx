@@ -17,7 +17,7 @@ export function VillageSwitcher({ villages, currentSlug }: VillageSwitcherProps)
   const router = useRouter();
 
   return (
-    <label className="flex items-center gap-2 text-sm text-green-100">
+    <label className="flex min-w-0 items-center gap-2 text-sm text-green-100">
       <span className="hidden sm:inline">เปลี่ยนหมู่บ้าน</span>
       <select
         value={currentSlug}
@@ -26,7 +26,8 @@ export function VillageSwitcher({ villages, currentSlug }: VillageSwitcherProps)
           if (!nextSlug || nextSlug === currentSlug) return;
           router.push(`/${nextSlug}`);
         }}
-        className="max-w-[180px] rounded-md border border-white/30 bg-green-700 px-2 py-1 text-sm text-white"
+        aria-label="เปลี่ยนหมู่บ้านในตำบลเดียวกัน"
+        className="h-9 max-w-[9.5rem] rounded-lg border border-white/25 bg-emerald-900 px-2 text-xs text-white outline-none focus:ring-2 focus:ring-emerald-300 sm:max-w-[12rem] sm:text-sm"
       >
         {villages.map((village) => (
           <option key={village.id} value={village.slug}>
