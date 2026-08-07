@@ -48,3 +48,30 @@ export async function updateProfileAction(data: { phoneNumber: string; email: st
   revalidatePath("/resident", "layout");
   return { success: true };
 }
+
+/** Returns the authenticated resident's own national ID only after an explicit reveal request. */
+export async function revealOwnNationalIdAction(): Promise<{ success: true; nationalId: string } | { success: false }> {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) return { success: false };
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { id: true, phoneNumber: true, registrationVillageId: true, person: { select: { nationalId: true } } },
+  });
+  if (!user) return { success: false };
+
+  const registration = user.person?.nationalId
+    ? null
+    : await prisma.registrationTemp.findFirst({
+        where: {
+          phoneNumber: user.phoneNumber,
+          status: "VERIFIED",
+          ...(user.registrationVillageId ? { villageId: user.registrationVillageId } : {}),
+        },
+        orderBy: { updatedAt: "desc" },
+        select: { nationalId: true },
+      });
+  const nationalId = user.person?.nationalId ?? registration?.nationalId;
+
+  return nationalId ? { success: true, nationalId } : { success: false };
+}

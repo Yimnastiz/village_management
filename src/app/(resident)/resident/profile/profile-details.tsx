@@ -2,18 +2,18 @@
 
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Edit3, Save, Upload, X } from "lucide-react";
+import { Edit3, Eye, EyeOff, Info, Save, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { MAX_IMAGE_BYTES } from "@/lib/image-input";
-import { updateProfileAction } from "./actions";
+import { revealOwnNationalIdAction, updateProfileAction } from "./actions";
 
 type ProfileDetailsProps = {
   user: { id: string; displayName: string; email: string; rawEmail: string; image: string | null; phoneNumber: string; phoneNumberVerified: boolean; emailVerified: boolean; citizenVerified: boolean; accountStatus: string; createdAt: string; updatedAt: string; consentAt: string; citizenVerifiedAt: string };
   person: { firstName: string; lastName: string; hasNationalId: boolean; maskedNationalId: string };
-  village: { province: string; district: string; subdistrict: string; registrationVillage: string; activeVillage: string; membershipStatus: string; membershipRole: string; houseNumber: string };
+  village: { province: string; district: string; subdistrict: string; currentVillage: string; membershipStatus: string; membershipRole: string; houseNumber: string };
   avatar: { text: string; image: string | null };
 };
 
@@ -34,6 +34,34 @@ function InfoRow({ label, value, children, hint }: { label: string; value?: stri
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-1 text-base font-semibold text-gray-900">{title}</h2><dl>{children}</dl></section>;
+}
+
+function NationalIdValue({ maskedNationalId }: { maskedNationalId: string }) {
+  const [nationalId, setNationalId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const toggleVisibility = async () => {
+    if (nationalId) {
+      setNationalId(null);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await revealOwnNationalIdAction();
+      if (result.success) setNationalId(result.nationalId);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isVisible = Boolean(nationalId);
+  return <div className="flex min-w-0 items-center gap-1">
+    <span className="min-w-0 break-all">{nationalId ?? maskedNationalId}</span>
+    <button type="button" onClick={toggleVisibility} disabled={isLoading} aria-label={isVisible ? "ซ่อนเลขบัตรประชาชน" : "แสดงเลขบัตรประชาชน"} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-wait disabled:opacity-60">
+      {isVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
+    </button>
+  </div>;
 }
 
 export function ProfileDetails({ user, person, village, avatar }: ProfileDetailsProps) {
@@ -65,14 +93,16 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
     finally { setIsPending(false); }
   };
   return <div className="space-y-4">
-    <section className={`${isEditing ? "" : "sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-20"} rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm backdrop-blur sm:p-5`}>
-      <div className="mb-4"><h1 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">โปรไฟล์</h1><p className="mt-0.5 text-sm text-gray-500">ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ</p></div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-center gap-3">
-          {avatar.image ? <img src={avatar.image} alt="รูปโปรไฟล์" className="h-16 w-16 flex-none rounded-full border border-gray-200 object-cover" /> : <div className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-green-100 text-xl font-bold text-green-700">{avatar.text}</div>}
-          <div className="min-w-0"><p className="text-xs font-medium text-gray-500">ข้อมูลผู้ใช้งาน</p><h2 className="truncate text-lg font-semibold text-gray-900">{user.displayName}</h2><p className="mt-1 text-sm text-gray-500">{user.phoneNumber}</p><div className="mt-2"><StatusBadge verified={user.accountStatus === "ACTIVE"} pending="ไม่พร้อมใช้งาน" /></div></div>
-        </div>
-        {!isEditing && <Button type="button" variant="outline" className="min-h-10 w-full gap-2 sm:w-auto" onClick={() => setIsEditing(true)}><Edit3 className="h-4 w-4" />แก้ไขข้อมูล</Button>}
+    <section className="sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-20 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:p-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0"><h1 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">โปรไฟล์</h1><p className="mt-0.5 text-sm text-gray-500">ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ</p></div>
+        {!isEditing && <Button type="button" variant="outline" className="min-h-10 w-full shrink-0 gap-2 sm:w-auto" onClick={() => setIsEditing(true)}><Edit3 className="h-4 w-4" />แก้ไขข้อมูล</Button>}
+      </div>
+    </section>
+    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+      <div className="flex min-w-0 items-center gap-3">
+        {avatar.image ? <img src={avatar.image} alt="รูปโปรไฟล์" className="h-16 w-16 flex-none rounded-full border border-gray-200 object-cover" /> : <div className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-green-100 text-xl font-bold text-green-700">{avatar.text}</div>}
+        <div className="min-w-0"><p className="text-xs font-medium text-gray-500">ข้อมูลผู้ใช้งาน</p><h2 className="truncate text-lg font-semibold text-gray-900">{user.displayName}</h2><p className="mt-1 text-sm text-gray-500">{user.phoneNumber}</p><div className="mt-2"><StatusBadge verified={user.accountStatus === "ACTIVE"} pending="ไม่พร้อมใช้งาน" /></div></div>
       </div>
       {isEditing && <form onSubmit={submit} className="mt-5 border-t border-gray-100 pt-5">
         <div className="grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
@@ -88,8 +118,8 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
       </form>}
     </section>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Section title="ข้อมูลพื้นฐาน"><InfoRow label="ชื่อจริง" value={person.firstName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" /><InfoRow label="นามสกุลจริง" value={person.lastName} hint="หากไม่ถูกต้อง กรุณาติดต่อผู้ใหญ่บ้านหรือผู้ดูแลหมู่บ้าน" /><InfoRow label="เลขบัตรประชาชน" value={person.hasNationalId ? person.maskedNationalId : "ยังไม่มีข้อมูล"} /><InfoRow label="เบอร์โทร" value={user.phoneNumber} /><InfoRow label="อีเมล" value={user.email} /><InfoRow label="ยืนยันเบอร์โทร"><StatusBadge verified={user.phoneNumberVerified} /></InfoRow><InfoRow label="ยืนยันอีเมล"><StatusBadge verified={user.emailVerified} /></InfoRow><InfoRow label="ยืนยันตัวตนพลเมือง"><StatusBadge verified={user.citizenVerified} pending="รอตรวจสอบ" /></InfoRow></Section>
-      <Section title="ข้อมูลหมู่บ้านและที่อยู่"><InfoRow label="จังหวัด" value={village.province} /><InfoRow label="อำเภอ" value={village.district} /><InfoRow label="ตำบล" value={village.subdistrict} /><InfoRow label="หมู่บ้านที่ลงทะเบียน" value={village.registrationVillage} /><InfoRow label="หมู่บ้านปัจจุบัน" value={village.activeVillage} /><InfoRow label="สถานะการผูกบ้าน" value={village.membershipStatus} /><InfoRow label="บทบาทในหมู่บ้าน" value={village.membershipRole} /><InfoRow label="บ้านเลขที่" value={village.houseNumber} /></Section>
+      <Section title="ข้อมูลพื้นฐาน"><InfoRow label="ชื่อจริง" value={person.firstName} /><InfoRow label="นามสกุลจริง" value={person.lastName} /><InfoRow label="เลขบัตรประชาชน">{person.hasNationalId ? <NationalIdValue maskedNationalId={person.maskedNationalId} /> : "ยังไม่มีข้อมูล"}</InfoRow><InfoRow label="เบอร์โทร" value={user.phoneNumber} /><InfoRow label="อีเมล" value={user.email} /><InfoRow label="ยืนยันเบอร์โทร"><StatusBadge verified={user.phoneNumberVerified} /></InfoRow><InfoRow label="ยืนยันอีเมล"><StatusBadge verified={user.emailVerified} /></InfoRow><InfoRow label="ยืนยันตัวตนพลเมือง"><StatusBadge verified={user.citizenVerified} pending="รอตรวจสอบ" /></InfoRow></Section>
+      <Section title="ข้อมูลหมู่บ้านและที่อยู่"><InfoRow label="จังหวัด" value={village.province} /><InfoRow label="อำเภอ" value={village.district} /><InfoRow label="ตำบล" value={village.subdistrict} /><InfoRow label="หมู่บ้าน" value={village.currentVillage} /><InfoRow label="สถานะการผูกบ้าน" value={village.membershipStatus} /><InfoRow label="บทบาทในหมู่บ้าน" value={village.membershipRole} /><InfoRow label="บ้านเลขที่" value={village.houseNumber} /><div className="mt-3 flex items-start gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" /><p>หากต้องการแก้ไขข้อมูลกรุณาแจ้งผู้ใหญ่บ้าน</p></div></Section>
     </div>
     <Section title="ข้อมูลการใช้งานบัญชี"><InfoRow label="สมัครเมื่อ" value={user.createdAt} /><InfoRow label="อัปเดตล่าสุด" value={user.updatedAt} /><InfoRow label="ยินยอมข้อมูลส่วนบุคคล" value={user.consentAt} /><InfoRow label="ยืนยันตัวตนเมื่อ" value={user.citizenVerifiedAt} /></Section>
   </div>;
