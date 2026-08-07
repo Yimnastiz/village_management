@@ -2,7 +2,6 @@ import { NotificationStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { SuperAdminSidebar } from "@/components/layout/superadmin-sidebar";
 import { SuperAdminTopBar } from "@/components/layout/superadmin-top-bar";
-import { ToastProvider } from "@/components/ui/toast";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 
@@ -27,8 +26,7 @@ export default async function SuperAdminLayout({ children }: { children: React.R
   }
 
   return (
-    <ToastProvider>
-      <div className="flex min-h-screen bg-slate-100">
+    <div className="flex min-h-screen bg-slate-100">
         <SuperAdminSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <SuperAdminTopBar
@@ -37,7 +35,6 @@ export default async function SuperAdminLayout({ children }: { children: React.R
           />
           <main className="flex-1 p-4 sm:p-6">{children}</main>
         </div>
-      </div>
-    </ToastProvider>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import {
   clearLoginOtpState,
   loadLoginOtpState,
@@ -69,6 +70,7 @@ function VerifyOTPContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
+  const { success, error: showError } = useToast();
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [draft, setDraft] = useState<RegistrationDraft | null>(null);
@@ -256,8 +258,10 @@ function VerifyOTPContent() {
       }
 
       setSuccessMessage("ส่ง OTP ใหม่แล้ว กรุณาตรวจสอบข้อความ SMS");
+      success("ส่งรหัส OTP ใหม่แล้ว", "กรุณาตรวจสอบข้อความ SMS");
     } catch (err) {
       setError(err instanceof Error ? err.message : "ส่ง OTP ซ้ำไม่สำเร็จ");
+      showError("ส่งรหัส OTP ใหม่ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsResending(false);
     }
@@ -305,11 +309,13 @@ function VerifyOTPContent() {
 
       if (mode === "signup") {
         setSuccessMessage("สมัครลงทะเบียนเสร็จสิ้นแล้ว สามารถล็อกอินเข้าเว็บไซต์ได้");
+        success("สมัครสมาชิกสำเร็จ", "กำลังพาไปหน้าเข้าสู่ระบบ");
         setTimeout(() => {
           router.push("/auth/login?registered=success");
         }, 700);
       } else {
         setSuccessMessage("ยืนยันสำเร็จ กำลังพาไปหน้าถัดไป");
+        success("ยืนยัน OTP สำเร็จ", "กำลังพาไปหน้าถัดไป");
         const postLoginResponse = await fetch("/api/auth/post-login-route", {
           method: "GET",
           credentials: "include",
@@ -329,6 +335,7 @@ function VerifyOTPContent() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "ยืนยัน OTP ไม่สำเร็จ");
+      showError("ยืนยัน OTP ไม่สำเร็จ", "กรุณาตรวจสอบรหัสแล้วลองใหม่อีกครั้ง");
     } finally {
       setIsLoading(false);
     }

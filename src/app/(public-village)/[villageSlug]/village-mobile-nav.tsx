@@ -69,7 +69,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
     <>
       <button
         type="button"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 xl:hidden"
+        className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white xl:hidden"
         onClick={() => setOpen(true)}
         aria-label="เปิดเมนู"
       >
@@ -81,7 +81,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
           {/* Backdrop */}
           <button
             type="button"
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 cursor-pointer bg-black/50"
             aria-label="ปิดเมนู"
             onClick={() => setOpen(false)}
           />
@@ -97,7 +97,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-md p-2 text-green-100 hover:bg-green-600"
+                className="cursor-pointer rounded-md p-2 text-green-100 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-white"
                 autoFocus
                 aria-label="ปิดเมนู"
               >

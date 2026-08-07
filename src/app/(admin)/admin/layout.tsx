@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
-import { ToastProvider } from "@/components/ui/toast";
 import { prisma } from "@/lib/prisma";
 import {
   getAuthenticatedAccessRedirectPath,
@@ -53,9 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           unreadNotificationCount={unreadNotificationCount}
           villageName={villageName}
         />
-        <ToastProvider>
-          <main className="flex-1 p-4 sm:p-6">{children}</main>
-        </ToastProvider>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
+import { useToast } from "@/components/ui/toast";
 import type { ThaiProvince } from "@/lib/thai-geography";
 
 function normalizePhone10(raw: string): string {
@@ -86,6 +87,7 @@ function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
 
 export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
   const router = useRouter();
+  const { success, error: showError } = useToast();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
   const privacyTriggerRef = useRef<HTMLButtonElement>(null);
   const privacyCloseButtonRef = useRef<HTMLButtonElement>(null);
@@ -377,9 +379,11 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         params.set("callbackUrl", callbackUrl);
       }
 
+      success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS เพื่อยืนยันการสมัครสมาชิก");
       router.push(`/auth/verify-otp?${params.toString()}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "ส่ง OTP ไม่สำเร็จ");
+      showError("ส่งรหัส OTP ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsLoading(false);
     }

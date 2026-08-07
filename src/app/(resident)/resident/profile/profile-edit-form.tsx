@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { User } from "lucide-react";
 import { updateProfileAction } from "./actions";
+import { useToast } from "@/components/ui/toast";
 
 interface ProfileEditFormProps {
   defaultName: string;
@@ -17,6 +19,8 @@ export function ProfileEditForm({
   defaultImage,
   avatarText,
 }: ProfileEditFormProps) {
+  const router = useRouter();
+  const { success: showSuccess, error: showError } = useToast();
   const [name, setName] = useState(defaultName);
   const [email, setEmail] = useState(defaultEmail);
   const [imagePreview, setImagePreview] = useState<string | null>(defaultImage);
@@ -41,17 +45,28 @@ export function ProfileEditForm({
     setError(null);
     setSuccess(false);
 
-    const result = await updateProfileAction({
-      name,
-      email,
-      image: imagePreview,
-    });
+    try {
+      const result = await updateProfileAction({
+        name,
+        email,
+        image: imagePreview,
+      });
 
-    setIsPending(false);
-    if (!result.success) {
-      setError(result.error);
-    } else {
+      if (!result.success) {
+        setError(result.error);
+        showError("บันทึกโปรไฟล์ไม่สำเร็จ", "กรุณาตรวจสอบข้อมูลแล้วลองใหม่อีกครั้ง");
+        return;
+      }
+
       setSuccess(true);
+      showSuccess("บันทึกโปรไฟล์สำเร็จ");
+      router.refresh();
+    } catch (cause) {
+      console.error("Unable to update profile", cause);
+      setError("ไม่สามารถบันทึกข้อมูลโปรไฟล์ได้ กรุณาลองใหม่อีกครั้ง");
+      showError("บันทึกโปรไฟล์ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setIsPending(false);
     }
   };
 
@@ -153,7 +168,7 @@ export function ProfileEditForm({
       <button
         type="submit"
         disabled={isPending}
-        className="rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+        className="cursor-pointer rounded-lg bg-green-600 px-5 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? "กำลังบันทึก..." : "บันทึกข้อมูลโปรไฟล์"}
       </button>

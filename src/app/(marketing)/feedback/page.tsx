@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/toast";
 import { submitPublicFeedbackAction } from "./actions";
 
 const feedbackCategoryOptions = [
@@ -19,6 +20,7 @@ export default function FeedbackPage() {
   const [categoryLabel, setCategoryLabel] = useState("");
   const [categoryValue, setCategoryValue] = useState("");
   const [isPending, startTransition] = useTransition();
+  const { success, error: showError } = useToast();
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">เสนอแนะ / ร้องเรียน</h1>
@@ -36,13 +38,20 @@ export default function FeedbackPage() {
             setError(null);
             const formData = new FormData(e.currentTarget);
             startTransition(async () => {
-              const result = await submitPublicFeedbackAction(formData);
-              if (!result.success) {
-                setError(result.error);
-                return;
-              }
+              try {
+                const result = await submitPublicFeedbackAction(formData);
+                if (!result.success) {
+                  setError(result.error);
+                  return;
+                }
 
-              setSubmitted(true);
+                setSubmitted(true);
+                success("ส่งข้อเสนอแนะแล้ว", "ขอบคุณที่ช่วยให้เราปรับปรุงระบบ");
+              } catch (cause) {
+                console.error("Unable to submit public feedback", cause);
+                setError("ไม่สามารถส่งข้อเสนอแนะได้ กรุณาลองใหม่อีกครั้ง");
+                showError("ส่งข้อเสนอแนะไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+              }
             });
           }}
         >

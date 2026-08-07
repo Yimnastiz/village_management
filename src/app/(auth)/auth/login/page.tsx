@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveLoginOtpState } from "@/lib/auth-client";
 import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
@@ -18,6 +19,7 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { success, error: showError } = useToast();
 
   const callbackUrl = sanitizeInternalCallbackUrl(searchParams.get("callbackUrl"));
   const registered = (searchParams.get("registered") ?? "").trim() === "success";
@@ -25,6 +27,12 @@ function LoginContent() {
   const registerHref = callbackUrl
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/register";
+
+  useEffect(() => {
+    if (registered) {
+      success("สมัครสมาชิกสำเร็จ", "คุณสามารถเข้าสู่ระบบด้วยเบอร์โทรศัพท์ได้แล้ว");
+    }
+  }, [registered, success]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,9 +93,11 @@ function LoginContent() {
       // Login state is tab-scoped and short-lived. Do not expose the phone
       // number in browser history, logs, referrers, or registration storage.
       saveLoginOtpState(loginPhoneNumber, callbackUrl, resultBody.outcome);
+      success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS และกรอกรหัสเพื่อเข้าสู่ระบบ");
       router.push("/auth/verify-otp?mode=signin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send OTP.");
+      showError("ส่งรหัส OTP ไม่สำเร็จ", "กรุณาตรวจสอบเบอร์โทรศัพท์แล้วลองใหม่อีกครั้ง");
     } finally {
       setIsLoading(false);
     }

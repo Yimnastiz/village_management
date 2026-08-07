@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
 import { createFirstSuperAdminAction, type FirstSuperAdminActionState } from "./actions";
 
 const initialState: FirstSuperAdminActionState = {};
@@ -16,6 +17,14 @@ function SubmitButton() {
 export function FirstSuperAdminSetupForm() {
   const [state, formAction] = useActionState(createFirstSuperAdminAction, initialState);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const { error } = useToast();
+
+  useEffect(() => {
+    if (state.error) {
+      error("สร้าง Super Admin ไม่สำเร็จ", state.error);
+    }
+  }, [error, state.error]);
+
   return <form action={formAction} className="mt-6 space-y-4">
     <div className="grid gap-4 sm:grid-cols-2">
       <Input label="ชื่อ" name="firstName" autoComplete="given-name" required />

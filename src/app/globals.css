@@ -68,6 +68,14 @@ input[type="checkbox"]:disabled,
 input[type="radio"]:disabled,
 [role="button"][aria-disabled="true"] {
   cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button:disabled,
+select:disabled,
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.5;
 }
 
 .sidebar-scroll {
