@@ -2,12 +2,22 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { submitPublicFeedbackAction } from "./actions";
+
+const feedbackCategoryOptions = [
+  { value: "ข้อเสนอแนะ", label: "ข้อเสนอแนะ", category: "suggestion" },
+  { value: "ร้องเรียน", label: "ร้องเรียน", category: "complaint" },
+  { value: "รายงานข้อผิดพลาด", label: "รายงานข้อผิดพลาด", category: "bug" },
+  { value: "อื่นๆ", label: "อื่นๆ", category: "other" },
+];
 
 export default function FeedbackPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categoryLabel, setCategoryLabel] = useState("");
+  const [categoryValue, setCategoryValue] = useState("");
   const [isPending, startTransition] = useTransition();
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -38,16 +48,23 @@ export default function FeedbackPage() {
         >
           <Input label="ชื่อ (ไม่บังคับ)" name="name" placeholder="ชื่อ-นามสกุล" />
           <Input label="อีเมล (ไม่บังคับ)" name="email" type="email" placeholder="example@email.com" />
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">ประเภท</label>
-            <select name="category" className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" required>
-              <option value="">-- เลือกประเภท --</option>
-              <option value="suggestion">ข้อเสนอแนะ</option>
-              <option value="complaint">ร้องเรียน</option>
-              <option value="bug">รายงานข้อผิดพลาด</option>
-              <option value="other">อื่นๆ</option>
-            </select>
-          </div>
+          <input type="hidden" name="category" value={categoryValue} />
+          <SuggestCombobox
+            id="feedback-category"
+            name="feedback-category-search-query"
+            label="ประเภท"
+            value={categoryLabel}
+            options={feedbackCategoryOptions}
+            placeholder="เลือกประเภท"
+            emptyMessage="ไม่พบประเภทที่ตรงกัน"
+            autoComplete="new-password"
+            onChange={(nextValue) => {
+              const selectedCategory = feedbackCategoryOptions.find((option) => option.value === nextValue);
+              setCategoryLabel(nextValue);
+              setCategoryValue(selectedCategory?.category ?? "");
+              setError(null);
+            }}
+          />
           <Textarea label="รายละเอียด" name="detail" placeholder="กรุณาระบุรายละเอียด..." rows={6} />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <Button type="submit" className="w-full" isLoading={isPending}>ส่งข้อเสนอแนะ</Button>
