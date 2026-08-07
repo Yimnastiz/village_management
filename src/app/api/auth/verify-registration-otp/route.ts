@@ -4,6 +4,7 @@ import { z } from "zod";
 import { clearRegistrationCookie, getRegistrationFromRequest, normalizePhone10, toPhoneCandidates } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
+import { DUPLICATE_NATIONAL_ID_REASON, findBoundIdentityByNationalId } from "@/lib/identity";
 
 const schema = z.object({ code: z.string().trim().regex(/^\d{6}$/), registrationId: z.string().min(1), challengeId: z.string().min(1) });
 const DELAYS = [2, 5, 15, 30, 30] as const;
@@ -49,6 +50,16 @@ export async function POST(request: NextRequest) {
     }
     const existingUser = await tx.user.findFirst({ where: { phoneNumber: { in: toPhoneCandidates(phoneNumber) } }, select: { id: true } });
     if (existingUser) return { type: "exists" as const };
+    const claimedIdentity = await findBoundIdentityByNationalId(tx, currentDraft.nationalId, undefined, currentDraft.villageId);
+    if (claimedIdentity) {
+      await tx.registrationTemp.update({
+        where: { id: currentDraft.id },
+        data: { status: RegistrationTempStatus.REJECTED, rejectReason: DUPLICATE_NATIONAL_ID_REASON, rejectedAt: now },
+      });
+      await tx.registrationOtpChallenge.update({ where: { id: challenge.id }, data: { status: RegistrationOtpChallengeStatus.CONSUMED } });
+      await tx.authVerification.deleteMany({ where: { identifier: challenge.otpIdentifier } });
+      return { type: "claimed" as const };
+    }
     const user = await tx.user.create({
       data: {
         phoneNumber, phoneNumberVerified: true, name: currentDraft.name, systemRole: "USER",
@@ -58,59 +69,28 @@ export async function POST(request: NextRequest) {
       },
       select: { id: true },
     });
-    if (currentDraft.nationalId && currentDraft.villageId) {
-      const personCandidates = await tx.person.findMany({
-        where: { villageId: currentDraft.villageId, nationalId: currentDraft.nationalId },
-        select: { id: true, userId: true },
+    // A pending applicant owns a profile row by userId, never by national ID.
+    // Multiple applicants can legitimately submit the same ID until approval.
+    if (currentDraft.villageId && currentDraft.firstName && currentDraft.lastName) {
+      await tx.person.create({
+        data: {
+          userId: user.id,
+          villageId: currentDraft.villageId,
+          nationalId: currentDraft.nationalId,
+          firstName: currentDraft.firstName,
+          lastName: currentDraft.lastName,
+          phone: phoneNumber,
+        },
       });
-      if (personCandidates.length === 1) {
-        const person = personCandidates[0];
-        if (!person.userId) {
-          await tx.person.update({ where: { id: person.id }, data: { userId: user.id } });
-          await tx.auditLog.create({
-            data: {
-              userId: user.id,
-              villageId: currentDraft.villageId,
-              action: AuditAction.UPDATE,
-              resource: "Person",
-              resourceId: person.id,
-              metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), linkedUserId: user.id },
-            },
-          });
-        } else if (person.userId !== user.id) {
-          await tx.auditLog.create({
-            data: {
-              userId: user.id,
-              villageId: currentDraft.villageId,
-              action: AuditAction.UPDATE,
-              resource: "Person",
-              resourceId: person.id,
-              metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), conflict: true },
-            },
-          });
-        }
-      } else if (personCandidates.length > 1) {
-        await tx.auditLog.create({
-          data: {
-            userId: user.id,
-            villageId: currentDraft.villageId,
-            action: AuditAction.UPDATE,
-            resource: "Person",
-            metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), conflict: "AMBIGUOUS", candidateCount: personCandidates.length },
-          },
-        });
-      } else if (currentDraft.firstName && currentDraft.lastName) {
-        await tx.person.create({
-          data: {
-            userId: user.id,
-            villageId: currentDraft.villageId,
-            nationalId: currentDraft.nationalId,
-            firstName: currentDraft.firstName,
-            lastName: currentDraft.lastName,
-            phone: phoneNumber,
-          },
-        });
-      }
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          villageId: currentDraft.villageId,
+          action: AuditAction.CREATE,
+          resource: "Person",
+          metadata: { source: "REGISTRATION", maskedNationalId: maskNationalId(currentDraft.nationalId) },
+        },
+      });
     }
     await tx.registrationTemp.update({ where: { id: currentDraft.id }, data: { status: RegistrationTempStatus.VERIFIED } });
     await tx.registrationTemp.updateMany({ where: { phoneNumber, id: { not: currentDraft.id }, status: RegistrationTempStatus.WAITING_OTP }, data: { status: RegistrationTempStatus.CANCELLED } });
@@ -125,6 +105,7 @@ export async function POST(request: NextRequest) {
   }
   if (result.type === "expired") return NextResponse.json({ error: "OTP หมดอายุแล้ว" }, { status: 410 });
   if (result.type === "exists") return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });
+  if (result.type === "claimed") return NextResponse.json({ error: "เลขบัตรประชาชนนี้ได้รับการยืนยันกับบัญชีอื่นแล้ว กรุณาติดต่อผู้ใหญ่บ้าน" }, { status: 409 });
   if (result.type !== "verified") return NextResponse.json({ error: "Registration challenge is no longer active." }, { status: 409 });
   const response = NextResponse.json({ ok: true, userId: result.userId });
   clearRegistrationCookie(response);

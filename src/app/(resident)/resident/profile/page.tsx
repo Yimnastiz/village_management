@@ -59,23 +59,28 @@ export default async function ProfilePage() {
     redirect("/auth/login?callbackUrl=/resident/profile");
   }
 
-  const person =
-    (await prisma.person.findUnique({
+  const [person, registration] = await Promise.all([
+    prisma.person.findUnique({
       where: { userId: user.id },
       include: { house: { select: { houseNumber: true } } },
-    })) ??
-    (await prisma.person.findFirst({
-      where: { userId: null, phone: user.phoneNumber, villageId: user.registrationVillageId },
-      include: { house: { select: { houseNumber: true } } },
+    }),
+    prisma.registrationTemp.findFirst({
+      where: {
+        phoneNumber: user.phoneNumber,
+        status: "VERIFIED",
+        ...(user.registrationVillageId ? { villageId: user.registrationVillageId } : {}),
+      },
       orderBy: { updatedAt: "desc" },
-    }));
+      select: { firstName: true, lastName: true, nationalId: true },
+    }),
+  ]);
 
   const activeMembership =
     user.memberships.find((membership) => membership.status === "ACTIVE") ??
     user.memberships[0] ??
     null;
-  const registeredFirstName = fallback(person?.firstName);
-  const registeredLastName = fallback(person?.lastName);
+  const registeredFirstName = fallback(person?.firstName ?? registration?.firstName);
+  const registeredLastName = fallback(person?.lastName ?? registration?.lastName);
   const legalName = person ? `${registeredFirstName} ${registeredLastName}` : fallback(user.name);
   const avatarText = (legalName.trim()?.[0] ?? user.phoneNumber?.[0] ?? "?").toUpperCase();
 
@@ -101,8 +106,8 @@ export default async function ProfilePage() {
         person={{
           firstName: registeredFirstName,
           lastName: registeredLastName,
-          nationalId: person?.nationalId ?? null,
-          maskedNationalId: person?.nationalId ? maskNationalId(person.nationalId) : "-",
+          hasNationalId: Boolean(person?.nationalId ?? registration?.nationalId),
+          maskedNationalId: person?.nationalId || registration?.nationalId ? maskNationalId(person?.nationalId ?? registration?.nationalId ?? "") : "-",
         }}
         village={{
           province: fallback(user.registrationProvince),

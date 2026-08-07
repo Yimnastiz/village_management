@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Edit3, Eye, EyeOff, Save, Upload, X } from "lucide-react";
+import { Edit3, Save, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,15 +12,10 @@ import { updateProfileAction } from "./actions";
 
 type ProfileDetailsProps = {
   user: { id: string; displayName: string; email: string; rawEmail: string; image: string | null; phoneNumber: string; phoneNumberVerified: boolean; emailVerified: boolean; citizenVerified: boolean; accountStatus: string; createdAt: string; updatedAt: string; consentAt: string; citizenVerifiedAt: string };
-  person: { firstName: string; lastName: string; nationalId: string | null; maskedNationalId: string };
+  person: { firstName: string; lastName: string; hasNationalId: boolean; maskedNationalId: string };
   village: { province: string; district: string; subdistrict: string; registrationVillage: string; activeVillage: string; membershipStatus: string; membershipRole: string; houseNumber: string };
   avatar: { text: string; image: string | null };
 };
-
-function fullNationalId(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits.length === 13 ? `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}` : value;
-}
 
 function StatusBadge({ verified, pending = "ยังไม่ยืนยัน" }: { verified: boolean; pending?: string }) {
   return <span className={verified ? "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800" : "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"}>{verified ? "ยืนยันแล้ว" : pending}</span>;
@@ -51,7 +46,6 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
   const [image, setImage] = useState<string | null>(user.image);
   const [isPending, setIsPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [showNationalId, setShowNationalId] = useState(false);
 
   const cancelEdit = () => { setPhoneNumber(user.phoneNumber === "ยังไม่มีข้อมูล" ? "" : user.phoneNumber); setEmail(user.rawEmail); setImage(user.image); setFormError(null); setIsEditing(false); };
   const selectImage = (file?: File) => {
@@ -70,8 +64,6 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
     } catch { setFormError("ไม่สามารถบันทึกข้อมูลโปรไฟล์ได้ กรุณาลองใหม่อีกครั้ง"); showError("บันทึกโปรไฟล์ไม่สำเร็จ"); }
     finally { setIsPending(false); }
   };
-  const nationalIdLabel = showNationalId ? "ซ่อนเลขบัตรประชาชน" : "แสดงเลขบัตรประชาชน";
-
   return <div className="space-y-4">
     <section className={`${isEditing ? "" : "sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-20"} rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm backdrop-blur sm:p-5`}>
       <div className="mb-4"><h1 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">โปรไฟล์</h1><p className="mt-0.5 text-sm text-gray-500">ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ</p></div>
@@ -96,7 +88,7 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
       </form>}
     </section>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Section title="ข้อมูลพื้นฐาน"><InfoRow label="ชื่อจริง" value={person.firstName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" /><InfoRow label="นามสกุลจริง" value={person.lastName} hint="หากไม่ถูกต้อง กรุณาติดต่อผู้ใหญ่บ้านหรือผู้ดูแลหมู่บ้าน" /><InfoRow label="เลขบัตรประชาชน">{person.nationalId ? <span className="inline-flex max-w-full items-center gap-2"><span className="break-all">{showNationalId ? fullNationalId(person.nationalId) : person.maskedNationalId}</span><button type="button" aria-label={nationalIdLabel} title={nationalIdLabel} className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50" onClick={() => setShowNationalId((value) => !value)}>{showNationalId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span> : "ยังไม่มีข้อมูล"}</InfoRow><InfoRow label="เบอร์โทร" value={user.phoneNumber} /><InfoRow label="อีเมล" value={user.email} /><InfoRow label="ยืนยันเบอร์โทร"><StatusBadge verified={user.phoneNumberVerified} /></InfoRow><InfoRow label="ยืนยันอีเมล"><StatusBadge verified={user.emailVerified} /></InfoRow><InfoRow label="ยืนยันตัวตนพลเมือง"><StatusBadge verified={user.citizenVerified} pending="รอตรวจสอบ" /></InfoRow></Section>
+      <Section title="ข้อมูลพื้นฐาน"><InfoRow label="ชื่อจริง" value={person.firstName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" /><InfoRow label="นามสกุลจริง" value={person.lastName} hint="หากไม่ถูกต้อง กรุณาติดต่อผู้ใหญ่บ้านหรือผู้ดูแลหมู่บ้าน" /><InfoRow label="เลขบัตรประชาชน" value={person.hasNationalId ? person.maskedNationalId : "ยังไม่มีข้อมูล"} /><InfoRow label="เบอร์โทร" value={user.phoneNumber} /><InfoRow label="อีเมล" value={user.email} /><InfoRow label="ยืนยันเบอร์โทร"><StatusBadge verified={user.phoneNumberVerified} /></InfoRow><InfoRow label="ยืนยันอีเมล"><StatusBadge verified={user.emailVerified} /></InfoRow><InfoRow label="ยืนยันตัวตนพลเมือง"><StatusBadge verified={user.citizenVerified} pending="รอตรวจสอบ" /></InfoRow></Section>
       <Section title="ข้อมูลหมู่บ้านและที่อยู่"><InfoRow label="จังหวัด" value={village.province} /><InfoRow label="อำเภอ" value={village.district} /><InfoRow label="ตำบล" value={village.subdistrict} /><InfoRow label="หมู่บ้านที่ลงทะเบียน" value={village.registrationVillage} /><InfoRow label="หมู่บ้านปัจจุบัน" value={village.activeVillage} /><InfoRow label="สถานะการผูกบ้าน" value={village.membershipStatus} /><InfoRow label="บทบาทในหมู่บ้าน" value={village.membershipRole} /><InfoRow label="บ้านเลขที่" value={village.houseNumber} /></Section>
     </div>
     <Section title="ข้อมูลการใช้งานบัญชี"><InfoRow label="สมัครเมื่อ" value={user.createdAt} /><InfoRow label="อัปเดตล่าสุด" value={user.updatedAt} /><InfoRow label="ยินยอมข้อมูลส่วนบุคคล" value={user.consentAt} /><InfoRow label="ยืนยันตัวตนเมื่อ" value={user.citizenVerifiedAt} /></Section>

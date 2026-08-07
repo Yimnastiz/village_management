@@ -10,18 +10,30 @@ type IdentityDb = typeof prisma | Prisma.TransactionClient;
 
 export const DUPLICATE_NATIONAL_ID_REASON =
   "บัญชีนี้ใช้เลขบัตรประชาชนซ้ำกับบัญชีที่ได้รับการผูกบ้านแล้ว กรุณาสมัครใหม่ด้วยข้อมูลที่ถูกต้อง หากคิดว่าเป็นความผิดพลาด กรุณาแจ้งผู้ใหญ่บ้านของหมู่บ้านที่ท่านลงทะเบียนไว้ เพื่อให้ผู้ใหญ่บ้านประสานงานกับ Super Admin";
+export const DUPLICATE_NATIONAL_ID_REASON_CODE = "NATIONAL_ID_ALREADY_VERIFIED_BY_ANOTHER_ACCOUNT";
 
 export async function lockNationalIdClaim(db: IdentityDb, nationalId: string) {
   const normalized = normalizeNationalId(nationalId);
   if (normalized) await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`national-id-claim:${normalized}`}))`;
 }
 
-export async function findBoundIdentityByNationalId(db: IdentityDb, nationalId: string, excludeUserId?: string) {
+export async function findBoundIdentityByNationalId(
+  db: IdentityDb,
+  nationalId: string,
+  excludeUserId?: string,
+  villageId?: string | null,
+) {
   const normalized = normalizeNationalId(nationalId);
   if (!normalized) return null;
   const [persons, registrations] = await Promise.all([
-    db.person.findMany({ where: { nationalId: normalized, userId: { not: null } }, select: { userId: true } }),
-    db.registrationTemp.findMany({ where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED }, select: { phoneNumber: true } }),
+    db.person.findMany({
+      where: { nationalId: normalized, userId: { not: null }, ...(villageId ? { villageId } : {}) },
+      select: { userId: true },
+    }),
+    db.registrationTemp.findMany({
+      where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED, ...(villageId ? { villageId } : {}) },
+      select: { phoneNumber: true },
+    }),
   ]);
   const personUserIds = persons.flatMap((person) => person.userId ? [person.userId] : []);
   const phoneNumbers = [...new Set(registrations.map((registration) => registration.phoneNumber))];
@@ -30,7 +42,13 @@ export async function findBoundIdentityByNationalId(db: IdentityDb, nationalId: 
     where: {
       ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
       accountStatus: AccountStatus.ACTIVE,
-      memberships: { some: { status: MembershipStatus.ACTIVE, houseId: { not: null } } },
+      memberships: {
+        some: {
+          status: MembershipStatus.ACTIVE,
+          houseId: { not: null },
+          ...(villageId ? { villageId } : {}),
+        },
+      },
       OR: [
         ...(personUserIds.length ? [{ id: { in: personUserIds } }] : []),
         ...(phoneNumbers.length ? [{ phoneNumber: { in: phoneNumbers } }] : []),
@@ -74,11 +92,11 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
   // Merge both sources, then revoke only users without *any* active membership.
   const [registrations, persons] = await Promise.all([
     db.registrationTemp.findMany({
-      where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED },
+      where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED, ...(options.villageId ? { villageId: options.villageId } : {}) },
       select: { phoneNumber: true },
     }),
     db.person.findMany({
-      where: { nationalId: normalized, userId: { not: null } },
+      where: { nationalId: normalized, userId: { not: null }, ...(options.villageId ? { villageId: options.villageId } : {}) },
       select: { userId: true },
     }),
   ]);
@@ -130,14 +148,18 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
         accountStatus: AccountStatus.DUPLICATE_ID,
         duplicateOfUserId: winnerUserId,
         duplicateResolvedAt: resolvedAt,
-        duplicateReason: DUPLICATE_NATIONAL_ID_REASON,
+        duplicateReason: DUPLICATE_NATIONAL_ID_REASON_CODE,
         duplicateNoticeLoginUsedAt: null,
         duplicateNoticeSeenAt: null,
       },
     }),
     db.authSession.deleteMany({ where: { userId: { in: loserIds } } }),
     db.registrationTemp.updateMany({
-      where: { phoneNumber: { in: loserPhoneNumbers }, nationalId: normalized, status: { in: [RegistrationTempStatus.WAITING_OTP, RegistrationTempStatus.VERIFIED] } },
+      where: {
+        phoneNumber: { in: loserPhoneNumbers }, nationalId: normalized,
+        status: { in: [RegistrationTempStatus.WAITING_OTP, RegistrationTempStatus.VERIFIED] },
+        ...(options.villageId ? { villageId: options.villageId } : {}),
+      },
       data: { status: RegistrationTempStatus.REJECTED, rejectReason: DUPLICATE_NATIONAL_ID_REASON, rejectedAt: resolvedAt },
     }),
     db.bindingRequest.updateMany({
@@ -165,7 +187,7 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
         action: AuditAction.REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT,
         resource: "UserAccount",
         resourceId: userId,
-        metadata: { targetUserId: userId, duplicateOfUserId: winnerUserId, reason: "DUPLICATE_NATIONAL_ID", maskedNationalId: maskNationalId(normalized) },
+        metadata: { targetUserId: userId, duplicateOfUserId: winnerUserId, reason: DUPLICATE_NATIONAL_ID_REASON_CODE, maskedNationalId: maskNationalId(normalized) },
       })),
     }),
   ]);

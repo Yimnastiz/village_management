@@ -142,7 +142,7 @@ async function getPendingBindingRequests(
     });
     const nationalId = request.user.person?.nationalId ?? registration?.nationalId ?? null;
     const duplicateRegistrations = nationalId ? await prisma.registrationTemp.findMany({
-      where: { nationalId, status: RegistrationTempStatus.VERIFIED, phoneNumber: { not: request.user.phoneNumber } },
+      where: { nationalId, villageId: request.villageId ?? undefined, status: RegistrationTempStatus.VERIFIED, phoneNumber: { not: request.user.phoneNumber } },
       orderBy: { createdAt: "asc" },
       select: { phoneNumber: true, createdAt: true },
     }) : [];
@@ -157,8 +157,8 @@ async function getPendingBindingRequests(
       status: "PENDING" as const,
     }));
     const [claimed, personDuplicateCount] = nationalId ? await Promise.all([
-      findBoundIdentityByNationalId(prisma, nationalId, request.user.id),
-      prisma.person.count({ where: { nationalId, userId: { not: request.user.id } } }),
+      findBoundIdentityByNationalId(prisma, nationalId, request.user.id, request.villageId),
+      prisma.person.count({ where: { nationalId, villageId: request.villageId ?? undefined, userId: { not: request.user.id } } }),
     ]) : [null, 0];
     return {
       ...request,
@@ -228,7 +228,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
       nationalIdForBinding = await getNationalIdForUser(tx, binding.userId, binding.villageId);
       if (nationalIdForBinding) await lockNationalIdClaim(tx, nationalIdForBinding);
-      if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId)) {
+      if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId, binding.villageId)) {
         throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
       }
     }
@@ -299,11 +299,9 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
           }) : null;
           const linkedPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true } });
           if (linkedPerson && linkedPerson.villageId !== binding.villageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้อยู่คนละหมู่บ้านกับคำขอ");
-          const nationalIdCandidates = registration?.nationalId
-            ? await tx.person.findMany({ where: { villageId: binding.villageId, nationalId: registration.nationalId, userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true } })
-            : [];
-          const phonePerson = residentUser.phoneNumber ? await tx.person.findFirst({ where: { phone: residentUser.phoneNumber, villageId: binding.villageId }, select: { id: true, userId: true, houseId: true, villageId: true } }) : null;
-          const existingPerson = linkedPerson ?? nationalIdCandidates[0] ?? phonePerson;
+          // A duplicate national ID must never select another applicant's Person row.
+          // The account-owned record is the sole profile record eligible for approval.
+          const existingPerson = linkedPerson;
           if (existingPerson?.userId && existingPerson.userId !== binding.userId) throw new BindingReviewValidationError("ข้อมูลบุคคลนี้ถูกผูกกับบัญชีอื่นแล้ว ไม่สามารถผูกทับได้");
           if (existingPerson?.houseId && existingPerson.houseId !== resolvedHouseId && !confirmPersonHouseChange) throw new BindingReviewValidationError("บ้านที่คำขอเลือกไม่ตรงกับข้อมูลทะเบียนประชากร กรุณายืนยันการแก้ไขข้อมูลทะเบียนก่อนอนุมัติ");
 
@@ -496,7 +494,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
 
         nationalIdForBinding = await getNationalIdForUser(tx, binding.userId, binding.villageId);
         if (nationalIdForBinding) await lockNationalIdClaim(tx, nationalIdForBinding);
-        if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId)) {
+        if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId, binding.villageId)) {
           throw new Error("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
         }
       }
@@ -543,12 +541,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
 
           if (residentUser) {
             const names = splitDisplayName(residentUser.name);
-            const existingPerson = await tx.person.findFirst({
-              where: {
-                phone: residentUser.phoneNumber,
-              },
-              select: { id: true },
-            });
+            const existingPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true } });
 
             if (existingPerson) {
               await tx.person.update({
@@ -556,6 +549,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
                 data: {
                   villageId: binding.villageId,
                   houseId: resolvedHouseId,
+                  userId: binding.userId,
                 },
               });
             } else {
@@ -566,6 +560,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
                   firstName: names.firstName,
                   lastName: names.lastName,
                   phone: residentUser.phoneNumber,
+                  userId: binding.userId,
                 },
               });
             }

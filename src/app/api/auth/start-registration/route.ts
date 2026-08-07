@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
   const hash = ipHash(request);
   const prepared = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`registration-otp:${phoneNumber}`}))`;
-    const claimedIdentity = await findBoundIdentityByNationalId(tx, nationalId);
+    const claimedIdentity = await findBoundIdentityByNationalId(tx, nationalId, undefined, parsed.data.villageId);
     if (claimedIdentity) return { limited: false as const, claimed: true as const };
     const recentSessions = await tx.registrationVerifierSession.count({ where: { ipHash: hash, createdAt: { gt: new Date(now.getTime() - 15 * 60_000) } } });
     if (recentSessions >= 10) return { limited: true as const };

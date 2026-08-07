@@ -71,7 +71,7 @@ export async function reviewBindingSupportAction(
         resolvedHouseId = house.id;
         const nationalId = await getNationalIdForUser(tx, request.userId, targetVillageId);
         if (nationalId) await lockNationalIdClaim(tx, nationalId);
-        if (nationalId && await findBoundIdentityByNationalId(tx, nationalId, request.userId)) {
+        if (nationalId && await findBoundIdentityByNationalId(tx, nationalId, request.userId, targetVillageId)) {
           throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
         }
         await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
