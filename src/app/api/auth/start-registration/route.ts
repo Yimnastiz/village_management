@@ -28,12 +28,12 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
   const phoneNumber = normalizePhone10(parsed.data.phoneNumber);
   if (!phoneNumber) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
-  if (!isValidThaiName(parsed.data.firstName)) return NextResponse.json({ error: "กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข" }, { status: 400 });
-  if (!isValidThaiName(parsed.data.lastName)) return NextResponse.json({ error: "กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข" }, { status: 400 });
+  if (!isValidThaiName(parsed.data.firstName)) return NextResponse.json({ error: "กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น" }, { status: 400 });
+  if (!isValidThaiName(parsed.data.lastName)) return NextResponse.json({ error: "กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น" }, { status: 400 });
   const firstName = normalizeThaiName(parsed.data.firstName).trim();
   const lastName = normalizeThaiName(parsed.data.lastName).trim();
   const nationalId = normalizeNationalId(parsed.data.nationalId);
-  if (!nationalId) return NextResponse.json({ error: "กรุณากรอกเลขบัตรประชาชน" }, { status: 400 });
+  if (!/^\d{13}$/.test(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก" }, { status: 400 });
   const dueAccount = await prisma.user.findFirst({ where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "DELETION_PENDING", scheduledDeletionAt: { lte: new Date() } }, select: { id: true } });
   if (dueAccount) await finalizeAccountDeletion(dueAccount.id);
   if (await hasExistingUserWithPhone(phoneNumber)) return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });

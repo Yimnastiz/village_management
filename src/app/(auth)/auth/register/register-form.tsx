@@ -270,18 +270,18 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     const normalizedName = `${normalizedFirstName} ${normalizedLastName}`.trim();
     const normalizedPhone = normalizePhone10(phone);
     const normalizedNationalId = normalizeNationalId(nationalId).slice(0, 13);
-    if (!normalizedFirstName || !normalizedLastName || !normalizedPhone || !normalizedNationalId || !province || !district || !subdistrict || !villageId) {
+    if (!normalizedFirstName || !normalizedLastName || !normalizedPhone || !province || !district || !subdistrict || !villageId) {
       setError("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
       return;
     }
 
     if (!isValidThaiName(firstName)) {
-      setError("กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข");
+      setError("กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น");
       return;
     }
 
     if (!isValidThaiName(lastName)) {
-      setError("กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข");
+      setError("กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น");
       return;
     }
 
@@ -307,6 +307,11 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
     if (!/^\d{10}$/.test(normalizedPhone)) {
       setError("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก");
+      return;
+    }
+
+    if (!/^\d{13}$/.test(normalizedNationalId)) {
+      setError("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก");
       return;
     }
 
@@ -463,7 +468,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           pattern="[0-9]{13}"
           title="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก"
           required
-          helperText="กรอกเลขบัตรประชาชน 13 หลัก ระบบจะตรวจสอบรูปแบบเลขบัตร"
+          helperText="กรอกเลขบัตรประชาชน 13 หลัก"
         />
 
         </section>
