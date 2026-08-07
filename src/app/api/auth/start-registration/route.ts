@@ -8,7 +8,8 @@ import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 import { createRegistrationCookie, hasExistingUserWithPhone, normalizePhone10, REGISTRATION_OTP_TTL_SECONDS } from "@/lib/registration-temp";
 import { finalizeAccountDeletion } from "@/lib/account-deletion";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
-import { findBoundIdentityByNationalId, isValidThaiNationalId, normalizeNationalId } from "@/lib/identity";
+import { findBoundIdentityByNationalId } from "@/lib/identity";
+import { isValidThaiNationalId, isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
@@ -27,12 +28,17 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
   const phoneNumber = normalizePhone10(parsed.data.phoneNumber);
   if (!phoneNumber) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
+  if (!isValidThaiName(parsed.data.firstName)) return NextResponse.json({ error: "กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข" }, { status: 400 });
+  if (!isValidThaiName(parsed.data.lastName)) return NextResponse.json({ error: "กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข" }, { status: 400 });
+  const firstName = normalizeThaiName(parsed.data.firstName).trim();
+  const lastName = normalizeThaiName(parsed.data.lastName).trim();
   const nationalId = normalizeNationalId(parsed.data.nationalId);
-  if (!isValidThaiNationalId(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนไม่ถูกต้อง" }, { status: 400 });
+  if (!/^\d{13}$/.test(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก" }, { status: 400 });
+  if (!isValidThaiNationalId(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนไม่ถูกต้อง กรุณาตรวจสอบเลข 13 หลักอีกครั้ง" }, { status: 400 });
   const dueAccount = await prisma.user.findFirst({ where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "DELETION_PENDING", scheduledDeletionAt: { lte: new Date() } }, select: { id: true } });
   if (dueAccount) await finalizeAccountDeletion(dueAccount.id);
   if (await hasExistingUserWithPhone(phoneNumber)) return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });
-  const name = parsed.data.name ?? `${parsed.data.firstName ?? ""} ${parsed.data.lastName ?? ""}`.trim();
+  const name = `${firstName} ${lastName}`;
   if (!name) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
 
   const now = new Date();
@@ -48,7 +54,7 @@ export async function POST(request: NextRequest) {
       && Boolean(challenge.otpExpiresAt ? challenge.otpExpiresAt > now : now.getTime() - challenge.updatedAt.getTime() < 30_000);
     const draft = await tx.registrationTemp.create({
       data: {
-        phoneNumber, registrationMode: "RESIDENT", name, firstName: parsed.data.firstName, lastName: parsed.data.lastName, nationalId,
+        phoneNumber, registrationMode: "RESIDENT", name, firstName, lastName, nationalId,
         province: parsed.data.province, district: parsed.data.district, subdistrict: parsed.data.subdistrict,
         villageId: parsed.data.villageId, callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
         expiresAt: challenge?.otpExpiresAt && challenge.otpExpiresAt > now ? challenge.otpExpiresAt : new Date(now.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000),

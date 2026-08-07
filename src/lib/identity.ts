@@ -1,21 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { AccountStatus, BindingRequestStatus, MembershipStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { normalizeNationalId } from "@/lib/thai-identity";
+
+export { isValidThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
 
 type IdentityDb = typeof prisma | Prisma.TransactionClient;
-
-const THAI_DIGITS = "๐๑๒๓๔๕๖๗๘๙";
-
-export function normalizeNationalId(value: string): string {
-  return value.replace(/[๐-๙]/g, (digit) => String(THAI_DIGITS.indexOf(digit))).replace(/\D/g, "");
-}
-
-export function isValidThaiNationalId(value: string): boolean {
-  const digits = normalizeNationalId(value);
-  if (!/^\d{13}$/.test(digits)) return false;
-  const checksum = digits.slice(0, 12).split("").reduce((sum, digit, index) => sum + Number(digit) * (13 - index), 0);
-  return (11 - (checksum % 11)) % 10 === Number(digits[12]);
-}
 
 export async function lockNationalIdClaim(db: IdentityDb, nationalId: string) {
   const normalized = normalizeNationalId(nationalId);

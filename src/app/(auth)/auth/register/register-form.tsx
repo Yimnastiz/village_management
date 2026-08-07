@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import { useToast } from "@/components/ui/toast";
 import type { ThaiProvince } from "@/lib/thai-geography";
+import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 
 function normalizePhone10(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 10);
@@ -264,13 +265,23 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const normalizedFirstName = firstName.trim();
-    const normalizedLastName = lastName.trim();
+    const normalizedFirstName = normalizeThaiName(firstName).trim();
+    const normalizedLastName = normalizeThaiName(lastName).trim();
     const normalizedName = `${normalizedFirstName} ${normalizedLastName}`.trim();
     const normalizedPhone = normalizePhone10(phone);
-    const normalizedNationalId = nationalId.replace(/\D/g, "").slice(0, 13);
+    const normalizedNationalId = normalizeNationalId(nationalId).slice(0, 13);
     if (!normalizedFirstName || !normalizedLastName || !normalizedPhone || !normalizedNationalId || !province || !district || !subdistrict || !villageId) {
       setError("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
+      return;
+    }
+
+    if (!isValidThaiName(firstName)) {
+      setError("กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข");
+      return;
+    }
+
+    if (!isValidThaiName(lastName)) {
+      setError("กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น และห้ามมีตัวเลข");
       return;
     }
 
@@ -416,16 +427,18 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             name="firstName"
             placeholder="เช่น สมชาย"
             value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
+            onChange={(e) => setFirstName(normalizeThaiName(e.target.value))}
             required
+            helperText="กรอกชื่อจริงภาษาไทยตามบัตรประชาชน"
           />
           <Input
             label="นามสกุล"
             name="lastName"
             placeholder="เช่น ใจดี"
             value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
+            onChange={(e) => setLastName(normalizeThaiName(e.target.value))}
             required
+            helperText="กรอกนามสกุลจริงภาษาไทยตามบัตรประชาชน"
           />
         </div>
 
@@ -449,12 +462,13 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           type="text"
           placeholder="1234567890123"
           value={nationalId}
-          onChange={(e) => setNationalId(e.target.value.replace(/\D/g, "").slice(0, 13))}
+          onChange={(e) => setNationalId(normalizeNationalId(e.target.value).slice(0, 13))}
           inputMode="numeric"
           maxLength={13}
           pattern="[0-9]{13}"
           title="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก"
           required
+          helperText="กรอกเลขบัตรประชาชน 13 หลัก ระบบจะตรวจสอบรูปแบบเลขบัตร"
         />
 
         </section>
