@@ -2,7 +2,7 @@
 
 import { ChevronDown, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { formatVillageLabel, villageSearchText } from "@/lib/village-label";
+import { formatVillageLabel, formatVillageLocation, villageSearchText } from "@/lib/village-label";
 
 type VillageOption = {
   id: string;
@@ -14,7 +14,7 @@ type VillageOption = {
 };
 
 function villageLabel(village: VillageOption) {
-  const location = [village.subdistrict, village.district, village.province].filter(Boolean).join(" / ");
+  const location = formatVillageLocation(village);
   const label = formatVillageLabel(village.name, village.moo);
   return location ? `${label} (${location})` : label;
 }
@@ -60,8 +60,8 @@ export function BindingVillageCombobox({ villages, initialVillageId, disabled }:
         <div id="binding-village-options" className="absolute z-40 mt-1 max-h-64 w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
           {filteredVillages.length ? filteredVillages.map((village) => (
             <button key={village.id} type="button" className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-green-50" onMouseDown={(event) => event.preventDefault()} onClick={() => { setSelectedId(village.id); setQuery(villageLabel(village)); setOpen(false); }}>
-              <span className="block font-medium text-gray-900">{formatVillageLabel(village.name, village.moo)}</span>
-              <span className="block text-xs text-gray-500">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" / ")}</span>
+              <span className="block truncate font-medium text-gray-900">{formatVillageLabel(village.name, village.moo)}</span>
+              <span className="block truncate text-xs text-gray-500">{formatVillageLocation(village)}</span>
             </button>
           )) : <p className="px-3 py-4 text-center text-sm text-gray-500">ไม่พบหมู่บ้านที่ค้นหา</p>}
         </div>

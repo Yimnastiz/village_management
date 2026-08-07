@@ -2,11 +2,11 @@
 
 import { AuditAction } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { BUILT_IN_THAILAND_VILLAGE_CATALOG, findBuiltInVillageCatalogItem } from "@/data/thailand-village-catalog";
+import { findBuiltInVillageCatalogItem } from "@/data/thailand-village-catalog";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession, writeSuperAdminAuditLog } from "@/lib/superadmin";
 import { normalizeThaiAreaName, normalizeThaiVillageName, validateThaiLocation } from "@/lib/thai-geography";
-import { normalizeVillageSlugInput } from "@/lib/village-slug";
+import { buildCatalogVillageSlug, normalizeVillageSlugInput } from "@/lib/village-slug";
 
 function readString(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -32,10 +32,7 @@ async function readVillagePayload(formData: FormData) {
   const builtInCatalogId = optionalString(formData, "builtInCatalogId");
   const sourceNote = optionalString(formData, "sourceNote");
   const typedName = readString(formData, "name");
-  const slug = normalizeVillageSlugInput(readString(formData, "slug") || typedName);
-  if (!slug) throw new Error("กรุณากรอก slug ที่ถูกต้อง");
-
-  let canonical: { name: string; moo: string | null; province: string; district: string; subdistrict: string; catalogVillageId: string | null };
+  let canonical: { name: string; moo: string | null; province: string; district: string; subdistrict: string; catalogVillageId: string | null; officialCode: string | null; catalogSlug?: string | null; fallbackId?: string | null };
   let resolvedBuiltInCatalogId: string | null = null;
   if (mode === "catalog") {
     const currentVillageId = optionalString(formData, "id");
@@ -46,22 +43,27 @@ async function readVillagePayload(formData: FormData) {
       resolvedBuiltInCatalogId = catalog.officialCode;
       const duplicate = await prisma.village.findFirst({ where: { name: catalog.villageName, moo: catalog.moo ?? null, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict) }, select: { id: true } });
       if (duplicate && duplicate.id !== currentVillageId) throw new Error("หมู่บ้านตัวอย่างนี้ถูกเปิดใช้งานแล้ว");
-      canonical = { name: catalog.villageName, moo: catalog.moo ?? null, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: null };
+      canonical = { name: catalog.villageName, moo: catalog.moo ?? null, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: null, officialCode: catalog.officialCode, fallbackId: catalog.officialCode };
     } else {
       if (!catalogVillageId) throw new Error("กรุณาเลือกหมู่บ้านจากฐานข้อมูลอ้างอิง");
       const catalog = await prisma.thailandVillageMaster.findUnique({ where: { id: catalogVillageId } });
       if (!catalog) throw new Error("ไม่พบหมู่บ้านในฐานข้อมูลอ้างอิง");
       const linkedVillage = await prisma.village.findFirst({ where: { catalogVillageId }, select: { id: true } });
       if (linkedVillage && linkedVillage.id !== currentVillageId) throw new Error("หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว");
-      canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id };
+      canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id, officialCode: catalog.officialCode, catalogSlug: catalog.slug, fallbackId: catalog.id };
     }
   } else {
     if (!typedName) throw new Error("กรุณากรอกชื่อหมู่บ้าน");
     if (!sourceNote) throw new Error("กรุณาระบุเหตุผลหรือที่มาสำหรับการเพิ่มแบบ Manual");
     const location = validateThaiLocation({ province: readString(formData, "province"), district: readString(formData, "district"), subdistrict: readString(formData, "subdistrict") });
     if (!location.ok) throw new Error(location.error);
-    canonical = { name: typedName, moo: optionalString(formData, "moo"), province: location.province, district: location.district, subdistrict: location.subdistrict, catalogVillageId: null };
+    canonical = { name: typedName, moo: optionalString(formData, "moo"), province: location.province, district: location.district, subdistrict: location.subdistrict, catalogVillageId: null, officialCode: null };
   }
+
+  const slug = mode === "catalog"
+    ? canonical.catalogSlug || buildCatalogVillageSlug({ villageName: canonical.name, moo: canonical.moo, officialCode: canonical.officialCode, fallbackId: canonical.fallbackId })
+    : normalizeVillageSlugInput(readString(formData, "slug") || typedName);
+  if (!slug) throw new Error("กรุณากรอก slug ที่ถูกต้อง");
 
   return {
     name: canonical.name,
@@ -105,9 +107,14 @@ export async function updateVillageAction(formData: FormData) {
   if (!id) throw new Error("ไม่พบรหัสหมู่บ้าน");
   const payload = await readVillagePayload(formData);
   const { mode, catalogSource, builtInCatalogId, ...data } = payload;
+  // Keep published legacy URLs stable. New catalog activations always receive
+  // the officialCode-based slug; an existing catalog village is not renamed
+  // merely because somebody edits its metadata.
+  const existingVillage = await prisma.village.findUnique({ where: { id }, select: { slug: true, catalogVillageId: true } });
+  if (!existingVillage) throw new Error("ไม่พบหมู่บ้าน");
   let updated;
   try {
-    updated = await prisma.village.update({ where: { id }, data });
+    updated = await prisma.village.update({ where: { id }, data: { ...data, slug: existingVillage.catalogVillageId ? existingVillage.slug : data.slug } });
   } catch (error) {
     if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านนี้ถูกเปิดใช้งานแล้ว");
     throw error;

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { VillageSwitcher } from "./village-switcher";
 import { VillagePublicMobileNav } from "./village-mobile-nav";
 
-type VillageOption = { id: string; slug: string; name: string; moo: string | null };
+type VillageOption = { id: string; slug: string; name: string; moo: string | null; province: string | null; district: string | null; subdistrict: string | null };
 type Props = { base: string; villageName: string; villages: VillageOption[]; currentSlug: string };
 
 export function GuestVillageTopbar({ base, villageName, villages, currentSlug }: Props) {

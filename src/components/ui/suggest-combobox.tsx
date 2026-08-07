@@ -8,6 +8,7 @@ type SuggestOption = {
   value: string;
   label?: string;
   description?: string;
+  searchText?: string;
 };
 
 type SuggestComboboxProps = {
@@ -67,7 +68,7 @@ export function SuggestCombobox({
     }
 
     return options.filter((option) => {
-      const haystacks = [option.value, option.label, option.description]
+      const haystacks = [option.value, option.label, option.description, option.searchText]
         .filter(Boolean)
         .join(" ");
       return normalizeSearchValue(haystacks).includes(keyword);
@@ -236,7 +237,7 @@ export function SuggestCombobox({
                 )}
               >
                 <div className="font-medium text-gray-800">{option.label ?? option.value}</div>
-                {option.description ? <div className="text-xs text-gray-500">{option.description}</div> : null}
+                {option.description ? <div className="truncate text-xs text-gray-500">{option.description}</div> : null}
               </button>
             ))
           )}

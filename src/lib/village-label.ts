@@ -8,6 +8,18 @@ export function formatVillageLabel(name: string, moo?: string | number | null): 
   return parsedMoo ? `หมู่ ${parsedMoo} - ${name}` : name;
 }
 
+export function formatVillageLocation(input: {
+  province?: string | null;
+  district?: string | null;
+  subdistrict?: string | null;
+}): string {
+  return [
+    input.subdistrict ? `ต.${input.subdistrict}` : "",
+    input.district ? `อ.${input.district}` : "",
+    input.province ? `จ.${input.province}` : "",
+  ].filter(Boolean).join(" ");
+}
+
 export function villageSearchText(input: {
   name: string;
   moo?: string | number | null;
@@ -24,8 +36,8 @@ export function villageSearchText(input: {
     parsedMoo ? `ม.${parsedMoo}` : "",
     parsedMoo ? String(parsedMoo) : "",
     input.officialCode ?? "",
-    input.subdistrict ?? "",
-    input.district ?? "",
-    input.province ?? "",
+    input.subdistrict ?? "", input.subdistrict ? `ตำบล${input.subdistrict}` : "", input.subdistrict ? `ต.${input.subdistrict}` : "",
+    input.district ?? "", input.district ? `อำเภอ${input.district}` : "", input.district ? `อ.${input.district}` : "",
+    input.province ?? "", input.province ? `จังหวัด${input.province}` : "", input.province ? `จ.${input.province}` : "",
   ].filter(Boolean).join(" ");
 }

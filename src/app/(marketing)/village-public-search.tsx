@@ -6,7 +6,7 @@ import { MapPinned, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import type { ThaiProvince } from "@/lib/thai-geography";
-import { formatVillageLabel, villageSearchText } from "@/lib/village-label";
+import { formatVillageLabel, formatVillageLocation, villageSearchText } from "@/lib/village-label";
 
 type VillageOption = {
   id: string;
@@ -223,7 +223,8 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             options={villageSuggestions.map((village) => ({
               value: formatVillageLabel(village.name, village.moo),
               label: formatVillageLabel(village.name, village.moo),
-              description: villageSearchText(village),
+              description: formatVillageLocation(village),
+              searchText: villageSearchText(village),
             }))}
             placeholder="พิมพ์ชื่อหมู่บ้าน เช่น รักไทย"
             helperText={

@@ -30,7 +30,7 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
       slug: currentVillage.slug,
     },
     orderBy: [{ moo: "asc" }, { name: "asc" }],
-    select: { id: true, slug: true, name: true, moo: true },
+    select: { id: true, slug: true, name: true, moo: true, province: true, district: true, subdistrict: true },
   });
   const base = `/${currentVillage.slug}`;
 

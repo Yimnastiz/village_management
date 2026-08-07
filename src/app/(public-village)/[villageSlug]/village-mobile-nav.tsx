@@ -23,6 +23,9 @@ type VillageOption = {
   slug: string;
   name: string;
   moo: string | null;
+  province: string | null;
+  district: string | null;
+  subdistrict: string | null;
 };
 
 type Props = {

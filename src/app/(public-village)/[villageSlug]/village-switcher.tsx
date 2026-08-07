@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { formatVillageLabel } from "@/lib/village-label";
+import { formatVillageLabel, formatVillageLocation } from "@/lib/village-label";
 
 type VillageOption = {
   id: string;
   slug: string;
   name: string;
   moo: string | null;
+  province: string | null;
+  district: string | null;
+  subdistrict: string | null;
 };
 
 type VillageSwitcherProps = {
@@ -33,7 +36,7 @@ export function VillageSwitcher({ villages, currentSlug }: VillageSwitcherProps)
       >
         {villages.map((village) => (
           <option key={village.id} value={village.slug}>
-            {formatVillageLabel(village.name, village.moo)}
+            {formatVillageLabel(village.name, village.moo)} · {formatVillageLocation(village)}
           </option>
         ))}
       </select>

@@ -44,6 +44,32 @@ export function normalizeVillageSlugParam(raw: string): string {
     .replace(/[\u0000-\u001f\u007f\u200b-\u200d\ufeff]/g, "");
 }
 
+export function deriveMooFromOfficialCode(officialCode: string | null | undefined): number | null {
+  // Keep officialCode as text: leading zeroes are significant in administrative codes.
+  const code = String(officialCode ?? "").trim();
+  const suffix = code.slice(-2);
+  if (!/^\d{2}$/.test(suffix)) return null;
+  const moo = Number.parseInt(suffix, 10);
+  return Number.isFinite(moo) && moo > 0 ? moo : null;
+}
+
+/** A stable public slug for a catalog village. officialCode is the identity, not its display name. */
+export function buildCatalogVillageSlug(input: {
+  villageName: string;
+  moo?: string | number | null;
+  officialCode?: string | null;
+  fallbackId?: string | null;
+}): string {
+  const name = normalizeVillageSlugInput(input.villageName) || "village";
+  const code = normalizeVillageSlugInput(input.officialCode ?? "");
+  const fallback = normalizeVillageSlugInput(input.fallbackId ?? "");
+  const moo = Number.parseInt(String(input.moo ?? "").trim(), 10);
+  const mooPart = Number.isFinite(moo) && moo > 0 ? String(moo) : "";
+  const identity = code || fallback;
+  if (!identity) return mooPart ? `${name}-${mooPart}` : name;
+  return [name, mooPart, identity].filter(Boolean).join("-");
+}
+
 /**
  * Returns slug variants to use in a Prisma `{ in: [...] }` query.
  * For Thai slugs, the DB may have stored the percent-encoded form

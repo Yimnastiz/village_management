@@ -37,6 +37,14 @@ const deriveMooFromOfficialCode = (officialCode) => {
   return Number.isFinite(moo) && moo > 0 ? moo : null;
 };
 
+const slugify = (value) => clean(value).toLocaleLowerCase("th-TH").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/-+/gu, "-").replace(/^-|-$/gu, "");
+const buildCatalogSlug = (item) => {
+  if (!item.officialCode) return null; // Records without the official identity use their database id when activated.
+  const name = slugify(item.villageName) || "village";
+  const moo = Number.parseInt(String(item.moo ?? ""), 10);
+  return [name, Number.isFinite(moo) && moo > 0 ? String(moo) : "", slugify(item.officialCode)].filter(Boolean).join("-");
+};
+
 function toCatalogRecord(raw) {
   const item = {
     officialCode: clean(raw.officialCode) || null,
@@ -70,6 +78,7 @@ function toCatalogRecord(raw) {
     data: {
       ...item,
       lookupKey,
+      slug: buildCatalogSlug(item),
       normalizedName: normalized(item.villageName),
       normalizedProvince: normalized(item.province),
       normalizedDistrict: normalized(item.district),

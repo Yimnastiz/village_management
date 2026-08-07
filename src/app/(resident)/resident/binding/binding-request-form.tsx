@@ -3,7 +3,7 @@
 import { CheckCircle2, ChevronDown, Search } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import { normalizeHouseNumber } from "@/lib/house-number";
-import { formatVillageLabel, villageSearchText } from "@/lib/village-label";
+import { formatVillageLabel, formatVillageLocation, villageSearchText } from "@/lib/village-label";
 import { submitBindingRequestAction, type BindingRequestActionState } from "./actions";
 
 type VillageOption = {
@@ -30,7 +30,7 @@ type LatestRequest = {
 } | null;
 
 function villageLabel(village: VillageOption) {
-  const location = [village.subdistrict, village.district, village.province].filter(Boolean).join(" / ");
+  const location = formatVillageLocation(village);
   const label = formatVillageLabel(village.name, village.moo);
   return location ? `${label} (${location})` : label;
 }
@@ -134,8 +134,8 @@ export function BindingRequestForm({
                   setMode("existing");
                 }}
               >
-                <span className="block font-medium text-gray-900">{formatVillageLabel(village.name, village.moo)}</span>
-                <span className="block text-xs text-gray-500">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" / ")}</span>
+                <span className="block truncate font-medium text-gray-900">{formatVillageLabel(village.name, village.moo)}</span>
+                <span className="block truncate text-xs text-gray-500">{formatVillageLocation(village)}</span>
               </button>
             )) : <p className="px-3 py-4 text-center text-sm text-gray-500">ไม่พบหมู่บ้านที่ค้นหา</p>}
           </div>

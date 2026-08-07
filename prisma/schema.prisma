@@ -444,6 +444,7 @@ model ThailandVillageMaster {
   villageName           String
   normalizedName        String?
   moo                   String?
+  slug                  String?   @unique(map: "tvm_slug_key")
   provinceCode          String?
   province              String
   normalizedProvince    String?
