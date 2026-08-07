@@ -36,6 +36,11 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   return <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="mb-1 text-base font-semibold text-gray-900">{title}</h2><dl>{children}</dl></section>;
 }
 
+function formatVisibleNationalId(id: string): string {
+  const digits = id.replace(/\D/g, "");
+  return digits.length === 13 ? `${digits[0]}-${digits.slice(1, 5)}-${digits.slice(5, 10)}-${digits.slice(10, 12)}-${digits[12]}` : id;
+}
+
 function NationalIdValue({ maskedNationalId }: { maskedNationalId: string }) {
   const [nationalId, setNationalId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -57,7 +62,7 @@ function NationalIdValue({ maskedNationalId }: { maskedNationalId: string }) {
 
   const isVisible = Boolean(nationalId);
   return <div className="flex min-w-0 items-center gap-1">
-    <span className="min-w-0 break-all">{nationalId ?? maskedNationalId}</span>
+    <span className="min-w-0 break-all">{nationalId ? formatVisibleNationalId(nationalId) : maskedNationalId}</span>
     <button type="button" onClick={toggleVisibility} disabled={isLoading} aria-label={isVisible ? "ซ่อนเลขบัตรประชาชน" : "แสดงเลขบัตรประชาชน"} className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-wait disabled:opacity-60">
       {isVisible ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
     </button>
