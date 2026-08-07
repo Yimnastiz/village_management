@@ -310,11 +310,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       return;
     }
 
-    if (!/^\d{13}$/.test(normalizedNationalId)) {
-      setError("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก");
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
 

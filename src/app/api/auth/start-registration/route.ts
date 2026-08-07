@@ -9,7 +9,7 @@ import { createRegistrationCookie, hasExistingUserWithPhone, normalizePhone10, R
 import { finalizeAccountDeletion } from "@/lib/account-deletion";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 import { findBoundIdentityByNationalId } from "@/lib/identity";
-import { isValidThaiNationalId, isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
+import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
@@ -33,8 +33,7 @@ export async function POST(request: NextRequest) {
   const firstName = normalizeThaiName(parsed.data.firstName).trim();
   const lastName = normalizeThaiName(parsed.data.lastName).trim();
   const nationalId = normalizeNationalId(parsed.data.nationalId);
-  if (!/^\d{13}$/.test(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก" }, { status: 400 });
-  if (!isValidThaiNationalId(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนไม่ถูกต้อง กรุณาตรวจสอบเลข 13 หลักอีกครั้ง" }, { status: 400 });
+  if (!nationalId) return NextResponse.json({ error: "กรุณากรอกเลขบัตรประชาชน" }, { status: 400 });
   const dueAccount = await prisma.user.findFirst({ where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "DELETION_PENDING", scheduledDeletionAt: { lte: new Date() } }, select: { id: true } });
   if (dueAccount) await finalizeAccountDeletion(dueAccount.id);
   if (await hasExistingUserWithPhone(phoneNumber)) return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });
