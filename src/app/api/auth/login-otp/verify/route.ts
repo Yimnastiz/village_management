@@ -1,4 +1,4 @@
-import { LoginOtpChallengeStatus } from "@prisma/client";
+import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -45,6 +45,20 @@ export async function POST(request: NextRequest) {
       orderBy: { updatedAt: "desc" },
     });
     if (!verification) return { allowed: false as const, status: 410, reason: "expired", challenge };
+    const user = await tx.user.findFirst({
+      where: { phoneNumber: { in: [challenge.otpIdentifier, loaded.phoneNumber] } },
+      select: {
+        accountStatus: true,
+        duplicateNoticeLoginUsedAt: true,
+        duplicateNoticeSeenAt: true,
+      },
+    });
+    const canSignIn = user?.accountStatus === AccountStatus.ACTIVE || (
+      user?.accountStatus === AccountStatus.DUPLICATE_ID &&
+      !user.duplicateNoticeSeenAt &&
+      !user.duplicateNoticeLoginUsedAt
+    );
+    if (!canSignIn) return { allowed: false as const, status: 403, reason: "duplicate-disabled", challenge };
     const separator = verification.value.lastIndexOf(":");
     const storedCode = separator >= 0 ? verification.value.slice(0, separator) : verification.value;
     const storedAttempts = separator >= 0 ? Number.parseInt(verification.value.slice(separator + 1), 10) || 0 : 0;
@@ -75,6 +89,8 @@ export async function POST(request: NextRequest) {
           ? "OTP verification is already in progress."
           : reservation.reason === "missing"
             ? "Login OTP challenge not found."
+            : reservation.reason === "duplicate-disabled"
+              ? "บัญชีนี้ไม่สามารถใช้งานได้ เนื่องจากเลขบัตรประชาชนถูกใช้กับบัญชีที่ผูกบ้านแล้ว กรุณาสมัครใหม่"
             : "OTP has expired. Please request a new code.";
     developmentDiagnostic({ challengeFound: Boolean(reservation.challenge), otpMatched: false, userFound: false, sessionCreated: false, cookieAttached: false });
     return NextResponse.json({ error, retryAfterSeconds: retry, data: reservation.challenge ? publicLoginChallengeState(reservation.challenge) : undefined }, {
@@ -108,6 +124,17 @@ export async function POST(request: NextRequest) {
     if (!cookieReady) throw new Error("Session cookie was not attached to the response.");
 
     await withLoginPhoneLock(loaded.phoneNumber, async (tx) => {
+      if (payload.user?.id) {
+        await tx.user.updateMany({
+          where: {
+            id: payload.user.id,
+            accountStatus: AccountStatus.DUPLICATE_ID,
+            duplicateNoticeSeenAt: null,
+            duplicateNoticeLoginUsedAt: null,
+          },
+          data: { duplicateNoticeLoginUsedAt: new Date() },
+        });
+      }
       await tx.loginOtpChallenge.update({
         where: { id: reservation.challenge.id },
         data: { status: LoginOtpChallengeStatus.CONSUMED, otpExpiresAt: null, resendAvailableAt: null },

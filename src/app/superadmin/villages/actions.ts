@@ -126,7 +126,16 @@ export async function searchVillageCatalogAction(input: { province: string; dist
   if (!province || !district || !subdistrict) return { items: [], totalCount: 0, source: "DATABASE" as const, note: "" };
   const areaWhere = { province: { in: areaCandidates(province, ["จังหวัด", "จ."]) }, district: { in: areaCandidates(district, ["อำเภอ", "อ."]) }, subdistrict: { in: areaCandidates(subdistrict, ["ตำบล", "ต."]) } };
   const villageKeyword = normalizeThaiVillageName(query);
-  const keywordWhere = query ? { OR: [{ villageName: { contains: query, mode: "insensitive" as const } }, { villageName: { contains: villageKeyword, mode: "insensitive" as const } }, { officialCode: { contains: query, mode: "insensitive" as const } }, { moo: { contains: query, mode: "insensitive" as const } }] } : {};
+  const mooKeyword = query.replace(/^(หมู่\s*|ม\.?\s*)/u, "").trim();
+  const keywordWhere = query ? {
+    OR: [
+      { villageName: { contains: query, mode: "insensitive" as const } },
+      { villageName: { contains: villageKeyword, mode: "insensitive" as const } },
+      { officialCode: { contains: query, mode: "insensitive" as const } },
+      { moo: { contains: query, mode: "insensitive" as const } },
+      ...( /^\d+$/u.test(mooKeyword) ? [{ moo: { equals: String(Number(mooKeyword)) } }] : []),
+    ],
+  } : {};
   const where = { ...areaWhere, ...keywordWhere };
   const databaseTotal = await prisma.thailandVillageMaster.count();
   if (databaseTotal === 0) {

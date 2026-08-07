@@ -16,6 +16,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
     select: {
       id: true,
       name: true,
+      moo: true,
       slug: true,
       province: true,
       district: true,

@@ -312,6 +312,11 @@ model User {
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
   accountStatus           AccountStatus @default(ACTIVE)
+  duplicateOfUserId       String?
+  duplicateResolvedAt     DateTime?
+  duplicateReason         String?
+  duplicateNoticeLoginUsedAt DateTime?
+  duplicateNoticeSeenAt   DateTime?
   deletionRequestedAt     DateTime?
   scheduledDeletionAt     DateTime?
   anonymizedAt            DateTime?

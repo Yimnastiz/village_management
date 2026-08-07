@@ -6,11 +6,13 @@ import { MapPinned, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import type { ThaiProvince } from "@/lib/thai-geography";
+import { formatVillageLabel, villageSearchText } from "@/lib/village-label";
 
 type VillageOption = {
   id: string;
   slug: string;
   name: string;
+  moo: string | null;
   province: string | null;
   district: string | null;
   subdistrict: string | null;
@@ -35,6 +37,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
   const [district, setDistrict] = useState("");
   const [subdistrict, setSubdistrict] = useState("");
   const [villageName, setVillageName] = useState("");
+  const [selectedVillageId, setSelectedVillageId] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const provinceOptions = useMemo(
@@ -81,10 +84,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           return true;
         }
 
-        const haystack = [village.name, village.subdistrict, village.district, village.province]
-          .filter(Boolean)
-          .join(" ");
-        return normalizeForSearch(haystack).includes(keyword);
+        return normalizeForSearch(villageSearchText(village)).includes(keyword);
       })
       .sort((left, right) => left.name.localeCompare(right.name, "th"));
   }, [filteredVillages, villageName]);
@@ -96,9 +96,13 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
     }
 
     return (
-      filteredVillages.find((village) => normalizeForSearch(village.name) === keyword) ?? null
+      filteredVillages.find((village) => village.id === selectedVillageId) ??
+      filteredVillages.find((village) => normalizeForSearch(formatVillageLabel(village.name, village.moo)) === keyword) ??
+      (filteredVillages.filter((village) => normalizeForSearch(village.name) === keyword).length === 1
+        ? filteredVillages.find((village) => normalizeForSearch(village.name) === keyword) ?? null
+        : null)
     );
-  }, [filteredVillages, villageName]);
+  }, [filteredVillages, selectedVillageId, villageName]);
 
   const isProvinceValid = useMemo(
     () => !province || thaiGeography.some((provinceItem) => provinceItem.name === province),
@@ -163,6 +167,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             setDistrict("");
             setSubdistrict("");
             setVillageName("");
+            setSelectedVillageId("");
             setError(null);
           }}
         />
@@ -183,6 +188,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             setDistrict(nextValue);
             setSubdistrict("");
             setVillageName("");
+            setSelectedVillageId("");
             setError(null);
           }}
         />
@@ -202,6 +208,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           onChange={(nextValue) => {
             setSubdistrict(nextValue);
             setVillageName("");
+            setSelectedVillageId("");
             setError(null);
           }}
         />
@@ -214,9 +221,9 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             label="ชื่อหมู่บ้าน"
             value={villageName}
             options={villageSuggestions.map((village) => ({
-              value: village.name,
-              label: village.name,
-              description: [village.subdistrict, village.district, village.province].filter(Boolean).join(" / "),
+              value: formatVillageLabel(village.name, village.moo),
+              label: formatVillageLabel(village.name, village.moo),
+              description: villageSearchText(village),
             }))}
             placeholder="พิมพ์ชื่อหมู่บ้าน เช่น รักไทย"
             helperText={
@@ -232,7 +239,14 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
             inputClassName="h-10 bg-white py-2 text-gray-900"
             onChange={(nextValue) => {
               setVillageName(nextValue);
+              setSelectedVillageId("");
               setError(null);
+            }}
+            onSelect={(option) => {
+              const selected = villageSuggestions.find(
+                (village) => formatVillageLabel(village.name, village.moo) === option.value
+              );
+              setSelectedVillageId(selected?.id ?? "");
             }}
           />
         </div>
@@ -241,7 +255,7 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
           <div className="text-left text-xs text-green-100 sm:text-sm">
             {matchedVillage ? (
               <span>
-                หมู่บ้านที่เลือก: <strong className="text-white">{matchedVillage.name}</strong>
+                หมู่บ้านที่เลือก: <strong className="text-white">{formatVillageLabel(matchedVillage.name, matchedVillage.moo)}</strong>
               </span>
             ) : (
               <span>พิมพ์ชื่อหมู่บ้านแล้วเลือกจากรายการแนะนำเพื่อเปิดหน้าสาธารณะ</span>

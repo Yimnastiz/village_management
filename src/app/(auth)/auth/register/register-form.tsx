@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
+import { formatVillageLabel, villageSearchText } from "@/lib/village-label";
 import { useToast } from "@/components/ui/toast";
 import type { ThaiProvince } from "@/lib/thai-geography";
 import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
@@ -20,6 +21,7 @@ const REGISTRATION_DRAFT_KEY = "village_auth_registration_draft";
 type VillageOption = {
   id: string;
   name: string;
+  moo: string | null;
   slug: string;
   province: string | null;
   district: string | null;
@@ -233,7 +235,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     );
     return filtered.map((village) => ({
       value: village.id,
-      label: `${village.name} (${village.slug})`,
+      label: formatVillageLabel(village.name, village.moo),
+      description: villageSearchText(village),
     }));
   }, [district, province, subdistrict, villages]);
 

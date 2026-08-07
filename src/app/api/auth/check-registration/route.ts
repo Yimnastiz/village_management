@@ -29,7 +29,14 @@ export async function POST(request: NextRequest) {
       phoneNumber: {
         in: candidates,
       },
-      accountStatus: AccountStatus.ACTIVE,
+      OR: [
+        { accountStatus: AccountStatus.ACTIVE },
+        {
+          accountStatus: AccountStatus.DUPLICATE_ID,
+          duplicateNoticeSeenAt: null,
+          duplicateNoticeLoginUsedAt: null,
+        },
+      ],
     },
     select: {
       id: true,
@@ -38,6 +45,19 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user) {
+    const disabledDuplicate = await prisma.user.findFirst({
+      where: {
+        phoneNumber: { in: candidates },
+        accountStatus: AccountStatus.DUPLICATE_ID,
+      },
+      select: { id: true },
+    });
+    if (disabledDuplicate) {
+      return NextResponse.json(
+        { error: "บัญชีนี้ไม่สามารถใช้งานได้ เนื่องจากเลขบัตรประชาชนถูกใช้กับบัญชีที่ผูกบ้านแล้ว กรุณาสมัครใหม่" },
+        { status: 403 }
+      );
+    }
     const pendingRegistration = await prisma.registrationTemp.findFirst({
       where: {
         phoneNumber: { in: candidates },

@@ -22,6 +22,7 @@ type VillageOption = {
   id: string;
   slug: string;
   name: string;
+  moo: string | null;
 };
 
 type Props = {

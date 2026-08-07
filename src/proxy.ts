@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedAccessRedirectPath,
+  getDuplicateNoticeSessionFromRequest,
   getResidentAreaAccessInfo,
   getSessionContextFromRequest,
   isAdminUser,
   isSuperAdminUser,
 } from "@/lib/access-control";
+import { AccountStatus } from "@prisma/client";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,6 +17,24 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
   const session = await getSessionContextFromRequest(request);
+  const duplicateNoticeSession = session ? null : await getDuplicateNoticeSessionFromRequest(request);
+
+  if (pathname === "/auth/account-duplicate") {
+    if (duplicateNoticeSession) {
+      return NextResponse.next();
+    }
+    if (!session) {
+      return NextResponse.redirect(new URL("/auth/login", request.url));
+    }
+    if (session.accountStatus !== AccountStatus.DUPLICATE_ID) {
+      return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
+    }
+    return NextResponse.next();
+  }
+
+  if (duplicateNoticeSession || session?.accountStatus === AccountStatus.DUPLICATE_ID) {
+    return NextResponse.redirect(new URL("/auth/account-duplicate", request.url));
+  }
 
   if (pathname.startsWith("/resident")) {
     if (!session) {
@@ -90,6 +110,7 @@ export const config = {
     "/resident/:path*",
     "/admin/:path*",
     "/superadmin/:path*",
+    "/auth/account-duplicate",
     "/auth/register",
   ],
 };

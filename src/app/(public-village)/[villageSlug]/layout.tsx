@@ -13,7 +13,7 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
   const requestedSlug = normalizeVillageSlugParam(rawVillageSlug);
   const currentVillage = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(requestedSlug) }, isActive: true },
-    select: { slug: true, name: true, province: true, district: true, subdistrict: true },
+    select: { slug: true, name: true, moo: true, province: true, district: true, subdistrict: true },
   });
   if (!currentVillage) notFound();
 
@@ -29,8 +29,8 @@ export default async function VillageLayout({ children, params }: VillageLayoutP
       isActive: true,
       slug: currentVillage.slug,
     },
-    orderBy: [{ name: "asc" }],
-    select: { id: true, slug: true, name: true },
+    orderBy: [{ moo: "asc" }, { name: "asc" }],
+    select: { id: true, slug: true, name: true, moo: true },
   });
   const base = `/${currentVillage.slug}`;
 

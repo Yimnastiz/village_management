@@ -15,6 +15,7 @@ export type SessionContext = {
   id: string;
   phoneNumber: string;
   name: string;
+  accountStatus: AccountStatus;
   systemRole: SystemRole;
   citizenVerifiedAt: Date | null;
   activeVillageId: string | null;
@@ -25,6 +26,11 @@ export type SessionContext = {
     role: VillageMembershipRole;
     status: MembershipStatus;
   }>;
+};
+
+export type DuplicateNoticeSession = {
+  id: string;
+  accountStatus: AccountStatus;
 };
 
 /**
@@ -123,6 +129,7 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
     id: session.user.id,
     phoneNumber: session.user.phoneNumber,
     name: session.user.name,
+    accountStatus: session.user.accountStatus,
     systemRole: session.user.systemRole,
     citizenVerifiedAt: session.user.citizenVerifiedAt,
     activeVillageId: session.activeVillageId ?? null,
@@ -145,6 +152,29 @@ export async function getSessionContextFromRequest(
   request: NextRequest | Request
 ): Promise<SessionContext | null> {
   return getSessionContextByToken(readSessionCookieFromRequest(request));
+}
+
+export async function getDuplicateNoticeSessionByToken(token: string | null): Promise<DuplicateNoticeSession | null> {
+  if (!token) return null;
+  const session = await loadAuthSession(unsignSessionToken(token)).catch(() => null);
+  if (
+    !session ||
+    session.user.accountStatus !== AccountStatus.DUPLICATE_ID ||
+    session.user.duplicateNoticeSeenAt
+  ) {
+    return null;
+  }
+  return { id: session.user.id, accountStatus: AccountStatus.DUPLICATE_ID };
+}
+
+export async function getDuplicateNoticeSessionFromServerCookies(): Promise<DuplicateNoticeSession | null> {
+  return getDuplicateNoticeSessionByToken(await readSessionCookieFromServer());
+}
+
+export async function getDuplicateNoticeSessionFromRequest(
+  request: NextRequest | Request
+): Promise<DuplicateNoticeSession | null> {
+  return getDuplicateNoticeSessionByToken(readSessionCookieFromRequest(request));
 }
 
 export function isAdminUser(session: SessionContext): boolean {
@@ -264,6 +294,9 @@ export function getHeadmanMembership(session: SessionContext) {
 }
 
 export function computeLandingPath(session: SessionContext): string {
+  if (session.accountStatus === AccountStatus.DUPLICATE_ID) {
+    return "/auth/account-duplicate";
+  }
   if (session.systemRole === SystemRole.SUPERADMIN) {
     return "/superadmin/dashboard";
   }
@@ -280,6 +313,9 @@ export function computeLandingPath(session: SessionContext): string {
 }
 
 export async function getAuthenticatedAccessRedirectPath(session: SessionContext): Promise<string> {
+  if (session.accountStatus === AccountStatus.DUPLICATE_ID) {
+    return "/auth/account-duplicate";
+  }
   if (session.systemRole === SystemRole.SUPERADMIN) {
     return "/superadmin/dashboard";
   }

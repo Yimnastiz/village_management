@@ -18,6 +18,7 @@
     "db:reset": "docker compose down -v && docker compose up -d",
     "catalog:prepare": "node scripts/prepare-thailand-villages.mjs",
     "catalog:import": "node scripts/import-thailand-villages.mjs",
+    "catalog:backfill-moo": "node scripts/backfill-thailand-village-moo.mjs",
     "catalog:status": "node scripts/catalog-status.mjs",
     "catalog:setup": "npm run catalog:prepare && npm run catalog:import && npm run catalog:status",
     "catalog:import:demo": "node scripts/import-thailand-villages.mjs data/demo/thailand-villages.demo.json"

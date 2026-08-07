@@ -14,6 +14,7 @@ export default async function HomePage() {
       id: true,
       slug: true,
       name: true,
+      moo: true,
       province: true,
       district: true,
       subdistrict: true,

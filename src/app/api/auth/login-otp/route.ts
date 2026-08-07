@@ -1,4 +1,4 @@
-import { LoginOtpChallengeStatus } from "@prisma/client";
+import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -39,10 +39,33 @@ export async function POST(request: NextRequest) {
   if (!phoneNumber) return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });
 
   const user = await prisma.user.findFirst({
-    where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "ACTIVE" },
+    where: {
+      phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
+      OR: [
+        { accountStatus: AccountStatus.ACTIVE },
+        {
+          accountStatus: AccountStatus.DUPLICATE_ID,
+          duplicateNoticeSeenAt: null,
+          duplicateNoticeLoginUsedAt: null,
+        },
+      ],
+    },
     select: { phoneNumber: true },
   });
-  if (!user) return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });
+  if (!user) {
+    const disabledDuplicate = await prisma.user.findFirst({
+      where: {
+        phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
+        accountStatus: AccountStatus.DUPLICATE_ID,
+      },
+      select: { id: true },
+    });
+    return NextResponse.json({
+      error: disabledDuplicate
+        ? "บัญชีนี้ไม่สามารถใช้งานได้ เนื่องจากเลขบัตรประชาชนถูกใช้กับบัญชีที่ผูกบ้านแล้ว กรุณาสมัครใหม่"
+        : "Unable to send OTP.",
+    }, { status: disabledDuplicate ? 403 : 400 });
+  }
 
   const now = new Date();
   const reservation = await withLoginPhoneLock(phoneNumber, async (tx) => {

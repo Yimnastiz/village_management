@@ -27,6 +27,14 @@ export function toIntOrNull(value) {
   return number === null ? null : Math.trunc(number);
 }
 
+export function deriveMooFromOfficialCode(officialCode) {
+  const code = cleanText(officialCode);
+  const suffix = code.slice(-2);
+  if (!/^\d{2}$/.test(suffix)) return null;
+  const moo = Number.parseInt(suffix, 10);
+  return Number.isFinite(moo) && moo > 0 ? moo : null;
+}
+
 export function normalizeThaiAreaName(value) {
   return cleanText(value).replace(/^(จังหวัด|จ\.|อำเภอ|อ\.|ตำบล|ต\.)\s*/u, "").trim();
 }
@@ -55,7 +63,7 @@ function recordsFromJson(parsed) {
 function mapRawRecord(record) {
   const data = record?.properties && typeof record.properties === "object" ? record.properties : record;
   const item = {
-    officialCode: arabicDigits(data?.mcode),
+    officialCode: arabicDigits(data?.mcode ?? data?.officialCode),
     villageName: normalizeThaiVillageName(data?.mname),
     provinceCode: arabicDigits(data?.pcode),
     province: normalizeThaiAreaName(data?.pname),
@@ -71,6 +79,7 @@ function mapRawRecord(record) {
     householdCount: toIntOrNull(data?.oct_side15_house),
     sourceName,
   };
+  item.moo = deriveMooFromOfficialCode(item.officialCode);
   item.lookupKey = buildLookupKey(item);
   return item;
 }

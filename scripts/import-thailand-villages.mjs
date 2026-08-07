@@ -29,10 +29,19 @@ const buildLookupKey = (item) => {
   return item.officialCode ? `${base}|${clean(item.officialCode)}` : base;
 };
 
+const deriveMooFromOfficialCode = (officialCode) => {
+  const code = clean(officialCode);
+  const suffix = code.slice(-2);
+  if (!/^\d{2}$/.test(suffix)) return null;
+  const moo = Number.parseInt(suffix, 10);
+  return Number.isFinite(moo) && moo > 0 ? moo : null;
+};
+
 function toCatalogRecord(raw) {
   const item = {
     officialCode: clean(raw.officialCode) || null,
     villageName: clean(raw.villageName),
+    moo: raw.moo == null || raw.moo === "" ? null : String(raw.moo),
     provinceCode: clean(raw.provinceCode) || null,
     province: normalizeArea(raw.province),
     districtCode: clean(raw.districtCode) || null,
@@ -48,6 +57,11 @@ function toCatalogRecord(raw) {
     sourceName: clean(raw.sourceName) || null,
     sourceUrl: clean(raw.sourceUrl) || null,
   };
+  // Official data defines moo as the last two digits of the official code.
+  // Always recalculate when a valid code is present so rerunning import backfills
+  // old catalog records and never preserves a stale source value.
+  const derivedMoo = deriveMooFromOfficialCode(item.officialCode);
+  if (derivedMoo !== null) item.moo = String(derivedMoo);
   const lookupKey = clean(raw.lookupKey) || buildLookupKey(item);
   if (!item.villageName || !item.province || !item.district || !item.subdistrict || (!item.officialCode && !lookupKey)) return null;
   return {
@@ -109,6 +123,10 @@ async function main() {
           : await prisma.thailandVillageMaster.findUnique({ where: { lookupKey }, select: { id: true } });
         if (existing) {
           await prisma.thailandVillageMaster.update({ where: { id: existing.id }, data });
+          await prisma.village.updateMany({
+            where: { catalogVillageId: existing.id },
+            data: { moo: item.moo },
+          });
           summary.updated += 1;
         } else {
           const created = await prisma.thailandVillageMaster.create({ data });

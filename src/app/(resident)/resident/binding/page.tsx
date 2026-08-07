@@ -15,6 +15,7 @@ export default async function ResidentBindingPage() {
     select: {
       id: true,
       name: true,
+      moo: true,
       slug: true,
       province: true,
       district: true,

@@ -3,11 +3,13 @@
 import { CheckCircle2, ChevronDown, Search } from "lucide-react";
 import { useActionState, useMemo, useState } from "react";
 import { normalizeHouseNumber } from "@/lib/house-number";
+import { formatVillageLabel, villageSearchText } from "@/lib/village-label";
 import { submitBindingRequestAction, type BindingRequestActionState } from "./actions";
 
 type VillageOption = {
   id: string;
   name: string;
+  moo: string | null;
   province: string | null;
   district: string | null;
   subdistrict: string | null;
@@ -29,7 +31,8 @@ type LatestRequest = {
 
 function villageLabel(village: VillageOption) {
   const location = [village.subdistrict, village.district, village.province].filter(Boolean).join(" / ");
-  return location ? `${village.name} (${location})` : village.name;
+  const label = formatVillageLabel(village.name, village.moo);
+  return location ? `${label} (${location})` : label;
 }
 
 export function BindingRequestForm({
@@ -64,7 +67,7 @@ export function BindingRequestForm({
   const filteredVillages = useMemo(() => {
     const keyword = villageQuery.trim().toLocaleLowerCase("th");
     if (!keyword || selectedVillageId) return villages.slice(0, 50);
-    return villages.filter((village) => villageLabel(village).toLocaleLowerCase("th").includes(keyword)).slice(0, 50);
+    return villages.filter((village) => villageSearchText(village).toLocaleLowerCase("th").includes(keyword)).slice(0, 50);
   }, [selectedVillageId, villageQuery, villages]);
   const filteredHouses = useMemo(() => {
     const villageHouses = houses.filter((house) => house.villageId === selectedVillageId);
@@ -131,7 +134,7 @@ export function BindingRequestForm({
                   setMode("existing");
                 }}
               >
-                <span className="block font-medium text-gray-900">{village.name}</span>
+                <span className="block font-medium text-gray-900">{formatVillageLabel(village.name, village.moo)}</span>
                 <span className="block text-xs text-gray-500">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" / ")}</span>
               </button>
             )) : <p className="px-3 py-4 text-center text-sm text-gray-500">ไม่พบหมู่บ้านที่ค้นหา</p>}
