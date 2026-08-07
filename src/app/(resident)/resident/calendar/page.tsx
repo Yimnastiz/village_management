@@ -39,27 +39,27 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
 
   const userAppointments = membership.hasResidentAccess ? await prisma.appointment.findMany({
     where: {
+      villageId: village.id,
       userId: session.id,
       stage: { notIn: ["CANCELLED", "REJECTED"] },
-      slot: {
-        date: {
-          gte: monthStart,
-          lt: nextMonthStart,
-        },
-      },
+      OR: [
+        { scheduledAt: { gte: monthStart, lt: nextMonthStart } },
+        { slot: { date: { gte: monthStart, lt: nextMonthStart } } },
+      ],
     },
     select: {
-      slot: {
-        select: {
-          date: true,
-        },
-      },
+      id: true,
+      title: true,
+      stage: true,
+      scheduledAt: true,
+      slot: { select: { date: true, startTime: true, endTime: true } },
     },
+    orderBy: [{ scheduledAt: "asc" }, { createdAt: "asc" }],
   }) : [];
 
   const userAppointmentDateKeys = new Set(
     userAppointments
-      .map((appointment) => appointment.slot?.date)
+      .map((appointment) => appointment.scheduledAt ?? appointment.slot?.date)
       .filter((date): date is Date => date instanceof Date)
       .map((date) => toDateKey(date))
   );
@@ -76,8 +76,27 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
     eventsByDay.set(key, existing);
   }
 
-  const selectedDateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
+  const selectedDateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) && params.date.startsWith(toMonthKey(monthStart)) ? params.date : null;
   const selectedDayEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
+  const appointmentsByDay = new Map<string, typeof userAppointments>();
+  for (const appointment of userAppointments) {
+    const appointmentDate = appointment.scheduledAt ?? appointment.slot?.date;
+    if (!appointmentDate) continue;
+    const key = toDateKey(appointmentDate);
+    const existing = appointmentsByDay.get(key) ?? [];
+    existing.push(appointment);
+    appointmentsByDay.set(key, existing);
+  }
+  const selectedDayAppointments = selectedDateKey ? appointmentsByDay.get(selectedDateKey) ?? [] : [];
+  const selectedDateLabel = selectedDateKey
+    ? new Date(`${selectedDateKey}T00:00:00`).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    : null;
+  const appointmentStageLabels: Record<string, string> = {
+    PENDING_APPROVAL: "รอพิจารณา",
+    TIME_SUGGESTED: "รอยืนยันเวลา",
+    APPROVED: "ยืนยันแล้ว",
+    COMPLETED: "เสร็จสิ้น",
+  };
 
   const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
@@ -140,30 +159,32 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
                 <div
                   key={dayKey}
                   className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 transition-colors duration-200 sm:min-h-24 sm:p-2 lg:min-h-28 ${
-                    isSelected ? "bg-green-50" : "bg-white hover:bg-gray-50/80"
+                    isSelected ? "z-10 border-green-800 bg-green-700 text-white shadow-sm ring-2 ring-inset ring-green-800" : "bg-white hover:bg-gray-50/80"
                   } ${
-                    hasMyAppointment ? "ring-1 ring-inset ring-sky-300" : ""
-                  } ${isToday ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300" : ""}`}
+                    hasMyAppointment && !isSelected ? "ring-1 ring-inset ring-sky-300" : ""
+                  } ${isToday && !isSelected ? "bg-rose-50/70 ring-2 ring-inset ring-rose-300" : ""} ${
+                    isToday && isSelected ? "ring-2 ring-inset ring-amber-300" : ""}`}
                 >
                   <Link
                     href={dayDetailHref}
-                    aria-label={`ดูรายละเอียดวันที่ ${cellDate.toLocaleDateString("th-TH")}`}
+                    aria-label={`เลือกวันที่ ${cellDate.toLocaleDateString("th-TH")}`}
+                    aria-current={isSelected ? "date" : undefined}
                     className="absolute inset-0 z-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600"
                   />
                   <div className="relative z-10 pointer-events-none">
                     <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
-                    <span className={`text-xs font-medium sm:text-sm ${
-                      isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
+                    <span className={`text-xs font-semibold sm:text-sm ${
+                      isSelected ? "text-white" : isToday ? "rounded-full bg-rose-600 px-2 py-0.5 text-white shadow-sm" : "text-gray-800"
                     }`}>
                       {day}
                     </span>
                     {isToday && (
-                      <span className="hidden items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700 lg:inline-flex">
+                      <span className={`hidden items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold lg:inline-flex ${isSelected ? "bg-amber-200 text-amber-950" : "bg-rose-100 text-rose-700"}`}>
                         วันนี้
                       </span>
                     )}
                     {dayEvents.length > 0 && (
-                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-green-100 px-1 text-xs font-medium text-green-700">
+                      <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium ${isSelected ? "bg-white/20 text-white" : "bg-green-100 text-green-700"}`}>
                         {dayEvents.length}
                       </span>
                     )}
@@ -171,7 +192,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
 
                   <div className="space-y-1">
                     {hasMyAppointment && (
-                      <span className="inline-flex w-fit items-center rounded-md bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                      <span className={`inline-flex w-fit items-center rounded-md px-2 py-0.5 text-[11px] font-medium ${isSelected ? "bg-sky-100 text-sky-950" : "bg-sky-100 text-sky-700"}`}>
                         มีนัดหมายของคุณ
                       </span>
                     )}
@@ -212,23 +233,23 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
       )}
 
       {selectedDateKey && (
-        <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
+        <section className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
-              รายการกิจกรรมวันที่ {new Date(selectedDateKey).toLocaleDateString("th-TH")}
+              รายละเอียดวันที่เลือก: {selectedDateLabel}
             </h2>
-            <Badge variant="outline">{selectedDayEvents.length} รายการ</Badge>
+            <Badge variant="outline">{selectedDayEvents.length + selectedDayAppointments.length} รายการ</Badge>
           </div>
 
-          {selectedDayEvents.length === 0 ? (
-            <p className="text-sm text-gray-500">ไม่มีกิจกรรมในวันนี้</p>
-          ) : (
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-800">กิจกรรมในวันนี้</h3>
+          {selectedDayEvents.length === 0 ? <p className="text-sm text-gray-500">ไม่มีกิจกรรมในวันนี้</p> : (
             <div className="space-y-2">
               {selectedDayEvents.map((event) => (
                 <Link
                   key={event.id}
                   href={`/resident/calendar/${event.id}`}
-                  className="block rounded-lg border border-gray-200 px-4 py-3 hover:border-green-300 hover:bg-green-50/40"
+                  className="block min-h-11 rounded-lg border border-gray-200 px-4 py-3 hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
                 >
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="min-w-0 font-medium text-gray-900">{event.title}</p>
@@ -250,6 +271,31 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
               ))}
             </div>
           )}
+          </div>
+
+          <div className="space-y-3 border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800">นัดหมายของคุณวันนี้</h3>
+            {selectedDayAppointments.length === 0 ? <p className="text-sm text-gray-500">ยังไม่มีนัดหมายในวันนี้</p> : (
+              <div className="space-y-2">
+                {selectedDayAppointments.map((appointment) => {
+                  const time = appointment.slot?.startTime
+                    ? `${appointment.slot.startTime}${appointment.slot.endTime ? ` - ${appointment.slot.endTime}` : ""}`
+                    : appointment.scheduledAt
+                      ? appointment.scheduledAt.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })
+                      : "ทั้งวัน";
+                  return (
+                    <Link key={appointment.id} href={`/resident/appointments/${appointment.id}`} className="block min-h-11 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 hover:border-sky-300 hover:bg-sky-100/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-sky-900">{time}</span>
+                        {appointment.stage !== "APPROVED" ? <Badge variant="outline">{appointmentStageLabels[appointment.stage] ?? "นัดหมาย"}</Badge> : null}
+                      </div>
+                      <p className="mt-1 break-words font-medium text-sky-950">{appointment.title}</p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </section>
       )}
     </div>

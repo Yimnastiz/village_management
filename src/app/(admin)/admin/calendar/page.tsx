@@ -211,19 +211,20 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
               const dayDetailHref = buildCalendarHref({ q: keyword, visibility: activeVisibility, month: toMonthKey(monthStart), date: dayKey });
 
               return (
-                <div key={dayKey} className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 sm:min-h-24 sm:p-2 lg:min-h-28 ${isSelected ? "bg-blue-50" : "bg-white hover:bg-gray-50/80"}`}>
+                <div key={dayKey} className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 sm:min-h-24 sm:p-2 lg:min-h-28 ${isSelected ? "z-10 border-blue-800 bg-blue-700 text-white shadow-sm ring-2 ring-inset ring-blue-800" : "bg-white hover:bg-gray-50/80"} ${isToday && !isSelected ? "bg-red-50 ring-2 ring-inset ring-red-300" : ""} ${isToday && isSelected ? "ring-2 ring-inset ring-amber-300" : ""}`}>
                   <Link
                     href={dayDetailHref}
-                    aria-label={`ดูรายละเอียดวันที่ ${cellDate.toLocaleDateString("th-TH")}`}
+                    aria-label={`เลือกวันที่ ${cellDate.toLocaleDateString("th-TH")}`}
+                    aria-current={isSelected ? "date" : undefined}
                     className="absolute inset-0 z-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600"
                   />
                   <div className="relative z-10 pointer-events-none">
                     <div className="mb-2 flex min-w-0 items-center justify-between gap-1">
-                    <span className={`text-sm font-medium ${isToday ? "text-red-600" : "text-gray-800"}`}>
+                    <span className={`text-sm font-semibold ${isSelected ? "text-white" : isToday ? "text-red-600" : "text-gray-800"}`}>
                       {day}
                     </span>
                     {totalCount > 0 && (
-                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-100 px-1 text-xs font-medium text-blue-700">
+                      <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium ${isSelected ? "bg-white/20 text-white" : "bg-blue-100 text-blue-700"}`}>
                         {totalCount}
                       </span>
                     )}
