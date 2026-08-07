@@ -99,6 +99,17 @@ export async function POST(request: NextRequest) {
             metadata: { matchMethod: "NATIONAL_ID", nationalId: maskNationalId(currentDraft.nationalId), conflict: "AMBIGUOUS", candidateCount: personCandidates.length },
           },
         });
+      } else if (currentDraft.firstName && currentDraft.lastName) {
+        await tx.person.create({
+          data: {
+            userId: user.id,
+            villageId: currentDraft.villageId,
+            nationalId: currentDraft.nationalId,
+            firstName: currentDraft.firstName,
+            lastName: currentDraft.lastName,
+            phone: phoneNumber,
+          },
+        });
       }
     }
     await tx.registrationTemp.update({ where: { id: currentDraft.id }, data: { status: RegistrationTempStatus.VERIFIED } });

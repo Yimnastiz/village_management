@@ -1254,6 +1254,8 @@ model RegistrationTemp {
   phoneNumber      String
   registrationMode RegistrationMode       @default(RESIDENT)
   name             String
+  firstName        String?
+  lastName         String?
   nationalId       String
   province         String
   district         String

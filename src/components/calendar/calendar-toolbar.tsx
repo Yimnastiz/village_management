@@ -8,7 +8,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   formatThaiMonthYear,
   THAI_MONTH_NAMES,
-  toMonthKey,
 } from "@/lib/calendar-month";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +20,7 @@ type CalendarToolbarProps = {
   currentMonth: number;
   yearStart: number;
   yearEnd: number;
+  todayMonthKey: string;
   search?: {
     keyword: string;
     placeholder: string;
@@ -38,6 +38,7 @@ export function CalendarToolbar({
   currentMonth,
   yearStart,
   yearEnd,
+  todayMonthKey,
   search,
   filters,
 }: CalendarToolbarProps) {
@@ -73,9 +74,8 @@ export function CalendarToolbar({
   };
 
   const todayHref = () => {
-    const today = new Date();
     const params = new URLSearchParams(currentSearchParams.toString());
-    params.set("month", toMonthKey(today));
+    params.set("month", todayMonthKey);
     params.delete("date");
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;

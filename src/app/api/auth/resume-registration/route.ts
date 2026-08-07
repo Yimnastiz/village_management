@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
       phoneNumber: registration.phoneNumber,
       registrationMode: registration.registrationMode.toLowerCase(),
       name: registration.name,
+      firstName: registration.firstName,
+      lastName: registration.lastName,
       nationalId: registration.nationalId,
       province: registration.province,
       district: registration.district,

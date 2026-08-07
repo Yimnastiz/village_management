@@ -15,6 +15,8 @@ export type RegistrationTempRecord = {
   phoneNumber: string;
   registrationMode: string;
   name: string;
+  firstName: string | null;
+  lastName: string | null;
   nationalId: string;
   province: string;
   district: string;
@@ -96,6 +98,8 @@ export async function getRegistrationFromRequest(
     phoneNumber: registration.phoneNumber,
     registrationMode: registration.registrationMode,
     name: registration.name,
+    firstName: registration.firstName,
+    lastName: registration.lastName,
     nationalId: registration.nationalId,
     province: registration.province,
     district: registration.district,

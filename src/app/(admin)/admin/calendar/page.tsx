@@ -150,6 +150,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         currentMonth={monthIndex + 1}
         yearStart={yearStart}
         yearEnd={yearEnd}
+        todayMonthKey={toMonthKey(new Date())}
         search={{ keyword, placeholder: "ค้นหาชื่อกิจกรรม สถานที่ หรือรายละเอียด", suggestions: suggestionTitles }}
         actions={
           <>

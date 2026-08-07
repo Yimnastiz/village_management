@@ -11,7 +11,7 @@ import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
-  name: z.string().trim().min(1).optional(), firstName: z.string().trim().optional(), lastName: z.string().trim().optional(),
+  name: z.string().trim().min(1).optional(), firstName: z.string().trim().min(1), lastName: z.string().trim().min(1),
   nationalId: z.string().trim().regex(/^\d{13}$/), province: z.string().trim().min(1), district: z.string().trim().min(1),
   subdistrict: z.string().trim().min(1), villageId: z.string().trim().min(1), callbackUrl: z.string().trim().nullable().optional(),
 });
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       && Boolean(challenge.otpExpiresAt ? challenge.otpExpiresAt > now : now.getTime() - challenge.updatedAt.getTime() < 30_000);
     const draft = await tx.registrationTemp.create({
       data: {
-        phoneNumber, registrationMode: "RESIDENT", name, nationalId: parsed.data.nationalId,
+        phoneNumber, registrationMode: "RESIDENT", name, firstName: parsed.data.firstName, lastName: parsed.data.lastName, nationalId: parsed.data.nationalId,
         province: parsed.data.province, district: parsed.data.district, subdistrict: parsed.data.subdistrict,
         villageId: parsed.data.villageId, callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
         expiresAt: challenge?.otpExpiresAt && challenge.otpExpiresAt > now ? challenge.otpExpiresAt : new Date(now.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000),

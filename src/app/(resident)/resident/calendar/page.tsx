@@ -64,7 +64,9 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
       .map((date) => toDateKey(date))
   );
 
-  const todayKey = toDateKey(new Date());
+  const today = new Date();
+  const todayKey = toDateKey(today);
+  const todayMonthKey = toMonthKey(today);
 
   const eventsByDay = new Map<string, typeof events>();
   for (const event of events) {
@@ -89,6 +91,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Resi
         currentMonth={monthIndex + 1}
         yearStart={yearStart}
         yearEnd={yearEnd}
+        todayMonthKey={todayMonthKey}
         actions={membership.hasResidentAccess ? (
           <>
             <Link href="/resident/calendar/requests" aria-label="คำขอกิจกรรมของฉัน">

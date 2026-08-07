@@ -8,11 +8,11 @@ import { ProfileDetails } from "./profile-details";
 
 function fallback(value: string | null | undefined): string {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : "-";
+  return trimmed ? trimmed : "ยังไม่มีข้อมูล";
 }
 
 function formatDate(value: Date | null | undefined): string {
-  if (!value) return "-";
+  if (!value) return "ยังไม่มีข้อมูล";
 
   return new Date(value).toLocaleString("th-TH", {
     year: "numeric",
