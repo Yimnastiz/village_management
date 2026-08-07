@@ -1,7 +1,8 @@
 import type { Prisma } from "@prisma/client";
-import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus } from "@prisma/client";
+import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus, RegistrationTempStatus, SystemRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeNationalId } from "@/lib/thai-identity";
+import { maskNationalId } from "@/lib/utils";
 
 export { isValidThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
 
@@ -18,14 +19,41 @@ export async function lockNationalIdClaim(db: IdentityDb, nationalId: string) {
 export async function findBoundIdentityByNationalId(db: IdentityDb, nationalId: string, excludeUserId?: string) {
   const normalized = normalizeNationalId(nationalId);
   if (!normalized) return null;
-  return db.person.findFirst({
+  const [persons, registrations] = await Promise.all([
+    db.person.findMany({ where: { nationalId: normalized, userId: { not: null } }, select: { userId: true } }),
+    db.registrationTemp.findMany({ where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED }, select: { phoneNumber: true } }),
+  ]);
+  const personUserIds = persons.flatMap((person) => person.userId ? [person.userId] : []);
+  const phoneNumbers = [...new Set(registrations.map((registration) => registration.phoneNumber))];
+  if (!personUserIds.length && !phoneNumbers.length) return null;
+  return db.user.findFirst({
     where: {
-      nationalId: normalized,
-      ...(excludeUserId ? { userId: { not: excludeUserId } } : {}),
-      user: { memberships: { some: { status: MembershipStatus.ACTIVE, houseId: { not: null } } } },
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      accountStatus: AccountStatus.ACTIVE,
+      memberships: { some: { status: MembershipStatus.ACTIVE, houseId: { not: null } } },
+      OR: [
+        ...(personUserIds.length ? [{ id: { in: personUserIds } }] : []),
+        ...(phoneNumbers.length ? [{ phoneNumber: { in: phoneNumbers } }] : []),
+      ],
     },
-    select: { id: true, userId: true },
+    select: { id: true },
   });
+}
+
+/** Includes registrations that have not yet been linked to a Person record. */
+export async function getNationalIdForUser(db: IdentityDb, userId: string, villageId?: string | null) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { phoneNumber: true, person: { select: { nationalId: true } } },
+  });
+  if (!user) return null;
+  if (user.person?.nationalId) return normalizeNationalId(user.person.nationalId) || null;
+  const registration = await db.registrationTemp.findFirst({
+    where: { phoneNumber: user.phoneNumber, status: RegistrationTempStatus.VERIFIED, ...(villageId ? { villageId } : {}) },
+    orderBy: { updatedAt: "desc" },
+    select: { nationalId: true },
+  });
+  return registration?.nationalId ? normalizeNationalId(registration.nationalId) || null : null;
 }
 
 /**
@@ -36,29 +64,63 @@ export async function findBoundIdentityByNationalId(db: IdentityDb, nationalId: 
 export async function cleanupDuplicateUnboundUsersByNationalId(
   db: IdentityDb,
   nationalId: string,
-  winnerUserId: string
+  winnerUserId: string,
+  options: { actorId: string; villageId?: string | null } = { actorId: winnerUserId }
 ) {
   const normalized = normalizeNationalId(nationalId);
   if (!normalized) return 0;
 
-  const candidates = await db.person.findMany({
-    where: { nationalId: normalized, userId: { not: null, notIn: [winnerUserId] } },
-    select: {
-      userId: true,
-      user: {
-        select: {
-          memberships: {
-            where: { status: MembershipStatus.ACTIVE, houseId: { not: null } },
-            select: { id: true },
-          },
-        },
+  // A new resident can have a verified registration before it has a Person row.
+  // Merge both sources, then revoke only users without *any* active membership.
+  const [registrations, persons] = await Promise.all([
+    db.registrationTemp.findMany({
+      where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED },
+      select: { phoneNumber: true },
+    }),
+    db.person.findMany({
+      where: { nationalId: normalized, userId: { not: null } },
+      select: { userId: true },
+    }),
+  ]);
+  const phoneNumbers = [...new Set(registrations.map((registration) => registration.phoneNumber))];
+  const personUserIds = persons.flatMap((person) => person.userId ? [person.userId] : []);
+  const [personCandidates, registrationCandidates] = await Promise.all([
+    personUserIds.length
+      ? db.user.findMany({
+          where: { id: { in: personUserIds, not: winnerUserId }, accountStatus: AccountStatus.ACTIVE, systemRole: { not: SystemRole.SUPERADMIN } },
+          select: { id: true, phoneNumber: true, memberships: { select: { status: true } } },
+        })
+      : [],
+    phoneNumbers.length
+      ? db.user.findMany({
+          where: { phoneNumber: { in: phoneNumbers }, id: { not: winnerUserId }, accountStatus: AccountStatus.ACTIVE, systemRole: { not: SystemRole.SUPERADMIN } },
+          select: { id: true, phoneNumber: true, memberships: { select: { status: true } } },
+        })
+      : [],
+  ]);
+  const loserIds = [...new Map(
+    [...personCandidates, ...registrationCandidates]
+      .filter((candidate) => candidate.memberships.every((membership) => membership.status !== MembershipStatus.ACTIVE))
+      .map((candidate) => [candidate.id, candidate.id]),
+  ).values()];
+  if (!loserIds.length) {
+    await db.auditLog.create({
+      data: {
+        userId: options.actorId,
+        villageId: options.villageId ?? null,
+        action: AuditAction.APPROVE_RESIDENT_WITH_NATIONAL_ID,
+        resource: "NationalIdClaim",
+        resourceId: winnerUserId,
+        metadata: { targetUserId: winnerUserId, maskedNationalId: maskNationalId(normalized), duplicateAccountCount: 0 },
       },
-    },
-  });
-  const loserIds = candidates
-    .filter((candidate) => candidate.userId && candidate.user?.memberships.length === 0)
-    .map((candidate) => candidate.userId!);
-  if (!loserIds.length) return 0;
+    });
+    return 0;
+  }
+  const loserPhoneNumbers = [...new Set(
+    [...personCandidates, ...registrationCandidates]
+      .filter((candidate) => loserIds.includes(candidate.id))
+      .map((candidate) => candidate.phoneNumber),
+  )];
 
   const resolvedAt = new Date();
   await Promise.all([
@@ -74,21 +136,36 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
       },
     }),
     db.authSession.deleteMany({ where: { userId: { in: loserIds } } }),
+    db.registrationTemp.updateMany({
+      where: { phoneNumber: { in: loserPhoneNumbers }, nationalId: normalized, status: { in: [RegistrationTempStatus.WAITING_OTP, RegistrationTempStatus.VERIFIED] } },
+      data: { status: RegistrationTempStatus.REJECTED, rejectReason: DUPLICATE_NATIONAL_ID_REASON, rejectedAt: resolvedAt },
+    }),
     db.bindingRequest.updateMany({
       where: { userId: { in: loserIds }, status: BindingRequestStatus.PENDING },
-      data: { status: BindingRequestStatus.REJECTED, reviewNote: DUPLICATE_NATIONAL_ID_REASON },
+      data: { status: BindingRequestStatus.REJECTED, reviewedBy: options.actorId, reviewedAt: resolvedAt, reviewNote: DUPLICATE_NATIONAL_ID_REASON },
     }),
     db.villageMembership.updateMany({
       where: { userId: { in: loserIds }, status: { not: MembershipStatus.ACTIVE } },
       data: { status: MembershipStatus.REJECTED, houseId: null },
     }),
+    db.auditLog.create({
+      data: {
+        userId: options.actorId,
+        villageId: options.villageId ?? null,
+        action: AuditAction.APPROVE_RESIDENT_WITH_NATIONAL_ID,
+        resource: "NationalIdClaim",
+        resourceId: winnerUserId,
+        metadata: { targetUserId: winnerUserId, maskedNationalId: maskNationalId(normalized), duplicateAccountCount: loserIds.length },
+      },
+    }),
     db.auditLog.createMany({
       data: loserIds.map((userId) => ({
-        userId,
-        action: AuditAction.UPDATE,
+        userId: options.actorId,
+        villageId: options.villageId ?? null,
+        action: AuditAction.REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT,
         resource: "UserAccount",
         resourceId: userId,
-        metadata: { event: "DUPLICATE_NATIONAL_ID_DEACTIVATED", duplicateOfUserId: winnerUserId },
+        metadata: { targetUserId: userId, duplicateOfUserId: winnerUserId, reason: "DUPLICATE_NATIONAL_ID", maskedNationalId: maskNationalId(normalized) },
       })),
     }),
   ]);

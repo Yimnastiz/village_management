@@ -9,7 +9,7 @@ import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
-import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, lockNationalIdClaim } from "@/lib/identity";
+import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, getNationalIdForUser, lockNationalIdClaim } from "@/lib/identity";
 import { BindingReviewForm } from "./binding-review-form";
 
 const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
@@ -49,6 +49,13 @@ type PendingBindingRequest = {
   } | null;
   duplicateNationalIdCount: number;
   nationalIdClaimed: boolean;
+  duplicateApplicants: Array<{
+    id: string;
+    name: string;
+    phoneNumber: string;
+    createdAt: Date;
+    status: "PENDING" | "UNBOUND";
+  }>;
 };
 
 export type BindingReviewActionState = { success: boolean; message?: string };
@@ -128,8 +135,28 @@ async function getPendingBindingRequests(
     },
   });
   return Promise.all(requests.map(async (request) => {
-    const nationalId = request.user.person?.nationalId ?? null;
-    const [claimed, duplicateNationalIdCount] = nationalId ? await Promise.all([
+    const registration = request.user.person?.nationalId ? null : await prisma.registrationTemp.findFirst({
+      where: { phoneNumber: request.user.phoneNumber, villageId: request.villageId ?? undefined, status: RegistrationTempStatus.VERIFIED },
+      orderBy: { updatedAt: "desc" },
+      select: { nationalId: true },
+    });
+    const nationalId = request.user.person?.nationalId ?? registration?.nationalId ?? null;
+    const duplicateRegistrations = nationalId ? await prisma.registrationTemp.findMany({
+      where: { nationalId, status: RegistrationTempStatus.VERIFIED, phoneNumber: { not: request.user.phoneNumber } },
+      orderBy: { createdAt: "asc" },
+      select: { phoneNumber: true, createdAt: true },
+    }) : [];
+    const duplicateUsers = duplicateRegistrations.length ? await prisma.user.findMany({
+      where: { phoneNumber: { in: duplicateRegistrations.map((item) => item.phoneNumber) }, accountStatus: "ACTIVE", memberships: { none: { status: MembershipStatus.ACTIVE } } },
+      select: { id: true, name: true, phoneNumber: true },
+    }) : [];
+    const registrationDateByPhone = new Map(duplicateRegistrations.map((item) => [item.phoneNumber, item.createdAt]));
+    const duplicateApplicants = duplicateUsers.map((user) => ({
+      ...user,
+      createdAt: registrationDateByPhone.get(user.phoneNumber) ?? request.createdAt,
+      status: "PENDING" as const,
+    }));
+    const [claimed, personDuplicateCount] = nationalId ? await Promise.all([
       findBoundIdentityByNationalId(prisma, nationalId, request.user.id),
       prisma.person.count({ where: { nationalId, userId: { not: request.user.id } } }),
     ]) : [null, 0];
@@ -138,8 +165,9 @@ async function getPendingBindingRequests(
       person: request.user.person && request.user.person.house
         ? { ...request.user.person, houseNumber: request.user.person.house.houseNumber }
         : request.user.person ? { ...request.user.person, houseNumber: null } : null,
-      duplicateNationalIdCount,
+      duplicateNationalIdCount: Math.max(personDuplicateCount, duplicateApplicants.length),
       nationalIdClaimed: Boolean(claimed),
+      duplicateApplicants,
     };
   }));
 }
@@ -198,10 +226,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
         resolvedHouseId = house.id;
       } else throw new BindingReviewValidationError("เลขบ้านนี้ยังไม่อยู่ในทะเบียนบ้านของระบบ ต้องสร้างหรือจับคู่บ้านก่อนอนุมัติ");
 
-      const identity = await tx.person.findUnique({ where: { userId: binding.userId }, select: { nationalId: true } });
-      const bindingUser = identity?.nationalId ? null : await tx.user.findUnique({ where: { id: binding.userId }, select: { phoneNumber: true } });
-      const registrationIdentity = bindingUser ? await tx.registrationTemp.findFirst({ where: { phoneNumber: bindingUser.phoneNumber, status: RegistrationTempStatus.VERIFIED, villageId: binding.villageId! }, orderBy: { updatedAt: "desc" }, select: { nationalId: true } }) : null;
-      nationalIdForBinding = identity?.nationalId ?? registrationIdentity?.nationalId ?? null;
+      nationalIdForBinding = await getNationalIdForUser(tx, binding.userId, binding.villageId);
       if (nationalIdForBinding) await lockNationalIdClaim(tx, nationalIdForBinding);
       if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId)) {
         throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
@@ -312,7 +337,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
         }
       }
 
-      if (nationalIdForBinding) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId);
+      if (nationalIdForBinding) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId, { actorId: session.id, villageId: binding.villageId });
 
       // Notify resident of approval with action link
       await tx.notification.create({
@@ -469,8 +494,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
           resolvedHouseId = house.id;
       } else throw new Error("คำขอนี้ยังไม่ได้จับคู่กับบ้านในทะเบียน ต้องสร้างหรือจับคู่บ้านก่อนอนุมัติ");
 
-        const identity = await tx.person.findUnique({ where: { userId: binding.userId }, select: { nationalId: true } });
-        nationalIdForBinding = identity?.nationalId ?? null;
+        nationalIdForBinding = await getNationalIdForUser(tx, binding.userId, binding.villageId);
         if (nationalIdForBinding) await lockNationalIdClaim(tx, nationalIdForBinding);
         if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId)) {
           throw new Error("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
@@ -547,7 +571,7 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
             }
           }
         }
-        if (nationalIdForBinding) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId);
+        if (nationalIdForBinding) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId, { actorId: session.id, villageId: binding.villageId });
       } else {
         await tx.user.update({
           where: { id: binding.userId },
@@ -895,6 +919,16 @@ export default async function Page({ searchParams }: PageProps) {
                 </div> : null}
                 {request.nationalIdClaimed ? <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-800">เลขบัตรนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว จึงไม่สามารถอนุมัติคำขอได้</p> : request.duplicateNationalIdCount > 0 ? <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">มีบัญชีอื่นใช้เลขบัตรนี้อยู่ {request.duplicateNationalIdCount} บัญชี แต่ยังไม่มีบัญชีใดผูกบ้านสำเร็จ</p> : null}
 
+                {request.duplicateApplicants.length > 0 ? <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-sm font-medium text-amber-950">พบผู้สมัครรายอื่นที่ใช้เลขบัตรเดียวกัน</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-900">เมื่ออนุมัติคำขอนี้ ระบบจะยกเลิกบัญชีที่ยังรออนุมัติเหล่านี้โดยอัตโนมัติ</p>
+                  <ul className="mt-2 divide-y divide-amber-200 text-sm text-amber-950">
+                    {request.duplicateApplicants.map((applicant) => <li key={applicant.id} className="grid gap-1 py-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-3">
+                      <span className="min-w-0 truncate font-medium">{applicant.name}</span>
+                      <span className="text-xs text-amber-900 sm:text-right">{applicant.phoneNumber} · สมัคร {applicant.createdAt.toLocaleDateString("th-TH")} · รออนุมัติ</span>
+                    </li>)}
+                  </ul>
+                </div> : null}
                 {session.memberships.some((membership) =>
                   membership.villageId === request.villageId &&
                   membership.status === MembershipStatus.ACTIVE &&

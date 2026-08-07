@@ -12,6 +12,10 @@ export default async function DuplicateAccountNoticePage() {
   }
 
   const now = new Date();
+  const contact = await prisma.user.findUnique({
+    where: { id: session.id },
+    select: { registrationVillage: { select: { name: true, phone: true } } },
+  });
   await prisma.$transaction(async (tx) => {
     const marked = await tx.user.updateMany({
       where: {
@@ -43,6 +47,12 @@ export default async function DuplicateAccountNoticePage() {
           เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว
         </h1>
         <div className="mt-5 space-y-4 text-sm leading-6 text-slate-700">
+          <p>
+            หากคิดว่าเลขบัตรประชาชนของท่านถูกผู้อื่นนำไปใช้ กรุณาติดต่อผู้ใหญ่บ้านหรือเจ้าหน้าที่หมู่บ้าน
+            {contact?.registrationVillage?.name ? ` ${contact.registrationVillage.name}` : "ของท่าน"}
+            {contact?.registrationVillage?.phone ? ` โทร. ${contact.registrationVillage.phone}` : " เพื่อให้ผู้ใหญ่บ้านประสานงานกับ Superadmin ต่อไป"}
+          </p>
+          <p>เมื่อเจ้าหน้าที่แก้ไขข้อมูลแล้ว ท่านจึงจะสมัครใหม่ได้</p>
           <p>
             เพื่อความถูกต้องของข้อมูลทะเบียนลูกบ้าน บัญชีนี้ไม่สามารถใช้งานต่อได้
             กรุณาสมัครใหม่ด้วยข้อมูลที่ถูกต้อง

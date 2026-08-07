@@ -25,10 +25,10 @@ export function DuplicateAccountActions() {
         ออกจากระบบ
       </button>
       <Link
-        href="/auth/register"
+        href="/"
         className="flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
       >
-        กลับไปสมัครใหม่
+        กลับไปหน้าแรก
       </Link>
     </div>
   );
