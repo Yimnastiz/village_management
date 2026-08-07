@@ -1,52 +1,89 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# วิธีติดตั้ง Village Management System
 
-## Getting Started
+เอกสารนี้สำหรับเพื่อนหรืออาจารย์ที่เพิ่ง clone โปรเจกต์บน Windows PowerShell
 
-First, run the development server:
+## สิ่งที่ต้องมี
 
-```bash
+- Node.js 20.9 ขึ้นไป
+- Docker Desktop ที่เปิดอยู่
+- Git
+
+## วิธีติดตั้งแบบสั้น
+
+```powershell
+git clone <repo-url>
+cd village_management
+npm install
+npm run db:up
+npm run setup
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+จากนั้นเปิด [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`npm run db:up` จะสร้าง PostgreSQL local ผ่าน Docker Compose ที่ port `55432` และ `npm run setup` จะสร้าง `.env` จาก `.env.example` ให้อัตโนมัติเมื่อยังไม่มีไฟล์
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## `npm run setup` ทำอะไรบ้าง
 
-## Village Catalog
+1. ตรวจเวอร์ชัน Node.js และไฟล์ `.env`
+2. ตรวจว่า PostgreSQL เชื่อมต่อได้
+3. รัน Prisma generate และ `prisma migrate deploy`
+4. รัน seed เดิมของโปรเจกต์เมื่อมี (เวอร์ชันปัจจุบันยังไม่มี seed script)
+5. นำเข้าข้อมูล Thailand Village Catalog และตรวจสถานะ
 
-See “นำเข้ารายชื่อหมู่บ้านประเทศไทย” below. The Super Admin Catalog reads ThailandVillageMaster; it does not create operational Village records until a Super Admin explicitly selects and activates one.
+การรัน `npm run setup` ซ้ำปลอดภัย: ถ้ามี Catalog ฉบับเต็มในฐานข้อมูลแล้ว จะข้ามการนำเข้าซ้ำ เพื่อไม่ให้เสียเวลานาน
 
-## Learn More
+## ใช้ PostgreSQL ที่มีอยู่แล้ว
 
-To learn more about Next.js, take a look at the following resources:
+สร้าง `.env` โดยคัดลอกจาก `.env.example` แล้วแก้ `DATABASE_URL` ให้ชี้ไปยัง PostgreSQL ของคุณ จากนั้นรัน:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```powershell
+npm install
+npm run setup
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+ไม่ต้องรัน `npm run db:up` หากไม่ได้ใช้ฐานข้อมูล Docker ของโปรเจกต์
 
-## Deploy on Vercel
+## ข้อมูลหมู่บ้าน
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+ระบบเลือกแหล่งข้อมูลตามลำดับนี้:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. `data/processed/thailand-villages.json` — นำเข้าได้ทันที
+2. JSON ดิบใน `data/raw/gdcatalog-villages/` — ระบบจะเตรียมเป็น processed แล้วนำเข้า
+3. `data/demo/thailand-villages.demo.json` — ใช้เฉพาะข้อมูลทดลองเมื่อไม่มีข้อมูลฉบับเต็ม
 
-## นำเข้ารายชื่อหมู่บ้านประเทศไทย
+หลังติดตั้ง ตรวจจำนวนข้อมูลได้ด้วย:
 
-Catalog นี้เป็นรายชื่อและที่ตั้งหมู่บ้านอ้างอิง ไม่ใช่เลขบ้านรายหลังหรือรายชื่อประชาชน ข้อมูลจะเข้า ThailandVillageMaster เท่านั้น และจะยังไม่สร้าง Village ที่ใช้งานจริงจนกว่า Super Admin จะเลือกและกดเปิดใช้งาน
+```powershell
+npm run catalog:status
+```
 
-1. ดาวน์โหลดไฟล์ JSON จาก data.go.th / Government Data Catalog ชุด “ข้อมูลที่ตั้งและสภาพทั่วไปของหมู่บ้านใน 76 จังหวัด”
-2. วางไฟล์ JSON ดิบทุกจังหวัดไว้ใน data/raw/gdcatalog-villages/ โดยไม่ต้องแก้ field ในไฟล์
-3. รัน npm run catalog:setup
+ถ้าเป็นข้อมูลฉบับเต็ม จำนวนควรมีอย่างน้อยหลายหมื่นรายการ แล้วเปิดหน้า `/superadmin/villages` เพื่อค้นหาและเลือกหมู่บ้านจาก Catalog
 
-หรือรัน npm run catalog:prepare, npm run catalog:import, npm run catalog:status แยกกัน ไฟล์ที่ผ่านการคัด field แล้วจะอยู่ที่ data/processed/thailand-villages.json จากนั้นเปิด /superadmin/villages กดเพิ่มหมู่บ้าน เลือกจังหวัด → อำเภอ → ตำบล แล้วเลือกหมู่บ้านจาก Catalog เพื่อสร้าง Village จริง
+คำสั่ง Catalog เดิมยังใช้ได้:
 
-สำหรับทดสอบโดยไม่ใช้ไฟล์รัฐ: npm run catalog:import:demo
+```powershell
+npm run catalog:prepare
+npm run catalog:import
+npm run catalog:status
+npm run catalog:setup
+```
+
+## คำสั่งฐานข้อมูลที่ใช้บ่อย
+
+```powershell
+npm run db:up       # เปิด PostgreSQL
+npm run db:down     # หยุดและลบ container (เก็บข้อมูลใน volume)
+npm run db:reset    # ล้างข้อมูล local ทั้งหมดแล้วเริ่มใหม่
+npm run setup:db    # ตรวจ DB, Prisma generate, migrations และ seed โดยไม่ import Catalog
+```
+
+`db:reset` ลบข้อมูล PostgreSQL local ใน Docker volume; อย่าใช้กับข้อมูลที่ต้องเก็บไว้
+
+## แก้ปัญหาเบื้องต้น
+
+- เชื่อมต่อ PostgreSQL ไม่ได้: เปิด Docker Desktop แล้วรัน `npm run db:up` ก่อน
+- Port `55432` ถูกใช้: เปลี่ยน port ใน `docker-compose.yml` และ `DATABASE_URL` ใน `.env` ให้ตรงกัน
+- ไม่มีข้อมูลหมู่บ้าน: วาง JSON ดิบใน `data/raw/gdcatalog-villages/` หรือใส่ `data/processed/thailand-villages.json` แล้วรัน `npm run setup` อีกครั้ง
+- ต้องการรายละเอียด Docker/Prisma เพิ่มเติม: ดู [DATABASE_SETUP.md](DATABASE_SETUP.md)

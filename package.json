@@ -2,11 +2,19 @@
   "name": "village-management",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "setup": "node scripts/setup.mjs",
+    "setup:db": "node scripts/setup.mjs --database-only",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d",
     "catalog:prepare": "node scripts/prepare-thailand-villages.mjs",
     "catalog:import": "node scripts/import-thailand-villages.mjs",
     "catalog:status": "node scripts/catalog-status.mjs",

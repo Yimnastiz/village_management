@@ -1,0 +1,15 @@
+services:
+  postgres:
+    build:
+      context: ./docker/postgres
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_USER: village_user
+      POSTGRES_PASSWORD: village_password
+      POSTGRES_DB: village_management
+    volumes:
+      - village_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  village_postgres_data:

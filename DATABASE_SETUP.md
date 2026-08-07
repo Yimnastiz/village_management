@@ -1,139 +1,40 @@
 # Database Setup (PostgreSQL + Prisma)
 
-เอกสารนี้อธิบายการติดตั้งและตั้งค่า database สำหรับโปรเจคนี้แบบ local development
+สำหรับการพัฒนา local ให้ใช้ Docker Compose ที่ root ของโปรเจกต์:
 
-## 1) สิ่งที่ต้องมี
-
-- Node.js + npm
-- Docker Desktop (Windows/macOS) หรือ Docker Engine (Linux)
-
-ตรวจสอบเวอร์ชัน:
-
-```bash
-node -v
-npm -v
-docker -v
+```powershell
+npm install
+npm run db:up
+npm run setup
 ```
 
-## 2) ตั้งค่าไฟล์ `.env`
-
-โปรเจคนี้เตรียมไฟล์ `.env` ให้แล้วที่ root:
+ค่ามาตรฐานอยู่ใน `.env.example`:
 
 ```env
-BETTER_AUTH_URL="http://localhost:3000"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-BETTER_AUTH_SECRET="(secret)"
 DATABASE_URL="postgresql://village_user:village_password@localhost:55432/village_management?schema=public"
 ```
 
-ถ้าต้องการเปลี่ยน user/password/db name ให้แก้ทั้ง `.env` และคำสั่ง `docker run` ให้ตรงกัน
+`npm run setup` ใช้ `npx prisma migrate deploy` เพราะ repository นี้มี migrations ที่ต้องใช้ร่วมกันอยู่ใน `prisma/migrations/` แล้วจึงรัน Prisma generate และนำเข้าข้อมูล Catalog
 
-## 3) สร้าง PostgreSQL image จาก Dockerfile
+## คำสั่ง Docker fallback
 
-```bash
+หาก Docker Compose ใช้ไม่ได้ สามารถใช้ Dockerfile เดิมได้:
+
+```powershell
 docker build -f docker/postgres/Dockerfile -t village-postgres:local .
+docker run -d --name village-postgres -p 55432:5432 -e POSTGRES_USER=village_user -e POSTGRES_PASSWORD=village_password -e POSTGRES_DB=village_management -v village_postgres_data:/var/lib/postgresql/data village-postgres:local
 ```
 
-## 4) รัน PostgreSQL container
+จากนั้นรัน `npm run setup`
 
-```bash
-docker run -d `
-  --name village-postgres `
-  -p 55432:5432 `
-  -e POSTGRES_USER=village_user `
-  -e POSTGRES_PASSWORD=village_password `
-  -e POSTGRES_DB=village_management `
-  -v village_pgdata:/var/lib/postgresql/data `
-  village-postgres:local
+## คำสั่งที่ใช้บ่อย
+
+```powershell
+npm run db:up
+npm run db:down
+npm run db:reset
+npm run setup:db
+npm run catalog:status
 ```
 
-ตรวจสอบสถานะ:
-
-```bash
-docker ps
-docker logs village-postgres
-```
-
-## 5) เตรียม Prisma schema และ migration
-
-```bash
-npm install
-npx prisma generate
-npx prisma migrate dev --name init
-```
-
-ตัวเลือกกรณีไม่อยากสร้าง migration ไฟล์ (เฉพาะ dev):
-
-```bash
-npx prisma db push
-```
-
-## 6) รันแอป
-
-```bash
-npm run dev
-```
-
-จากนั้นเปิด:
-
-- App: http://localhost:3000
-
-## 7) คำสั่งจัดการฐานข้อมูลที่ใช้บ่อย
-
-เริ่ม/หยุด container:
-
-```bash
-docker start village-postgres
-docker stop village-postgres
-```
-
-เข้า psql ใน container:
-
-```bash
-docker exec -it village-postgres psql -U village_user -d village_management
-```
-
-ลบ container (ข้อมูลยังอยู่ใน volume):
-
-```bash
-docker rm -f village-postgres
-```
-
-ลบข้อมูลทั้งหมดของ DB (ระวังข้อมูลหาย):
-
-```bash
-docker volume rm village_pgdata
-```
-
-เปิด Prisma Studio:
-
-```bash
-npx prisma studio
-```
-
-## 8) ปัญหาที่พบบ่อย
-
-- Port `55432` ชน: เปลี่ยนฝั่ง host เป็น `-p 55433:5432` แล้วแก้ `DATABASE_URL` ให้เป็น `localhost:55433`
-- ต่อ DB ไม่ได้: เช็ก `docker ps` และดู log ด้วย `docker logs village-postgres`
-- ใช้แอปใน Docker network: host ใน `DATABASE_URL` ต้องเป็นชื่อ container/service แทน `localhost`
-
-## 9) Dev Role Flow (new)
-
-- `DEV_BOOTSTRAP_PHONE` in `.env` can auto-promote one phone number to `SUPERADMIN` after login.
-- Login with that phone, then open `http://localhost:3000/dev`.
-- In `/dev`:
-  - add village source data (province/district/subdistrict/village)
-  - seed role by phone (for example, set headman phone to `HEADMAN`)
-  - manage existing users and membership roles
-- Signup now requires location dropdowns from village source data.
-- After OTP verify, system checks phone seed and routes user by role automatically.
-
-## 10) นำเข้ารายชื่อหมู่บ้านประเทศไทย
-
-ข้อมูล Catalog เป็นเพียงรายชื่อ/ที่ตั้งหมู่บ้านอ้างอิง ไม่ใช่เลขบ้านหรือข้อมูลประชาชน และจะ import เข้า ThailandVillageMaster โดยไม่สร้าง Village จริงทั้งหมด
-
-1. ดาวน์โหลด JSON จากชุดข้อมูล “ข้อมูลที่ตั้งและสภาพทั่วไปของหมู่บ้านใน 76 จังหวัด” ของ data.go.th / Government Data Catalog
-2. วางไฟล์ดิบทุกจังหวัดไว้ที่ data/raw/gdcatalog-villages/
-3. รัน npm run catalog:setup
-
-คำสั่งนี้จะเตรียมไฟล์ data/processed/thailand-villages.json, import และแสดงสถานะ Catalog ให้ครบ หรือรัน catalog:prepare, catalog:import, catalog:status แยกได้ หลัง import ให้เปิด /superadmin/villages เลือก จังหวัด → อำเภอ → ตำบล เลือกรายการจาก Catalog แล้วกดเปิดใช้งานเพื่อสร้าง Village จริงที่เชื่อมด้วย catalogVillageId
+`npm run db:reset` จะลบ Docker volume `village_postgres_data` และข้อมูล local ทั้งหมด
