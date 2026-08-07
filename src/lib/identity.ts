@@ -12,6 +12,10 @@ export const DUPLICATE_NATIONAL_ID_REASON =
   "บัญชีนี้ใช้เลขบัตรประชาชนซ้ำกับบัญชีที่ได้รับการผูกบ้านแล้ว กรุณาสมัครใหม่ด้วยข้อมูลที่ถูกต้อง หากคิดว่าเป็นความผิดพลาด กรุณาแจ้งผู้ใหญ่บ้านของหมู่บ้านที่ท่านลงทะเบียนไว้ เพื่อให้ผู้ใหญ่บ้านประสานงานกับ Super Admin";
 export const DUPLICATE_NATIONAL_ID_REASON_CODE = "NATIONAL_ID_ALREADY_VERIFIED_BY_ANOTHER_ACCOUNT";
 
+function archivedPhoneNumber(userId: string) {
+  return `revoked:${userId}`;
+}
+
 export async function lockNationalIdClaim(db: IdentityDb, nationalId: string) {
   const normalized = normalizeNationalId(nationalId);
   if (normalized) await db.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`national-id-claim:${normalized}`}))`;
@@ -76,8 +80,10 @@ export async function getNationalIdForUser(db: IdentityDb, userId: string, villa
 
 /**
  * Keeps the bound account and disables only accounts with the same identity that
- * still have no active house membership. Sessions are revoked so an already
- * signed-in duplicate cannot continue using resident/admin routes.
+ * still have no active house membership. Their phone identity is archived so
+ * it can be reused for a new registration. The account status blocks all
+ * protected routes; the existing session is retained only for the one-time
+ * duplicate-account notice, which clears it after rendering.
  */
 export async function cleanupDuplicateUnboundUsersByNationalId(
   db: IdentityDb,
@@ -134,17 +140,20 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
     });
     return 0;
   }
-  const loserPhoneNumbers = [...new Set(
+  const loserUsers = [...new Map(
     [...personCandidates, ...registrationCandidates]
       .filter((candidate) => loserIds.includes(candidate.id))
-      .map((candidate) => candidate.phoneNumber),
-  )];
+      .map((candidate) => [candidate.id, candidate]),
+  ).values()];
+  const loserPhoneNumbers = [...new Set(loserUsers.map((candidate) => candidate.phoneNumber))];
 
   const resolvedAt = new Date();
   await Promise.all([
-    db.user.updateMany({
-      where: { id: { in: loserIds } },
+    ...loserUsers.map((user) => db.user.update({
+      where: { id: user.id },
       data: {
+        phoneNumber: archivedPhoneNumber(user.id),
+        phoneNumberVerified: false,
         accountStatus: AccountStatus.DUPLICATE_ID,
         duplicateOfUserId: winnerUserId,
         duplicateResolvedAt: resolvedAt,
@@ -152,8 +161,12 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
         duplicateNoticeLoginUsedAt: null,
         duplicateNoticeSeenAt: null,
       },
-    }),
-    db.authSession.deleteMany({ where: { userId: { in: loserIds } } }),
+    })),
+    db.loginOtpChallenge.deleteMany({ where: { phoneNumber: { in: loserPhoneNumbers } } }),
+    db.registrationOtpChallenge.deleteMany({ where: { phoneNumber: { in: loserPhoneNumbers } } }),
+    db.authVerification.deleteMany({ where: { identifier: { in: loserPhoneNumbers } } }),
+    db.accountDeletionChallenge.deleteMany({ where: { userId: { in: loserIds } } }),
+    db.person.updateMany({ where: { userId: { in: loserIds } }, data: { phone: null } }),
     db.registrationTemp.updateMany({
       where: {
         phoneNumber: { in: loserPhoneNumbers }, nationalId: normalized,
@@ -190,7 +203,28 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
         metadata: { targetUserId: userId, duplicateOfUserId: winnerUserId, reason: DUPLICATE_NATIONAL_ID_REASON_CODE, maskedNationalId: maskNationalId(normalized) },
       })),
     }),
+    db.auditLog.createMany({
+      data: loserUsers.map((user) => ({
+        userId: options.actorId,
+        villageId: options.villageId ?? null,
+        action: AuditAction.RELEASE_PHONE_FROM_REVOKED_ACCOUNT,
+        resource: "UserPhoneIdentity",
+        resourceId: user.id,
+        metadata: {
+          targetUserId: user.id,
+          reason: DUPLICATE_NATIONAL_ID_REASON_CODE,
+          maskedPhone: maskPhoneNumber(user.phoneNumber),
+          maskedNationalId: maskNationalId(normalized),
+          releasedAt: resolvedAt.toISOString(),
+        },
+      })),
+    }),
   ]);
 
   return loserIds.length;
+}
+
+function maskPhoneNumber(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 4 ? `${digits.slice(0, 3)}****${digits.slice(-3)}` : "***";
 }

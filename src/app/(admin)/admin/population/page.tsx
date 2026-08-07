@@ -214,6 +214,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   const status = action === "approve" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED;
   const membershipStatus = action === "approve" ? MembershipStatus.ACTIVE : MembershipStatus.REJECTED;
   const confirmPersonHouseChange = formData.get("confirmPersonHouseChange") === "true";
+  let releasedDuplicateCount = 0;
 
   try { await prisma.$transaction(async (tx) => {
     let resolvedHouseId: string | null = null;
@@ -335,7 +336,9 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
         }
       }
 
-      if (nationalIdForBinding) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId, { actorId: session.id, villageId: binding.villageId });
+      if (nationalIdForBinding) {
+        releasedDuplicateCount = await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId, { actorId: session.id, villageId: binding.villageId });
+      }
 
       // Notify resident of approval with action link
       await tx.notification.create({
@@ -369,7 +372,14 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; throw error; }
 
   revalidatePath("/admin/population");
-  return { success: true, message: action === "approve" ? "อนุมัติคำขอเรียบร้อยแล้ว" : "ปฏิเสธคำขอเรียบร้อยแล้ว" };
+  return {
+    success: true,
+    message: action === "approve"
+      ? releasedDuplicateCount > 0
+        ? `อนุมัติคำขอเรียบร้อย ปิดบัญชีซ้ำ ${releasedDuplicateCount} บัญชี และปล่อยเบอร์โทรให้สมัครใหม่แล้ว`
+        : "อนุมัติคำขอเรียบร้อยแล้ว"
+      : "ปฏิเสธคำขอเรียบร้อยแล้ว",
+  };
 }
 
 export async function revertOrUpdateBindingAction(formData: FormData) {

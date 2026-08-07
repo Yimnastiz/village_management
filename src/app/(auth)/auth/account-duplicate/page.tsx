@@ -61,6 +61,9 @@ export default async function DuplicateAccountNoticePage() {
             หากท่านคิดว่าเป็นความผิดพลาด กรุณาแจ้งผู้ใหญ่บ้านของหมู่บ้านที่ท่านลงทะเบียนไว้
             เพื่อให้ผู้ใหญ่บ้านประสานงานกับ Super Admin
           </p>
+          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 font-medium text-emerald-900">
+            เบอร์โทรศัพท์ของคุณถูกปล่อยให้สมัครบัญชีใหม่ได้แล้ว
+          </p>
         </div>
         <p className="sr-only">{DUPLICATE_NATIONAL_ID_REASON}</p>
         <DuplicateAccountActions />
