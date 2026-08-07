@@ -114,10 +114,11 @@ function LoginContent() {
           placeholder="0812345678"
           value={phone}
           onChange={(e) => setPhone(normalizePhone10(e.target.value))}
-          inputMode="numeric"
-          maxLength={10}
-          pattern="[0-9]{10}"
-          title="Phone number must be exactly 10 digits"
+            inputMode="numeric"
+            maxLength={10}
+            pattern="[0-9]{10}"
+            autoComplete="tel"
+            title="Phone number must be exactly 10 digits"
           required
         />
 

@@ -82,6 +82,7 @@ function VerifyOTPContent() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [resendSeconds, setResendSeconds] = useState(0);
   const [otpSeconds, setOtpSeconds] = useState(0);
+  const [currentTime, setCurrentTime] = useState<number | null>(null);
   const [challengeTiming, setChallengeTiming] = useState<{
     expiresAt: string;
     resendAvailableAt: string;
@@ -111,12 +112,13 @@ function VerifyOTPContent() {
   const maskedPhone = phone.length === 10
     ? `${phone.slice(0, 2)}X-XXX-${phone.slice(-4)}`
     : "เบอร์ของคุณ";
-  const isLocked = Boolean(challengeTiming?.otpLockedUntil && new Date(challengeTiming.otpLockedUntil).getTime() > Date.now());
+  const isLocked = Boolean(currentTime && challengeTiming?.otpLockedUntil && new Date(challengeTiming.otpLockedUntil).getTime() > currentTime);
 
   useEffect(() => {
     const updateCountdowns = () => {
       if (!challengeTiming) return;
       const now = Date.now();
+      setCurrentTime(now);
       setResendSeconds(Math.max(0, Math.ceil((new Date(challengeTiming.resendAvailableAt).getTime() - now) / 1000)));
       setOtpSeconds(Math.max(0, Math.ceil((new Date(challengeTiming.expiresAt).getTime() - now) / 1000)));
     };
