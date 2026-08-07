@@ -27,10 +27,6 @@ export type SessionContext = {
   }>;
 };
 
-function normalizePhoneNumber(raw: string): string {
-  return raw.replace(/[\s-]/g, "");
-}
-
 /**
  * Better Auth signs session tokens with HMAC-SHA256.
  * Signed format: rawToken.signature
@@ -122,30 +118,6 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
     return null;
   }
   if (session.user.accountStatus !== AccountStatus.ACTIVE) return null;
-
-  const normalizedBootstrapPhone = process.env.DEV_BOOTSTRAP_PHONE
-    ? normalizePhoneNumber(process.env.DEV_BOOTSTRAP_PHONE)
-    : null;
-  const normalizedSessionPhone = normalizePhoneNumber(session.user.phoneNumber);
-
-  if (
-    process.env.NODE_ENV === "development" &&
-    normalizedBootstrapPhone &&
-    normalizedSessionPhone === normalizedBootstrapPhone &&
-    session.user.systemRole !== SystemRole.SUPERADMIN
-  ) {
-    try {
-      await prisma.user.update({
-        where: { id: session.user.id },
-        data: { systemRole: SystemRole.SUPERADMIN },
-      });
-      session.user.systemRole = SystemRole.SUPERADMIN;
-    } catch (error) {
-      if (process.env.NODE_ENV === "development") {
-        console.error("[access-control] failed to auto-promote bootstrap user:", error);
-      }
-    }
-  }
 
   return {
     id: session.user.id,

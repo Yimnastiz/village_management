@@ -23,6 +23,16 @@ npm run dev
 
 `npm run db:up` จะสร้าง PostgreSQL local ผ่าน Docker Compose ที่ port `55432` และ `npm run setup` จะสร้าง `.env` จาก `.env.example` ให้อัตโนมัติเมื่อยังไม่มีไฟล์
 
+## การสร้าง Super Admin คนแรก
+
+หลังจากรันระบบครั้งแรก ให้ตั้งค่า `SUPERADMIN_BOOTSTRAP_SECRET` ใน `.env` เป็นรหัสที่คาดเดายาก (ห้ามใช้ค่าเริ่มต้นเมื่อ deploy production) แล้วเปิด:
+
+```text
+http://localhost:3000/superadmin/setup
+```
+
+กรอกชื่อ นามสกุล เบอร์โทรศัพท์ และรหัสติดตั้งดังกล่าว ระบบจะสร้าง Super Admin คนแรก แล้วพาไปล็อกอินด้วย OTP ตาม flow ปกติ เมื่อมี Super Admin แล้ว หน้านี้จะถูกปิดอัตโนมัติและใช้สร้างซ้ำไม่ได้
+
 ## `npm run setup` ทำอะไรบ้าง
 
 1. ตรวจเวอร์ชัน Node.js และไฟล์ `.env`

@@ -16,6 +16,10 @@ DATABASE_URL="postgresql://village_user:village_password@localhost:55432/village
 
 `npm run setup` ใช้ `npx prisma migrate deploy` เพราะ repository นี้มี migrations ที่ต้องใช้ร่วมกันอยู่ใน `prisma/migrations/` แล้วจึงรัน Prisma generate และนำเข้าข้อมูล Catalog
 
+## การสร้าง Super Admin คนแรก
+
+กำหนด `SUPERADMIN_BOOTSTRAP_SECRET` ใน `.env` แล้วเปิด `http://localhost:3000/superadmin/setup` เพื่อสร้าง Super Admin คนแรกด้วยเบอร์โทรศัพท์สำหรับล็อกอิน OTP หน้านี้ใช้ได้เพียงครั้งเดียว และ production จะปฏิเสธค่า secret เริ่มต้น
+
 ## คำสั่ง Docker fallback
 
 หาก Docker Compose ใช้ไม่ได้ สามารถใช้ Dockerfile เดิมได้:

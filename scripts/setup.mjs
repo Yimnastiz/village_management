@@ -113,6 +113,17 @@ async function catalogRecordCount() {
   }
 }
 
+async function superAdminCount() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 5000 });
+  try {
+    await client.connect();
+    const result = await client.query('SELECT COUNT(*)::int AS count FROM "User" WHERE "systemRole" = \'SUPERADMIN\'');
+    return result.rows[0]?.count ?? 0;
+  } finally {
+    await client.end().catch(() => undefined);
+  }
+}
+
 async function rawCatalogExists() {
   if (!(await exists(rawCatalogDirectory))) return false;
   const entries = await fs.readdir(rawCatalogDirectory);
@@ -190,7 +201,12 @@ async function main() {
   console.log("[8/8] ตรวจสถานะ Catalog");
   await run(process.execPath, ["scripts/catalog-status.mjs"], "การตรวจสถานะ Catalog");
 
+  const superAdmins = await superAdminCount();
   console.log("\nพร้อมใช้งานแล้ว: รัน npm run dev แล้วเปิด http://localhost:3000");
+  if (superAdmins === 0) {
+    console.log("ยังไม่มี Super Admin: เปิด http://localhost:3000/superadmin/setup");
+    console.log("ใช้รหัสจาก SUPERADMIN_BOOTSTRAP_SECRET ในไฟล์ .env เพื่อสร้างผู้ดูแลคนแรก");
+  }
 }
 
 main().catch((error) => {

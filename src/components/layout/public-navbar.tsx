@@ -30,7 +30,7 @@ export function PublicNavbar() {
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Link
-              href="/auth/login"
+              href="/superadmin/login"
               className="px-4 py-2 text-sm text-green-700 border border-green-700 rounded-lg hover:bg-green-50"
             >
               เข้าสู่ระบบ
@@ -63,7 +63,7 @@ export function PublicNavbar() {
               <div className="my-3 h-px bg-gray-100" />
               <div className="grid gap-2">
                 <Link
-                  href="/auth/login"
+                  href="/superadmin/login"
                   className="inline-flex items-center justify-center rounded-lg border border-green-700 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
                 >
                   เข้าสู่ระบบ

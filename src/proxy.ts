@@ -9,6 +9,11 @@ import {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // These two first-run routes are intentionally public; their pages/actions enforce
+  // the one-time bootstrap rule and secret validation on the server.
+  if (pathname === "/superadmin/setup" || pathname === "/superadmin/login") {
+    return NextResponse.next();
+  }
   const session = await getSessionContextFromRequest(request);
 
   if (pathname.startsWith("/resident")) {
