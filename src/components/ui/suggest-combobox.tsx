@@ -12,10 +12,12 @@ type SuggestOption = {
 
 type SuggestComboboxProps = {
   id: string;
+  name?: string;
   label: string;
   value: string;
   options: SuggestOption[];
   placeholder?: string;
+  autoComplete?: string;
   helperText?: string;
   error?: string;
   disabled?: boolean;
@@ -36,10 +38,12 @@ function normalizeSearchValue(value: string): string {
 
 export function SuggestCombobox({
   id,
+  name,
   label,
   value,
   options,
   placeholder,
+  autoComplete = "off",
   helperText,
   error,
   disabled,
@@ -126,9 +130,14 @@ export function SuggestCombobox({
       <div className="relative">
         <input
           id={id}
+          name={name ?? `${id}-suggest-query`}
           value={value}
           disabled={disabled}
           placeholder={placeholder}
+          autoComplete={autoComplete}
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           onFocus={openOptions}
           role="combobox"
           aria-expanded={open}
@@ -217,7 +226,7 @@ export function SuggestCombobox({
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={cn(
-                  "block w-full px-3 py-2 text-left text-sm",
+                  "block w-full cursor-pointer px-3 py-2 text-left text-sm focus:bg-gray-100 focus:outline-none",
                   option.value === value && "bg-green-50",
                   activeIndex === index && "bg-gray-100",
                   activeIndex !== index && option.value !== value && "hover:bg-gray-50"

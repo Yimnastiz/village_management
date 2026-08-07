@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPinned, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import type { ThaiProvince } from "@/lib/thai-geography";
 
@@ -148,6 +149,8 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         <SuggestCombobox
           id="public-province"
+          name="public-province-search-query"
+          autoComplete="new-password"
           label="จังหวัด"
           value={province}
           options={provinceOptions}
@@ -166,6 +169,8 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
 
         <SuggestCombobox
           id="public-district"
+          name="public-district-search-query"
+          autoComplete="new-password"
           label="อำเภอ"
           value={district}
           options={districtOptions.map((districtOption) => ({ value: districtOption }))}
@@ -184,6 +189,8 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
 
         <SuggestCombobox
           id="public-subdistrict"
+          name="public-subdistrict-search-query"
+          autoComplete="new-password"
           label="ตำบล"
           value={subdistrict}
           options={subdistrictOptions.map((subdistrictOption) => ({ value: subdistrictOption }))}
@@ -202,6 +209,8 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
         <div className="xl:col-span-2">
           <SuggestCombobox
             id="public-village"
+            name="public-village-search-query"
+            autoComplete="new-password"
             label="ชื่อหมู่บ้าน"
             value={villageName}
             options={villageSuggestions.map((village) => ({
@@ -238,13 +247,14 @@ export function VillagePublicSearch({ villages, thaiGeography }: VillagePublicSe
               <span>พิมพ์ชื่อหมู่บ้านแล้วเลือกจากรายการแนะนำเพื่อเปิดหน้าสาธารณะ</span>
             )}
           </div>
-          <button
+          <Button
             type="submit"
+            variant="ghost"
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-white px-4 text-sm font-semibold text-green-800 transition hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-white/80 focus:ring-offset-2 focus:ring-offset-green-800"
           >
             <Search className="h-4 w-4" />
             ดูข้อมูลหมู่บ้าน
-          </button>
+          </Button>
         </div>
 
         {error && <p className="xl:col-span-5 text-sm text-red-100">{error}</p>}
