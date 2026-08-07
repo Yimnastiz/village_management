@@ -347,6 +347,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           phoneNumber: normalizedPhone,
           registrationMode,
           name: normalizedName,
+          firstName: normalizedFirstName,
+          lastName: normalizedLastName,
           nationalId: normalizedNationalId,
           province,
           district,

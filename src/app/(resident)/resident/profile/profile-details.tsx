@@ -46,14 +46,14 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
   const { success: showSuccess, error: showError } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(user.displayName === "-" ? "" : user.displayName);
+  const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber === "ยังไม่มีข้อมูล" ? "" : user.phoneNumber);
   const [email, setEmail] = useState(user.rawEmail);
   const [image, setImage] = useState<string | null>(user.image);
   const [isPending, setIsPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showNationalId, setShowNationalId] = useState(false);
 
-  const cancelEdit = () => { setDisplayName(user.displayName === "-" ? "" : user.displayName); setEmail(user.rawEmail); setImage(user.image); setFormError(null); setIsEditing(false); };
+  const cancelEdit = () => { setPhoneNumber(user.phoneNumber === "ยังไม่มีข้อมูล" ? "" : user.phoneNumber); setEmail(user.rawEmail); setImage(user.image); setFormError(null); setIsEditing(false); };
   const selectImage = (file?: File) => {
     if (!file) return;
     if (!file.type.match(/^image\/(jpeg|png|webp)$/) || file.size > MAX_IMAGE_BYTES) { setFormError("รองรับไฟล์ JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB"); return; }
@@ -64,7 +64,7 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setIsPending(true); setFormError(null);
     try {
-      const result = await updateProfileAction({ displayName, email, image });
+      const result = await updateProfileAction({ phoneNumber, email, image });
       if (!result.success) { setFormError(result.error); showError("บันทึกโปรไฟล์ไม่สำเร็จ"); return; }
       showSuccess("บันทึกโปรไฟล์สำเร็จ"); setIsEditing(false); router.refresh();
     } catch { setFormError("ไม่สามารถบันทึกข้อมูลโปรไฟล์ได้ กรุณาลองใหม่อีกครั้ง"); showError("บันทึกโปรไฟล์ไม่สำเร็จ"); }
@@ -73,11 +73,12 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
   const nationalIdLabel = showNationalId ? "ซ่อนเลขบัตรประชาชน" : "แสดงเลขบัตรประชาชน";
 
   return <div className="space-y-4">
-    <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
+    <section className={`${isEditing ? "" : "sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-20"} rounded-xl border border-gray-200 bg-white/95 p-4 shadow-sm backdrop-blur sm:p-5`}>
+      <div className="mb-4"><h1 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">โปรไฟล์</h1><p className="mt-0.5 text-sm text-gray-500">ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ</p></div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
           {avatar.image ? <img src={avatar.image} alt="รูปโปรไฟล์" className="h-16 w-16 flex-none rounded-full border border-gray-200 object-cover" /> : <div className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-green-100 text-xl font-bold text-green-700">{avatar.text}</div>}
-          <div className="min-w-0"><p className="text-xs font-medium text-gray-500">ชื่อที่แสดงในเว็บ</p><h2 className="truncate text-lg font-semibold text-gray-900">{user.displayName}</h2><p className="mt-1 text-sm text-gray-500">{user.phoneNumber}</p><div className="mt-2"><StatusBadge verified={user.accountStatus === "ACTIVE"} pending="ไม่พร้อมใช้งาน" /></div></div>
+          <div className="min-w-0"><p className="text-xs font-medium text-gray-500">ข้อมูลผู้ใช้งาน</p><h2 className="truncate text-lg font-semibold text-gray-900">{user.displayName}</h2><p className="mt-1 text-sm text-gray-500">{user.phoneNumber}</p><div className="mt-2"><StatusBadge verified={user.accountStatus === "ACTIVE"} pending="ไม่พร้อมใช้งาน" /></div></div>
         </div>
         {!isEditing && <Button type="button" variant="outline" className="min-h-10 w-full gap-2 sm:w-auto" onClick={() => setIsEditing(true)}><Edit3 className="h-4 w-4" />แก้ไขข้อมูล</Button>}
       </div>
@@ -89,14 +90,14 @@ export function ProfileDetails({ user, person, village, avatar }: ProfileDetails
           </button>
           <div><div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" className="min-h-10" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />เปลี่ยนรูป</Button>{image && <button type="button" className="text-sm text-red-600 hover:underline" onClick={() => setImage(null)}>ลบรูป</button>}</div><p className="mt-1 text-xs text-gray-500">JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB</p><input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => selectImage(event.target.files?.[0])} /></div>
         </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2"><Input label="ชื่อที่แสดงในเว็บ" value={displayName} onChange={(event) => setDisplayName(event.target.value)} required minLength={2} maxLength={80} helperText="ไม่เปลี่ยนชื่อจริงที่ลงทะเบียน" /><Input label="อีเมล" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="example@email.com" helperText="เปลี่ยนอีเมลแล้วจะต้องยืนยันใหม่" /></div>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2"><Input label="เบอร์โทรศัพท์" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value.replace(/\D/g, "").slice(0, 10))} required inputMode="numeric" maxLength={10} helperText="เปลี่ยนเบอร์แล้วจะต้องยืนยันใหม่" /><Input label="อีเมล" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="example@email.com" helperText="เปลี่ยนอีเมลแล้วจะต้องยืนยันใหม่" /></div>
         {formError && <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</p>}
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={isPending} className="min-h-10" onClick={cancelEdit}><X className="mr-2 h-4 w-4" />ยกเลิก</Button><Button type="submit" isLoading={isPending} className="min-h-10"><Save className="mr-2 h-4 w-4" />บันทึก</Button></div>
       </form>}
     </section>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Section title="ข้อมูลพื้นฐาน"><InfoRow label="ชื่อจริง" value={person.firstName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" /><InfoRow label="นามสกุลจริง" value={person.lastName} hint="หากไม่ถูกต้อง กรุณาติดต่อผู้ดูแลหมู่บ้าน" /><InfoRow label="ชื่อที่แสดงในเว็บ" value={user.displayName} /><InfoRow label="อีเมล" value={user.email} /><InfoRow label="รหัสผู้ใช้" value={user.id} /><InfoRow label="เบอร์โทร" value={user.phoneNumber} /><InfoRow label="ยืนยันเบอร์โทร"><StatusBadge verified={user.phoneNumberVerified} /></InfoRow><InfoRow label="ยืนยันอีเมล"><StatusBadge verified={user.emailVerified} /></InfoRow><InfoRow label="ยืนยันตัวตนพลเมือง"><StatusBadge verified={user.citizenVerified} pending="รอตรวจสอบ" /></InfoRow></Section>
-      <Section title="ข้อมูลหมู่บ้านและที่อยู่"><InfoRow label="จังหวัด" value={village.province} /><InfoRow label="อำเภอ" value={village.district} /><InfoRow label="ตำบล" value={village.subdistrict} /><InfoRow label="หมู่บ้านที่ลงทะเบียน" value={village.registrationVillage} /><InfoRow label="หมู่บ้านปัจจุบัน" value={village.activeVillage} /><InfoRow label="สถานะการผูกบ้าน" value={village.membershipStatus} /><InfoRow label="บทบาทในหมู่บ้าน" value={village.membershipRole} /><InfoRow label="บ้านเลขที่" value={village.houseNumber} /><InfoRow label="เลขบัตรประชาชน">{person.nationalId ? <span className="inline-flex max-w-full items-center gap-2"><span className="break-all">{showNationalId ? fullNationalId(person.nationalId) : person.maskedNationalId}</span><button type="button" aria-label={nationalIdLabel} title={nationalIdLabel} className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50" onClick={() => setShowNationalId((value) => !value)}>{showNationalId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span> : "ยังไม่มีข้อมูล"}</InfoRow></Section>
+      <Section title="ข้อมูลพื้นฐาน"><InfoRow label="ชื่อจริง" value={person.firstName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" /><InfoRow label="นามสกุลจริง" value={person.lastName} hint="หากไม่ถูกต้อง กรุณาติดต่อผู้ใหญ่บ้านหรือผู้ดูแลหมู่บ้าน" /><InfoRow label="เลขบัตรประชาชน">{person.nationalId ? <span className="inline-flex max-w-full items-center gap-2"><span className="break-all">{showNationalId ? fullNationalId(person.nationalId) : person.maskedNationalId}</span><button type="button" aria-label={nationalIdLabel} title={nationalIdLabel} className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50" onClick={() => setShowNationalId((value) => !value)}>{showNationalId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></span> : "ยังไม่มีข้อมูล"}</InfoRow><InfoRow label="เบอร์โทร" value={user.phoneNumber} /><InfoRow label="อีเมล" value={user.email} /><InfoRow label="ยืนยันเบอร์โทร"><StatusBadge verified={user.phoneNumberVerified} /></InfoRow><InfoRow label="ยืนยันอีเมล"><StatusBadge verified={user.emailVerified} /></InfoRow><InfoRow label="ยืนยันตัวตนพลเมือง"><StatusBadge verified={user.citizenVerified} pending="รอตรวจสอบ" /></InfoRow></Section>
+      <Section title="ข้อมูลหมู่บ้านและที่อยู่"><InfoRow label="จังหวัด" value={village.province} /><InfoRow label="อำเภอ" value={village.district} /><InfoRow label="ตำบล" value={village.subdistrict} /><InfoRow label="หมู่บ้านที่ลงทะเบียน" value={village.registrationVillage} /><InfoRow label="หมู่บ้านปัจจุบัน" value={village.activeVillage} /><InfoRow label="สถานะการผูกบ้าน" value={village.membershipStatus} /><InfoRow label="บทบาทในหมู่บ้าน" value={village.membershipRole} /><InfoRow label="บ้านเลขที่" value={village.houseNumber} /></Section>
     </div>
     <Section title="ข้อมูลการใช้งานบัญชี"><InfoRow label="สมัครเมื่อ" value={user.createdAt} /><InfoRow label="อัปเดตล่าสุด" value={user.updatedAt} /><InfoRow label="ยินยอมข้อมูลส่วนบุคคล" value={user.consentAt} /><InfoRow label="ยืนยันตัวตนเมื่อ" value={user.citizenVerifiedAt} /></Section>
   </div>;

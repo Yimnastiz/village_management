@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Shield } from "lucide-react";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
@@ -67,7 +65,7 @@ export default async function ProfilePage() {
       include: { house: { select: { houseNumber: true } } },
     })) ??
     (await prisma.person.findFirst({
-      where: { phone: user.phoneNumber, villageId: user.registrationVillageId },
+      where: { userId: null, phone: user.phoneNumber, villageId: user.registrationVillageId },
       include: { house: { select: { houseNumber: true } } },
       orderBy: { updatedAt: "desc" },
     }));
@@ -76,32 +74,17 @@ export default async function ProfilePage() {
     user.memberships.find((membership) => membership.status === "ACTIVE") ??
     user.memberships[0] ??
     null;
-  const avatarText = (user.name?.trim()?.[0] ?? user.phoneNumber?.[0] ?? "?").toUpperCase();
   const registeredFirstName = fallback(person?.firstName);
   const registeredLastName = fallback(person?.lastName);
+  const legalName = person ? `${registeredFirstName} ${registeredLastName}` : fallback(user.name);
+  const avatarText = (legalName.trim()?.[0] ?? user.phoneNumber?.[0] ?? "?").toUpperCase();
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">โปรไฟล์</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ
-          </p>
-        </div>
-        <Link
-          href="/resident/profile/security"
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          <Shield className="h-4 w-4" />
-          ความปลอดภัยบัญชี
-        </Link>
-      </div>
-
       <ProfileDetails
         user={{
           id: user.id,
-          displayName: fallback(user.name),
+          displayName: legalName,
           email: fallback(user.email),
           rawEmail: user.email ?? "",
           image: user.image ?? null,

@@ -42,6 +42,7 @@ enum RegistrationOtpChallengeStatus {
 enum AccountStatus {
   ACTIVE
   DELETION_PENDING
+  DUPLICATE_ID
   ANONYMIZED
 }
 

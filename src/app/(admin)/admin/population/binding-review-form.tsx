@@ -7,9 +7,9 @@ type State = { success: boolean; message?: string };
 type Action = (previousState: State, formData: FormData) => Promise<State>;
 type HouseOption = { id: string; houseNumber: string; villageId: string };
 
-function SubmitButton({ label, value, danger = false }: { label: string; value: string; danger?: boolean }) {
+function SubmitButton({ label, value, danger = false, disabled = false }: { label: string; value: string; danger?: boolean; disabled?: boolean }) {
   const { pending } = useFormStatus();
-  return <button type="submit" name="action" value={value} disabled={pending} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "bg-red-600" : "bg-green-600"}`}>{pending ? "กำลังดำเนินการ..." : label}</button>;
+  return <button type="submit" name="action" value={value} disabled={pending || disabled} className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "bg-red-600" : "bg-green-600"}`}>{pending ? "กำลังดำเนินการ..." : label}</button>;
 }
 
 function VerifyButton() {
@@ -17,7 +17,7 @@ function VerifyButton() {
   return <button type="submit" disabled={pending} className="mt-2 rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50">{pending ? "กำลังตรวจสอบ..." : "ยืนยันและสร้าง/จับคู่บ้าน"}</button>;
 }
 
-export function BindingReviewForm({ reviewAction, verifyAction, requestId, houseId, houseNumber, villageId, houses, personHouseNumber, personNationalId, houseMismatch }: { reviewAction: Action; verifyAction: Action; requestId: string; houseId: string | null; houseNumber: string | null; villageId: string; houses: HouseOption[]; personHouseNumber?: string | null; personNationalId?: string | null; houseMismatch?: boolean }) {
+export function BindingReviewForm({ reviewAction, verifyAction, requestId, houseId, houseNumber, villageId, houses, personHouseNumber, personNationalId, houseMismatch, nationalIdClaimed = false }: { reviewAction: Action; verifyAction: Action; requestId: string; houseId: string | null; houseNumber: string | null; villageId: string; houses: HouseOption[]; personHouseNumber?: string | null; personNationalId?: string | null; houseMismatch?: boolean; nationalIdClaimed?: boolean }) {
   const [reviewState, reviewFormAction] = useActionState(reviewAction, { success: false });
   const [verifyState, verifyFormAction] = useActionState(verifyAction, { success: false });
   const isProposed = !houseId;
@@ -35,7 +35,7 @@ export function BindingReviewForm({ reviewAction, verifyAction, requestId, house
     <form action={reviewFormAction} className="space-y-2" onSubmit={(event) => { if (!window.confirm("ยืนยันการดำเนินการคำขอนี้หรือไม่?")) event.preventDefault(); }}>
       <input type="hidden" name="requestId" value={requestId} />
       <textarea name="reviewNote" required minLength={5} placeholder="เหตุผลการอนุมัติ/ปฏิเสธ อย่างน้อย 5 ตัวอักษร" className="w-full rounded-lg border border-gray-200 p-2 text-sm" rows={2} />
-      <div className="flex gap-2"><SubmitButton label="อนุมัติ" value="approve" /><SubmitButton label="ปฏิเสธ" value="reject" danger /></div>
+      <div className="flex gap-2"><SubmitButton label="อนุมัติ" value="approve" disabled={nationalIdClaimed} /><SubmitButton label="ปฏิเสธ" value="reject" danger /></div>
       {reviewState.message ? <p role="alert" className={`text-sm ${reviewState.success ? "text-green-700" : "text-red-700"}`}>{reviewState.message}</p> : null}
     </form>
   </div>;

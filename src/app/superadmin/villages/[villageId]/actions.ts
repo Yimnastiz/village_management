@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
+import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, lockNationalIdClaim } from "@/lib/identity";
 
 function value(formData: FormData, key: string) {
   const entry = formData.get(key);
@@ -68,9 +69,15 @@ export async function reviewBindingSupportAction(
           if (!house) throw new BindingReviewValidationError("เลขบ้านนี้ยังไม่อยู่ในทะเบียนบ้านของระบบ ต้องสร้างหรือจับคู่บ้านก่อนอนุมัติ");
         }
         resolvedHouseId = house.id;
+        const identity = await tx.person.findUnique({ where: { userId: request.userId }, select: { nationalId: true } });
+        if (identity?.nationalId) await lockNationalIdClaim(tx, identity.nationalId);
+        if (identity?.nationalId && await findBoundIdentityByNationalId(tx, identity.nationalId, request.userId)) {
+          throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
+        }
         await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
         await tx.user.update({ where: { id: request.userId }, data: { citizenVerifiedAt: new Date(), registrationVillageId: targetVillageId } });
         await tx.authSession.updateMany({ where: { userId: request.userId, expiresAt: { gt: new Date() } }, data: { activeVillageId: targetVillageId } });
+        if (identity?.nationalId) await cleanupDuplicateUnboundUsersByNationalId(tx, identity.nationalId, request.userId);
       } else {
         await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.REJECTED, houseId: null, joinedAt: null }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.REJECTED } });
       }
