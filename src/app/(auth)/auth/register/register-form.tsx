@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SuggestCombobox } from "@/components/ui/suggest-combobox";
 import type { ThaiProvince } from "@/lib/thai-geography";
 
 function normalizePhone10(raw: string): string {
@@ -94,9 +95,13 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [province, setProvince] = useState("");
+  const [provinceQuery, setProvinceQuery] = useState("");
   const [district, setDistrict] = useState("");
+  const [districtQuery, setDistrictQuery] = useState("");
   const [subdistrict, setSubdistrict] = useState("");
+  const [subdistrictQuery, setSubdistrictQuery] = useState("");
   const [villageId, setVillageId] = useState("");
+  const [villageQuery, setVillageQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draftLoaded, setDraftLoaded] = useState(false);
@@ -228,6 +233,31 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       label: `${village.name} (${village.slug})`,
     }));
   }, [district, province, subdistrict, villages]);
+
+  useEffect(() => {
+    if (provinceOptions.includes(province)) {
+      setProvinceQuery(province);
+    }
+  }, [province, provinceOptions]);
+
+  useEffect(() => {
+    if (districtOptions.includes(district)) {
+      setDistrictQuery(district);
+    }
+  }, [district, districtOptions]);
+
+  useEffect(() => {
+    if (subdistrictOptions.includes(subdistrict)) {
+      setSubdistrictQuery(subdistrict);
+    }
+  }, [subdistrict, subdistrictOptions]);
+
+  useEffect(() => {
+    const selectedVillage = villageOptions.find((village) => village.value === villageId);
+    if (selectedVillage) {
+      setVillageQuery(selectedVillage.label ?? selectedVillage.value);
+    }
+  }, [villageId, villageOptions]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -425,126 +455,127 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
         <section className="space-y-4 border-t border-gray-100 pt-5">
           <h3 className="text-sm font-semibold text-gray-900">พื้นที่และหมู่บ้านที่เกี่ยวข้อง</h3>
-        <div className="space-y-1">
-          <label htmlFor="province" className="text-sm font-medium text-gray-700">
-            จังหวัด
-          </label>
-          <select
-            id="province"
-            name="province"
-            value={province}
-            onChange={(e) => {
-              setProvince(e.target.value);
-              setDistrict("");
-              setSubdistrict("");
-              setVillageId("");
-              setError(null);
-            }}
-            required
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500"
-          >
-            <option value="">เลือกจังหวัด</option>
-            {provinceOptions.map((provinceName) => (
-              <option key={provinceName} value={provinceName}>
-                {provinceName}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500">เลือกจังหวัดจากรายการ</p>
-        </div>
+        <SuggestCombobox
+          id="register-province"
+          name="register-province-search-query"
+          autoComplete="new-password"
+          label="จังหวัด"
+          value={provinceQuery}
+          options={provinceOptions.map((option) => ({ value: option }))}
+          placeholder="เลือกหรือพิมพ์จังหวัด"
+          helperText="เลือกจังหวัดจากรายการ"
+          onChange={(nextValue) => {
+            setProvinceQuery(nextValue);
+            setProvince("");
+            setDistrict("");
+            setDistrictQuery("");
+            setSubdistrict("");
+            setSubdistrictQuery("");
+            setVillageId("");
+            setVillageQuery("");
+            setError(null);
+          }}
+          onSelect={(option) => {
+            setProvince(option.value);
+            setProvinceQuery(option.label ?? option.value);
+            setDistrict("");
+            setDistrictQuery("");
+            setSubdistrict("");
+            setSubdistrictQuery("");
+            setVillageId("");
+            setVillageQuery("");
+            setError(null);
+          }}
+        />
 
-        <div className="space-y-1">
-          <label htmlFor="district" className="text-sm font-medium text-gray-700">
-            อำเภอ
-          </label>
-          <select
-            id="district"
-            name="district"
-            value={district}
-            onChange={(e) => {
-              setDistrict(e.target.value);
-              setSubdistrict("");
-              setVillageId("");
-              setError(null);
-            }}
-            required
-            disabled={!province}
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
-          >
-            <option value="">{province ? "เลือกอำเภอ" : "เลือกจังหวัดก่อน"}</option>
-            {districtOptions.map((districtName) => (
-              <option key={districtName} value={districtName}>
-                {districtName}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500">
-            {province ? "เลือกอำเภอจากรายการ" : "เลือกจังหวัดก่อนเพื่อเปิดอำเภอ"}
-          </p>
-        </div>
+        <SuggestCombobox
+          id="register-district"
+          name="register-district-search-query"
+          autoComplete="new-password"
+          label="อำเภอ"
+          value={districtQuery}
+          options={districtOptions.map((option) => ({ value: option }))}
+          placeholder={province ? "เลือกหรือพิมพ์อำเภอ" : "เลือกจังหวัดก่อน"}
+          helperText={province ? "เลือกอำเภอจากรายการ" : "เลือกจังหวัดก่อนเพื่อเปิดอำเภอ"}
+          disabled={!province}
+          onChange={(nextValue) => {
+            setDistrictQuery(nextValue);
+            setDistrict("");
+            setSubdistrict("");
+            setSubdistrictQuery("");
+            setVillageId("");
+            setVillageQuery("");
+            setError(null);
+          }}
+          onSelect={(option) => {
+            setDistrict(option.value);
+            setDistrictQuery(option.label ?? option.value);
+            setSubdistrict("");
+            setSubdistrictQuery("");
+            setVillageId("");
+            setVillageQuery("");
+            setError(null);
+          }}
+        />
 
-        <div className="space-y-1">
-          <label htmlFor="subdistrict" className="text-sm font-medium text-gray-700">
-            ตำบล
-          </label>
-          <select
-            id="subdistrict"
-            name="subdistrict"
-            value={subdistrict}
-            onChange={(e) => {
-              setSubdistrict(e.target.value);
-              setVillageId("");
-              setError(null);
-            }}
-            required
-            disabled={!district}
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
-          >
-            <option value="">{district ? "เลือกตำบล" : "เลือกอำเภอก่อน"}</option>
-            {subdistrictOptions.map((subdistrictName) => (
-              <option key={subdistrictName} value={subdistrictName}>
-                {subdistrictName}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500">
-            {district ? "เลือกตำบลจากรายการ" : "เลือกอำเภอก่อนเพื่อเปิดตำบล"}
-          </p>
-        </div>
+        <SuggestCombobox
+          id="register-subdistrict"
+          name="register-subdistrict-search-query"
+          autoComplete="new-password"
+          label="ตำบล"
+          value={subdistrictQuery}
+          options={subdistrictOptions.map((option) => ({ value: option }))}
+          placeholder={district ? "เลือกหรือพิมพ์ตำบล" : "เลือกอำเภอก่อน"}
+          helperText={district ? "เลือกตำบลจากรายการ" : "เลือกอำเภอก่อนเพื่อเปิดตำบล"}
+          disabled={!district}
+          onChange={(nextValue) => {
+            setSubdistrictQuery(nextValue);
+            setSubdistrict("");
+            setVillageId("");
+            setVillageQuery("");
+            setError(null);
+          }}
+          onSelect={(option) => {
+            setSubdistrict(option.value);
+            setSubdistrictQuery(option.label ?? option.value);
+            setVillageId("");
+            setVillageQuery("");
+            setError(null);
+          }}
+        />
 
-        <div className="w-full">
-          <label htmlFor="register-village" className="mb-1 block text-sm font-medium text-gray-700">
-            หมู่บ้าน
-          </label>
-          <select
-            id="register-village"
-            name="villageId"
-            className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50 disabled:text-gray-400"
-            value={villageId}
-            onChange={(e) => setVillageId(e.target.value)}
-            required
-            disabled={!subdistrict}
-          >
-            <option value="">{subdistrict ? "เลือกหมู่บ้าน" : "เลือกตำบลก่อน"}</option>
-            {villageOptions.map((village) => (
-              <option key={village.value} value={village.value}>
-                {village.label}
-              </option>
-            ))}
-          </select>
-          <p className="mt-1 text-xs text-gray-500">เลือกหมู่บ้านจากรายการหลังจากระบุตำบลแล้ว</p>
-        </div>
+        <SuggestCombobox
+          id="register-village"
+          name="register-village-search-query"
+          autoComplete="new-password"
+          label="หมู่บ้าน"
+          value={villageQuery}
+          options={villageOptions}
+          placeholder={subdistrict ? "เลือกหรือพิมพ์ชื่อหมู่บ้าน" : "เลือกตำบลก่อน"}
+          helperText="เลือกหมู่บ้านจากรายการหลังจากระบุตำบลแล้ว"
+          disabled={!subdistrict}
+          onChange={(nextValue) => {
+            setVillageQuery(nextValue);
+            setVillageId("");
+            setError(null);
+          }}
+          onSelect={(option) => {
+            setVillageId(option.value);
+            setVillageQuery(option.label ?? option.value);
+            setError(null);
+          }}
+        />
 
         </section>
 
         <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-3">
-          <input type="checkbox" required className="mt-1" id="consent" />
-          <label htmlFor="consent" className="text-sm text-gray-600">
+          <input type="checkbox" required className="mt-1 h-4 w-4 cursor-pointer accent-green-600 focus:ring-2 focus:ring-green-500" id="consent" />
+          <label htmlFor="consent" className="cursor-pointer text-sm text-gray-600">
             ฉันยอมรับ{" "}
             <button
               type="button"
               ref={privacyTriggerRef}
-              className="text-green-600 hover:underline"
+              className="cursor-pointer text-green-600 hover:underline focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
               onClick={() => setIsPrivacyModalOpen(true)}
             >
               นโยบายความเป็นส่วนตัว
@@ -570,7 +601,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       {isPrivacyModalOpen && typeof document !== "undefined"
         ? createPortal(
         <div className="fixed inset-0 z-[200] grid min-h-[100dvh] w-screen place-items-center bg-slate-950/50 p-4">
-          <button type="button" aria-label="Close privacy policy" className="absolute inset-0 cursor-default" onClick={() => setIsPrivacyModalOpen(false)} />
+          <button type="button" aria-label="Close privacy policy" className="absolute inset-0 cursor-pointer" onClick={() => setIsPrivacyModalOpen(false)} />
           <div
             id="privacy-policy-dialog"
             role="dialog"
@@ -584,7 +615,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
                 type="button"
                 ref={privacyCloseButtonRef}
                 onClick={() => setIsPrivacyModalOpen(false)}
-                className="rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50"
+                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
               >
                 ปิด
               </button>

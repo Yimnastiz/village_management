@@ -26,6 +26,7 @@ type SuggestComboboxProps = {
   helperClassName?: string;
   inputClassName?: string;
   onChange: (value: string) => void;
+  onSelect?: (option: SuggestOption) => void;
 };
 
 function normalizeSearchValue(value: string): string {
@@ -52,6 +53,7 @@ export function SuggestCombobox({
   helperClassName,
   inputClassName,
   onChange,
+  onSelect,
 }: SuggestComboboxProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -111,8 +113,9 @@ export function SuggestCombobox({
       ? `${id}-option-${filteredOptions[activeIndex].value}`
       : undefined;
 
-  const selectOption = (nextValue: string) => {
-    onChange(nextValue);
+  const selectOption = (option: SuggestOption) => {
+    onChange(option.value);
+    onSelect?.(option);
     setOpen(false);
     setActiveIndex(-1);
   };
@@ -179,7 +182,7 @@ export function SuggestCombobox({
             if (event.key === "Enter") {
               if (open && activeIndex >= 0 && filteredOptions[activeIndex]) {
                 event.preventDefault();
-                selectOption(filteredOptions[activeIndex].value);
+                selectOption(filteredOptions[activeIndex]);
               }
               return;
             }
@@ -222,7 +225,7 @@ export function SuggestCombobox({
                 }}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
-                  selectOption(option.value);
+                  selectOption(option);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
                 className={cn(

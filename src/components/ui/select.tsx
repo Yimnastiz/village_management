@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { SelectHTMLAttributes, forwardRef, useMemo } from "react";
+import { SelectHTMLAttributes, forwardRef, useId, useMemo } from "react";
 
 interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
@@ -11,7 +11,8 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className, label, error, helperText, options, placeholder, id, ...props }, ref) => {
-    const inputId = id ?? label;
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
     const normalizedOptions = useMemo(() => {
       const seen = new Set<string>();
       return options.filter((option) => {
