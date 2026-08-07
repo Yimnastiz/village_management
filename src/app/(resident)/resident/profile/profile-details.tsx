@@ -20,6 +20,7 @@ type ProfileDetailsProps = {
     phoneNumberVerified: boolean;
     emailVerified: boolean;
     citizenVerified: boolean;
+    accountStatus: string;
     createdAt: string;
     updatedAt: string;
     consentAt: string;
@@ -55,8 +56,17 @@ function fullNationalId(value: string): string {
 
 function VerifyValue({ verified, pendingText = "ยังไม่ยืนยัน" }: { verified: boolean; pendingText?: string }) {
   return (
-    <span className={verified ? "font-medium text-green-700" : "font-medium text-amber-700"}>
+    <span className={verified ? "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800" : "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800"}>
       {verified ? "ยืนยันแล้ว" : pendingText}
+    </span>
+  );
+}
+
+function AccountStatusBadge({ status }: { status: string }) {
+  const active = status === "ACTIVE";
+  return (
+    <span className={active ? "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800" : "inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700"}>
+      {active ? "ใช้งานอยู่" : "ไม่พร้อมใช้งาน"}
     </span>
   );
 }
@@ -72,10 +82,12 @@ function InfoItem({
   children?: ReactNode;
   hint?: string;
 }) {
+  const isEmptyValue = !children && (!value || value === "-");
+
   return (
     <div className="min-w-0 rounded-lg border border-gray-100 bg-gray-50/70 px-3 py-2">
       <dt className="text-xs font-medium text-gray-500">{label}</dt>
-      <dd className="mt-1 min-w-0 break-words text-sm font-medium text-gray-900">
+      <dd className={isEmptyValue ? "mt-1 min-w-0 break-words text-sm text-gray-500" : "mt-1 min-w-0 break-words text-sm font-medium text-gray-900"}>
         {children ?? value ?? "-"}
       </dd>
       {hint ? <p className="mt-1 text-xs text-gray-500">{hint}</p> : null}
@@ -125,11 +137,7 @@ export function ProfileDetails({
     setFormError(null);
 
     try {
-      const result = await updateProfileAction({
-        name: displayName,
-        email: user.rawEmail,
-        image: user.image,
-      });
+      const result = await updateProfileAction({ displayName });
 
       if (!result.success) {
         setFormError(result.error);
@@ -176,6 +184,9 @@ export function ProfileDetails({
               <p className="text-xs font-medium text-gray-500">ชื่อที่แสดงในเว็บ</p>
               <h2 className="truncate text-lg font-semibold text-gray-900">{user.displayName}</h2>
               <p className="mt-1 text-sm text-gray-500">{user.phoneNumber}</p>
+              <div className="mt-2">
+                <AccountStatusBadge status={user.accountStatus} />
+              </div>
             </div>
           </div>
 
@@ -201,7 +212,7 @@ export function ProfileDetails({
                 onChange={(event) => setDisplayName(event.target.value)}
                 required
                 minLength={2}
-                maxLength={120}
+                maxLength={80}
                 helperText="ข้อมูลนี้ใช้แสดงในเมนูและกิจกรรมบนเว็บ ไม่เปลี่ยนชื่อจริงที่ลงทะเบียน"
                 className="min-h-10"
               />
@@ -231,7 +242,7 @@ export function ProfileDetails({
         ) : null}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Section title="ข้อมูลพื้นฐาน">
           <InfoItem label="ชื่อจริง" value={person.firstName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" />
           <InfoItem label="นามสกุลจริง" value={person.lastName} hint="ข้อมูลลงทะเบียน แก้ไขไม่ได้" />
@@ -267,7 +278,7 @@ export function ProfileDetails({
                   type="button"
                   aria-label={nationalIdLabel}
                   title={nationalIdLabel}
-                  className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                  className="inline-flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                   onClick={() => setShowNationalId((value) => !value)}
                 >
                   {showNationalId ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

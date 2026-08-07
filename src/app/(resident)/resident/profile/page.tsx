@@ -109,6 +109,7 @@ export default async function ProfilePage() {
           phoneNumberVerified: user.phoneNumberVerified,
           emailVerified: user.emailVerified,
           citizenVerified: Boolean(user.citizenVerifiedAt),
+          accountStatus: user.accountStatus,
           createdAt: formatDate(user.createdAt),
           updatedAt: formatDate(user.updatedAt),
           consentAt: formatDate(user.consentAt),
