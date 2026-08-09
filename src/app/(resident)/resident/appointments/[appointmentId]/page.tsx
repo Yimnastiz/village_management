@@ -10,7 +10,8 @@ import type { Prisma } from "@prisma/client";
 import { AppointmentActions } from "./appointment-actions";
 
 interface PageProps { 
-  params: Promise<{ appointmentId: string }> 
+  params: Promise<{ appointmentId: string }>;
+  searchParams?: Promise<{ from?: string; month?: string; date?: string }>;
 }
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
@@ -130,9 +131,13 @@ async function fetchAppointment(appointmentId: string) {
   return appointment;
 }
 
-export default async function AppointmentDetailPage({ params }: PageProps) {
+export default async function AppointmentDetailPage({ params, searchParams }: PageProps) {
   const { appointmentId } = await params;
+  const query = searchParams ? await searchParams : {};
   const appointment = await fetchAppointment(appointmentId);
+  const validCalendarReturn = query.from === "calendar" && /^\d{4}-\d{2}$/.test(query.month ?? "") && /^\d{4}-\d{2}-\d{2}$/.test(query.date ?? "") && query.date?.startsWith(`${query.month}-`);
+  const backHref = validCalendarReturn ? `/resident/calendar?month=${query.month}&date=${query.date}` : "/resident/appointments";
+  const backLabel = validCalendarReturn ? "กลับไปปฏิทิน" : "กลับรายการนัดหมาย";
 
   // Find the latest TIME_SUGGESTED timeline entry for admin message
   const suggestionEntry = appointment.timeline.find((t) => t.action === "TIME_SUGGESTED");
@@ -161,8 +166,8 @@ export default async function AppointmentDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Link href="/resident/appointments" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-        <ArrowLeft className="h-4 w-4" /> กลับรายการนัดหมาย
+      <Link href={backHref} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
+        <ArrowLeft className="h-4 w-4" /> {backLabel}
       </Link>
 
       {adminCreatedEntry && (

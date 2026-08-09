@@ -69,6 +69,15 @@ export function CalendarToolbar({
     if (isSearchOpen) searchInputRef.current?.focus();
   }, [isSearchOpen]);
 
+  useEffect(() => {
+    if (!isMonthPickerOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMonthPickerOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isMonthPickerOpen]);
+
   const buildHref = (year: number, month: number) => {
     const params = new URLSearchParams(currentSearchParams.toString());
     params.set("month", `${year}-${String(month).padStart(2, "0")}`);
@@ -146,7 +155,7 @@ export function CalendarToolbar({
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-          {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden">กลับวันนี้</Link> : null}
+          {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />วันนี้</Link> : null}
         </div>
 
         <div className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_7rem_44px] items-center gap-2 sm:flex sm:w-auto sm:justify-end", residentCompact && "hidden sm:flex")}>

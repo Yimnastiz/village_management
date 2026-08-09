@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { createVillageEventSubmissionAction } from "./actions";
+import { createVillageEventSubmissionAction, updateResidentVillageEventSubmissionAction } from "./actions";
 
 const schema = z.object({
   title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
@@ -22,7 +22,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export function CalendarRequestForm() {
+export function CalendarRequestForm({ requestId, initialValues }: { requestId?: string; initialValues?: Partial<FormData> } = {}) {
   const router = useRouter();
   const { pushToast } = useToast();
   const {
@@ -35,12 +35,12 @@ export function CalendarRequestForm() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      title: "",
-      description: "",
-      location: "",
-      startsAt: "",
-      endsAt: "",
-      visibility: "RESIDENT",
+      title: initialValues?.title ?? "",
+      description: initialValues?.description ?? "",
+      location: initialValues?.location ?? "",
+      startsAt: initialValues?.startsAt ?? "",
+      endsAt: initialValues?.endsAt ?? "",
+      visibility: initialValues?.visibility ?? "RESIDENT",
     },
   });
 
@@ -48,7 +48,7 @@ export function CalendarRequestForm() {
     clearErrors("root");
 
     try {
-      const result = await createVillageEventSubmissionAction(data);
+      const result = requestId ? await updateResidentVillageEventSubmissionAction(requestId, data) : await createVillageEventSubmissionAction(data);
       if (!result.success) {
         setError("root", { message: result.error });
         pushToast({
@@ -65,7 +65,7 @@ export function CalendarRequestForm() {
         title: "ส่งคำขอกิจกรรมเรียบร้อยแล้ว",
         description: "ระบบได้ส่งคำขอให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
       });
-      router.push("/resident/calendar/requests?submitted=1");
+      router.push(requestId ? `/resident/calendar/requests/${requestId}?updated=1` : "/resident/calendar/requests?submitted=1");
     } catch (error) {
       const message = error instanceof Error ? error.message : "กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง";
       setError("root", { message });

@@ -18,6 +18,8 @@ type EventSubmissionRecord = {
   endsAt: Date | null;
   isPublic: boolean;
   status: string;
+  type?: "CREATE" | "EDIT" | "DELETE";
+  eventId?: string | null;
 };
 
 type VillageEventSubmissionDelegate = {
@@ -215,19 +217,15 @@ export async function adminApproveVillageEventSubmissionAction(
   try {
     const now = new Date();
     const approved = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const event = await tx.villageEvent.create({
-        data: {
-          villageId: request.villageId,
-          createdById: ctx.userId,
-          title: request.title,
-          description: request.description,
-          location: request.location,
-          startsAt: request.startsAt,
-          endsAt: request.endsAt,
-          isPublic: request.isPublic,
-        },
-        select: { id: true },
-      });
+      let eventId = request.eventId ?? "";
+      if ((request.type ?? "CREATE") === "CREATE") {
+        const event = await tx.villageEvent.create({ data: { villageId: request.villageId, createdById: ctx.userId, title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic: request.isPublic }, select: { id: true } });
+        eventId = event.id;
+      } else {
+        const existingEvent = request.eventId ? await tx.villageEvent.findFirst({ where: { id: request.eventId, villageId: request.villageId }, select: { id: true } }) : null;
+        if (!existingEvent) throw new Error("ไม่พบกิจกรรมเป้าหมาย");
+        if (request.type === "DELETE") await tx.villageEvent.delete({ where: { id: existingEvent.id } });
+      }
 
       const txWithSubmission = tx as Prisma.TransactionClient & {
         villageEventSubmission: VillageEventSubmissionTransactionDelegate;
@@ -240,6 +238,7 @@ export async function adminApproveVillageEventSubmissionAction(
           reviewedBy: ctx.userId,
           reviewedAt: now,
           reviewNote: reviewNote?.trim() || null,
+          eventId,
         },
       });
 
@@ -251,7 +250,7 @@ export async function adminApproveVillageEventSubmissionAction(
           title: "คำขอเพิ่มกิจกรรมได้รับการอนุมัติ",
           body: `กิจกรรม \"${request.title}\" ได้รับการอนุมัติแล้ว`,
           metadata: {
-            actionUrl: `/resident/calendar/${event.id}`,
+            actionUrl: eventId ? `/resident/calendar/${eventId}` : "/resident/calendar/requests",
             actionLabel: "ดูกิจกรรม",
             requestId: request.id,
             status: "APPROVED",
@@ -259,7 +258,7 @@ export async function adminApproveVillageEventSubmissionAction(
         },
       });
 
-      return event;
+      return { id: eventId };
     });
 
     revalidatePath("/admin/calendar");

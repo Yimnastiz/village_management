@@ -88,6 +88,12 @@ enum VillageEventSubmissionStatus {
   REJECTED
 }
 
+enum VillageEventSubmissionType {
+  CREATE
+  EDIT
+  DELETE
+}
+
 enum VillagePlaceCategory {
   TEMPLE
   SHOP
@@ -917,6 +923,8 @@ model VillageEventSubmission {
   startsAt    DateTime
   endsAt      DateTime?
   isPublic    Boolean                      @default(false)
+  type        VillageEventSubmissionType   @default(CREATE)
+  eventId     String?
   status      VillageEventSubmissionStatus @default(PENDING)
   reviewedBy  String?
   reviewedAt  DateTime?
@@ -930,6 +938,7 @@ model VillageEventSubmission {
   @@index([villageId])
   @@index([requesterId])
   @@index([status])
+  @@index([eventId])
   @@index([startsAt])
 }
 
