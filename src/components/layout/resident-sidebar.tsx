@@ -71,7 +71,11 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
   const baseItems = state.hasMembership
     ? residentMenuItems.filter((item) => item.href !== "/resident/binding")
     : residentMenuItems;
-  const bindingHref = state.bindingRequestHref ?? "/resident/binding";
+  // The sidebar should start at the request form and only become a status link
+  // after a request is actually waiting for review.
+  const bindingHref = state.bindingStatus === "PENDING"
+    ? "/resident/binding/pending"
+    : "/resident/binding";
 
   return baseItems.map((item) => {
     if (!state.hasMembership) {
