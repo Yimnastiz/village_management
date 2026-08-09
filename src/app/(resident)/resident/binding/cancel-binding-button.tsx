@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cancelBindingRequestAction } from "./actions";
@@ -11,16 +12,18 @@ export function CancelBindingButton() {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
   const toast = useToast();
+
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="w-full rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">ยกเลิกคำขอ</button>
+    <Button type="button" variant="dangerOutline" size="sm" onClick={() => setOpen(true)} className="w-full sm:w-auto">ยกเลิกคำขอ</Button>
     <ConfirmDialog
       open={open}
-      title="ยกเลิกคำขอผูกเลขบ้าน?"
-      description="คำขอจะถูกเก็บในประวัติด้วยสถานะยกเลิก และคุณสามารถเลือกหมู่บ้านหรือบ้านเลขที่ใหม่ได้"
-      confirmLabel="ยืนยันยกเลิกคำขอ"
+      title="ยืนยันการยกเลิกคำขอ"
+      description="หากยกเลิกแล้ว คำขอนี้จะไม่ถูกส่งให้ผู้ใหญ่บ้านตรวจสอบ"
+      confirmLabel="ยกเลิกคำขอ"
+      cancelLabel="กลับ"
       tone="danger"
       pending={pending}
-      onClose={() => setOpen(false)}
+      onClose={() => !pending && setOpen(false)}
       onConfirm={() => startTransition(async () => {
         try {
           await cancelBindingRequestAction();

@@ -5,6 +5,7 @@ import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { BindingRequestForm } from "./binding-request-form";
 import { CancelBindingButton } from "./cancel-binding-button";
+import { Badge } from "@/components/ui/badge";
 
 export default async function ResidentBindingPage() {
   const session = await getSessionContextFromServerCookies();
@@ -47,13 +48,19 @@ export default async function ResidentBindingPage() {
       </header>
 
       {hasPending ? (
-        <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
-          <p>มีคำขอที่กำลังรอการยืนยัน คุณสามารถแก้ไขข้อมูลในคำขอเดิมได้</p>
-          <CancelBindingButton />
+        <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-semibold text-gray-900">มีคำขอที่กำลังรอการยืนยัน</p>
+              <p className="mt-1 text-sm text-gray-600">คุณสามารถแก้ไขข้อมูลในคำขอเดิมได้</p>
+            </div>
+            <Badge variant="outline" className="w-fit border-gray-300 bg-white text-gray-600">รอผู้ใหญ่บ้านตรวจสอบ</Badge>
+          </div>
+          <div className="mt-4 sm:flex sm:justify-end"><CancelBindingButton /></div>
         </div>
       ) : null}
 
-      {statusPresentation ? (
+      {statusPresentation && !hasPending ? (
         <div className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${statusPresentation.className}`}>
           <statusPresentation.icon className="mt-0.5 h-5 w-5 flex-none" aria-hidden="true" />
           <div>

@@ -35,7 +35,7 @@ export function ConfirmDialog({
       <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         {description ? <p className="mt-2 text-sm text-slate-600">{description}</p> : null}
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
             {cancelLabel}
           </Button>

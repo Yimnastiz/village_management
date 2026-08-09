@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckCircle2, ChevronDown, Search } from "lucide-react";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeHouseNumber } from "@/lib/house-number";
 import { formatVillageLabel, formatVillageLocation, villageSearchText } from "@/lib/village-label";
 import { submitBindingRequestAction, type BindingRequestActionState } from "./actions";
@@ -56,6 +56,9 @@ export function BindingRequestForm({
   const [selectedVillageId, setSelectedVillageId] = useState(initialVillage?.id ?? "");
   const [villageQuery, setVillageQuery] = useState(initialVillage ? villageLabel(initialVillage) : "");
   const [villageOpen, setVillageOpen] = useState(false);
+  const villageRootRef = useRef<HTMLDivElement | null>(null);
+  const villageOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [activeVillageIndex, setActiveVillageIndex] = useState(-1);
   const [mode, setMode] = useState<"existing" | "suggest">(
     initialHouse || !latestRequest?.houseNumber ? "existing" : "suggest"
   );
@@ -81,6 +84,27 @@ export function BindingRequestForm({
       )
       .slice(0, 50);
   }, [houses, houseSearchSubmitted, normalizedHouseQuery, selectedVillageId]);
+  const hasHouseSearchQuery = houseQuery.trim().length > 0;
+  const shouldShowNoHouseResult = houseSearchSubmitted && hasHouseSearchQuery && filteredHouses.length === 0;
+
+  useEffect(() => {
+    const closeVillageDropdown = (event: MouseEvent | TouchEvent) => {
+      if (event.target instanceof Node && !villageRootRef.current?.contains(event.target)) {
+        setVillageOpen(false);
+        setActiveVillageIndex(-1);
+      }
+    };
+    document.addEventListener("mousedown", closeVillageDropdown);
+    document.addEventListener("touchstart", closeVillageDropdown);
+    return () => {
+      document.removeEventListener("mousedown", closeVillageDropdown);
+      document.removeEventListener("touchstart", closeVillageDropdown);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeVillageIndex >= 0) villageOptionRefs.current[activeVillageIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeVillageIndex]);
 
   const switchToSuggest = () => {
     setMode("suggest");
@@ -91,7 +115,7 @@ export function BindingRequestForm({
 
   return (
     <form action={formAction} className="space-y-6">
-      <div className="relative">
+      <div className="relative" ref={villageRootRef}>
         <div className="mb-2 flex items-center gap-2">
           <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-semibold text-green-800">1</span>
           <label htmlFor="village-search" className="text-sm font-semibold text-gray-900">เลือกหมู่บ้าน</label>
@@ -110,34 +134,60 @@ export function BindingRequestForm({
             aria-expanded={villageOpen}
             aria-controls="binding-village-options"
             placeholder="พิมพ์ชื่อหมู่บ้าน ตำบล อำเภอ หรือจังหวัด"
-            onFocus={() => setVillageOpen(true)}
+            onFocus={() => { setVillageOpen(true); setActiveVillageIndex(filteredVillages.length ? 0 : -1); }}
+            onMouseDown={(event) => {
+              if (event.currentTarget === document.activeElement) {
+                event.preventDefault();
+                setVillageOpen((open) => !open);
+              }
+            }}
             onChange={(event) => {
               setVillageQuery(event.target.value);
               setSelectedVillageId("");
               setSelectedHouseId("");
                 setHouseQuery("");
-                  setHouseSearchSubmitted(false);
+              setHouseSearchSubmitted(false);
               setVillageOpen(true);
+              setActiveVillageIndex(0);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                if (!villageOpen) { setVillageOpen(true); setActiveVillageIndex(0); return; }
+                setActiveVillageIndex((index) => event.key === "ArrowDown"
+                  ? (index + 1) % Math.max(filteredVillages.length, 1)
+                  : (index <= 0 ? filteredVillages.length - 1 : index - 1));
+              } else if (event.key === "Enter" && villageOpen && filteredVillages[activeVillageIndex]) {
+                event.preventDefault();
+                const village = filteredVillages[activeVillageIndex];
+                setSelectedVillageId(village.id); setVillageQuery(villageLabel(village)); setSelectedHouseId(""); setHouseQuery(""); setHouseSearchSubmitted(false); setVillageOpen(false); setActiveVillageIndex(-1); setMode("existing");
+              } else if (event.key === "Escape") {
+                event.preventDefault(); setVillageOpen(false); setActiveVillageIndex(-1);
+              }
             }}
             className="min-h-11 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-10 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
           />
-          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <button type="button" aria-label={villageOpen ? "ซ่อนรายการหมู่บ้าน" : "แสดงรายการหมู่บ้าน"} disabled={hasPending} onMouseDown={(event) => event.preventDefault()} onClick={() => setVillageOpen((open) => !open)} className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 disabled:cursor-not-allowed">
+            <ChevronDown className={`h-4 w-4 transition-transform ${villageOpen ? "rotate-180" : ""}`} />
+          </button>
         </div>
         {villageOpen && !hasPending ? (
           <div id="binding-village-options" className="absolute z-40 mt-1 max-h-64 w-full overflow-y-auto overscroll-contain rounded-xl border border-gray-200 bg-white p-1 shadow-xl">
-            {filteredVillages.length ? filteredVillages.map((village) => (
+            {filteredVillages.length ? filteredVillages.map((village, index) => (
               <button
                 key={village.id}
                 type="button"
-                className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-green-50"
+                 ref={(element) => { villageOptionRefs.current[index] = element; }}
+                 className={`block w-full cursor-pointer rounded-lg px-3 py-2 text-left text-sm hover:bg-green-50 ${activeVillageIndex === index ? "bg-gray-100" : ""}`}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   setSelectedVillageId(village.id);
                   setVillageQuery(villageLabel(village));
                   setSelectedHouseId("");
-                  setHouseQuery("");
-                  setVillageOpen(false);
-                  setMode("existing");
+                   setHouseQuery("");
+                   setVillageOpen(false);
+                   setActiveVillageIndex(-1);
+                   setMode("existing");
                 }}
               >
                 <span className="block truncate font-medium text-gray-900">{formatVillageLabel(village.name, village.moo)}</span>
@@ -199,8 +249,8 @@ export function BindingRequestForm({
               ) : null}
             </div>
           ) : (
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white">
-              {filteredHouses.length ? filteredHouses.map((house) => (
+            hasHouseSearchQuery && filteredHouses.length ? <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+              {filteredHouses.map((house) => (
                 <button
                   key={house.id}
                   type="button"
@@ -213,12 +263,8 @@ export function BindingRequestForm({
                 >
                   บ้านเลขที่ {house.houseNumber}
                 </button>
-              )) : (
-                <div className="px-3 py-4 text-sm text-gray-500">
-                  ไม่พบบ้านเลขที่นี้ในทะเบียนบ้านของหมู่บ้าน
-                </div>
-              )}
-            </div>
+              ))}
+            </div> : shouldShowNoHouseResult ? <div className="rounded-lg border border-gray-200 bg-white px-3 py-4 text-sm text-gray-500">ไม่พบบ้านเลขที่นี้ในทะเบียนบ้านของหมู่บ้าน</div> : <p className="text-xs text-gray-500">พิมพ์บ้านเลขที่เพื่อค้นหา</p>
           )}
 
           {!hasPending ? (

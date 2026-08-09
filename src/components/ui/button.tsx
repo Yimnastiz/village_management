@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import { ButtonHTMLAttributes, forwardRef } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
+  variant?: "primary" | "secondary" | "danger" | "dangerOutline" | "ghost" | "outline";
   size?: "sm" | "md" | "lg";
   isLoading?: boolean;
 }
@@ -11,6 +11,7 @@ const variantClasses = {
   primary: "bg-green-600 text-white hover:bg-green-700 focus:ring-green-500",
   secondary: "bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500",
   danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
+  dangerOutline: "border border-red-300 bg-white text-red-700 hover:bg-red-50 focus:ring-red-500",
   ghost: "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500",
   outline: "border border-gray-300 text-gray-700 hover:bg-gray-50 focus:ring-gray-500",
 };
