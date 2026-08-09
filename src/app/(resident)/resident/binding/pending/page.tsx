@@ -1,45 +1,32 @@
 import Link from "next/link";
+import { AlertCircle, CheckCircle2, Clock3, Globe, XCircle } from "lucide-react";
 import { BindingRequestStatus } from "@prisma/client";
-import { Clock } from "lucide-react";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 
-type PageProps = {
-  searchParams?: Promise<{ membershipStatus?: string; bindingStatus?: string }>;
-};
+type PageProps = { searchParams?: Promise<{ membershipStatus?: string; bindingStatus?: string }> };
 
 const STATUS_TEXT: Record<BindingRequestStatus, string> = {
-  PENDING: "รอพิจารณา",
+  PENDING: "รอการตรวจสอบ",
   APPROVED: "อนุมัติแล้ว",
-  REJECTED: "ปฏิเสธแล้ว",
+  REJECTED: "ต้องแก้ไขคำขอ",
   CANCELLED: "ยกเลิกแล้ว",
 };
 
 export default async function ResidentBindingPendingPage({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
-
   const latestRequest = session
     ? await prisma.bindingRequest.findFirst({
-        where: { userId: session.id },
+        where: { userId: session.id, status: { not: BindingRequestStatus.CANCELLED } },
         orderBy: { createdAt: "desc" },
         include: {
-          house: {
-            select: {
-              houseNumber: true,
-            },
-          },
-          village: {
-            select: {
-              slug: true,
-              name: true,
-            },
-          },
+          house: { select: { houseNumber: true } },
+          village: { select: { slug: true, name: true } },
         },
       })
     : null;
-
   const reviewer = latestRequest?.reviewedBy
     ? await prisma.user.findUnique({ where: { id: latestRequest.reviewedBy }, select: { name: true } })
     : null;
@@ -50,74 +37,68 @@ export default async function ResidentBindingPendingPage({ searchParams }: PageP
       })
     : null;
 
-    const membershipStatus = params.membershipStatus ?? null;
-    const bindingStatus = params.bindingStatus ?? null;
-  const isApproved = latestRequest?.status === BindingRequestStatus.APPROVED;
-    const isRejected = latestRequest?.status === BindingRequestStatus.REJECTED || membershipStatus === "REJECTED" || bindingStatus === "REJECTED";
-    const currentStatus = latestRequest?.status ?? (membershipStatus as BindingRequestStatus | null) ?? (bindingStatus as BindingRequestStatus | null) ?? null;
+  const fallbackStatus = params.membershipStatus === "REJECTED" || params.bindingStatus === "REJECTED" ? BindingRequestStatus.REJECTED : null;
+  const currentStatus = latestRequest?.status ?? fallbackStatus;
+  const isPending = currentStatus === BindingRequestStatus.PENDING;
+  const isApproved = currentStatus === BindingRequestStatus.APPROVED;
+  const isRejected = currentStatus === BindingRequestStatus.REJECTED;
   const villageHomeHref = latestRequest?.village?.slug ? `/${latestRequest.village.slug}` : "/";
+  const statusStyle = isApproved
+    ? "border-green-200 bg-green-50 text-green-900"
+    : isRejected
+      ? "border-red-200 bg-red-50 text-red-900"
+      : "border-blue-200 bg-blue-50 text-blue-900";
+  const StatusIcon = isApproved ? CheckCircle2 : isRejected ? XCircle : isPending ? Clock3 : AlertCircle;
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-      <div className={`inline-flex p-4 rounded-full mb-4 ${isApproved ? "bg-green-50" : "bg-yellow-50"}`}>
-        <Clock className={`h-8 w-8 ${isApproved ? "text-green-500" : "text-yellow-500"}`} />
-      </div>
-      <h2 className="text-xl font-bold text-gray-900 mb-2">สถานะคำขอผูกเลขบ้าน</h2>
+    <div className="mx-auto max-w-2xl space-y-5">
+      <header className="border-b border-gray-200 pb-5">
+        <p className="text-sm font-medium text-green-700">บัญชีผู้พักอาศัย</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-950">สถานะคำขอผูกเลขบ้าน</h1>
+        <p className="mt-2 text-sm leading-6 text-gray-600">ติดตามผลการตรวจสอบคำขอของคุณได้จากหน้านี้</p>
+      </header>
 
-      {latestRequest ? (
-        <>
-          {isApproved && (
-            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3">
-              <p className="text-sm font-semibold text-green-800">คำขอของคุณได้รับการอนุมัติแล้ว</p>
-              <p className="mt-1 text-sm text-green-700">ตอนนี้คุณสามารถใช้งานข้อมูลภายในหมู่บ้านได้ตามสิทธิ์ของลูกบ้าน</p>
+      {!latestRequest && !fallbackStatus ? (
+        <section className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+          <p className="text-sm text-gray-600">ยังไม่มีคำขอผูกเลขบ้าน</p>
+          <Link href="/resident/binding" className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800">เริ่มส่งคำขอ</Link>
+        </section>
+      ) : (
+        <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+          <div className={`flex items-start gap-3 rounded-xl border p-4 ${statusStyle}`}>
+            <StatusIcon className="mt-0.5 h-5 w-5 flex-none" aria-hidden="true" />
+            <div>
+              <p className="font-semibold">{currentStatus ? STATUS_TEXT[currentStatus] : "สถานะคำขอ"}</p>
+              <p className="mt-1 text-sm opacity-80">
+                {isPending ? "ผู้ดูแลกำลังตรวจสอบข้อมูลของคุณ" : isApproved ? "บัญชีของคุณได้รับสิทธิ์ใช้งานเมนูลูกบ้านแล้ว" : "ตรวจสอบข้อมูลและส่งคำขอใหม่ได้จากหน้าแก้ไข"}
+              </p>
             </div>
-          )}
-          {isRejected && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-left">
-              <p className="text-sm font-semibold text-red-800">คำขอของคุณถูกปฏิเสธ</p>
-              <p className="mt-1 text-sm text-red-700">{latestRequest?.reviewNote || "กรุณาตรวจสอบข้อมูลแล้วส่งคำขอใหม่อีกครั้ง"}</p>
-            </div>
-          )}
-          {currentStatus && (
-            <p className="text-gray-500 text-sm mb-2">
-              สถานะปัจจุบัน: <span className="font-semibold">{STATUS_TEXT[currentStatus] ?? currentStatus}</span>
-            </p>
-          )}
-          <p className="text-gray-500 text-sm mb-2">บ้านเลขที่: {latestRequest.houseNumber ?? latestRequest.house?.houseNumber ?? "-"}</p>
-          <p className="text-gray-500 text-sm mb-6">หมายเหตุ: {latestRequest.note ?? "-"}</p>
-          {latestRequest.reviewedAt && latestRequest.status !== BindingRequestStatus.CANCELLED ? (
-            <div className="mx-auto mb-6 max-w-lg rounded-lg border border-gray-200 bg-gray-50 p-3 text-left text-sm text-gray-700">
-              <p><span className="text-gray-500">ผู้ตรวจ:</span> {reviewer?.name ?? "เจ้าหน้าที่หมู่บ้าน"}</p>
-              <p><span className="text-gray-500">ตำแหน่ง:</span> {reviewerMembership ? MEMBERSHIP_ROLE_LABELS[reviewerMembership.role] : "เจ้าหน้าที่หมู่บ้าน"}</p>
-              <p><span className="text-gray-500">ตรวจเมื่อ:</span> {latestRequest.reviewedAt.toLocaleString("th-TH")}</p>
-              {latestRequest.status === BindingRequestStatus.REJECTED ? <p><span className="text-gray-500">เหตุผล:</span> {latestRequest.reviewNote || "ไม่ได้ระบุเหตุผล"}</p> : null}
-              <Link href="/resident/contacts" className="mt-2 inline-block text-green-700 hover:underline">ดูข้อมูลติดต่อหมู่บ้าน</Link>
+          </div>
+
+          {latestRequest ? (
+            <dl className="mt-5 divide-y divide-gray-100 text-sm">
+              <div className="flex justify-between gap-4 py-3"><dt className="text-gray-500">หมู่บ้าน</dt><dd className="text-right font-medium text-gray-900">{latestRequest.village?.name ?? "-"}</dd></div>
+              <div className="flex justify-between gap-4 py-3"><dt className="text-gray-500">บ้านเลขที่</dt><dd className="text-right font-medium text-gray-900">{latestRequest.houseNumber ?? latestRequest.house?.houseNumber ?? "-"}</dd></div>
+              <div className="flex justify-between gap-4 py-3"><dt className="text-gray-500">หมายเหตุ</dt><dd className="max-w-[65%] text-right text-gray-700">{latestRequest.note ?? "-"}</dd></div>
+            </dl>
+          ) : null}
+
+          {isRejected ? <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"><span className="font-semibold">เหตุผล:</span> {latestRequest?.reviewNote || "กรุณาตรวจสอบข้อมูลแล้วส่งคำขอใหม่อีกครั้ง"}</div> : null}
+
+          {latestRequest?.reviewedAt && !isPending ? (
+            <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+              <p>ตรวจสอบโดย {reviewer?.name ?? "เจ้าหน้าที่หมู่บ้าน"}</p>
+              <p className="mt-1 text-gray-500">{reviewerMembership ? MEMBERSHIP_ROLE_LABELS[reviewerMembership.role] : "เจ้าหน้าที่หมู่บ้าน"} · {latestRequest.reviewedAt.toLocaleString("th-TH")}</p>
             </div>
           ) : null}
 
-          {isApproved && (
-            <div className="mb-6 flex flex-wrap items-center justify-center gap-3 text-sm">
-              <Link href="/resident/dashboard" className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700">
-                ไปที่หน้าแดชบอร์ดลูกบ้าน
-              </Link>
-              <Link href={villageHomeHref} className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50">
-                ไปหน้าหลักเว็บหมู่บ้าน
-              </Link>
-            </div>
-          )}
-        </>
-      ) : (
-        <p className="text-gray-500 text-sm mb-6">ยังไม่มีคำขอผูกเลขบ้าน</p>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+            {!isApproved ? <Link href="/resident/binding" className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800">แก้ไขคำขอ</Link> : <Link href="/resident/dashboard" className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-green-700 px-4 text-sm font-semibold text-white hover:bg-green-800">ไปหน้าแดชบอร์ด</Link>}
+            {isApproved ? <Link href={villageHomeHref} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-50"><Globe className="h-4 w-4" />หน้าเว็บหมู่บ้าน</Link> : null}
+            <Link href="/resident/dashboard" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50">กลับแดชบอร์ด</Link>
+          </div>
+        </section>
       )}
-
-      <div className="flex items-center justify-center gap-4 text-sm">
-        <Link href="/resident/binding" className="text-green-600 hover:underline">
-          {isRejected ? "สมัคร/แก้ไขใหม่" : "แก้ไขคำขอ"}
-        </Link>
-        <Link href="/resident/dashboard" className="text-gray-500 hover:underline">
-          กลับแดชบอร์ด
-        </Link>
-      </div>
     </div>
   );
 }

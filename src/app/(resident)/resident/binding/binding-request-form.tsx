@@ -61,6 +61,7 @@ export function BindingRequestForm({
   );
   const [houseQuery, setHouseQuery] = useState(initialHouse?.houseNumber ?? "");
   const [selectedHouseId, setSelectedHouseId] = useState(initialHouse?.id ?? "");
+  const [houseSearchSubmitted, setHouseSearchSubmitted] = useState(Boolean(initialHouse));
 
   const selectedHouse = houses.find((house) => house.id === selectedHouseId) ?? null;
   const normalizedHouseQuery = normalizeHouseNumber(houseQuery);
@@ -71,7 +72,7 @@ export function BindingRequestForm({
   }, [selectedVillageId, villageQuery, villages]);
   const filteredHouses = useMemo(() => {
     const villageHouses = houses.filter((house) => house.villageId === selectedVillageId);
-    if (!normalizedHouseQuery) return villageHouses.slice(0, 50);
+    if (!houseSearchSubmitted || !normalizedHouseQuery) return [];
     return villageHouses
       .filter(
         (house) =>
@@ -79,7 +80,7 @@ export function BindingRequestForm({
           normalizeHouseNumber(house.houseNumber).includes(normalizedHouseQuery)
       )
       .slice(0, 50);
-  }, [houses, normalizedHouseQuery, selectedVillageId]);
+  }, [houses, houseSearchSubmitted, normalizedHouseQuery, selectedVillageId]);
 
   const switchToSuggest = () => {
     setMode("suggest");
@@ -114,7 +115,8 @@ export function BindingRequestForm({
               setVillageQuery(event.target.value);
               setSelectedVillageId("");
               setSelectedHouseId("");
-              setHouseQuery("");
+                setHouseQuery("");
+                  setHouseSearchSubmitted(false);
               setVillageOpen(true);
             }}
             className="min-h-11 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-10 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
@@ -155,28 +157,30 @@ export function BindingRequestForm({
             <div>
             <label htmlFor="house-search" className="mb-1 block text-sm text-gray-600">ค้นหาเลขบ้านในทะเบียน</label>
             <input type="hidden" name="requestedHouseId" value={selectedHouseId} />
-            <input
-              id="house-search"
-              value={houseQuery}
-              disabled={!selectedVillageId || hasPending}
-              autoComplete="off"
-              placeholder="เช่น 777 หรือ 96/4"
-              onChange={(event) => {
-                setHouseQuery(event.target.value);
-                setSelectedHouseId("");
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== "Enter") return;
-                event.preventDefault();
-                if (filteredHouses.length === 1) {
-                  setSelectedHouseId(filteredHouses[0].id);
-                  setHouseQuery(filteredHouses[0].houseNumber);
-                } else if (houseQuery.trim()) {
-                  switchToSuggest();
-                }
-              }}
-              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
-            />
+            <div className="flex gap-2">
+              <input
+                id="house-search"
+                value={houseQuery}
+                disabled={!selectedVillageId || hasPending}
+                autoComplete="off"
+                placeholder="เช่น 777 หรือ 96/4"
+                onChange={(event) => {
+                  setHouseQuery(event.target.value);
+                  setSelectedHouseId("");
+                  setHouseSearchSubmitted(false);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  setHouseSearchSubmitted(true);
+                }}
+                className="block min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
+              />
+              <button type="button" onClick={() => setHouseSearchSubmitted(true)} disabled={!selectedVillageId || !houseQuery.trim() || hasPending} className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50">
+                <Search className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">ค้นหา</span>
+              </button>
+            </div>
           </div>
 
           {selectedHouse ? (

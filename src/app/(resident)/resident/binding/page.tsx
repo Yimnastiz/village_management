@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Ban, CheckCircle2, Clock3, Info, XCircle } from "lucide-react";
+import { Ban, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { BindingRequestStatus } from "@prisma/client";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +15,7 @@ export default async function ResidentBindingPage() {
   });
   const latestRequest = session
     ? await prisma.bindingRequest.findFirst({
-        where: { userId: session.id },
+        where: { userId: session.id, status: { not: BindingRequestStatus.CANCELLED } },
         orderBy: { createdAt: "desc" },
         include: { house: { select: { houseNumber: true } }, village: { select: { id: true, name: true } } },
       })
@@ -45,13 +45,6 @@ export default async function ResidentBindingPage() {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-950">ผูกบัญชีกับบ้าน</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">เลือกหมู่บ้านและบ้านเลขที่จากทะเบียนบ้าน เพื่อให้ผู้ดูแลยืนยันข้อมูลของคุณ</p>
       </header>
-
-      <div className="rounded-xl border border-blue-200 bg-blue-50/70 px-4 py-3 text-sm text-blue-900">
-        <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-4 w-4 flex-none text-blue-700" aria-hidden="true" />
-          <p>{session ? <>คุณกำลังดำเนินการในชื่อ <strong>{session.name || session.phoneNumber}</strong></> : <>กรุณาเข้าสู่ระบบก่อนส่งคำขอผูกบ้าน</>}</p>
-        </div>
-      </div>
 
       {hasPending ? (
         <div className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">

@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Bell, Calendar, CalendarDays, CheckCircle2, FileText, Home, Newspaper } from "lucide-react";
+import { AlertCircle, Bell, Calendar, CalendarDays, CheckCircle2, Download, FileText, Globe, Home, Images, MapPin, Newspaper, Phone, User } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { WelcomeBanner } from "@/components/ui/welcome-banner";
 import Link from "next/link";
@@ -29,7 +29,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
 
   const membership = getResidentMembership(session);
   if (!membership) {
-    const [latestBindingRequest, unreadNotifications, linkedPerson, registeredVillage] = await Promise.all([
+    const [latestBindingRequest, linkedPerson, registeredVillage] = await Promise.all([
       prisma.bindingRequest.findFirst({
         where: {
           userId: session.id,
@@ -47,9 +47,6 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           createdAt: "desc",
         },
       }),
-      prisma.notification.count({
-        where: { userId: session.id, status: NotificationStatus.UNREAD },
-      }),
       prisma.person.findUnique({ where: { userId: session.id }, select: { house: { select: { houseNumber: true } } } }),
       prisma.user.findUnique({
         where: { id: session.id },
@@ -59,25 +56,19 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
     const isPending = latestBindingRequest?.status === "PENDING";
     const isRejected = latestBindingRequest?.status === "REJECTED";
     const village = latestBindingRequest?.village ?? registeredVillage?.registrationVillage ?? null;
-    const villageName = village?.name ?? "หมู่บ้านของคุณ";
     const villageHref = village?.slug ? `/${village.slug}` : "/";
     const bindingHref = isPending ? "/resident/binding/pending" : "/resident/binding";
     const bindingActionLabel = isPending ? "ดูสถานะคำขอ" : isRejected ? "แก้ไขคำขอ" : "ขอผูกเลขบ้าน";
     const statusLabel = isPending ? "รอตรวจสอบ" : isRejected ? "ต้องแก้ไขคำขอ" : "ยังไม่ผูกเลขบ้าน";
-    const statusClassName = isPending
-      ? "bg-blue-50 text-blue-700 ring-blue-100"
-      : isRejected
-        ? "bg-red-50 text-red-700 ring-red-100"
-        : "bg-amber-50 text-amber-700 ring-amber-100";
     const availableServices = [
-      { href: "/resident/news", label: "ข่าว/ประกาศ", description: "ติดตามข่าวสาธารณะของหมู่บ้าน" },
-      { href: "/resident/calendar", label: "ปฏิทิน", description: "ดูกิจกรรมที่เผยแพร่สาธารณะ" },
-      { href: "/resident/gallery", label: "แกลเลอรี", description: "ดูภาพกิจกรรมของชุมชน" },
-      { href: "/resident/downloads", label: "เอกสาร", description: "ดาวน์โหลดเอกสารที่เปิดเผย" },
-      { href: "/resident/places", label: "สถานที่สำคัญ", description: "ค้นหาสถานที่และบริการใกล้ตัว" },
-      { href: "/resident/contacts", label: "ผู้ติดต่อ", description: "ช่องทางติดต่อของหมู่บ้าน" },
-      { href: "/resident/profile", label: "โปรไฟล์", description: "จัดการข้อมูลบัญชีของคุณ" },
-      { href: "/resident/notifications", label: "การแจ้งเตือน", description: unreadNotifications > 0 ? `${unreadNotifications} รายการยังไม่ได้อ่าน` : "ไม่มีรายการใหม่" },
+      { href: "/resident/news", label: "ข่าว/ประกาศ", description: "ติดตามข่าวสาธารณะของหมู่บ้าน", icon: Newspaper },
+      { href: "/resident/calendar", label: "ปฏิทิน", description: "ดูกิจกรรมที่เผยแพร่สาธารณะ", icon: Calendar },
+      { href: "/resident/gallery", label: "แกลเลอรี", description: "ดูภาพกิจกรรมของชุมชน", icon: Images },
+      { href: "/resident/downloads", label: "เอกสาร", description: "ดาวน์โหลดเอกสารที่เปิดเผย", icon: Download },
+      { href: "/resident/places", label: "สถานที่สำคัญ", description: "ค้นหาสถานที่และบริการใกล้ตัว", icon: MapPin },
+      { href: "/resident/contacts", label: "ผู้ติดต่อ", description: "ช่องทางติดต่อของหมู่บ้าน", icon: Phone },
+      { href: "/resident/profile", label: "โปรไฟล์", description: "จัดการข้อมูลบัญชีของคุณ", icon: User },
+      { href: "/resident/notifications", label: "การแจ้งเตือน", description: "ดูและจัดการการแจ้งเตือนของคุณ", icon: Bell },
     ];
 
     return (
@@ -86,10 +77,6 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClassName}`}>
-                  {statusLabel}
-                </span>
-                <span className="text-sm text-gray-500">หมู่บ้าน {villageName}</span>
               </div>
               <h1 className="mt-3 text-2xl font-semibold tracking-normal text-gray-950">
                 สวัสดี, {session.name || "ลูกบ้าน"}
@@ -111,7 +98,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
               >
                 ดูหน้าเว็บหมู่บ้าน
-                <ArrowRight className="h-4 w-4" />
+                <Globe className="h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -198,10 +185,6 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
               <h2 className="text-base font-semibold text-gray-950">เมนูที่ใช้งานได้ตอนนี้</h2>
               <p className="mt-1 text-sm text-gray-500">เข้าถึงข้อมูลสาธารณะของหมู่บ้านและจัดการบัญชีของคุณ</p>
             </div>
-            <Link href="/resident/notifications" className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900">
-              <Bell className="h-4 w-4" />
-              {unreadNotifications > 0 ? `${unreadNotifications} การแจ้งเตือนใหม่` : "ไม่มีการแจ้งเตือนใหม่"}
-            </Link>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {availableServices.map((item) => (
@@ -215,7 +198,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
                     <p className="font-semibold text-gray-900">{item.label}</p>
                     <p className="mt-1 text-sm leading-5 text-gray-500">{item.description}</p>
                   </div>
-                  <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-300 transition-colors group-hover:text-green-600" />
+                  <item.icon className="mt-0.5 h-5 w-5 flex-shrink-0 text-gray-400 transition-colors group-hover:text-green-600" aria-hidden="true" />
                 </div>
               </Link>
             ))}
