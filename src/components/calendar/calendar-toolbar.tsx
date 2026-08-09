@@ -149,7 +149,7 @@ export function CalendarToolbar({
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <button type="button" onClick={() => { if (residentCompact) { setPickerYear(currentYear); setIsMonthPickerOpen(true); } }} aria-expanded={residentCompact ? isMonthPickerOpen : undefined} aria-controls={residentCompact ? `${namespace}-month-picker` : undefined} className={cn("min-w-0 truncate text-center text-sm font-semibold text-gray-900 sm:text-base", residentCompact && "cursor-pointer rounded-md px-1 focus:outline-none focus:ring-2 focus:ring-green-500")}>
+          <button type="button" onClick={() => { if (residentCompact) { setPickerYear(currentYear); setIsMonthPickerOpen((open) => !open); } }} aria-expanded={residentCompact ? isMonthPickerOpen : undefined} aria-controls={residentCompact ? `${namespace}-month-picker` : undefined} className={cn("min-w-0 truncate text-center text-sm font-semibold text-gray-900 sm:text-base", residentCompact && "cursor-pointer rounded-md px-1 focus:outline-none focus:ring-2 focus:ring-green-500")}>
             <span className="hidden min-[390px]:inline">{monthLabel}</span>
             <span className="min-[390px]:hidden">{compactMonthLabel}</span>
           </button>
@@ -166,7 +166,7 @@ export function CalendarToolbar({
               id={`${namespace}-month-picker`}
               role="dialog"
               aria-label="เลือกเดือนและปี"
-              className="col-span-full mt-1 max-h-[min(70vh,32rem)] w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-lg sm:p-4"
+              className="absolute inset-x-0 top-full z-50 mt-2 max-h-[min(70vh,32rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-xl sm:left-1/2 sm:right-auto sm:w-80 sm:-translate-x-1/2 sm:p-4"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <h2 className="font-semibold text-gray-900">เลือกเดือนและปี</h2>

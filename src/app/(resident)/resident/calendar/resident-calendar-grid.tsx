@@ -51,6 +51,7 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
             <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2">
               {dayEvents.length + dayAppointments.length > 0 ? <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold sm:hidden ${selected ? "bg-white/20 text-white" : "bg-green-100 text-green-800"}`}>{dayEvents.length + dayAppointments.length}</span> : null}
             </div>
+            {today ? <span className={`absolute right-1.5 top-7 text-[10px] font-semibold sm:right-2 sm:top-2 sm:text-xs ${selected ? "rounded bg-white/15 px-1 text-white" : "text-rose-600"}`}>วันนี้</span> : null}
             <div className="hidden space-y-1.5 px-2 pt-11 sm:block">
               {dayAppointments.length > 0 ? <p className={`flex min-h-7 w-full items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-medium leading-5 ${selected ? "bg-white/15 text-white" : "bg-sky-50 text-sky-800"}`}><span className="truncate">นัดหมาย</span><span className="shrink-0 font-semibold">{dayAppointments.length}</span></p> : null}
               {dayEvents.length > 0 ? <p className={`flex min-h-7 w-full items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-medium leading-5 ${selected ? "bg-white/15 text-white" : "bg-green-50 text-green-800"}`}><span className="truncate">กิจกรรมหมู่บ้าน</span><span className="shrink-0 font-semibold">{dayEvents.length}</span></p> : null}
