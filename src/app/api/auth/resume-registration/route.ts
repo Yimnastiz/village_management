@@ -8,9 +8,10 @@ export async function GET(request: NextRequest) {
   if (!registration) {
     return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 200 });
   }
-  const [challenge, verifier] = await Promise.all([
+  const [challenge, verifier, village] = await Promise.all([
     prisma.registrationOtpChallenge.findUnique({ where: { phoneNumber: registration.phoneNumber } }),
     prisma.registrationVerifierSession.findUnique({ where: { registrationId: registration.id } }),
+    prisma.village.findUnique({ where: { id: registration.villageId }, select: { name: true, moo: true } }),
   ]);
   if (!challenge || !verifier) return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 404 });
 
@@ -30,6 +31,8 @@ export async function GET(request: NextRequest) {
       district: registration.district,
       subdistrict: registration.subdistrict,
       villageId: registration.villageId,
+      villageName: village?.name ?? null,
+      villageMoo: village?.moo ?? null,
       callbackUrl: registration.callbackUrl,
       status: registration.status,
       rejectReason: registration.rejectReason,
