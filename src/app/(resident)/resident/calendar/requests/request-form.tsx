@@ -65,7 +65,7 @@ export function CalendarRequestForm({ requestId, initialValues, approved = false
         title: "ส่งคำขอกิจกรรมเรียบร้อยแล้ว",
         description: "ระบบได้ส่งคำขอให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
       });
-      router.push(requestId ? `/resident/calendar/requests/${requestId}?updated=1` : "/resident/calendar/requests?submitted=1");
+      router.push(requestId ? `/resident/calendar/requests/${result.requestId}?updated=1` : "/resident/calendar/requests?submitted=1");
     } catch (error) {
       const message = error instanceof Error ? error.message : "กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง";
       setError("root", { message });

@@ -41,19 +41,19 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map(d => <div key={d} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{d}</div>)}</div>
       <div className="grid grid-cols-7">
-        {Array.from({ length: blanks }).map((_, i) => <div key={`blank-${i}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/60 sm:min-h-24 lg:min-h-28" />)}
+        {Array.from({ length: blanks }).map((_, i) => <div key={`blank-${i}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/60 sm:min-h-28 lg:min-h-32" />)}
         {Array.from({ length: days }).map((_, index) => {
           const day = index + 1, date = dateKey(day), dayEvents = eventsByDate.get(date) ?? [], dayAppointments = appointmentsByDate.get(date) ?? [];
           const selected = selectedDate === date, today = todayKey === date;
           return <button key={date} type="button" onClick={() => selectDate(date)} aria-pressed={selected} aria-label={`เลือกวันที่ ${day}`}
-            className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-0 text-left transition-colors focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-700 sm:min-h-24 lg:min-h-28 ${selected ? "bg-green-600 text-white hover:bg-green-700" : "bg-white hover:bg-gray-50"}`}>
-            <span className={`absolute left-2 top-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm font-semibold ${today ? "bg-rose-600 text-white" : selected ? "text-white" : "text-gray-800"}`}>{day}</span>
-            <div className="absolute right-2 top-2">
+            className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-0 text-left transition-colors focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-700 sm:min-h-28 lg:min-h-32 ${selected ? "bg-green-600 text-white hover:bg-green-700" : "bg-white hover:bg-gray-50"}`}>
+            <span className={`absolute left-1.5 top-1.5 inline-flex items-center justify-center rounded-full text-sm font-semibold sm:left-2 sm:top-2 sm:h-6 sm:min-w-6 sm:px-1 ${today ? "h-5 min-w-5 bg-rose-600 px-0.5 text-white" : selected ? "text-white" : "text-gray-800"}`}>{day}</span>
+            <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2">
               {dayEvents.length + dayAppointments.length > 0 ? <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold sm:hidden ${selected ? "bg-white/20 text-white" : "bg-green-100 text-green-800"}`}>{dayEvents.length + dayAppointments.length}</span> : null}
             </div>
-            <div className="hidden space-y-1 px-2 pt-11 sm:block">
-              {dayAppointments.length > 0 ? <p className={`flex items-center justify-between gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium lg:text-xs ${selected ? "bg-white/15 text-white" : "bg-sky-50 text-sky-800"}`}><span className="truncate">นัดหมาย</span><span className="shrink-0">{dayAppointments.length}</span></p> : null}
-              {dayEvents.length > 0 ? <p className={`flex items-center justify-between gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium lg:text-xs ${selected ? "bg-white/15 text-white" : "bg-green-50 text-green-800"}`}><span className="truncate">กิจกรรมหมู่บ้าน</span><span className="shrink-0">{dayEvents.length}</span></p> : null}
+            <div className="hidden space-y-1.5 px-2 pt-11 sm:block">
+              {dayAppointments.length > 0 ? <p className={`flex min-h-7 w-full items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-medium leading-5 ${selected ? "bg-white/15 text-white" : "bg-sky-50 text-sky-800"}`}><span className="truncate">นัดหมาย</span><span className="shrink-0 font-semibold">{dayAppointments.length}</span></p> : null}
+              {dayEvents.length > 0 ? <p className={`flex min-h-7 w-full items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-medium leading-5 ${selected ? "bg-white/15 text-white" : "bg-green-50 text-green-800"}`}><span className="truncate">กิจกรรมหมู่บ้าน</span><span className="shrink-0 font-semibold">{dayEvents.length}</span></p> : null}
             </div>
           </button>;
         })}
