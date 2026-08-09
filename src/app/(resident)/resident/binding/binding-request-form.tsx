@@ -135,12 +135,6 @@ export function BindingRequestForm({
             aria-controls="binding-village-options"
             placeholder="พิมพ์ชื่อหมู่บ้าน ตำบล อำเภอ หรือจังหวัด"
             onFocus={() => { setVillageOpen(true); setActiveVillageIndex(filteredVillages.length ? 0 : -1); }}
-            onMouseDown={(event) => {
-              if (event.currentTarget === document.activeElement) {
-                event.preventDefault();
-                setVillageOpen((open) => !open);
-              }
-            }}
             onChange={(event) => {
               setVillageQuery(event.target.value);
               setSelectedVillageId("");
