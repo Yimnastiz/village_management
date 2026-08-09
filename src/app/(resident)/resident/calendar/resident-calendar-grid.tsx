@@ -12,10 +12,16 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
 }) {
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const detailsRef = useRef<HTMLElement>(null);
-  useEffect(() => setSelectedDate(initialDate), [initialDate, year, monthIndex]);
+  const scrollDetailsIntoViewIfNeeded = () => {
+    const details = detailsRef.current;
+    if (!details) return;
+    const rect = details.getBoundingClientRect();
+    const isInView = rect.top >= 112 && rect.bottom <= window.innerHeight;
+    if (!isInView) details.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   useEffect(() => {
     if (!initialDate) return;
-    requestAnimationFrame(() => detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    requestAnimationFrame(scrollDetailsIntoViewIfNeeded);
   }, [initialDate]);
   const eventsByDate = new Map<string, EventItem[]>();
   const appointmentsByDate = new Map<string, AppointmentItem[]>();
@@ -25,7 +31,7 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
   const selectDate = (date: string) => {
     const same = selectedDate === date;
     setSelectedDate(same ? null : date);
-    if (!same) requestAnimationFrame(() => detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    if (!same) requestAnimationFrame(scrollDetailsIntoViewIfNeeded);
   };
   const days = new Date(year, monthIndex + 1, 0).getDate();
   const blanks = new Date(year, monthIndex, 1).getDay();
@@ -40,15 +46,14 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
           const day = index + 1, date = dateKey(day), dayEvents = eventsByDate.get(date) ?? [], dayAppointments = appointmentsByDate.get(date) ?? [];
           const selected = selectedDate === date, today = todayKey === date;
           return <button key={date} type="button" onClick={() => selectDate(date)} aria-pressed={selected} aria-label={`เลือกวันที่ ${day}`}
-            className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 text-left transition-colors focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-700 sm:min-h-24 sm:p-2 lg:min-h-28 ${selected ? "bg-green-600 text-white hover:bg-green-700" : "bg-white hover:bg-gray-50"}`}>
-            <span className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-semibold sm:text-sm ${today ? "bg-rose-600 text-white" : selected ? "text-white" : "text-gray-800"}`}>{day}</span>
-            <div className="absolute right-1 top-1 hidden items-center gap-1 sm:flex">
-              {dayEvents.length > 0 ? <span title={`กิจกรรมหมู่บ้าน ${dayEvents.length}`} className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${selected ? "bg-white/20 text-white" : "bg-green-100 text-green-800"}`}>{dayEvents.length}</span> : null}
-              {dayAppointments.length > 0 ? <span title={`นัดหมายของคุณ ${dayAppointments.length}`} className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${selected ? "bg-white/20 text-white" : "bg-sky-100 text-sky-800"}`}>{dayAppointments.length}</span> : null}
+            className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-0 text-left transition-colors focus-visible:z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-700 sm:min-h-24 lg:min-h-28 ${selected ? "bg-green-600 text-white hover:bg-green-700" : "bg-white hover:bg-gray-50"}`}>
+            <span className={`absolute left-2 top-2 inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-sm font-semibold ${today ? "bg-rose-600 text-white" : selected ? "text-white" : "text-gray-800"}`}>{day}</span>
+            <div className="absolute right-2 top-2">
+              {dayEvents.length + dayAppointments.length > 0 ? <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-bold sm:hidden ${selected ? "bg-white/20 text-white" : "bg-green-100 text-green-800"}`}>{dayEvents.length + dayAppointments.length}</span> : null}
             </div>
-            <div className="mt-3 hidden space-y-1 sm:block">
-              {dayAppointments.length > 0 ? <p className={`truncate rounded px-1.5 py-0.5 text-[10px] font-medium ${selected ? "bg-white/15 text-white" : "bg-sky-50 text-sky-800"}`}>นัดหมาย {dayAppointments.length}</p> : null}
-              {dayEvents.length > 0 ? <p className={`truncate rounded px-1.5 py-0.5 text-[10px] font-medium ${selected ? "bg-white/15 text-white" : "bg-green-50 text-green-800"}`}>กิจกรรม {dayEvents.length}</p> : null}
+            <div className="hidden space-y-1 px-2 pt-11 sm:block">
+              {dayAppointments.length > 0 ? <p className={`flex items-center justify-between gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium lg:text-xs ${selected ? "bg-white/15 text-white" : "bg-sky-50 text-sky-800"}`}><span className="truncate">นัดหมาย</span><span className="shrink-0">{dayAppointments.length}</span></p> : null}
+              {dayEvents.length > 0 ? <p className={`flex items-center justify-between gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium lg:text-xs ${selected ? "bg-white/15 text-white" : "bg-green-50 text-green-800"}`}><span className="truncate">กิจกรรมหมู่บ้าน</span><span className="shrink-0">{dayEvents.length}</span></p> : null}
             </div>
           </button>;
         })}

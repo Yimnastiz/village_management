@@ -12,28 +12,6 @@ import { formatCalendarPerson } from "@/lib/calendar-person";
 import { CalendarRequestReviewButtons } from "../request-review-buttons";
 import { CalendarRequestManagementActions } from "../request-management-actions";
 
-type RequestDetail = {
-  id: string;
-  status: string;
-  isPublic: boolean;
-  title: string;
-  description: string | null;
-  location: string | null;
-  startsAt: Date;
-  endsAt: Date | null;
-  reviewedBy: string | null;
-  reviewedAt: Date | null;
-  reviewNote: string | null;
-  requester: {
-    name: string;
-    phoneNumber: string;
-  };
-};
-
-type VillageEventSubmissionDetailDelegate = {
-  findFirst(args: unknown): Promise<RequestDetail | null>;
-};
-
 type AdminCalendarRequestDetailPageProps = {
   params: Promise<{ requestId: string }>;
 };
@@ -54,16 +32,23 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
   const membership = getHeadmanMembership(session);
   if (!membership) redirect("/auth/login");
 
-  const villageEventSubmission = (
-    prisma as unknown as { villageEventSubmission: VillageEventSubmissionDetailDelegate }
-  ).villageEventSubmission;
-
-  const request = await villageEventSubmission.findFirst({
+  const request = await prisma.villageEventSubmission.findFirst({
     where: {
       id: requestId,
       villageId: membership.villageId,
     },
-    include: {
+    select: {
+      id: true,
+      status: true,
+      isPublic: true,
+      title: true,
+      description: true,
+      location: true,
+      startsAt: true,
+      endsAt: true,
+      reviewedBy: true,
+      reviewedAt: true,
+      reviewNote: true,
       requester: { select: { name: true, phoneNumber: true } },
     },
   });

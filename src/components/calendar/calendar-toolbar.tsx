@@ -51,6 +51,7 @@ export function CalendarToolbar({
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword));
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(currentYear);
   const [, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -77,6 +78,10 @@ export function CalendarToolbar({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isMonthPickerOpen]);
+
+  useEffect(() => {
+    if (!isMonthPickerOpen) setPickerYear(currentYear);
+  }, [currentYear, isMonthPickerOpen]);
 
   const buildHref = (year: number, month: number) => {
     const params = new URLSearchParams(currentSearchParams.toString());
@@ -136,7 +141,7 @@ export function CalendarToolbar({
       </div>
 
       <div className="mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className={cn("grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
+        <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
             aria-label="เดือนก่อนหน้า"
@@ -144,7 +149,7 @@ export function CalendarToolbar({
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
-          <button type="button" onClick={() => residentCompact && setIsMonthPickerOpen(true)} aria-haspopup={residentCompact ? "dialog" : undefined} className={cn("min-w-0 truncate text-center text-sm font-semibold text-gray-900 sm:text-base", residentCompact && "cursor-pointer rounded-md px-1 focus:outline-none focus:ring-2 focus:ring-green-500 sm:cursor-default sm:focus:ring-0")}>
+          <button type="button" onClick={() => { if (residentCompact) { setPickerYear(currentYear); setIsMonthPickerOpen(true); } }} aria-expanded={residentCompact ? isMonthPickerOpen : undefined} aria-controls={residentCompact ? `${namespace}-month-picker` : undefined} className={cn("min-w-0 truncate text-center text-sm font-semibold text-gray-900 sm:text-base", residentCompact && "cursor-pointer rounded-md px-1 focus:outline-none focus:ring-2 focus:ring-green-500")}>
             <span className="hidden min-[390px]:inline">{monthLabel}</span>
             <span className="min-[390px]:hidden">{compactMonthLabel}</span>
           </button>
@@ -156,6 +161,33 @@ export function CalendarToolbar({
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
           {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />วันนี้</Link> : null}
+          {residentCompact && isMonthPickerOpen ? (
+            <section
+              id={`${namespace}-month-picker`}
+              role="dialog"
+              aria-label="เลือกเดือนและปี"
+              className="col-span-full mt-1 max-h-[min(70vh,32rem)] w-full overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-lg sm:p-4"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="font-semibold text-gray-900">เลือกเดือนและปี</h2>
+                <button type="button" onClick={() => setIsMonthPickerOpen(false)} className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500">
+                  <X className="h-4 w-4" aria-hidden="true" />
+                  ปิด
+                </button>
+              </div>
+              <label className="sr-only" htmlFor={`${namespace}-compact-year`}>เลือกปี</label>
+              <select id={`${namespace}-compact-year`} value={pickerYear} onChange={(event) => setPickerYear(Number(event.target.value))} className="mb-3 h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500">
+                {years.map((year) => <option key={year} value={year}>{year + 543}</option>)}
+              </select>
+              <div className="grid grid-cols-3 gap-2">
+                {THAI_MONTH_NAMES.map((name, index) => (
+                  <button key={name} type="button" onClick={() => { navigateToMonth(pickerYear, index + 1); setIsMonthPickerOpen(false); }} className={cn("min-h-11 cursor-pointer rounded-lg px-2 text-sm text-gray-700 hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500", pickerYear === currentYear && index + 1 === currentMonth && "bg-green-100 font-semibold text-green-800")}>
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <div className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_7rem_44px] items-center gap-2 sm:flex sm:w-auto sm:justify-end", residentCompact && "hidden sm:flex")}>
@@ -193,8 +225,6 @@ export function CalendarToolbar({
           </Link>
         </div>
       </div>
-
-      {residentCompact && isMonthPickerOpen ? <div role="dialog" aria-modal="true" aria-label="เลือกเดือนและปี" className="fixed inset-0 z-50 flex items-end bg-black/30 p-3 sm:items-center sm:justify-center" onClick={() => setIsMonthPickerOpen(false)}><div className="w-full max-w-md rounded-xl bg-white p-4 shadow-xl" onClick={(event) => event.stopPropagation()}><div className="mb-3 flex items-center justify-between"><p className="font-semibold text-gray-900">เลือกเดือนและปี</p><button type="button" onClick={() => setIsMonthPickerOpen(false)} className="text-sm text-gray-500 hover:text-gray-800">ปิด</button></div><select value={currentYear} onChange={(event) => navigateToMonth(Number(event.target.value), currentMonth)} className="mb-3 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm">{years.map(year => <option key={year} value={year}>{year + 543}</option>)}</select><div className="grid grid-cols-3 gap-2">{THAI_MONTH_NAMES.map((name, index) => <button key={name} type="button" onClick={() => { navigateToMonth(currentYear, index + 1); setIsMonthPickerOpen(false); }} className={cn("min-h-10 rounded-lg px-2 text-sm hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500", index + 1 === currentMonth && "bg-green-100 font-semibold text-green-800")}>{name}</button>)}</div></div></div> : null}
 
       {(search || filters) ? (
         <div className="mt-2 flex min-h-11 min-w-0 items-center gap-2">

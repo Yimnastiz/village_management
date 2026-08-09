@@ -1,41 +1,12 @@
 "use server";
 
 import { NotificationType } from "@prisma/client";
-import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
-type EventSubmissionRecord = {
-  id: string;
-  villageId: string;
-  requesterId: string;
-  title: string;
-  description: string | null;
-  location: string | null;
-  startsAt: Date;
-  endsAt: Date | null;
-  isPublic: boolean;
-  status: string;
-  type?: "CREATE" | "EDIT" | "DELETE";
-  eventId?: string | null;
-};
-
-type VillageEventSubmissionDelegate = {
-  findFirst(args: unknown): Promise<EventSubmissionRecord | null>;
-  update(args: unknown): Promise<unknown>;
-  delete(args: unknown): Promise<unknown>;
-};
-
-type VillageEventSubmissionTransactionDelegate = {
-  update(args: unknown): Promise<unknown>;
-  delete(args: unknown): Promise<unknown>;
-};
-
-const villageEventSubmission = (
-  prisma as unknown as { villageEventSubmission: VillageEventSubmissionDelegate }
-).villageEventSubmission;
+const villageEventSubmission = prisma.villageEventSubmission;
 
 const inputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
@@ -216,7 +187,7 @@ export async function adminApproveVillageEventSubmissionAction(
 
   try {
     const now = new Date();
-    const approved = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const approved = await prisma.$transaction(async (tx) => {
       let eventId = request.eventId ?? "";
       if ((request.type ?? "CREATE") === "CREATE") {
         const event = await tx.villageEvent.create({ data: { villageId: request.villageId, createdById: ctx.userId, title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic: request.isPublic }, select: { id: true } });
@@ -225,13 +196,10 @@ export async function adminApproveVillageEventSubmissionAction(
         const existingEvent = request.eventId ? await tx.villageEvent.findFirst({ where: { id: request.eventId, villageId: request.villageId }, select: { id: true } }) : null;
         if (!existingEvent) throw new Error("ไม่พบกิจกรรมเป้าหมาย");
         if (request.type === "DELETE") await tx.villageEvent.delete({ where: { id: existingEvent.id } });
+        if (request.type === "EDIT") await tx.villageEvent.update({ where: { id: existingEvent.id }, data: { title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic: request.isPublic } });
       }
 
-      const txWithSubmission = tx as Prisma.TransactionClient & {
-        villageEventSubmission: VillageEventSubmissionTransactionDelegate;
-      };
-
-      await txWithSubmission.villageEventSubmission.update({
+      await tx.villageEventSubmission.update({
         where: { id: request.id },
         data: {
           status: "APPROVED",
@@ -294,12 +262,8 @@ export async function adminRejectVillageEventSubmissionAction(
   }
 
   try {
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const txWithSubmission = tx as Prisma.TransactionClient & {
-        villageEventSubmission: VillageEventSubmissionTransactionDelegate;
-      };
-
-      await txWithSubmission.villageEventSubmission.update({
+    await prisma.$transaction(async (tx) => {
+      await tx.villageEventSubmission.update({
         where: { id: request.id },
         data: {
           status: "REJECTED",

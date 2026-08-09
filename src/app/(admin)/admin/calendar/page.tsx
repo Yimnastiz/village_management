@@ -10,10 +10,6 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 
-type VillageEventSubmissionCountDelegate = {
-  count(args: unknown): Promise<number>;
-};
-
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; month?: string; date?: string }>;
 };
@@ -113,11 +109,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
   const selectedDayAppointments = selectedDateKey ? appointmentsByDay.get(selectedDateKey) ?? [] : [];
   const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
-  const villageEventSubmission = (
-    prisma as unknown as { villageEventSubmission: VillageEventSubmissionCountDelegate }
-  ).villageEventSubmission;
-
-  const pendingRequestCount = await villageEventSubmission.count({
+  const pendingRequestCount = await prisma.villageEventSubmission.count({
     where: {
       villageId: membership.villageId,
       status: "PENDING",

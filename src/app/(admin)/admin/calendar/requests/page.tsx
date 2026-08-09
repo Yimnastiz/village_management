@@ -9,22 +9,6 @@ import {
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, getHeadmanMembership, isAdminUser } from "@/lib/access-control";
 
-type RequestItem = {
-  id: string;
-  status: string;
-  isPublic: boolean;
-  title: string;
-  createdAt: Date;
-  requester: {
-    name: string;
-    phoneNumber: string;
-  };
-};
-
-type VillageEventSubmissionListDelegate = {
-  findMany(args: unknown): Promise<RequestItem[]>;
-};
-
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
   APPROVED: "success",
@@ -39,14 +23,15 @@ export default async function AdminCalendarRequestListPage() {
   const membership = getHeadmanMembership(session);
   if (!membership) redirect("/auth/login");
 
-  const villageEventSubmission = (
-    prisma as unknown as { villageEventSubmission: VillageEventSubmissionListDelegate }
-  ).villageEventSubmission;
-
-  const requests = await villageEventSubmission.findMany({
+  const requests = await prisma.villageEventSubmission.findMany({
     where: { villageId: membership.villageId },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    include: {
+    select: {
+      id: true,
+      status: true,
+      isPublic: true,
+      title: true,
+      createdAt: true,
       requester: { select: { name: true, phoneNumber: true } },
     },
   });
@@ -65,7 +50,7 @@ export default async function AdminCalendarRequestListPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {requests.map((request: RequestItem) => (
+          {requests.map((request) => (
             <Link
               key={request.id}
               href={`/admin/calendar/requests/${request.id}`}

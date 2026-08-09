@@ -22,7 +22,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export function CalendarRequestForm({ requestId, initialValues }: { requestId?: string; initialValues?: Partial<FormData> } = {}) {
+export function CalendarRequestForm({ requestId, initialValues, approved = false }: { requestId?: string; initialValues?: Partial<FormData>; approved?: boolean } = {}) {
   const router = useRouter();
   const { pushToast } = useToast();
   const {
@@ -59,7 +59,7 @@ export function CalendarRequestForm({ requestId, initialValues }: { requestId?: 
         return;
       }
 
-      reset();
+      if (!requestId) reset();
       pushToast({
         tone: "success",
         title: "ส่งคำขอกิจกรรมเรียบร้อยแล้ว",
@@ -100,8 +100,9 @@ export function CalendarRequestForm({ requestId, initialValues }: { requestId?: 
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
+      {approved ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">รายการนี้ได้รับอนุมัติแล้ว การแก้ไขจะมีผลหลังผู้ใหญ่บ้านอนุมัติคำขอแก้ไข</p> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button type="submit" isLoading={isSubmitting} className="w-full sm:w-auto">ส่งคำขอเพิ่มกิจกรรม</Button>
+        <Button type="submit" isLoading={isSubmitting} className="w-full sm:w-auto">{requestId ? "ยืนยัน" : "ส่งคำขอเพิ่มกิจกรรม"}</Button>
         <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting} className="w-full sm:w-auto">ย้อนกลับ</Button>
       </div>
     </form>

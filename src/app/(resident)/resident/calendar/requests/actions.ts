@@ -1,17 +1,10 @@
 "use server";
 
-import { NotificationType, VillageMembershipRole } from "@prisma/client";
+import { NotificationType, VillageMembershipRole, VillageEventSubmissionType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-
-type VillageEventSubmissionCreateDelegate = {
-  create(args: unknown): Promise<{ id: string }>;
-  findFirst(args: unknown): Promise<{ id: string; status: string } | null>;
-  update(args: unknown): Promise<unknown>;
-  delete(args: unknown): Promise<unknown>;
-};
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
@@ -74,12 +67,8 @@ export async function createVillageEventSubmissionAction(
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
-  const villageEventSubmission = (
-    prisma as unknown as { villageEventSubmission: VillageEventSubmissionCreateDelegate }
-  ).villageEventSubmission;
-
   try {
-    const created = await villageEventSubmission.create({
+    const created = await prisma.villageEventSubmission.create({
       data: {
         villageId: membership.villageId,
         requesterId: session.id,
@@ -137,20 +126,33 @@ async function residentRequestContext(requestId: string) {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ลูกบ้าน" };
-  const delegate = (prisma as unknown as { villageEventSubmission: VillageEventSubmissionCreateDelegate }).villageEventSubmission;
-  const request = await delegate.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId } });
+  const request = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId }, select: { id: true, status: true } });
   if (!request) return { ok: false as const, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   if (request.status !== "PENDING") return { ok: false as const, error: "แก้ไขหรือลบได้เฉพาะคำขอที่รอพิจารณา" };
-  return { ok: true as const, delegate, request };
+  return { ok: true as const, request };
 }
 
 export async function updateResidentVillageEventSubmissionAction(requestId: string, data: RequestInput): Promise<{ success: true } | { success: false; error: string }> {
-  const context = await residentRequestContext(requestId);
-  if (!context.ok) return { success: false, error: context.error };
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
+  const membership = getResidentMembership(session);
+  if (!membership) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้าน" };
+  const source = await prisma.villageEventSubmission.findFirst({
+    where: { id: requestId, requesterId: session.id, villageId: membership.villageId, type: VillageEventSubmissionType.CREATE, status: { in: ["PENDING", "APPROVED"] } },
+    select: { id: true, status: true, eventId: true },
+  });
+  if (!source) return { success: false, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
   try {
-    await context.delegate.update({ where: { id: context.request.id }, data: normalized.value });
+    if (source.status === "PENDING") {
+      await prisma.villageEventSubmission.update({ where: { id: source.id }, data: normalized.value });
+    } else {
+      if (!source.eventId) return { success: false, error: "ไม่พบกิจกรรมที่ต้องการแก้ไข กรุณาติดต่อผู้ใหญ่บ้าน" };
+      const duplicate = await prisma.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: source.eventId, type: VillageEventSubmissionType.EDIT, status: "PENDING" }, select: { id: true } });
+      if (duplicate) return { success: false, error: "มีคำขอแก้ไขกิจกรรมนี้รอพิจารณาอยู่แล้ว" };
+      await prisma.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, eventId: source.eventId, type: VillageEventSubmissionType.EDIT, ...normalized.value } });
+    }
     revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests");
     return { success: true };
   } catch { return { success: false, error: "บันทึกคำขอไม่สำเร็จ" }; }
@@ -160,7 +162,7 @@ export async function deleteResidentVillageEventSubmissionAction(requestId: stri
   const context = await residentRequestContext(requestId);
   if (!context.ok) return { success: false, error: context.error };
   try {
-    await context.delegate.delete({ where: { id: context.request.id } });
+    await prisma.villageEventSubmission.delete({ where: { id: context.request.id } });
     revalidatePath("/resident/calendar/requests"); revalidatePath("/admin/calendar/requests");
     return { success: true };
   } catch { return { success: false, error: "ลบคำขอไม่สำเร็จ" }; }
@@ -171,15 +173,14 @@ export async function createResidentEventChangeRequestAction(requestId: string, 
   if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
   if (!membership) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้าน" };
-  const delegate = (prisma as unknown as { villageEventSubmission: VillageEventSubmissionCreateDelegate }).villageEventSubmission;
-  const source = await (delegate as unknown as { findFirst(args: unknown): Promise<{ id: string; status: string; eventId?: string | null; title: string; description: string | null; location: string | null; startsAt: Date; endsAt: Date | null; isPublic: boolean } | null> }).findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId, status: "APPROVED" } });
+  const source = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId, status: "APPROVED" }, select: { eventId: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true } });
   if (!source?.eventId) return { success: false, error: "คำขอนี้ยังไม่รองรับการเปลี่ยนแปลง กรุณาติดต่อผู้ใหญ่บ้าน" };
-  const existing = await (delegate as unknown as { findFirst(args: unknown): Promise<{ id: string } | null> }).findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: source.eventId, type: action, status: "PENDING" } });
+  const existing = await prisma.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: source.eventId, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, status: "PENDING" }, select: { id: true } });
   if (existing) return { success: false, error: "มีคำขอประเภทนี้รอพิจารณาอยู่แล้ว" };
   const detail = reason.trim();
   if (!detail) return { success: false, error: "กรุณาระบุรายละเอียดหรือเหตุผล" };
   try {
-    const created = await delegate.create({ data: { villageId: membership.villageId, requesterId: session.id, title: source.title, description: detail, location: source.location, startsAt: source.startsAt, endsAt: source.endsAt, isPublic: source.isPublic, type: action, eventId: source.eventId }, select: { id: true } });
+    await prisma.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, title: source.title, description: detail, location: source.location, startsAt: source.startsAt, endsAt: source.endsAt, isPublic: source.isPublic, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, eventId: source.eventId }, select: { id: true } });
     revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests");
     return { success: true };
   } catch { return { success: false, error: "ส่งคำขอไม่สำเร็จ" }; }

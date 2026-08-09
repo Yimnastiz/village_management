@@ -3,20 +3,6 @@ import { getHeadmanMembership, getSessionContextFromServerCookies, isAdminUser }
 import { prisma } from "@/lib/prisma";
 import { CalendarRequestEditForm } from "../../request-edit-form";
 
-type SubmissionForEdit = {
-  id: string;
-  title: string;
-  description: string | null;
-  location: string | null;
-  startsAt: Date;
-  endsAt: Date | null;
-  isPublic: boolean;
-};
-
-type VillageEventSubmissionEditDelegate = {
-  findFirst(args: unknown): Promise<SubmissionForEdit | null>;
-};
-
 function toDatetimeLocalValue(date: Date) {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -31,9 +17,9 @@ export default async function EditCalendarRequestPage({ params }: { params: Prom
   const membership = getHeadmanMembership(session);
   if (!membership) redirect("/admin/calendar/requests");
 
-  const villageEventSubmission = (prisma as unknown as { villageEventSubmission: VillageEventSubmissionEditDelegate }).villageEventSubmission;
-  const request = await villageEventSubmission.findFirst({
+  const request = await prisma.villageEventSubmission.findFirst({
     where: { id: requestId, villageId: membership.villageId, status: "PENDING" },
+    select: { id: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true },
   });
   if (!request) notFound();
 
