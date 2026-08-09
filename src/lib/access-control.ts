@@ -177,6 +177,28 @@ export async function getDuplicateNoticeSessionFromRequest(
   return getDuplicateNoticeSessionByToken(readSessionCookieFromRequest(request));
 }
 
+export async function getActiveAuthRedirectPathFromServerCookies(): Promise<string | null> {
+  const session = await getSessionContextFromServerCookies();
+  if (session) return getAuthenticatedAccessRedirectPath(session);
+
+  const duplicateSession = await getDuplicateNoticeSessionFromServerCookies();
+  if (duplicateSession) return "/auth/account-duplicate";
+
+  return null;
+}
+
+export async function getActiveAuthRedirectPathFromRequest(
+  request: NextRequest | Request
+): Promise<string | null> {
+  const session = await getSessionContextFromRequest(request);
+  if (session) return getAuthenticatedAccessRedirectPath(session);
+
+  const duplicateSession = await getDuplicateNoticeSessionFromRequest(request);
+  if (duplicateSession) return "/auth/account-duplicate";
+
+  return null;
+}
+
 export function isAdminUser(session: SessionContext): boolean {
   return session.systemRole !== SystemRole.SUPERADMIN && session.memberships.some(
     (membership) =>

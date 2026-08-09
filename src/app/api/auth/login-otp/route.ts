@@ -1,6 +1,7 @@
 import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import {
   LOGIN_OTP_MAX_SENDS_PER_WINDOW,
@@ -18,7 +19,23 @@ import {
 } from "@/lib/login-otp-challenge";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 
+async function authenticatedLoginResponse(request: NextRequest) {
+  const landingPath = await getActiveAuthRedirectPathFromRequest(request);
+  return landingPath
+    ? NextResponse.json(
+        {
+          error: "Already signed in. Please log out before signing in with another account.",
+          landingPath,
+        },
+        { status: 409 }
+      )
+    : null;
+}
+
 export async function GET(request: NextRequest) {
+  const activeSessionResponse = await authenticatedLoginResponse(request);
+  if (activeSessionResponse) return activeSessionResponse;
+
   let challenge = await loadLoginChallenge(request);
   if (!challenge) return NextResponse.json({ error: "Login OTP challenge not found." }, { status: 404 });
   for (let attempt = 0; challenge.status === LoginOtpChallengeStatus.PENDING_SEND && attempt < 20; attempt += 1) {
@@ -33,6 +50,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const activeSessionResponse = await authenticatedLoginResponse(request);
+  if (activeSessionResponse) return activeSessionResponse;
+
   const body = (await request.json().catch(() => null)) as { phoneNumber?: string; intent?: "START_OR_RESUME" | "RESEND" } | null;
   const phoneNumber = normalizeLoginPhone(body?.phoneNumber ?? "");
   const intent = body?.intent === "RESEND" ? "RESEND" : "START_OR_RESUME";

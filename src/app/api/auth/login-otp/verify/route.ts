@@ -1,6 +1,7 @@
 import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
 import {
@@ -18,6 +19,17 @@ function developmentDiagnostic(values: Record<string, boolean>) {
 }
 
 export async function POST(request: NextRequest) {
+  const landingPath = await getActiveAuthRedirectPathFromRequest(request);
+  if (landingPath) {
+    return NextResponse.json(
+      {
+        error: "Already signed in. Please log out before signing in with another account.",
+        landingPath,
+      },
+      { status: 409 }
+    );
+  }
+
   const loaded = await loadLoginChallenge(request);
   if (!loaded) {
     developmentDiagnostic({ challengeFound: false, otpMatched: false, userFound: false, sessionCreated: false, cookieAttached: false });

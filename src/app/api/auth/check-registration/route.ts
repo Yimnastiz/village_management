@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { AccountStatus, RegistrationTempStatus } from "@prisma/client";
+import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { toPhoneCandidates } from "@/lib/registration-temp";
 
 const checkRegistrationSchema = z.object({
@@ -9,6 +10,17 @@ const checkRegistrationSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  const landingPath = await getActiveAuthRedirectPathFromRequest(request);
+  if (landingPath) {
+    return NextResponse.json(
+      {
+        error: "Already signed in. Please log out before signing in with another account.",
+        landingPath,
+      },
+      { status: 409 }
+    );
+  }
+
   const payload = await request.json().catch(() => null);
   const parsed = checkRegistrationSchema.safeParse(payload);
 

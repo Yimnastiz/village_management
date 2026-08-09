@@ -36,6 +36,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/auth/account-duplicate", request.url));
   }
 
+  if (pathname === "/auth/login" && session) {
+    return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
+  }
+
   if (pathname.startsWith("/resident")) {
     if (!session) {
       const loginUrl = new URL("/auth/login", request.url);
@@ -111,6 +115,7 @@ export const config = {
     "/admin/:path*",
     "/superadmin/:path*",
     "/auth/account-duplicate",
+    "/auth/login",
     "/auth/register",
   ],
 };
