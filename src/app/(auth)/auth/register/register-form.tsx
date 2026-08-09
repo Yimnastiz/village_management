@@ -50,6 +50,35 @@ type RegistrationDraft = {
   savedAt: number;
 };
 
+type FormErrors = Partial<Record<
+  | "firstName"
+  | "lastName"
+  | "phone"
+  | "nationalId"
+  | "province"
+  | "district"
+  | "subdistrict"
+  | "villageId"
+  | "privacyConsent",
+  string
+>>;
+
+function serverErrorToFieldErrors(message: string): FormErrors {
+  if (message.includes("เบอร์") || message.includes("หมายเลข") || message.includes("Phone number")) {
+    return { phone: message };
+  }
+
+  if (message.includes("บัตรประชาชน")) {
+    return { nationalId: message };
+  }
+
+  if (message.includes("หมู่บ้าน")) {
+    return { villageId: message };
+  }
+
+  return {};
+}
+
 function loadRegistrationDraft(): RegistrationDraft | null {
   if (typeof window === "undefined") {
     return null;
@@ -107,8 +136,10 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const [subdistrictQuery, setSubdistrictQuery] = useState("");
   const [villageId, setVillageId] = useState("");
   const [villageQuery, setVillageQuery] = useState("");
+  const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [draftLoaded, setDraftLoaded] = useState(false);
   const loginHref = callbackUrl
     ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
@@ -274,53 +305,69 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     const normalizedName = `${normalizedFirstName} ${normalizedLastName}`.trim();
     const normalizedPhone = normalizePhone10(phone);
     const normalizedNationalId = normalizeNationalId(nationalId).slice(0, 13);
-    if (!normalizedFirstName || !normalizedLastName || !normalizedPhone || !province || !district || !subdistrict || !villageId) {
-      setError("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
-      return;
+    const nextFieldErrors: FormErrors = {};
+
+    if (!normalizedFirstName) {
+      nextFieldErrors.firstName = "กรุณากรอกชื่อจริง";
+    } else if (!isValidThaiName(firstName)) {
+      nextFieldErrors.firstName = "กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น";
     }
 
-    if (!isValidThaiName(firstName)) {
-      setError("กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น");
-      return;
+    if (!normalizedLastName) {
+      nextFieldErrors.lastName = "กรุณากรอกนามสกุล";
+    } else if (!isValidThaiName(lastName)) {
+      nextFieldErrors.lastName = "กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น";
     }
 
-    if (!isValidThaiName(lastName)) {
-      setError("กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น");
-      return;
+    if (!normalizedPhone) {
+      nextFieldErrors.phone = "กรุณากรอกเบอร์โทรศัพท์";
+    } else if (!/^\d{10}$/.test(normalizedPhone)) {
+      nextFieldErrors.phone = "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก";
     }
 
-    if (!provinceOptions.includes(province)) {
-      setError("กรุณาเลือกจังหวัดจากรายการ");
-      return;
+    if (!normalizedNationalId) {
+      nextFieldErrors.nationalId = "กรุณากรอกเลขบัตรประชาชน";
+    } else if (!/^\d{13}$/.test(normalizedNationalId)) {
+      nextFieldErrors.nationalId = "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";
     }
 
-    if (!districtOptions.includes(district)) {
-      setError("กรุณาเลือกอำเภอจากรายการ");
-      return;
+    if (!province) {
+      nextFieldErrors.province = "กรุณาเลือกจังหวัด";
+    } else if (!provinceOptions.includes(province)) {
+      nextFieldErrors.province = "กรุณาเลือกจังหวัดจากรายการ";
     }
 
-    if (!subdistrictOptions.includes(subdistrict)) {
-      setError("กรุณาเลือกตำบลจากรายการ");
-      return;
+    if (!district) {
+      nextFieldErrors.district = province ? "กรุณาเลือกอำเภอ" : "กรุณาเลือกจังหวัดก่อน";
+    } else if (!districtOptions.includes(district)) {
+      nextFieldErrors.district = "กรุณาเลือกอำเภอจากรายการ";
     }
 
-    if (!villageOptions.some((village) => village.value === villageId)) {
-      setError("กรุณาเลือกหมู่บ้านจากรายการ");
-      return;
+    if (!subdistrict) {
+      nextFieldErrors.subdistrict = district ? "กรุณาเลือกตำบล" : "กรุณาเลือกอำเภอก่อน";
+    } else if (!subdistrictOptions.includes(subdistrict)) {
+      nextFieldErrors.subdistrict = "กรุณาเลือกตำบลจากรายการ";
     }
 
-    if (!/^\d{10}$/.test(normalizedPhone)) {
-      setError("เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก");
-      return;
+    if (!villageId) {
+      nextFieldErrors.villageId = subdistrict ? "กรุณาเลือกหมู่บ้าน" : "กรุณาเลือกตำบลก่อน";
+    } else if (!villageOptions.some((village) => village.value === villageId)) {
+      nextFieldErrors.villageId = "กรุณาเลือกหมู่บ้านจากรายการ";
     }
 
-    if (!/^\d{13}$/.test(normalizedNationalId)) {
-      setError("เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก");
+    if (!hasAcceptedPrivacy) {
+      nextFieldErrors.privacyConsent = "กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัครสมาชิก";
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      setError("กรุณาตรวจสอบช่องที่มีข้อความสีแดง แล้วแก้ไขให้ถูกต้อง");
       return;
     }
 
     setIsLoading(true);
     setError(null);
+    setFieldErrors({});
 
     saveRegistrationDraft({
       registrationMode,
@@ -399,7 +446,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS เพื่อยืนยันการสมัครสมาชิก");
       router.push(`/auth/verify-otp?${params.toString()}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "ส่ง OTP ไม่สำเร็จ");
+      const message = err instanceof Error ? err.message : "ส่ง OTP ไม่สำเร็จ";
+      setError(message);
+      setFieldErrors((currentErrors) => ({ ...currentErrors, ...serverErrorToFieldErrors(message) }));
       showError("ส่งรหัส OTP ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsLoading(false);
@@ -422,7 +471,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         สมัครสมาชิกสำหรับลูกบ้านทั่วไปเท่านั้น หลังสมัครแล้วถ้ายังไม่ผูกเลขบ้าน จะใช้งานได้เฉพาะข้อมูลสาธารณะและหน้าขอผูกเลขบ้าน
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <section className="space-y-4">
           <h3 className="text-sm font-semibold text-gray-900">ข้อมูลบัญชีและยืนยันตัวตน</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -431,18 +480,28 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             name="firstName"
             placeholder="เช่น สมชาย"
             value={firstName}
-            onChange={(e) => setFirstName(normalizeThaiName(e.target.value))}
+            onChange={(e) => {
+              setFirstName(normalizeThaiName(e.target.value));
+              setFieldErrors((currentErrors) => ({ ...currentErrors, firstName: undefined }));
+              setError(null);
+            }}
             required
             helperText="กรอกชื่อจริงภาษาไทยตามบัตรประชาชน"
+            error={fieldErrors.firstName}
           />
           <Input
             label="นามสกุล"
             name="lastName"
             placeholder="เช่น ใจดี"
             value={lastName}
-            onChange={(e) => setLastName(normalizeThaiName(e.target.value))}
+            onChange={(e) => {
+              setLastName(normalizeThaiName(e.target.value));
+              setFieldErrors((currentErrors) => ({ ...currentErrors, lastName: undefined }));
+              setError(null);
+            }}
             required
             helperText="กรอกนามสกุลจริงภาษาไทยตามบัตรประชาชน"
+            error={fieldErrors.lastName}
           />
         </div>
 
@@ -452,12 +511,17 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           type="tel"
           placeholder="0812345678"
           value={phone}
-          onChange={(e) => setPhone(normalizePhone10(e.target.value))}
+          onChange={(e) => {
+            setPhone(normalizePhone10(e.target.value));
+            setFieldErrors((currentErrors) => ({ ...currentErrors, phone: undefined }));
+            setError(null);
+          }}
           inputMode="numeric"
           maxLength={10}
           pattern="[0-9]{10}"
           title="เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก"
           required
+          error={fieldErrors.phone}
         />
 
         <Input
@@ -466,13 +530,18 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           type="text"
           placeholder="1234567890123"
           value={nationalId}
-          onChange={(e) => setNationalId(normalizeNationalId(e.target.value).slice(0, 13))}
+          onChange={(e) => {
+            setNationalId(normalizeNationalId(e.target.value).slice(0, 13));
+            setFieldErrors((currentErrors) => ({ ...currentErrors, nationalId: undefined }));
+            setError(null);
+          }}
           inputMode="numeric"
           maxLength={13}
           pattern="[0-9]{13}"
           title="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก"
           required
           helperText="กรอกเลขบัตรประชาชน 13 หลัก"
+          error={fieldErrors.nationalId}
         />
 
         </section>
@@ -488,6 +557,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           options={provinceOptions.map((option) => ({ value: option }))}
           placeholder="เลือกหรือพิมพ์จังหวัด"
           helperText="เลือกจังหวัดจากรายการ"
+          error={fieldErrors.province}
           onChange={(nextValue) => {
             setProvinceQuery(nextValue);
             setProvince("");
@@ -497,6 +567,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setSubdistrictQuery("");
             setVillageId("");
             setVillageQuery("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, province: undefined, district: undefined, subdistrict: undefined, villageId: undefined }));
             setError(null);
           }}
           onSelect={(option) => {
@@ -508,6 +579,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setSubdistrictQuery("");
             setVillageId("");
             setVillageQuery("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, province: undefined, district: undefined, subdistrict: undefined, villageId: undefined }));
             setError(null);
           }}
         />
@@ -521,6 +593,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           options={districtOptions.map((option) => ({ value: option }))}
           placeholder={province ? "เลือกหรือพิมพ์อำเภอ" : "เลือกจังหวัดก่อน"}
           helperText={province ? "เลือกอำเภอจากรายการ" : "เลือกจังหวัดก่อนเพื่อเปิดอำเภอ"}
+          error={fieldErrors.district}
           disabled={!province}
           onChange={(nextValue) => {
             setDistrictQuery(nextValue);
@@ -529,6 +602,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setSubdistrictQuery("");
             setVillageId("");
             setVillageQuery("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, district: undefined, subdistrict: undefined, villageId: undefined }));
             setError(null);
           }}
           onSelect={(option) => {
@@ -538,6 +612,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setSubdistrictQuery("");
             setVillageId("");
             setVillageQuery("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, district: undefined, subdistrict: undefined, villageId: undefined }));
             setError(null);
           }}
         />
@@ -551,12 +626,14 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           options={subdistrictOptions.map((option) => ({ value: option }))}
           placeholder={district ? "เลือกหรือพิมพ์ตำบล" : "เลือกอำเภอก่อน"}
           helperText={district ? "เลือกตำบลจากรายการ" : "เลือกอำเภอก่อนเพื่อเปิดตำบล"}
+          error={fieldErrors.subdistrict}
           disabled={!district}
           onChange={(nextValue) => {
             setSubdistrictQuery(nextValue);
             setSubdistrict("");
             setVillageId("");
             setVillageQuery("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, subdistrict: undefined, villageId: undefined }));
             setError(null);
           }}
           onSelect={(option) => {
@@ -564,6 +641,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             setSubdistrictQuery(option.label ?? option.value);
             setVillageId("");
             setVillageQuery("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, subdistrict: undefined, villageId: undefined }));
             setError(null);
           }}
         />
@@ -577,15 +655,18 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           options={villageOptions}
           placeholder={subdistrict ? "เลือกหรือพิมพ์ชื่อหมู่บ้าน" : "เลือกตำบลก่อน"}
           helperText="เลือกหมู่บ้านจากรายการหลังจากระบุตำบลแล้ว"
+          error={fieldErrors.villageId}
           disabled={!subdistrict}
           onChange={(nextValue) => {
             setVillageQuery(nextValue);
             setVillageId("");
+            setFieldErrors((currentErrors) => ({ ...currentErrors, villageId: undefined }));
             setError(null);
           }}
           onSelect={(option) => {
             setVillageId(option.value);
             setVillageQuery(option.label ?? option.value);
+            setFieldErrors((currentErrors) => ({ ...currentErrors, villageId: undefined }));
             setError(null);
           }}
         />
@@ -593,7 +674,18 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         </section>
 
         <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-3">
-          <input type="checkbox" required className="mt-1 h-4 w-4 cursor-pointer accent-green-600 focus:ring-2 focus:ring-green-500" id="consent" />
+          <input
+            type="checkbox"
+            required
+            checked={hasAcceptedPrivacy}
+            onChange={(event) => {
+              setHasAcceptedPrivacy(event.target.checked);
+              setFieldErrors((currentErrors) => ({ ...currentErrors, privacyConsent: undefined }));
+              setError(null);
+            }}
+            className="mt-1 h-4 w-4 cursor-pointer accent-green-600 focus:ring-2 focus:ring-green-500"
+            id="consent"
+          />
           <label htmlFor="consent" className="cursor-pointer text-sm text-gray-600">
             ฉันยอมรับ{" "}
             <button
@@ -607,8 +699,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             
           </label>
         </div>
+        {fieldErrors.privacyConsent ? <p className="-mt-5 text-xs text-red-600">{fieldErrors.privacyConsent}</p> : null}
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600" role="alert" aria-live="polite">{error}</p>}
 
         <Button type="submit" className="w-full" isLoading={isLoading}>
           สมัครสมาชิก

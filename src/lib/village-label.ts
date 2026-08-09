@@ -5,7 +5,7 @@ function normalizedMoo(moo: string | number | null | undefined): number | null {
 
 export function formatVillageLabel(name: string, moo?: string | number | null): string {
   const parsedMoo = normalizedMoo(moo);
-  return parsedMoo ? `หมู่ ${parsedMoo} - ${name}` : name;
+  return parsedMoo ? `${name} หมู่ ${parsedMoo}` : name;
 }
 
 export function formatVillageLocation(input: {
