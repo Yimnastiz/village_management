@@ -53,6 +53,7 @@ export function TopBar({
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
   const adminVillageLabel = villageName?.trim() ? `แอดมินหมู่บ้าน ${villageName.trim()}` : "แอดมินหมู่บ้าน";
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
+  const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
 
   useEffect(() => {
@@ -122,7 +123,7 @@ export function TopBar({
             </p>
             {isResidentGuest && (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                ยังไม่ผูกบ้าน
+                ยังไม่ผูกเลขบ้าน
               </span>
             )}
           </div>
@@ -180,13 +181,16 @@ export function TopBar({
           {profileMenuOpen ? <div role="menu" className="absolute right-0 top-11 z-30 w-56 rounded-xl border border-gray-200 bg-white p-2 shadow-lg">
             <div className="px-3 py-2">
               <p className="truncate text-sm font-semibold text-gray-900">{userName}</p>
-              <p className="text-xs text-gray-500">
-                {userArea === "resident"
-                  ? residentNavigationState?.hasMembership
-                    ? "ลูกบ้าน"
-                    : "guest ลูกบ้าน"
-                  : "ผู้ดูแลระบบ"}
-              </p>
+              {userArea === "resident" ? (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
+                  <span>{residentVillageLabel}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 font-medium", isResidentGuest ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700")}>
+                    {residentStatusLabel}
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-500">ผู้ดูแลระบบ</p>
+              )}
             </div>
             <div className="my-1 h-px bg-gray-100" />
             <Link href={profileHref} role="menuitem" onClick={() => setProfileMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">

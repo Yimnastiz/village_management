@@ -102,7 +102,9 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
   useEffect(() => { const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-resident-sidebar-collapsed") === "true")); return () => cancelAnimationFrame(frame); }, []);
   const toggle = () => setCollapsed((value) => { localStorage.setItem("village-resident-sidebar-collapsed", String(!value)); return !value; });
   const navItems = getResidentNavigationItems(state);
-  const desktopItems = [...navItems].sort((left, right) => left.desktopPriority - right.desktopPriority);
+  const desktopItems = [...navItems]
+    .filter((item) => !(collapsed && item.locked))
+    .sort((left, right) => left.desktopPriority - right.desktopPriority);
   return (
     <aside className={cn("sticky top-0 hidden h-screen overflow-hidden border-r border-gray-200 bg-white transition-[width] duration-200 flex-shrink-0 md:flex md:flex-col", collapsed ? "w-[72px]" : "w-60")}>
       <div className={cn("border-b border-gray-200", collapsed ? "p-3" : "p-4")}>
@@ -111,11 +113,16 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
             <Home className="h-4 w-4 text-white" />
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900">พื้นที่ลูกบ้าน</p>
-            <p className="text-xs text-gray-500">
-              {state.hasMembership ? "เมนูใช้งานส่วนบุคคล" : "โหมด guest: ยังไม่ผูกเลขบ้าน"}
-            </p>
+            {state.hasMembership ? (
+              <p className="text-xs text-gray-500">เมนูใช้งานส่วนบุคคล</p>
+            ) : (
+              <div className="text-xs leading-5 text-gray-500">
+                <p>โหมด guest</p>
+                <p className="whitespace-nowrap">ยังไม่ผูกเลขบ้าน</p>
+              </div>
+            )}
           </div>
         </Link> : null}
           <button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} aria-expanded={!collapsed} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button>

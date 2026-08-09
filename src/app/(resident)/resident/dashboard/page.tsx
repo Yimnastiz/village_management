@@ -1,4 +1,4 @@
-import { AlertCircle, Calendar, CalendarDays, Home, Newspaper, Bell } from "lucide-react";
+import { AlertCircle, ArrowRight, Bell, Calendar, CalendarDays, CheckCircle2, FileText, Home, Newspaper } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { WelcomeBanner } from "@/components/ui/welcome-banner";
 import Link from "next/link";
@@ -7,7 +7,6 @@ import { NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
-import { CheckCircle2, FileText } from "lucide-react";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -30,7 +29,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
 
   const membership = getResidentMembership(session);
   if (!membership) {
-    const [latestBindingRequest, unreadNotifications, linkedPerson] = await Promise.all([
+    const [latestBindingRequest, unreadNotifications, linkedPerson, registeredVillage] = await Promise.all([
       prisma.bindingRequest.findFirst({
         where: {
           userId: session.id,
@@ -42,7 +41,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           houseNumber: true,
           reviewNote: true,
           house: { select: { houseNumber: true } },
-          village: { select: { name: true } },
+          village: { select: { name: true, slug: true } },
         },
         orderBy: {
           createdAt: "desc",
@@ -52,19 +51,74 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
         where: { userId: session.id, status: NotificationStatus.UNREAD },
       }),
       prisma.person.findUnique({ where: { userId: session.id }, select: { house: { select: { houseNumber: true } } } }),
+      prisma.user.findUnique({
+        where: { id: session.id },
+        select: { registrationVillage: { select: { name: true, slug: true } } },
+      }),
     ]);
     const isPending = latestBindingRequest?.status === "PENDING";
     const isRejected = latestBindingRequest?.status === "REJECTED";
+    const village = latestBindingRequest?.village ?? registeredVillage?.registrationVillage ?? null;
+    const villageName = village?.name ?? "หมู่บ้านของคุณ";
+    const villageHref = village?.slug ? `/${village.slug}` : "/";
+    const bindingHref = isPending ? "/resident/binding/pending" : "/resident/binding";
+    const bindingActionLabel = isPending ? "ดูสถานะคำขอ" : isRejected ? "แก้ไขคำขอ" : "ขอผูกเลขบ้าน";
+    const statusLabel = isPending ? "รอตรวจสอบ" : isRejected ? "ต้องแก้ไขคำขอ" : "ยังไม่ผูกเลขบ้าน";
+    const statusClassName = isPending
+      ? "bg-blue-50 text-blue-700 ring-blue-100"
+      : isRejected
+        ? "bg-red-50 text-red-700 ring-red-100"
+        : "bg-amber-50 text-amber-700 ring-amber-100";
+    const availableServices = [
+      { href: "/resident/news", label: "ข่าว/ประกาศ", description: "ติดตามข่าวสาธารณะของหมู่บ้าน" },
+      { href: "/resident/calendar", label: "ปฏิทิน", description: "ดูกิจกรรมที่เผยแพร่สาธารณะ" },
+      { href: "/resident/gallery", label: "แกลเลอรี", description: "ดูภาพกิจกรรมของชุมชน" },
+      { href: "/resident/downloads", label: "เอกสาร", description: "ดาวน์โหลดเอกสารที่เปิดเผย" },
+      { href: "/resident/places", label: "สถานที่สำคัญ", description: "ค้นหาสถานที่และบริการใกล้ตัว" },
+      { href: "/resident/contacts", label: "ผู้ติดต่อ", description: "ช่องทางติดต่อของหมู่บ้าน" },
+      { href: "/resident/profile", label: "โปรไฟล์", description: "จัดการข้อมูลบัญชีของคุณ" },
+      { href: "/resident/notifications", label: "การแจ้งเตือน", description: unreadNotifications > 0 ? `${unreadNotifications} รายการยังไม่ได้อ่าน` : "ไม่มีรายการใหม่" },
+    ];
 
     return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">สวัสดี, {session.name || "ลูกบ้าน"}!</h1>
-          <p className="mt-1 text-sm text-gray-500">ขณะนี้บัญชีของคุณยังไม่ได้ผูกเลขบ้าน จึงสามารถดูได้เฉพาะข้อมูลสาธารณะของหมู่บ้าน</p>
-        </div>
+      <div className="mx-auto max-w-6xl space-y-5">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${statusClassName}`}>
+                  {statusLabel}
+                </span>
+                <span className="text-sm text-gray-500">หมู่บ้าน {villageName}</span>
+              </div>
+              <h1 className="mt-3 text-2xl font-semibold tracking-normal text-gray-950">
+                สวัสดี, {session.name || "ลูกบ้าน"}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
+                ตอนนี้บัญชีของคุณใช้งานได้ในโหมดสาธารณะ หากต้องการใช้เมนูสำหรับลูกบ้าน เช่น แจ้งปัญหา นัดหมาย และข้อมูลครัวเรือน ให้ส่งคำขอผูกเลขบ้านเพื่อให้ผู้ดูแลตรวจสอบ
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row lg:flex-shrink-0">
+              <Link
+                href={bindingHref}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+              >
+                <FileText className="h-4 w-4" />
+                {bindingActionLabel}
+              </Link>
+              <Link
+                href={villageHref}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+              >
+                ดูหน้าเว็บหมู่บ้าน
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
 
         {querySignupSuccess && (
-          <div className="rounded-2xl border border-green-200 bg-green-50 p-4 sm:p-5">
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
               <div>
@@ -75,89 +129,98 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           </div>
         )}
 
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
-          {linkedPerson?.house?.houseNumber ? <p className="mb-3 text-sm text-amber-900">พบข้อมูลของคุณในทะเบียนบ้านเลขที่ {linkedPerson.house.houseNumber} แต่ยังต้องรอผู้ดูแลยืนยันสิทธิ์</p> : null}
-          <p className="text-sm font-semibold text-amber-900">บัญชีของคุณยังไม่ผูกกับครัวเรือน</p>
-          <p className="mt-1 text-sm text-amber-800">
-            คุณยังเข้าใช้งานข้อมูลภายในหมู่บ้านไม่ได้จนกว่าจะผูกเลขบ้านและได้รับการอนุมัติ
-            {isPending
-              ? ` ส่งคำขอแล้วเมื่อ ${toThaiDate(latestBindingRequest.createdAt)} และกำลังรอผู้ใหญ่บ้านตรวจสอบ`
-              : isRejected
-                ? " คำขอล่าสุดถูกปฏิเสธ คุณสามารถแก้ไขข้อมูลและส่งใหม่ได้"
-                : " เริ่มต้นด้วยการส่งคำขอผูกเลขบ้านให้ผู้ใหญ่บ้านตรวจสอบ"}
-          </p>
-          {latestBindingRequest ? (
-            <dl className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-amber-200 bg-white/70 p-4 text-sm sm:grid-cols-3">
-              <div><dt className="text-gray-500">วันที่ส่ง</dt><dd className="mt-1 font-medium text-gray-900">{toThaiDate(latestBindingRequest.createdAt)}</dd></div>
-              <div><dt className="text-gray-500">หมู่บ้าน</dt><dd className="mt-1 font-medium text-gray-900">{latestBindingRequest.village?.name ?? "-"}</dd></div>
-              <div><dt className="text-gray-500">บ้านเลขที่</dt><dd className="mt-1 font-medium text-gray-900">{latestBindingRequest.houseNumber ?? latestBindingRequest.house?.houseNumber ?? "-"}</dd></div>
-              {isRejected ? <div className="sm:col-span-3"><dt className="text-red-600">เหตุผลที่ปฏิเสธ</dt><dd className="mt-1 font-medium text-red-800">{latestBindingRequest.reviewNote || "ไม่ได้ระบุเหตุผล"}</dd></div> : null}
-            </dl>
-          ) : null}
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <Link
-              href={isPending ? "/resident/binding/pending" : "/resident/binding"}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700"
-            >
-              <FileText className="h-4 w-4" />
-              {isPending ? "ดูสถานะคำขอผูกเลขบ้าน" : isRejected ? "แก้ไขคำขอและส่งใหม่" : "ขอผูกเลขบ้าน"}
-            </Link>
-            <Link
-              href="/resident/notifications"
-              className="inline-flex items-center justify-center rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
-            >
-              ดูการแจ้งเตือน ({unreadNotifications})
-            </Link>
+        {linkedPerson?.house?.houseNumber ? (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            พบข้อมูลของคุณในทะเบียนบ้านเลขที่ {linkedPerson.house.houseNumber} แล้ว เหลือเพียงรอผู้ดูแลยืนยันสิทธิ์การใช้งาน
           </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div>
+              <h2 className="text-base font-semibold text-gray-950">ข้อมูลคำขอผูกเลขบ้าน</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                {latestBindingRequest
+                  ? "ตรวจสอบข้อมูลล่าสุดของคำขอที่ส่งไว้"
+                  : "ยังไม่มีคำขอผูกเลขบ้าน เริ่มต้นจากปุ่มขอผูกเลขบ้านด้านบน"}
+              </p>
+            </div>
+            {latestBindingRequest ? (
+              <dl className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
+                <div>
+                  <dt className="text-gray-500">สถานะ</dt>
+                  <dd className="mt-1 font-semibold text-gray-950">{statusLabel}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">วันที่ส่ง</dt>
+                  <dd className="mt-1 font-semibold text-gray-950">{toThaiDate(latestBindingRequest.createdAt)}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">บ้านเลขที่</dt>
+                  <dd className="mt-1 font-semibold text-gray-950">{latestBindingRequest.houseNumber ?? latestBindingRequest.house?.houseNumber ?? "-"}</dd>
+                </div>
+                {isRejected ? (
+                  <div className="border-t border-gray-100 pt-4 sm:col-span-3">
+                    <dt className="text-red-600">เหตุผลที่ปฏิเสธ</dt>
+                    <dd className="mt-1 font-medium text-red-800">{latestBindingRequest.reviewNote || "ไม่ได้ระบุเหตุผล"}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            ) : (
+              <div className="mt-5 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-600">
+                เมื่อส่งคำขอแล้ว ระบบจะแสดงสถานะ วันที่ส่ง และบ้านเลขที่ไว้ที่นี่
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-gray-950">ขั้นตอนต่อไป</h2>
+            <ol className="mt-4 space-y-3 text-sm text-gray-600">
+              <li className="flex gap-3">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">1</span>
+                ส่งคำขอผูกเลขบ้าน
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">2</span>
+                รอผู้ดูแลหมู่บ้านตรวจสอบ
+              </li>
+              <li className="flex gap-3">
+                <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-700">3</span>
+                เข้าใช้งานเมนูลูกบ้านได้ครบ
+              </li>
+            </ol>
+          </section>
         </div>
 
-        <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5">
+        <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">บริการที่ใช้งานได้ตอนนี้</h2>
-              <p className="mt-1 text-sm text-gray-500">คุณสามารถดูข้อมูลสาธารณะของหมู่บ้านและจัดการบัญชีของคุณได้</p>
+              <h2 className="text-base font-semibold text-gray-950">เมนูที่ใช้งานได้ตอนนี้</h2>
+              <p className="mt-1 text-sm text-gray-500">เข้าถึงข้อมูลสาธารณะของหมู่บ้านและจัดการบัญชีของคุณ</p>
             </div>
             <Link href="/resident/notifications" className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900">
               <Bell className="h-4 w-4" />
-              {unreadNotifications > 0 ? `มีการแจ้งเตือนใหม่ ${unreadNotifications} รายการ` : "ไม่มีการแจ้งเตือนใหม่"}
+              {unreadNotifications > 0 ? `${unreadNotifications} การแจ้งเตือนใหม่` : "ไม่มีการแจ้งเตือนใหม่"}
             </Link>
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 min-[390px]:grid-cols-2 lg:grid-cols-3">
-            {[
-              ["/resident/news", "ข่าวสาธารณะ"],
-              ["/resident/calendar", "ปฏิทินกิจกรรม"],
-              ["/resident/gallery", "แกลเลอรีสาธารณะ"],
-              ["/resident/downloads", "เอกสารสาธารณะ"],
-              ["/resident/places", "สถานที่"],
-              ["/resident/contacts", "ช่องทางติดต่อ"],
-              ["/resident/profile", "โปรไฟล์"],
-              ["/resident/notifications", "การแจ้งเตือน"],
-            ].map(([href, label]) => (
-              <Link key={href} href={href} className="flex min-h-11 items-center rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50">
-                {label}
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {availableServices.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="group min-h-24 rounded-lg border border-gray-200 p-4 transition-colors hover:border-green-200 hover:bg-green-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900">{item.label}</p>
+                    <p className="mt-1 text-sm leading-5 text-gray-500">{item.description}</p>
+                  </div>
+                  <ArrowRight className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-300 transition-colors group-hover:text-green-600" />
+                </div>
               </Link>
             ))}
           </div>
         </section>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-gray-900">ขั้นตอนต่อไป</h2>
-            <ul className="mt-2 space-y-2 text-sm text-gray-600">
-              <li>1. ส่งคำขอผูกบัญชีและยืนยันข้อมูลบ้าน</li>
-              <li>2. รอเจ้าหน้าที่หมู่บ้านอนุมัติคำขอ</li>
-              <li>3. กลับมาที่แดชบอร์ดเพื่อเข้าใช้งานครบทุกเมนู</li>
-            </ul>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-            <h2 className="text-sm font-semibold text-gray-900">จัดการบัญชี</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/resident/profile" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">โปรไฟล์</Link>
-              <Link href="/resident/notifications" className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">การแจ้งเตือน</Link>
-              <Link href="/resident/binding" className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200">ขอผูกเลขบ้าน</Link>
-            </div>
-          </div>
-        </div>
       </div>
     );
   }
