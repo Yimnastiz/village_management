@@ -89,9 +89,13 @@ export function BindingRequestForm({
   const canSubmit = mode === "existing" ? Boolean(selectedHouseId) : Boolean(houseQuery.trim());
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-6">
       <div className="relative">
-        <label htmlFor="village-search" className="mb-1 block text-sm font-medium text-gray-700">หมู่บ้าน</label>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-semibold text-green-800">1</span>
+          <label htmlFor="village-search" className="text-sm font-semibold text-gray-900">เลือกหมู่บ้าน</label>
+        </div>
+        <p className="mb-2 ml-8 text-xs text-gray-500">ค้นหาจากชื่อหมู่บ้าน ตำบล อำเภอ หรือจังหวัด</p>
         <input type="hidden" name="villageId" value={selectedVillageId} />
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -113,7 +117,7 @@ export function BindingRequestForm({
               setHouseQuery("");
               setVillageOpen(true);
             }}
-            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-10 text-sm disabled:bg-gray-100"
+            className="min-h-11 w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-10 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
           />
           <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         </div>
@@ -143,9 +147,13 @@ export function BindingRequestForm({
       </div>
 
       {mode === "existing" ? (
-        <div className="space-y-3 rounded-xl border border-gray-200 p-3">
-          <div>
-            <label htmlFor="house-search" className="mb-1 block text-sm font-medium text-gray-700">ค้นหาเลขบ้าน</label>
+          <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50/60 p-4">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 text-xs font-semibold text-green-800">2</span>
+              <h2 className="text-sm font-semibold text-gray-900">เลือกบ้านเลขที่</h2>
+            </div>
+            <div>
+            <label htmlFor="house-search" className="mb-1 block text-sm text-gray-600">ค้นหาเลขบ้านในทะเบียน</label>
             <input type="hidden" name="requestedHouseId" value={selectedHouseId} />
             <input
               id="house-search"
@@ -167,7 +175,7 @@ export function BindingRequestForm({
                   switchToSuggest();
                 }
               }}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm disabled:bg-gray-100"
+              className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100 disabled:bg-gray-100"
             />
           </div>
 
@@ -216,8 +224,12 @@ export function BindingRequestForm({
           ) : null}
         </div>
       ) : (
-        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
           <input type="hidden" name="requestedHouseId" value="" />
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-200 text-xs font-semibold text-amber-900">2</span>
+            <h2 className="text-sm font-semibold text-amber-950">แจ้งเลขบ้านให้ตรวจสอบ</h2>
+          </div>
           <div>
             <label htmlFor="houseNumber" className="mb-1 block text-sm font-medium text-amber-950">เลขบ้านที่ต้องการให้ผู้ดูแลตรวจสอบ</label>
             <input
@@ -228,7 +240,7 @@ export function BindingRequestForm({
               value={houseQuery}
               onChange={(event) => setHouseQuery(event.target.value)}
               placeholder="เช่น 96/4"
-              className="block w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100"
+              className="block w-full rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm shadow-sm outline-none transition focus:border-amber-500 focus:ring-2 focus:ring-amber-100 disabled:bg-gray-100"
             />
             <p className="mt-1 text-xs text-amber-800">ข้อมูลนี้เป็นคำขอให้ผู้ดูแลตรวจสอบ ยังไม่ใช่บ้านจริงในระบบ</p>
           </div>
@@ -241,14 +253,14 @@ export function BindingRequestForm({
       )}
 
       <div>
-        <label htmlFor="note" className="mb-1 block text-sm font-medium text-gray-700">หมายเหตุ</label>
+        <label htmlFor="note" className="mb-1 block text-sm font-semibold text-gray-900">หมายเหตุ <span className="font-normal text-gray-500">(ไม่บังคับ)</span></label>
         <textarea
           id="note"
           name="note"
           defaultValue={latestRequest?.note ?? ""}
           rows={3}
           placeholder="รายละเอียดเพิ่มเติมสำหรับการพิจารณา"
-          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm outline-none transition focus:border-green-500 focus:ring-2 focus:ring-green-100"
         />
       </div>
 
@@ -256,7 +268,7 @@ export function BindingRequestForm({
       {actionState.fieldErrors?.village ? <p role="alert" className="text-sm text-red-700">{actionState.fieldErrors.village}</p> : null}
       {actionState.message ? <p role="alert" className="text-sm text-red-700">{actionState.message}</p> : null}
 
-      <button type="submit" disabled={!canSubmit || isPending || hasPending} className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50">
+      <button type="submit" disabled={!canSubmit || isPending || hasPending} className="w-full rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
         {hasPending ? "อัปเดตคำขอผูกบ้านเดิม" : isRejected ? "แก้ไขคำขอและส่งใหม่" : "ส่งคำขอผูกบ้าน"}
       </button>
 
