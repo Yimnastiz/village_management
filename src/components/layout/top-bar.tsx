@@ -292,6 +292,9 @@ export function TopBar({
                 );
               })}
             </nav>
+            <div className={cn("mt-auto border-t p-3", isAdminArea ? "border-slate-800" : "border-gray-200")}>
+              <LogoutButton mode="menu" />
+            </div>
           </aside>
         </div>
       )}

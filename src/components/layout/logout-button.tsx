@@ -14,9 +14,16 @@ export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     try {
-      // Await server-side cookie deletion before rendering a new route.
       await signOut();
     } finally {
+      // Retry the Better Auth endpoint directly if the client helper is
+      // interrupted, so the server session and cookie are cleared reliably.
+      await fetch("/api/auth/sign-out", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      }).catch(() => undefined);
       clearLoginOtpState();
       router.replace("/auth/login");
       router.refresh();

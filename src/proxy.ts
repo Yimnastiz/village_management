@@ -11,9 +11,9 @@ import { AccountStatus } from "@prisma/client";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  // These two first-run routes are intentionally public; their pages/actions enforce
-  // the one-time bootstrap rule and secret validation on the server.
-  if (pathname === "/superadmin/setup" || pathname === "/superadmin/login") {
+  // The setup page is public only while its page/action enforce the one-time
+  // bootstrap rule. The legacy login route must still inspect active sessions.
+  if (pathname === "/superadmin/setup") {
     return NextResponse.next();
   }
   const session = await getSessionContextFromRequest(request);
@@ -38,6 +38,16 @@ export async function proxy(request: NextRequest) {
 
   if (pathname === "/auth/login" && session) {
     return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
+  }
+
+  if (pathname === "/superadmin/login" && session) {
+    return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
+  }
+
+  // A signed-out visitor may reach this legacy first-run page. Its server
+  // component decides whether bootstrap is still available or login is needed.
+  if (pathname === "/superadmin/login") {
+    return NextResponse.next();
   }
 
   if (pathname.startsWith("/resident")) {

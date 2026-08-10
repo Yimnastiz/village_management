@@ -34,7 +34,7 @@ export default async function HomePage() {
           </p>
           <div className="mx-auto flex w-full max-w-md flex-col gap-3 sm:max-w-none sm:w-auto sm:flex-row sm:gap-4 sm:justify-center">
             <Link
-              href="/superadmin/login"
+              href="/auth/login"
               className="w-full sm:w-auto px-8 py-3 bg-white text-green-700 font-semibold rounded-xl hover:bg-green-50 transition-colors"
             >
               เข้าสู่ระบบ
