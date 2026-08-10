@@ -26,6 +26,11 @@ function mooNumber(value: string | null) {
   return Number.isFinite(numericValue) ? numericValue : Number.MAX_SAFE_INTEGER;
 }
 
+function mooKey(value: string | null) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? String(numericValue) : value?.trim() ?? "";
+}
+
 function catalogAvailabilityRank(item: { village: { isActive: boolean } | null }) {
   return item.village ? 1 : 0;
 }
@@ -178,11 +183,25 @@ export async function searchVillageCatalogAction(input: { province: string; dist
   if (databaseTotal === 0) {
     return { items: [], totalCount: 0, source: "DATABASE" as const, note: "Catalog ยังไม่ถูก import: วาง JSON ดิบใน data/raw/gdcatalog-villages/ แล้วรัน npm run catalog:setup" };
   }
-  const [items, totalCount] = await Promise.all([
+  const [items, totalCount, existingVillages] = await Promise.all([
     prisma.thailandVillageMaster.findMany({ where, select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } }, orderBy: [{ villageName: "asc" }, { moo: "asc" }], take: 100 }),
     prisma.thailandVillageMaster.count({ where: areaWhere }),
+    prisma.village.findMany({
+      where: {
+        province: { in: areaCandidates(province, ["จังหวัด", "จ."]) },
+        district: { in: areaCandidates(district, ["อำเภอ", "อ."]) },
+        subdistrict: { in: areaCandidates(subdistrict, ["ตำบล", "ต."]) },
+      },
+      select: { id: true, moo: true, isActive: true },
+    }),
   ]);
-  const sortedItems = [...items].sort((left, right) => {
+  const villageByMoo = new Map(existingVillages.map((village) => [mooKey(village.moo), village]));
+  const itemsWithAreaActivation = items.map((item) => {
+    const existingVillage = item.village ?? villageByMoo.get(mooKey(item.moo)) ?? null;
+    // Any existing record, including a Manual one, makes this real-world moo unavailable.
+    return { ...item, village: existingVillage ? { id: existingVillage.id, isActive: true } : null };
+  });
+  const sortedItems = [...itemsWithAreaActivation].sort((left, right) => {
     const availabilityCompare = catalogAvailabilityRank(left) - catalogAvailabilityRank(right);
     if (availabilityCompare !== 0) return availabilityCompare;
     const nameCompare = left.villageName.localeCompare(right.villageName, "th");
