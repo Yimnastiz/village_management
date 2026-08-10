@@ -23,7 +23,6 @@ export default async function SuperAdminDashboardPage() {
     activeMembershipCount,
     pendingBindingCount,
     pendingIssuesCount,
-    unresolvedSosCount,
     latestLogs,
   ] = await Promise.all([
     prisma.village.count(),
@@ -33,7 +32,6 @@ export default async function SuperAdminDashboardPage() {
     prisma.villageMembership.count({ where: { status: "ACTIVE" } }),
     prisma.bindingRequest.count({ where: { status: "PENDING" } }),
     prisma.issue.count({ where: { stage: { in: ["OPEN", "IN_PROGRESS", "WAITING"] } } }),
-    prisma.emergencySOS.count({ where: { isResolved: false } }),
     prisma.auditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 8,
@@ -51,30 +49,29 @@ export default async function SuperAdminDashboardPage() {
         <p className="mt-1 text-sm text-slate-600">ภาพรวมทุกหมู่บ้าน ผู้ใช้ และเหตุการณ์สำคัญของระบบ</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="หมู่บ้านทั้งหมด" value={villageCount} hint={`เปิดใช้งาน ${activeVillageCount} หมู่บ้าน`} />
         <StatCard label="ผู้ใช้ทั้งหมด" value={userCount} hint={`Super Admin ${superAdminCount} บัญชี`} />
         <StatCard label="สมาชิกที่ใช้งานอยู่" value={activeMembershipCount} hint="ครอบคลุมทุกหมู่บ้าน" />
         <StatCard label="คำขอผูกบ้านรออนุมัติ" value={pendingBindingCount} />
         <StatCard label="ปัญหาที่ยังไม่ปิด" value={pendingIssuesCount} />
-        <StatCard label="เหตุ SOS ยังไม่ปิดเคส" value={unresolvedSosCount} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">งานด่วนของ Super Admin</h2>
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <Link href="/superadmin/villages" className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              จัดการหมู่บ้าน
+            <Link href="/superadmin/villages" className="group flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+              <span>จัดการหมู่บ้าน</span><span aria-hidden="true" className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-cyan-700">→</span>
             </Link>
-            <Link href="/superadmin/users" className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              จัดการผู้ใช้และบทบาท
+            <Link href="/superadmin/users" className="group flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+              <span>จัดการผู้ใช้และบทบาท</span><span aria-hidden="true" className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-cyan-700">→</span>
             </Link>
-            <Link href="/superadmin/broadcasts" className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              ส่งประกาศทุกหมู่บ้าน
+            <Link href="/superadmin/broadcasts" className="group flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+              <span>ส่งประกาศทุกหมู่บ้าน</span><span aria-hidden="true" className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-cyan-700">→</span>
             </Link>
-            <Link href="/superadmin/settings" className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">
-              ตั้งค่ากลางระบบ
+            <Link href="/superadmin/settings" className="group flex min-h-12 items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-cyan-200 hover:bg-cyan-50 hover:shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+              <span>ตั้งค่ากลางระบบ</span><span aria-hidden="true" className="text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-cyan-700">→</span>
             </Link>
           </div>
         </div>
@@ -82,7 +79,7 @@ export default async function SuperAdminDashboardPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900">กิจกรรมล่าสุดของระบบ</h2>
-            <Link href="/superadmin/logs" className="text-sm font-medium text-cyan-700 hover:underline">
+            <Link href="/superadmin/activities" className="text-sm font-medium text-cyan-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
               ดูทั้งหมด
             </Link>
           </div>
