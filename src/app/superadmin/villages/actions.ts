@@ -21,6 +21,16 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: string }).code === "P2002";
 }
 
+function mooNumber(value: string | null) {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : Number.MAX_SAFE_INTEGER;
+}
+
+function catalogAvailabilityRank(item: { village: { isActive: boolean } | null }) {
+  if (!item.village) return 0;
+  return item.village.isActive ? 2 : 1;
+}
+
 function areaCandidates(value: string, prefixes: string[]) {
   return Array.from(new Set([value, ...prefixes.flatMap((prefix) => [`${prefix}${value}`, `${prefix} ${value}`])]));
 }
@@ -93,7 +103,7 @@ export async function createVillageAction(formData: FormData) {
   try {
     created = await prisma.village.create({ data: { ...data, isActive: true } });
   } catch (error) {
-    if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านนี้ถูกเปิดใช้งานแล้ว");
+    if (isUniqueConstraintError(error)) throw new Error(mode === "catalog" ? "หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว หรือ slug จากรหัสหมู่บ้านซ้ำกับข้อมูลเดิม" : "Slug นี้ถูกใช้แล้ว กรุณาใช้ slug อื่น");
     throw error;
   }
   await writeSuperAdminAuditLog({ userId: session.id, action: mode === "catalog" ? AuditAction.VILLAGE_CREATED_FROM_CATALOG : AuditAction.VILLAGE_CREATED_MANUAL, resource: "Village", resourceId: created.id, villageId: created.id, metadata: { name: created.name, slug: created.slug, sourceNote: created.sourceNote, catalogVillageId: created.catalogVillageId, catalogSource, builtInCatalogId } });
@@ -114,9 +124,9 @@ export async function updateVillageAction(formData: FormData) {
   if (!existingVillage) throw new Error("ไม่พบหมู่บ้าน");
   let updated;
   try {
-    updated = await prisma.village.update({ where: { id }, data: { ...data, slug: existingVillage.catalogVillageId ? existingVillage.slug : data.slug } });
+    updated = await prisma.village.update({ where: { id }, data: { ...data, slug: existingVillage.catalogVillageId || mode === "catalog" ? existingVillage.slug : data.slug } });
   } catch (error) {
-    if (isUniqueConstraintError(error)) throw new Error("slug นี้ถูกใช้แล้ว หรือหมู่บ้านนี้ถูกเปิดใช้งานแล้ว");
+    if (isUniqueConstraintError(error)) throw new Error(mode === "catalog" ? "หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว หรือ slug จากรหัสหมู่บ้านซ้ำกับข้อมูลเดิม" : "Slug นี้ถูกใช้แล้ว กรุณาใช้ slug อื่น");
     throw error;
   }
   await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { name: updated.name, slug: updated.slug, mode, sourceNote: updated.sourceNote, catalogVillageId: updated.catalogVillageId, catalogSource, builtInCatalogId } });
@@ -152,7 +162,14 @@ export async function searchVillageCatalogAction(input: { province: string; dist
     prisma.thailandVillageMaster.findMany({ where, select: { id: true, officialCode: true, villageName: true, moo: true, province: true, district: true, subdistrict: true, sourceName: true, village: { select: { id: true, isActive: true } } }, orderBy: [{ villageName: "asc" }, { moo: "asc" }], take: 100 }),
     prisma.thailandVillageMaster.count({ where: areaWhere }),
   ]);
-  return { items: items.map((item) => ({ ...item, source: "DATABASE" as const })), totalCount, source: "DATABASE" as const, note: totalCount === 0 ? "พื้นที่นี้ไม่มีข้อมูลใน Catalog" : "พบข้อมูลจากฐานข้อมูลอ้างอิง" };
+  const sortedItems = [...items].sort((left, right) => {
+    const nameCompare = left.villageName.localeCompare(right.villageName, "th");
+    if (nameCompare !== 0) return nameCompare;
+    const availabilityCompare = catalogAvailabilityRank(left) - catalogAvailabilityRank(right);
+    if (availabilityCompare !== 0) return availabilityCompare;
+    return mooNumber(left.moo) - mooNumber(right.moo);
+  });
+  return { items: sortedItems.map((item) => ({ ...item, source: "DATABASE" as const })), totalCount, source: "DATABASE" as const, note: totalCount === 0 ? "พื้นที่นี้ไม่มีข้อมูลใน Catalog" : "พบข้อมูลจากฐานข้อมูลอ้างอิง" };
 }
 
 export async function toggleVillageActiveAction(formData: FormData) {
