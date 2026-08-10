@@ -17,6 +17,15 @@ export const authClient = createAuthClient({
 
 export const { signIn, signOut, signUp, useSession } = authClient;
 
+/**
+ * Better Auth reports HTTP failures in `error` instead of necessarily
+ * throwing, so callers must confirm the result before navigating.
+ */
+export async function signOutCurrentSession(): Promise<boolean> {
+  const result = await signOut();
+  return result.data?.success === true && !result.error;
+}
+
 const LOGIN_OTP_STATE_KEY = "village_auth_login_otp";
 const LOGIN_OTP_STATE_TTL_MS = 5 * 60 * 1000;
 

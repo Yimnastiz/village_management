@@ -1,11 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { clearLoginOtpState, signOut } from "@/lib/auth-client";
+import { useState } from "react";
+import { useToast } from "@/components/ui/toast";
+import { clearLoginOtpState, signOutCurrentSession } from "@/lib/auth-client";
 
 export function DuplicateAccountActions() {
-  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const { error: showError } = useToast();
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
+    try {
+      if (!(await signOutCurrentSession())) {
+        throw new Error("Sign-out was not confirmed by the server.");
+      }
+      clearLoginOtpState();
+      window.location.replace("/auth/login");
+    } catch {
+      showError("ไม่สามารถออกจากระบบได้", "กรุณาลองอีกครั้ง");
+      setIsSigningOut(false);
+    }
+  };
 
   return (
     <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -17,16 +35,9 @@ export function DuplicateAccountActions() {
       </Link>
       <button
         type="button"
-        onClick={async () => {
-          try {
-            await signOut();
-          } finally {
-            clearLoginOtpState();
-            router.replace("/auth/login");
-            router.refresh();
-          }
-        }}
-        className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        onClick={handleSignOut}
+        disabled={isSigningOut}
+        className="min-h-11 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
       >
         ออกจากระบบ
       </button>

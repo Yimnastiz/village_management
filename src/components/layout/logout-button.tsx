@@ -1,32 +1,41 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { clearLoginOtpState, signOut } from "@/lib/auth-client";
+import { useState } from "react";
+import { useToast } from "@/components/ui/toast";
+import { clearLoginOtpState, signOutCurrentSession } from "@/lib/auth-client";
 
 type LogoutButtonProps = {
   mode?: "icon" | "menu";
 };
 
 export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
-  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const { error: showError } = useToast();
 
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
+    if (isSigningOut) return;
+
+    setIsSigningOut(true);
     try {
-      await signOut();
-    } finally {
-      // Retry the Better Auth endpoint directly if the client helper is
-      // interrupted, so the server session and cookie are cleared reliably.
-      await fetch("/api/auth/sign-out", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: "{}",
-      }).catch(() => undefined);
+      const signedOut = await signOutCurrentSession();
+      if (!signedOut) {
+        throw new Error("Sign-out was not confirmed by the server.");
+      }
+
       clearLoginOtpState();
-      router.replace("/auth/login");
-      router.refresh();
+      // Navigation begins only after Better Auth has invalidated the session
+      // and the browser has applied its Set-Cookie headers.
+      window.location.replace("/auth/login");
+    } catch (error) {
+      if (process.env.NODE_ENV === "development") {
+        console.error("[logout] sign-out failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+      }
+      showError("ไม่สามารถออกจากระบบได้", "กรุณาลองอีกครั้ง");
+      setIsSigningOut(false);
     }
   };
 
@@ -34,7 +43,8 @@ export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
     return (
       <button
         onClick={handleLogout}
-        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+        disabled={isSigningOut}
+        className="flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
         aria-label="ออกจากระบบ"
         type="button"
         suppressHydrationWarning
@@ -48,7 +58,8 @@ export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
   return (
     <button
       onClick={handleLogout}
-      className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+      disabled={isSigningOut}
+      className="p-2 text-gray-400 transition-colors hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
       aria-label="ออกจากระบบ"
       type="button"
       suppressHydrationWarning

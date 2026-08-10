@@ -1,8 +1,20 @@
 import { cookies } from "next/headers";
 
-export const SESSION_COOKIE_NAMES = [
+export const CURRENT_SESSION_COOKIE_NAMES = [
   "better-auth.session_token",
+  "__Secure-better-auth.session_token",
+] as const;
+
+// Kept only to invalidate cookies issued by an older application release.
+// Better Auth 1.5.5 uses the names above (with __Secure- on HTTPS).
+export const LEGACY_SESSION_COOKIE_NAMES = [
   "better-auth-session_token",
+  "__Secure-better-auth-session_token",
+] as const;
+
+export const SESSION_COOKIE_NAMES = [
+  ...CURRENT_SESSION_COOKIE_NAMES,
+  ...LEGACY_SESSION_COOKIE_NAMES,
 ] as const;
 
 export const SESSION_COOKIE = SESSION_COOKIE_NAMES[0];
@@ -32,6 +44,25 @@ export function readSessionCookieFromHeader(cookieHeader: string | null): string
     if (value) return decodeURIComponent(value);
   }
   return null;
+}
+
+export function readNamedSessionCookiesFromHeader(
+  cookieHeader: string | null,
+  names: readonly string[]
+): string[] {
+  if (!cookieHeader) return [];
+
+  const values = new Map(
+    cookieHeader.split(";").map((part) => {
+      const [name, ...rest] = part.trim().split("=");
+      return [name, rest.join("=")] as const;
+    })
+  );
+
+  return names.flatMap((name) => {
+    const value = values.get(name);
+    return value ? [decodeURIComponent(value)] : [];
+  });
 }
 
 export async function readSessionCookieFromServer(): Promise<string | null> {
