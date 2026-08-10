@@ -27,8 +27,7 @@ function mooNumber(value: string | null) {
 }
 
 function catalogAvailabilityRank(item: { village: { isActive: boolean } | null }) {
-  if (!item.village) return 0;
-  return item.village.isActive ? 2 : 1;
+  return item.village ? 1 : 0;
 }
 
 function areaCandidates(value: string, prefixes: string[]) {
@@ -36,13 +35,13 @@ function areaCandidates(value: string, prefixes: string[]) {
 }
 
 async function readVillagePayload(formData: FormData) {
-  const mode = readString(formData, "mode") === "manual" ? "manual" : "catalog";
+  const mode: "catalog" | "manual" = readString(formData, "mode") === "manual" ? "manual" : "catalog";
   const catalogSource = readString(formData, "catalogSource") === "BUILT_IN_DEMO" ? "BUILT_IN_DEMO" : "DATABASE";
   const catalogVillageId = optionalString(formData, "catalogVillageId");
   const builtInCatalogId = optionalString(formData, "builtInCatalogId");
   const sourceNote = optionalString(formData, "sourceNote");
   const typedName = readString(formData, "name");
-  let canonical: { name: string; moo: string | null; province: string; district: string; subdistrict: string; catalogVillageId: string | null; officialCode: string | null; catalogSlug?: string | null; fallbackId?: string | null };
+  let canonical: { name: string; moo: string | null; province: string; district: string; subdistrict: string; catalogVillageId: string | null; officialCode: string | null; fallbackId?: string | null };
   let resolvedBuiltInCatalogId: string | null = null;
   if (mode === "catalog") {
     const currentVillageId = optionalString(formData, "id");
@@ -60,18 +59,20 @@ async function readVillagePayload(formData: FormData) {
       if (!catalog) throw new Error("ไม่พบหมู่บ้านในฐานข้อมูลอ้างอิง");
       const linkedVillage = await prisma.village.findFirst({ where: { catalogVillageId }, select: { id: true } });
       if (linkedVillage && linkedVillage.id !== currentVillageId) throw new Error("หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว");
-      canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id, officialCode: catalog.officialCode, catalogSlug: catalog.slug, fallbackId: catalog.id };
+      canonical = { name: catalog.villageName, moo: catalog.moo, province: normalizeThaiAreaName(catalog.province), district: normalizeThaiAreaName(catalog.district), subdistrict: normalizeThaiAreaName(catalog.subdistrict), catalogVillageId: catalog.id, officialCode: catalog.officialCode, fallbackId: catalog.id };
     }
   } else {
     if (!typedName) throw new Error("กรุณากรอกชื่อหมู่บ้าน");
     if (!sourceNote) throw new Error("กรุณาระบุเหตุผลหรือที่มาสำหรับการเพิ่มแบบ Manual");
+    if (!optionalString(formData, "moo")) throw new Error("กรุณาระบุหมู่ที่สำหรับการเพิ่มแบบ Manual");
     const location = validateThaiLocation({ province: readString(formData, "province"), district: readString(formData, "district"), subdistrict: readString(formData, "subdistrict") });
     if (!location.ok) throw new Error(location.error);
     canonical = { name: typedName, moo: optionalString(formData, "moo"), province: location.province, district: location.district, subdistrict: location.subdistrict, catalogVillageId: null, officialCode: null };
   }
 
   const slug = mode === "catalog"
-    ? canonical.catalogSlug || buildCatalogVillageSlug({ villageName: canonical.name, moo: canonical.moo, officialCode: canonical.officialCode, fallbackId: canonical.fallbackId })
+    // Never trust the form value for catalog villages. Their official identity owns the slug.
+    ? buildCatalogVillageSlug({ villageName: canonical.name, moo: canonical.moo, officialCode: canonical.officialCode, fallbackId: canonical.fallbackId })
     : normalizeVillageSlugInput(readString(formData, "slug") || typedName);
   if (!slug) throw new Error("กรุณากรอก slug ที่ถูกต้อง");
 
@@ -95,10 +96,28 @@ async function readVillagePayload(formData: FormData) {
   };
 }
 
+async function assertVillageIsNotDuplicated(data: { catalogVillageId: string | null; slug: string; province: string; district: string; subdistrict: string; moo: string | null }, mode: "catalog" | "manual", currentVillageId?: string) {
+  const excludeCurrent = currentVillageId ? { id: { not: currentVillageId } } : {};
+  const duplicateArea = await prisma.village.findFirst({
+    where: { ...excludeCurrent, province: data.province, district: data.district, subdistrict: data.subdistrict, moo: data.moo },
+    select: { id: true },
+  });
+  if (duplicateArea) throw new Error("มีหมู่บ้านในจังหวัด อำเภอ ตำบล และหมู่นี้อยู่แล้ว ไม่สามารถเพิ่มซ้ำได้");
+
+  const duplicateSlug = await prisma.village.findFirst({ where: { ...excludeCurrent, slug: data.slug }, select: { id: true } });
+  if (duplicateSlug) throw new Error(mode === "catalog" ? "หมู่บ้านนี้ถูกเปิดใช้งานแล้ว หรือ slug ของหมู่บ้านซ้ำกับข้อมูลเดิม" : "Slug นี้ถูกใช้แล้ว กรุณาใช้ slug อื่น");
+
+  if (data.catalogVillageId) {
+    const duplicateCatalog = await prisma.village.findFirst({ where: { ...excludeCurrent, catalogVillageId: data.catalogVillageId }, select: { id: true } });
+    if (duplicateCatalog) throw new Error("หมู่บ้านนี้ถูกเปิดใช้งานแล้ว ไม่สามารถเปิดซ้ำได้");
+  }
+}
+
 export async function createVillageAction(formData: FormData) {
   const session = await requireSuperAdminActionSession();
   const payload = await readVillagePayload(formData);
   const { mode, catalogSource, builtInCatalogId, ...data } = payload;
+  await assertVillageIsNotDuplicated(data, mode);
   let created;
   try {
     created = await prisma.village.create({ data: { ...data, isActive: true } });
@@ -122,6 +141,7 @@ export async function updateVillageAction(formData: FormData) {
   // merely because somebody edits its metadata.
   const existingVillage = await prisma.village.findUnique({ where: { id }, select: { slug: true, catalogVillageId: true } });
   if (!existingVillage) throw new Error("ไม่พบหมู่บ้าน");
+  await assertVillageIsNotDuplicated(data, existingVillage.catalogVillageId ? "catalog" : mode, id);
   let updated;
   try {
     updated = await prisma.village.update({ where: { id }, data: { ...data, slug: existingVillage.catalogVillageId || mode === "catalog" ? existingVillage.slug : data.slug } });
@@ -163,10 +183,10 @@ export async function searchVillageCatalogAction(input: { province: string; dist
     prisma.thailandVillageMaster.count({ where: areaWhere }),
   ]);
   const sortedItems = [...items].sort((left, right) => {
-    const nameCompare = left.villageName.localeCompare(right.villageName, "th");
-    if (nameCompare !== 0) return nameCompare;
     const availabilityCompare = catalogAvailabilityRank(left) - catalogAvailabilityRank(right);
     if (availabilityCompare !== 0) return availabilityCompare;
+    const nameCompare = left.villageName.localeCompare(right.villageName, "th");
+    if (nameCompare !== 0) return nameCompare;
     return mooNumber(left.moo) - mooNumber(right.moo);
   });
   return { items: sortedItems.map((item) => ({ ...item, source: "DATABASE" as const })), totalCount, source: "DATABASE" as const, note: totalCount === 0 ? "พื้นที่นี้ไม่มีข้อมูลใน Catalog" : "พบข้อมูลจากฐานข้อมูลอ้างอิง" };

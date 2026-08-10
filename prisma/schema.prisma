@@ -444,6 +444,7 @@ model Village {
   catalogVillage          ThailandVillageMaster?       @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
 
   @@index([slug])
+  @@unique([province, district, subdistrict, moo], map: "village_area_moo_key")
 }
 
 model ThailandVillageMaster {
