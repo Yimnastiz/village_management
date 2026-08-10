@@ -1,0 +1,31 @@
+import Link from "next/link";
+import type { MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { Badge } from "@/components/ui/badge";
+import { changeMembershipSupportAction } from "./actions";
+import { SupportSubmitButton } from "./support-submit-button";
+import { maskPhone } from "@/features/village-workspace/server/queries";
+
+type Row = { id: string; role: VillageMembershipRole; status: MembershipStatus; joinedAt: Date | null; houseId: string | null; house: { houseNumber: string } | null; user: { id: string; name: string; phoneNumber: string; accountStatus: string } };
+const roleLabel: Record<string, string> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการ", RESIDENT: "ลูกบ้าน" };
+const statusLabel: Record<string, string> = { ACTIVE: "ใช้งานอยู่", PENDING: "รอตรวจสอบ", SUSPENDED: "ระงับ", REJECTED: "ไม่อนุมัติ", LEFT: "ออกแล้ว" };
+
+function ActionForm({ row, villageId, villageName, houses, returnTo }: { row: Row; villageId: string; villageName: string; houses: { id: string; houseNumber: string }[]; returnTo: "users" | "admins" }) {
+  return <details className="relative"><summary className="cursor-pointer list-none rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">จัดการ</summary><form action={changeMembershipSupportAction} className="mt-2 grid min-w-64 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:min-w-80">
+    <input type="hidden" name="targetVillageId" value={villageId} /><input type="hidden" name="membershipId" value={row.id} /><input type="hidden" name="returnTo" value={returnTo} />
+    <select name="operation" className="min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"><option value="ACTIVATE">เปิดใช้งาน</option><option value="SUSPEND">ระงับสมาชิก</option><option value="RESIDENT">เปลี่ยนเป็นลูกบ้าน</option></select>
+    <select name="houseId" className="min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"><option value="">เลือกบ้านเมื่อเปลี่ยนเป็นลูกบ้าน</option>{houses.map((house) => <option key={house.id} value={house.id}>บ้านเลขที่ {house.houseNumber}</option>)}</select>
+    <input name="reason" required minLength={5} placeholder="เหตุผลอย่างน้อย 5 ตัวอักษร" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" />
+    {row.role === "HEADMAN" ? <label className="flex items-start gap-2 text-xs text-slate-600"><input type="checkbox" name="confirmVacant" value="true" className="mt-0.5" />ยืนยันว่าการระงับอาจทำให้ตำแหน่งผู้ใหญ่บ้านว่าง</label> : null}
+    <SupportSubmitButton villageName={villageName} className="min-h-10 rounded-lg bg-slate-900 px-3 text-sm font-medium text-white">บันทึกการเปลี่ยนแปลง</SupportSubmitButton>
+  </form></details>;
+}
+
+export function MemberList({ rows, villageId, villageName, houses, page, pageCount, queryString, returnTo }: { rows: Row[]; villageId: string; villageName: string; houses: { id: string; houseNumber: string }[]; page: number; pageCount: number; queryString: string; returnTo: "users" | "admins" }) {
+  if (!rows.length) return <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">ไม่พบรายการที่ตรงกับตัวกรอง</div>;
+  const pageHref = (next: number) => `${queryString ? `${queryString}&` : "?"}page=${next}`;
+  return <>
+    <div className="hidden overflow-visible rounded-xl border border-slate-200 bg-white md:block"><table className="w-full text-left text-sm"><thead className="border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-500"><tr><th className="px-4 py-3">สมาชิก</th><th className="px-4 py-3">บทบาท</th><th className="px-4 py-3">สถานะ</th><th className="px-4 py-3">บ้าน</th><th className="px-4 py-3">วันที่เข้าร่วม</th><th className="px-4 py-3 text-right">การจัดการ</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row) => <tr key={row.id} className="align-top hover:bg-slate-50/60"><td className="px-4 py-3"><p className="font-medium text-slate-900">{row.user.name}</p><p className="mt-0.5 text-xs text-slate-400">{maskPhone(row.user.phoneNumber)}</p></td><td className="px-4 py-3"><Badge variant="outline">{roleLabel[row.role] ?? row.role}</Badge></td><td className="px-4 py-3"><Badge variant={row.status === "ACTIVE" ? "success" : row.status === "SUSPENDED" ? "danger" : "warning"}>{statusLabel[row.status] ?? row.status}</Badge></td><td className="px-4 py-3 text-slate-600">{row.house?.houseNumber ?? "-"}</td><td className="px-4 py-3 text-slate-500">{row.joinedAt?.toLocaleDateString("th-TH") ?? "-"}</td><td className="px-4 py-3 text-right"><ActionForm row={row} villageId={villageId} villageName={villageName} houses={houses} returnTo={returnTo} /></td></tr>)}</tbody></table></div>
+    <div className="grid gap-3 md:hidden">{rows.map((row) => <article key={row.id} className="rounded-xl border border-slate-200 bg-white p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-medium text-slate-900">{row.user.name}</p><p className="mt-1 text-xs text-slate-400">{maskPhone(row.user.phoneNumber)}</p></div><Badge variant={row.status === "ACTIVE" ? "success" : "warning"}>{statusLabel[row.status] ?? row.status}</Badge></div><dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-slate-400">บทบาท</dt><dd className="mt-1 text-slate-700">{roleLabel[row.role] ?? row.role}</dd></div><div><dt className="text-xs text-slate-400">บ้านเลขที่</dt><dd className="mt-1 text-slate-700">{row.house?.houseNumber ?? "-"}</dd></div><div><dt className="text-xs text-slate-400">เข้าร่วม</dt><dd className="mt-1 text-slate-700">{row.joinedAt?.toLocaleDateString("th-TH") ?? "-"}</dd></div></dl><div className="mt-4"><ActionForm row={row} villageId={villageId} villageName={villageName} houses={houses} returnTo={returnTo} /></div></article>)}</div>
+    <div className="flex items-center justify-between gap-3"><p className="text-xs text-slate-500">หน้า {page} จาก {pageCount}</p><div className="flex gap-2">{page > 1 ? <Link href={pageHref(page - 1)} className="rounded-lg border px-3 py-2 text-sm">ก่อนหน้า</Link> : null}{page < pageCount ? <Link href={pageHref(page + 1)} className="rounded-lg border px-3 py-2 text-sm">ถัดไป</Link> : null}</div></div>
+  </>;
+}

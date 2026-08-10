@@ -2,6 +2,7 @@
 
 import { AuditAction, BindingRequestStatus, MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
@@ -101,19 +102,32 @@ export async function setVillageAdminSupportAction(formData: FormData) {
   await requireVillage(targetVillageId);
   if (role !== VillageMembershipRole.HEADMAN && role !== VillageMembershipRole.ASSISTANT_HEADMAN && role !== VillageMembershipRole.COMMITTEE) throw new Error("บทบาทไม่ถูกต้อง");
   await prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true, systemRole: true, accountStatus: true } });
+    const user = await tx.user.findFirst({
+      where: {
+        id: userId,
+        accountStatus: "ACTIVE",
+        systemRole: { not: "SUPERADMIN" },
+        OR: [
+          { memberships: { some: { villageId: targetVillageId } } },
+          { registrationVillageId: targetVillageId },
+        ],
+      },
+      select: { id: true, systemRole: true, accountStatus: true },
+    });
     if (!user || user.systemRole === "SUPERADMIN" || user.accountStatus !== "ACTIVE") throw new Error("ไม่สามารถแต่งตั้งบัญชีนี้ได้");
     if (role === VillageMembershipRole.HEADMAN) await tx.villageMembership.updateMany({ where: { villageId: targetVillageId, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, userId: { not: userId } }, data: { status: MembershipStatus.SUSPENDED } });
     const membership = await tx.villageMembership.upsert({ where: { userId_villageId: { userId, villageId: targetVillageId } }, update: { role, status: MembershipStatus.ACTIVE, houseId: null, joinedAt: new Date() }, create: { userId, villageId: targetVillageId, role, status: MembershipStatus.ACTIVE, joinedAt: new Date() } });
     await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.APPROVE, resource: "VillageAdminSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, reason, newValue: { userId, role } } } });
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
+  redirect(`/superadmin/villages/${targetVillageId}/admins?success=${encodeURIComponent("แต่งตั้งผู้ดูแลเรียบร้อยแล้ว")}`);
 }
 
 export async function changeMembershipSupportAction(formData: FormData) {
   const actor = await requireSuperAdminActionSession();
   const targetVillageId = value(formData, "targetVillageId"); const membershipId = value(formData, "membershipId"); const operation = value(formData, "operation"); const houseId = value(formData, "houseId") || null; const reason = requireReason(formData);
   await requireVillage(targetVillageId);
+  if (!["SUSPEND", "ACTIVATE", "RESIDENT"].includes(operation)) throw new Error("รายการดำเนินการไม่ถูกต้อง");
   await prisma.$transaction(async (tx) => {
     const membership = await tx.villageMembership.findFirst({ where: { id: membershipId, villageId: targetVillageId } });
     if (!membership) throw new Error("Membership ไม่อยู่ในหมู่บ้านเป้าหมาย");
@@ -126,4 +140,6 @@ export async function changeMembershipSupportAction(formData: FormData) {
     await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.UPDATE, resource: "MembershipSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, reason, oldValue: { role: membership.role, status: membership.status, houseId: membership.houseId }, newValue: { operation, houseId }, confirmedVacantHeadman: value(formData, "confirmVacant") === "true" } } });
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
+  const returnTo = value(formData, "returnTo") === "admins" ? "admins" : "users";
+  redirect(`/superadmin/villages/${targetVillageId}/${returnTo}?success=${encodeURIComponent("ปรับข้อมูลสมาชิกเรียบร้อยแล้ว")}`);
 }

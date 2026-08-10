@@ -1,54 +1,6 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { VillageMembershipRole } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { requireSuperAdminPageSession } from "@/lib/superadmin";
-import { changeMembershipSupportAction, setVillageAdminSupportAction } from "./actions";
-import { SupportSubmitButton } from "./support-submit-button";
-import { BindingReviewForm } from "./binding-review-form";
+import { redirect } from "next/navigation";
 
-export default async function SuperAdminVillageContextPage({ params }: { params: Promise<{ villageId: string }> }) {
-  await requireSuperAdminPageSession();
+export default async function VillageWorkspacePage({ params }: { params: Promise<{ villageId: string }> }) {
   const { villageId } = await params;
-  const village = await prisma.village.findUnique({ where: { id: villageId }, select: { id: true, name: true, province: true, district: true, subdistrict: true, isActive: true, catalogVillageId: true, sourceNote: true, _count: { select: { memberships: true, houses: true } } } });
-  if (!village) notFound();
-
-  const [memberships, houses, populationCount, bindings, issueCount, appointmentCount, news, auditLogs, eligibleUsers] = await Promise.all([
-    prisma.villageMembership.findMany({ where: { villageId }, orderBy: [{ role: "asc" }, { updatedAt: "desc" }], take: 100, select: { id: true, role: true, status: true, houseId: true, user: { select: { id: true, name: true, accountStatus: true } }, house: { select: { houseNumber: true } } } }),
-    prisma.house.findMany({ where: { villageId }, orderBy: { houseNumber: "asc" }, take: 200, select: { id: true, houseNumber: true } }),
-    prisma.person.count({ where: { villageId } }),
-    prisma.bindingRequest.findMany({ where: { villageId, status: "PENDING" }, orderBy: { createdAt: "asc" }, take: 30, select: { id: true, houseId: true, houseNumber: true, villageId: true, status: true, createdAt: true, user: { select: { id: true, name: true } }, house: { select: { id: true, villageId: true, houseNumber: true } } } }),
-    prisma.issue.count({ where: { villageId, stage: { in: ["OPEN", "IN_PROGRESS", "WAITING"] } } }),
-    prisma.appointment.count({ where: { villageId, stage: { in: ["PENDING_APPROVAL", "TIME_SUGGESTED"] } } }),
-    prisma.news.findMany({ where: { villageId }, orderBy: { createdAt: "desc" }, take: 5, select: { id: true, title: true, stage: true, visibility: true, createdAt: true } }),
-    prisma.auditLog.findMany({ where: { villageId }, orderBy: { createdAt: "desc" }, take: 20, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { name: true } } } }),
-    prisma.user.findMany({ where: { accountStatus: "ACTIVE", systemRole: { not: "SUPERADMIN" } }, orderBy: { name: "asc" }, take: 200, select: { id: true, name: true } }),
-  ]);
-  const admins = memberships.filter((item) => item.role === VillageMembershipRole.HEADMAN || item.role === VillageMembershipRole.ASSISTANT_HEADMAN || item.role === VillageMembershipRole.COMMITTEE);
-
-  return <div className="space-y-6">
-    <Link href="/superadmin/villages" className="text-sm text-cyan-700 hover:underline">← กลับรายการหมู่บ้าน</Link>
-    <header className="rounded-xl border border-cyan-200 bg-cyan-50 p-4">
-      <p className="mb-2 text-sm text-slate-600">ที่มา: {village.catalogVillageId ? "ฐานข้อมูลหมู่บ้านอ้างอิง" : "เพิ่มเองโดยผู้ดูแลระบบ"}</p>
-      {village.sourceNote ? <p className="mb-2 text-xs text-muted-foreground">ที่มาเพิ่มเติม: {village.sourceNote}</p> : null}
-      <p className="text-xs font-semibold uppercase text-cyan-700">Village Management Context</p>
-      <h1 className="text-xl font-bold text-slate-900">กำลังจัดการหมู่บ้าน: {village.name}</h1>
-      <p className="text-sm text-slate-600">ต.{village.subdistrict ?? "-"} อ.{village.district ?? "-"} จ.{village.province ?? "-"} · {village.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}</p>
-      <p className="mt-2 text-xs text-amber-700">การดำเนินการแทนหมู่บ้านจะถูกบันทึกใน Audit Log และไม่สร้าง Membership ให้ Super Admin</p>
-    </header>
-
-    <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-      {[["Membership", village._count.memberships], ["บ้าน", village._count.houses], ["ประชากร", populationCount], ["คำขอผูกบ้าน", bindings.length], ["ปัญหาค้าง", issueCount], ["นัดหมายค้าง", appointmentCount], ["ผู้ดูแล", admins.length]].map(([label, count]) => <div key={String(label)} className="rounded-xl border bg-white p-3"><p className="text-xs text-slate-500">{label}</p><p className="text-xl font-bold">{count}</p></div>)}
-    </section>
-
-    {village._count.houses === 0 && admins.filter((item) => item.status === "ACTIVE").length === 0 ? <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">หมู่บ้านนี้ยังไม่มีบ้านหรือผู้ดูแลที่ใช้งานอยู่ สามารถเพิ่มข้อมูลบ้านหรือแต่งตั้ง Headman ได้จากหน้านี้</section> : null}
-
-    <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">แต่งตั้งผู้ดูแลหมู่บ้าน</h2><form action={setVillageAdminSupportAction} className="mt-3 grid gap-2 md:grid-cols-4"><input type="hidden" name="targetVillageId" value={villageId}/><select name="userId" required className="rounded border p-2 text-sm"><option value="">เลือกผู้ใช้</option>{eligibleUsers.map((user)=><option key={user.id} value={user.id}>{user.name}</option>)}</select><select name="role" className="rounded border p-2 text-sm"><option>HEADMAN</option><option>ASSISTANT_HEADMAN</option><option>COMMITTEE</option></select><input name="reason" required minLength={5} placeholder="เหตุผล" className="rounded border p-2 text-sm"/><SupportSubmitButton villageName={village.name} className="rounded bg-cyan-700 px-3 py-2 text-sm text-white">ยืนยันแต่งตั้ง</SupportSubmitButton></form></section>
-
-    <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">ผู้ดูแลและ Membership</h2><div className="mt-3 space-y-2">{memberships.length === 0 ? <p className="text-sm text-slate-500">ยังไม่มีสมาชิกในหมู่บ้าน</p> : memberships.map((item)=><div key={item.id} className="grid gap-2 rounded-lg border p-3 text-sm md:grid-cols-[1fr_auto]"><div><p className="font-medium">{item.user.name} · {item.role} · {item.status}</p><p className="text-xs text-slate-500">{item.house ? `บ้านเลขที่ ${item.house.houseNumber}` : "ไม่มีบ้านที่ผูกไว้ (ผู้ดูแลไม่จำเป็นต้องผูกบ้าน)"}</p></div><form action={changeMembershipSupportAction} className="flex flex-wrap gap-2"><input type="hidden" name="targetVillageId" value={villageId}/><input type="hidden" name="membershipId" value={item.id}/><select name="operation" className="rounded border px-2"><option value="SUSPEND">ระงับ</option><option value="ACTIVATE">เปิดใช้งาน</option><option value="RESIDENT">เปลี่ยนเป็น Resident</option></select><select name="houseId" className="rounded border px-2"><option value="">เลือกบ้านเมื่อเป็น Resident</option>{houses.map((house)=><option key={house.id} value={house.id}>{house.houseNumber}</option>)}</select><input name="reason" required minLength={5} placeholder="เหตุผล" className="rounded border px-2"/>{item.role === VillageMembershipRole.HEADMAN ? <label className="flex items-center gap-1 text-xs text-amber-700"><input type="checkbox" name="confirmVacant" value="true"/>ยืนยันการเปลี่ยน Headman</label> : null}<SupportSubmitButton villageName={village.name} className="rounded bg-slate-800 px-3 py-1 text-white">ดำเนินการ</SupportSubmitButton></form></div>)}</div></section>
-
-    <section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">คำขอผูกบ้านที่รอดำเนินการ</h2><div className="mt-3 space-y-3">{bindings.length === 0 ? <p className="text-sm text-slate-500">ไม่มีคำขอค้าง</p> : bindings.map((request) => { const houseNumber = request.house?.houseNumber ?? request.houseNumber ?? "ไม่ได้ระบุเลขบ้าน"; const proposed = !request.houseId; return <div key={request.id} className="rounded-lg border p-3"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-medium">{request.user.name} · บ้านเลขที่ {houseNumber}</p><span className={`rounded px-2 py-0.5 text-xs ${proposed ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"}`}>{proposed ? "เสนอเลขบ้านใหม่" : "เลือกบ้านจากทะเบียน"}</span></div>{proposed ? <p className="mt-1 text-xs text-amber-700">เลขบ้านนี้ยังไม่ใช่ Master Data จนกว่าจะตรวจสอบและจับคู่กับบ้านในทะเบียน</p> : null}<BindingReviewForm villageId={villageId} villageName={village.name} requestId={request.id} proposed={proposed} houses={houses} /></div>})}</div></section>
-
-    <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">ข่าวล่าสุด</h2>{news.length === 0 ? <p className="py-2 text-sm text-slate-500">ยังไม่มีข่าว</p> : news.map(item=><p key={item.id} className="border-b py-2 text-sm">{item.title} · {item.stage} · {item.visibility}</p>)}</section><section className="rounded-xl border bg-white p-4"><h2 className="font-semibold">Audit Log ของหมู่บ้าน</h2>{auditLogs.length === 0 ? <p className="py-2 text-sm text-slate-500">ยังไม่มี Audit Log</p> : auditLogs.map(log=><div key={log.id} className="border-b py-2 text-sm"><p>{log.action} · {log.resource} · {log.user?.name ?? "ระบบ"}</p><p className="text-xs text-slate-500">{log.createdAt.toLocaleString("th-TH")}</p></div>)}</section></div>
-  </div>;
+  redirect(`/superadmin/villages/${villageId}/overview`);
 }

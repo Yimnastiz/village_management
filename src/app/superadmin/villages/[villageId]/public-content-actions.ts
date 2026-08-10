@@ -30,6 +30,10 @@ function boolValue(formData: FormData, key: string) {
   return formData.get(key) === "on" || value(formData, key) === "true" || value(formData, key) === "PUBLIC";
 }
 
+function redirectWithSuccess(villageId: string, module: string, message: string): never {
+  redirect(`/superadmin/villages/${villageId}/${module}?success=${encodeURIComponent(message)}`);
+}
+
 async function superContext(villageId: string, formData: FormData) {
   const context = await requireSuperAdminVillageContext(villageId);
   return { ...context, supportReason: requireSupportReason(value(formData, "supportReason")) };
@@ -50,7 +54,7 @@ export async function superAdminSaveNewsAction(villageId: string, formData: Form
   };
   const result = newsId ? await updateNews(context, newsId, payload) : await createNews(context, payload);
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/news`);
+  redirectWithSuccess(villageId, "news", newsId ? "บันทึกการแก้ไขข่าวเรียบร้อยแล้ว" : "สร้างข่าวเรียบร้อยแล้ว");
 }
 
 export async function superAdminSetNewsStageAction(villageId: string, formData: FormData) {
@@ -70,14 +74,14 @@ export async function superAdminSetNewsStageAction(villageId: string, formData: 
     isPinned: existing.isPinned,
   });
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/news`);
+  redirectWithSuccess(villageId, "news", "เปลี่ยนสถานะข่าวเรียบร้อยแล้ว");
 }
 
 export async function superAdminDeleteNewsAction(villageId: string, formData: FormData) {
   const context = await superContext(villageId, formData);
   const result = await deleteNews(context, value(formData, "resourceId"));
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/news`);
+  redirectWithSuccess(villageId, "news", "ลบข่าวเรียบร้อยแล้ว");
 }
 
 export async function superAdminSaveContactAction(villageId: string, formData: FormData) {
@@ -95,14 +99,14 @@ export async function superAdminSaveContactAction(villageId: string, formData: F
   };
   const result = id ? await updateContact(context, id, payload) : await createContact(context, payload);
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/contacts`);
+  redirectWithSuccess(villageId, "contacts", id ? "บันทึกผู้ติดต่อเรียบร้อยแล้ว" : "เพิ่มผู้ติดต่อเรียบร้อยแล้ว");
 }
 
 export async function superAdminDeleteContactAction(villageId: string, formData: FormData) {
   const context = await superContext(villageId, formData);
   const result = await deleteContact(context, value(formData, "resourceId"));
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/contacts`);
+  redirectWithSuccess(villageId, "contacts", "ลบผู้ติดต่อเรียบร้อยแล้ว");
 }
 
 export async function superAdminSavePlaceAction(villageId: string, formData: FormData) {
@@ -123,14 +127,14 @@ export async function superAdminSavePlaceAction(villageId: string, formData: For
   };
   const result = id ? await updatePlace(context, id, payload) : await createPlace(context, payload);
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/places`);
+  redirectWithSuccess(villageId, "places", id ? "บันทึกสถานที่เรียบร้อยแล้ว" : "เพิ่มสถานที่เรียบร้อยแล้ว");
 }
 
 export async function superAdminDeletePlaceAction(villageId: string, formData: FormData) {
   const context = await superContext(villageId, formData);
   const result = await deletePlace(context, value(formData, "resourceId"));
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/places`);
+  redirectWithSuccess(villageId, "places", "ลบสถานที่เรียบร้อยแล้ว");
 }
 
 export async function superAdminSaveEventAction(villageId: string, formData: FormData) {
@@ -146,14 +150,14 @@ export async function superAdminSaveEventAction(villageId: string, formData: For
   };
   const result = id ? await updateEvent(context, id, payload) : await createEvent(context, payload);
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/calendar`);
+  redirectWithSuccess(villageId, "calendar", id ? "บันทึกกิจกรรมเรียบร้อยแล้ว" : "เพิ่มกิจกรรมเรียบร้อยแล้ว");
 }
 
 export async function superAdminDeleteEventAction(villageId: string, formData: FormData) {
   const context = await superContext(villageId, formData);
   const result = await deleteEvent(context, value(formData, "resourceId"));
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/calendar`);
+  redirectWithSuccess(villageId, "calendar", "ลบกิจกรรมเรียบร้อยแล้ว");
 }
 
 export async function superAdminSaveTransparencyAction(villageId: string, formData: FormData) {
@@ -173,12 +177,12 @@ export async function superAdminSaveTransparencyAction(villageId: string, formDa
   };
   const result = id ? await updateTransparency(context, id, payload) : await createTransparency(context, payload);
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/transparency`);
+  redirectWithSuccess(villageId, "transparency", id ? "บันทึกรายการเรียบร้อยแล้ว" : "เพิ่มรายการเรียบร้อยแล้ว");
 }
 
 export async function superAdminDeleteTransparencyAction(villageId: string, formData: FormData) {
   const context = await superContext(villageId, formData);
   const result = await deleteTransparency(context, value(formData, "resourceId"));
   if (!result.success) throw new Error(result.error);
-  redirect(`/superadmin/villages/${villageId}/transparency`);
+  redirectWithSuccess(villageId, "transparency", "ลบรายการเรียบร้อยแล้ว");
 }

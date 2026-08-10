@@ -8,7 +8,7 @@ import { FilterBar } from "@/components/ui/filter-bar";
 
 export function SupportNotice({ villageName }: { villageName: string }) {
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
       คุณกำลังดำเนินการแทนผู้ดูแลหมู่บ้าน ‘{villageName}’ การเปลี่ยนแปลงนี้จะถูกบันทึกใน Audit Log
     </div>
   );
@@ -28,7 +28,7 @@ export function PageHeader({
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <div className="mb-2"><Badge variant="warning">Super Admin Support Mode</Badge></div>
+        <div className="mb-2"><Badge variant="outline">โหมดช่วยเหลือ</Badge></div>
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
         <p className="text-sm text-slate-600">{description}</p>
       </div>
