@@ -360,19 +360,22 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
 
   if (latestResidentMembership) {
     if (latestResidentMembership.status === MembershipStatus.ACTIVE) {
-      return latestResidentMembership.houseId ? "/resident/dashboard" : "/resident/binding";
+      // An authenticated resident without a house can still use the dashboard
+      // to see binding guidance and public services. Binding remains an
+      // explicit action from that dashboard/menu, rather than a forced landing.
+      return "/resident/dashboard";
     }
 
     if (latestResidentMembership.status === MembershipStatus.PENDING) {
-      return "/resident/binding/pending?membershipStatus=PENDING";
+      return "/resident/dashboard";
     }
 
     if (latestResidentMembership.status === MembershipStatus.SUSPENDED) {
-      return "/resident/binding/pending?membershipStatus=SUSPENDED";
+      return "/resident/dashboard";
     }
 
     if (latestResidentMembership.status === MembershipStatus.REJECTED) {
-      return "/resident/binding/pending?membershipStatus=REJECTED";
+      return "/resident/dashboard";
     }
   }
 
@@ -385,14 +388,14 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
   });
 
   if (latestBindingRequest?.status === "PENDING") {
-    return "/resident/binding/pending";
+    return "/resident/dashboard";
   }
 
   if (latestBindingRequest?.status === "REJECTED") {
-    return "/resident/binding/pending?bindingStatus=REJECTED";
+    return "/resident/dashboard";
   }
 
-  return "/resident/binding";
+  return "/resident/dashboard";
 }
 
 export async function getResidentAreaAccessInfo(session: SessionContext): Promise<{ canAccess: boolean; redirectPath: string }> {
