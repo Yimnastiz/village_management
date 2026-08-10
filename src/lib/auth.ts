@@ -6,6 +6,7 @@ import { prisma } from "./prisma";
 const defaultBaseUrl = "http://localhost:3000";
 const appUrl = process.env.BETTER_AUTH_URL;
 const isProduction = process.env.NODE_ENV === "production";
+const localDevelopmentOrigins = ["http://localhost:*", "http://127.0.0.1:*"];
 const authSecret = process.env.BETTER_AUTH_SECRET;
 const shouldShowDevelopmentOtp =
   process.env.NODE_ENV === "development" &&
@@ -21,6 +22,43 @@ function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s-]/g, "");
 }
 
+function parseDevelopmentOrigins(value: string | undefined): string[] {
+  if (!value) return [];
+
+  return [...new Set(value.split(",").flatMap((entry) => {
+    const candidate = entry.trim();
+    if (!candidate) return [];
+
+    try {
+      const url = new URL(candidate);
+      const isOriginOnly =
+        (url.protocol === "http:" || url.protocol === "https:") &&
+        !url.username &&
+        !url.password &&
+        url.pathname === "/" &&
+        !url.search &&
+        !url.hash;
+      if (isOriginOnly) return [url.origin];
+    } catch {
+      // Invalid entries are ignored rather than weakening the origin policy.
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.warn(`[auth] Ignoring invalid BETTER_AUTH_DEV_ORIGINS entry: ${candidate}`);
+    }
+    return [];
+  }))];
+}
+
+const developmentTrustedOrigins = isProduction
+  ? []
+  : parseDevelopmentOrigins(process.env.BETTER_AUTH_DEV_ORIGINS);
+const developmentAllowedHosts = [
+  "localhost:*",
+  "127.0.0.1:*",
+  ...developmentTrustedOrigins.map((origin) => new URL(origin).host),
+];
+
 export const auth = betterAuth({
   // In development resolve the auth origin from each request so Next can move
   // between 3000/3001 and localhost/127.0.0.1. Production uses its configured
@@ -28,7 +66,7 @@ export const auth = betterAuth({
   baseURL: isProduction && appUrl
     ? appUrl
     : {
-        allowedHosts: ["localhost:*", "127.0.0.1:*"],
+        allowedHosts: developmentAllowedHosts,
         fallback: defaultBaseUrl,
       },
   secret: authSecret,
@@ -138,7 +176,7 @@ export const auth = betterAuth({
   trustedOrigins: [
     ...(isProduction
       ? appUrl ? [appUrl] : []
-      : ["http://localhost:*", "http://127.0.0.1:*"]),
+      : [...localDevelopmentOrigins, ...developmentTrustedOrigins]),
   ],
 });
 
