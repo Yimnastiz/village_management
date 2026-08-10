@@ -3,7 +3,7 @@
 import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
-import { clearLoginOtpState, signOutCurrentSession } from "@/lib/auth-client";
+import { clearLoginOtpState, SignOutError, signOutCurrentSession } from "@/lib/auth-client";
 
 type LogoutButtonProps = {
   mode?: "icon" | "menu";
@@ -19,10 +19,7 @@ export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
 
     setIsSigningOut(true);
     try {
-      const signedOut = await signOutCurrentSession();
-      if (!signedOut) {
-        throw new Error("Sign-out was not confirmed by the server.");
-      }
+      await signOutCurrentSession();
 
       clearLoginOtpState();
       // Navigation begins only after Better Auth has invalidated the session
@@ -32,6 +29,8 @@ export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
       if (process.env.NODE_ENV === "development") {
         console.error("[logout] sign-out failed", {
           errorName: error instanceof Error ? error.name : "UnknownError",
+          message: error instanceof Error ? error.message : String(error),
+          ...(error instanceof SignOutError ? error.details : {}),
         });
       }
       showError("ไม่สามารถออกจากระบบได้", "กรุณาลองอีกครั้ง");

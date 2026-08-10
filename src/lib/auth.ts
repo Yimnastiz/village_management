@@ -5,6 +5,7 @@ import { prisma } from "./prisma";
 
 const defaultBaseUrl = "http://localhost:3000";
 const appUrl = process.env.BETTER_AUTH_URL;
+const isProduction = process.env.NODE_ENV === "production";
 const authSecret = process.env.BETTER_AUTH_SECRET;
 const shouldShowDevelopmentOtp =
   process.env.NODE_ENV === "development" &&
@@ -21,7 +22,10 @@ function normalizePhoneNumber(raw: string): string {
 }
 
 export const auth = betterAuth({
-  baseURL: appUrl
+  // In development resolve the auth origin from each request so Next can move
+  // between 3000/3001 and localhost/127.0.0.1. Production uses its configured
+  // canonical URL.
+  baseURL: isProduction && appUrl
     ? appUrl
     : {
         allowedHosts: ["localhost:*", "127.0.0.1:*"],
@@ -132,9 +136,9 @@ export const auth = betterAuth({
     }),
   ],
   trustedOrigins: [
-    ...(appUrl ? [appUrl] : []),
-    "http://localhost:*",
-    "http://127.0.0.1:*",
+    ...(isProduction
+      ? appUrl ? [appUrl] : []
+      : ["http://localhost:*", "http://127.0.0.1:*"]),
   ],
 });
 

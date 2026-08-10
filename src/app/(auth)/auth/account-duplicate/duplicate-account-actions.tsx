@@ -14,9 +14,7 @@ export function DuplicateAccountActions() {
 
     setIsSigningOut(true);
     try {
-      if (!(await signOutCurrentSession())) {
-        throw new Error("Sign-out was not confirmed by the server.");
-      }
+      await signOutCurrentSession();
       clearLoginOtpState();
       window.location.replace("/auth/login");
     } catch {

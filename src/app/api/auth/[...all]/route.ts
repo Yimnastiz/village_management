@@ -1,16 +1,11 @@
 import { toNextJsHandler } from "better-auth/next-js";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { LEGACY_SESSION_COOKIE_NAMES, readNamedSessionCookiesFromHeader } from "@/lib/session-cookie";
-import { prisma } from "@/lib/prisma";
+import { LEGACY_SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
 
 const handlers = toNextJsHandler(auth);
 
 export const GET = handlers.GET;
-
-function getRawSessionToken(token: string) {
-  return token.split(".", 1)[0];
-}
 
 function expireLegacySessionCookies(response: Response) {
   for (const name of LEGACY_SESSION_COOKIE_NAMES) {
@@ -31,22 +26,9 @@ export async function POST(request: NextRequest) {
     return handlers.POST(request);
   }
 
-  // Better Auth owns current-session invalidation. These records/cookies are
-  // only for safe migration from the legacy cookie name our access layer used.
-  const legacyTokens = readNamedSessionCookiesFromHeader(
-    request.headers.get("cookie"),
-    LEGACY_SESSION_COOKIE_NAMES
-  ).map(getRawSessionToken);
-
-  try {
-    if (legacyTokens.length > 0) {
-      await prisma.authSession.deleteMany({ where: { token: { in: legacyTokens } } });
-    }
-  } catch {
-    return NextResponse.json({ error: "Unable to sign out." }, { status: 500 });
-  }
-
+  // Better Auth remains the only owner of current-session invalidation.
   const response = await handlers.POST(request);
+  // Prevent an old compatibility cookie from reviving a migrated session.
   expireLegacySessionCookies(response);
   return response;
 }
