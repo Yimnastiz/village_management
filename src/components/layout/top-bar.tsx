@@ -253,7 +253,9 @@ export function TopBar({
             </div>
             <nav className="space-y-1 p-3">
               {mobileNavItems.map((item) => {
-                const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                const isActive = userArea === "admin"
+                  ? item.href === [...adminMenuItems].filter((candidate) => pathname === candidate.href || pathname.startsWith(candidate.href + "/")).sort((left, right) => right.href.length - left.href.length)[0]?.href
+                  : pathname === item.href || pathname.startsWith(item.href + "/");
                 const showUnread = item.href === notificationsHref && unreadNotificationCount > 0;
 
                 return (

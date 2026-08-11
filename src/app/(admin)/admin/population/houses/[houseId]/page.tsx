@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, OCCUPANCY_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
+import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
@@ -67,13 +67,10 @@ export default async function Page({ params }: PageProps) {
         </Link>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white p-5">
-          <p className="text-xs text-gray-500">สถานะการอยู่อาศัย</p>
-          <div className="mt-2">
-            <Badge variant="outline">{OCCUPANCY_STATUS_LABELS[house.occupancyStatus]}</Badge>
-          </div>
-          <p className="mt-3 text-xs text-gray-500">โซน: {house.zone?.name ?? "-"}</p>
+          <p className="text-xs text-gray-500">โซน</p>
+          <p className="mt-2 font-medium text-gray-900">{house.zone?.name ?? "-"}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-5">
           <p className="text-xs text-gray-500">จำนวนข้อมูลบุคคล</p>

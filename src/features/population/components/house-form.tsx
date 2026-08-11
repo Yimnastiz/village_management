@@ -3,11 +3,10 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 
 type Result = { success: true; id?: string; message: string } | { success: false; error: string };
-type Props = { action: (formData: FormData) => Promise<Result>; mode?: "create" | "edit"; defaults?: { houseNumber: string; address: string; occupancyStatus: string; reason: string }; onSuccess?: (id?: string) => void };
+type Props = { action: (formData: FormData) => Promise<Result>; mode?: "create" | "edit"; defaults?: { houseNumber: string; address: string; reason: string }; onSuccess?: (id?: string) => void };
 
 export function HouseForm({ action, mode = "create", defaults, onSuccess }: Props) {
   const toast = useToast();
@@ -30,10 +29,7 @@ export function HouseForm({ action, mode = "create", defaults, onSuccess }: Prop
       onSuccess?.(result.id);
     });
   }}>
-    <div className="grid gap-4 md:grid-cols-2">
-      <Input name="houseNumber" label="บ้านเลขที่" required maxLength={50} defaultValue={defaults?.houseNumber} placeholder="เช่น 99/1" />
-      <Select name="occupancyStatus" label="สถานะบ้าน" defaultValue={defaults?.occupancyStatus ?? "OCCUPIED"} options={[{value:"OCCUPIED",label:"มีผู้อยู่อาศัย"},{value:"VACANT",label:"ว่าง"},{value:"UNDER_CONSTRUCTION",label:"กำลังก่อสร้าง"},{value:"DEMOLISHED",label:"รื้อถอนแล้ว"}]} />
-    </div>
+    <Input name="houseNumber" label="บ้านเลขที่" required maxLength={50} defaultValue={defaults?.houseNumber} placeholder="เช่น 99/1" />
     <Input name="address" label="ที่อยู่เพิ่มเติม" defaultValue={defaults?.address} maxLength={300} />
     <Input name="reason" label="เหตุผล/หมายเหตุการช่วยเหลือ" defaultValue={defaults?.reason} maxLength={300} helperText="ข้อความนี้จะถูกบันทึกใน Audit Log" />
     {error ? <p className="text-sm text-rose-600">{error}</p> : null}

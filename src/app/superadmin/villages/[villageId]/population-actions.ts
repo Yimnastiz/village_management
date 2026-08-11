@@ -31,7 +31,7 @@ function refresh(villageId: string, resource: "houses" | "people", id?: string) 
 export async function createSuperAdminHouseAction(villageId: string, formData: FormData): Promise<PopulationActionResult> {
   const actor = await requireSuperAdminActionSession();
   try {
-    const row = await createVillageHouse(villageId, { houseNumber: String(formData.get("houseNumber") ?? ""), address: String(formData.get("address") ?? ""), occupancyStatus: String(formData.get("occupancyStatus") ?? "OCCUPIED"), sourceNote: String(formData.get("reason") ?? "") }, { id: actor.id, role: "SUPERADMIN" });
+    const row = await createVillageHouse(villageId, { houseNumber: String(formData.get("houseNumber") ?? ""), address: String(formData.get("address") ?? ""), sourceNote: String(formData.get("reason") ?? "") }, { id: actor.id, role: "SUPERADMIN" });
     refresh(villageId, "houses", row.id);
     return { success: true, id: row.id, message: "เพิ่มบ้านสำเร็จ" };
   } catch (error) { return { success: false, error: message(error) }; }
@@ -40,7 +40,7 @@ export async function createSuperAdminHouseAction(villageId: string, formData: F
 export async function updateSuperAdminHouseAction(villageId: string, houseId: string, formData: FormData): Promise<PopulationActionResult> {
   const actor = await requireSuperAdminActionSession();
   try {
-    const result = await updateVillageHouse(villageId, houseId, { houseNumber: String(formData.get("houseNumber") ?? ""), address: String(formData.get("address") ?? ""), occupancyStatus: String(formData.get("occupancyStatus") ?? "OCCUPIED"), sourceNote: String(formData.get("reason") ?? "") }, { id: actor.id, role: "SUPERADMIN" });
+    const result = await updateVillageHouse(villageId, houseId, { houseNumber: String(formData.get("houseNumber") ?? ""), address: String(formData.get("address") ?? ""), sourceNote: String(formData.get("reason") ?? "") }, { id: actor.id, role: "SUPERADMIN" });
     refresh(villageId, "houses", houseId);
     return { success: true, message: result.statusChanged ? "เปลี่ยนสถานะบ้านสำเร็จ" : "แก้ไขบ้านสำเร็จ" };
   } catch (error) { return { success: false, error: message(error) }; }

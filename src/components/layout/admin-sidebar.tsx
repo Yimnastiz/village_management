@@ -39,8 +39,10 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
   { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
   { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
-  { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: Users },
-  { href: "/admin/population#binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardList },
+  { href: "/admin/population", label: "ภาพรวมทะเบียนครัวเรือน", icon: Users },
+  { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: Users },
+  { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users },
+  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardList },
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: Upload },
   { href: "/admin/transparency", label: "ความโปร่งใส", icon: Eye },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: Download },
@@ -48,6 +50,11 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
   { href: "/admin/security", label: "ความปลอดภัย", icon: Shield },
 ];
+
+const populationMenuItems = adminMenuItems.filter((item) => item.href.startsWith("/admin/population"));
+const primaryMenuItems = adminMenuItems.filter((item) => !item.href.startsWith("/admin/population"));
+const isItemActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+const getActiveHref = (pathname: string) => [...adminMenuItems].filter((item) => isItemActive(pathname, item.href)).sort((left, right) => right.href.length - left.href.length)[0]?.href;
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -71,8 +78,8 @@ export function AdminSidebar() {
         </div>
       </div>
       <nav className={cn("sidebar-scroll flex-1 space-y-1 overflow-y-auto", collapsed ? "p-3" : "p-4")}>
-        {adminMenuItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+        {primaryMenuItems.map((item) => {
+          const isActive = getActiveHref(pathname) === item.href;
           return (
             <SidebarTooltip key={item.href} label={item.label} disabled={!collapsed}><Link
               href={item.href}
@@ -89,6 +96,13 @@ export function AdminSidebar() {
             </Link></SidebarTooltip>
           );
         })}
+        <div className={cn("mt-4 border-t border-gray-800 pt-3", collapsed ? "" : "") }>
+          {!collapsed ? <p className="px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">ทะเบียนครัวเรือน</p> : null}
+          {populationMenuItems.map((item) => {
+            const isActive = getActiveHref(pathname) === item.href;
+            return <SidebarTooltip key={item.href} label={`ทะเบียนครัวเรือน · ${item.label}`} disabled={!collapsed}><Link href={item.href} aria-label={item.label} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", isActive ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}><item.icon className="h-4 w-4 flex-shrink-0" /><span className={collapsed ? "sr-only" : ""}>{item.label}</span></Link></SidebarTooltip>;
+          })}
+        </div>
       </nav>
     </aside>
   );

@@ -188,7 +188,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
   if (!requestId || typeof requestId !== "string") return { success: false, message: "ไม่พบรหัสคำขอ" };
   if (!action || (action !== "approve" && action !== "reject")) return { success: false, message: "ประเภทการดำเนินการไม่ถูกต้อง" };
-  if (reviewNote.length < 5) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  if (action === "reject" && reviewNote.length < 1) return { success: false, message: "กรุณาระบุเหตุผลการปฏิเสธ" };
 
   const binding = await prisma.bindingRequest.findUnique({
     where: { id: requestId },
@@ -372,6 +372,8 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; throw error; }
 
   revalidatePath("/admin/population");
+  revalidatePath("/admin/population/binding-requests");
+  revalidatePath(`/admin/population/binding-requests/${requestId}`);
   return {
     success: true,
     message: action === "approve"
@@ -620,6 +622,8 @@ export async function revertOrUpdateBindingAction(formData: FormData) {
   }
 
   revalidatePath("/admin/population");
+  revalidatePath("/admin/population/binding-requests");
+  revalidatePath(`/admin/population/binding-requests/${requestId}`);
 }
 
 export async function verifyHouseForBindingAction(_previousState: BindingReviewActionState, formData: FormData): Promise<BindingReviewActionState> {
@@ -661,7 +665,6 @@ type PageProps = {
 };
 
 export default async function Page({ searchParams }: PageProps) {
-  const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
   if (!session) {
     redirect("/auth/login?callbackUrl=/admin/population");
@@ -671,11 +674,60 @@ export default async function Page({ searchParams }: PageProps) {
     redirect(computeLandingPath(session));
   }
 
-  const villageIds = session.memberships
+  // This route is deliberately an overview.  Binding review and house management
+  // have their own routes so a review cannot be confused with household data.
+  const manageableVillageIds = session.memberships
+    .filter((membership) => membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role))
+    .map((membership) => membership.villageId);
+  const overviewWhere = session.systemRole === SystemRole.SUPERADMIN ? {} : { villageId: { in: manageableVillageIds } };
+  const [overviewHouses, overviewPeople, overviewBoundMembers, overviewPendingBindings] = await Promise.all([
+    prisma.house.count({ where: overviewWhere }),
+    prisma.person.count({ where: overviewWhere }),
+    prisma.villageMembership.count({ where: { ...overviewWhere, status: MembershipStatus.ACTIVE, houseId: { not: null } } }),
+    prisma.bindingRequest.count({ where: { ...overviewWhere, status: BindingRequestStatus.PENDING } }),
+  ]);
+
+  const stats = [
+    ["บ้านทั้งหมด", overviewHouses],
+    ["ประชากรทั้งหมด", overviewPeople],
+    ["สมาชิกที่ผูกบ้านแล้ว", overviewBoundMembers],
+    ["คำขอผูกบ้านรอพิจารณา", overviewPendingBindings],
+  ] as const;
+  const modules = [
+    { title: "ทะเบียนบ้าน", description: "ดู เพิ่ม และจัดการบ้านเลขที่", href: "/admin/population/houses", action: "เปิดทะเบียนบ้าน" },
+    { title: "ทะเบียนประชากร", description: "ดู เพิ่ม และแก้ไขข้อมูลประชากร", href: "/admin/population/people", action: "เปิดทะเบียนประชากร" },
+    { title: "คำขอผูกเลขบ้าน", description: "ตรวจสอบคำขอจากลูกบ้าน", href: "/admin/population/binding-requests", action: overviewPendingBindings ? `${overviewPendingBindings.toLocaleString("th-TH")} รายการรอพิจารณา` : "ตรวจสอบคำขอ" },
+    { title: "นำเข้า/ส่งออก", description: "จัดการข้อมูลจำนวนมาก", href: "/admin/population/import", action: "จัดการข้อมูล" },
+  ] as const;
+
+  return <div className="space-y-6">
+    <header>
+      <h1 className="text-2xl font-bold tracking-tight text-gray-900">ทะเบียนครัวเรือน</h1>
+      <p className="mt-1 text-sm text-gray-500">ภาพรวมข้อมูลบ้าน ประชากร และการผูกบัญชีของหมู่บ้าน</p>
+    </header>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      {stats.map(([label, value]) => <div key={label} className="rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+        <p className="text-sm text-gray-500">{label}</p>
+        <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{value.toLocaleString("th-TH")}</p>
+      </div>)}
+    </section>
+    <section className="grid gap-3 md:grid-cols-2">
+      {modules.map((module) => <Link key={module.href} href={module.href} className="group flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white px-4 py-4 transition hover:border-gray-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600">
+        <div className="min-w-0"><h2 className="font-semibold text-gray-900">{module.title}</h2><p className="mt-1 text-sm text-gray-500">{module.description}</p></div>
+        <span className="shrink-0 text-sm font-medium text-blue-700 group-hover:text-blue-800">{module.action} →</span>
+      </Link>)}
+    </section>
+  </div>;
+
+  /* Legacy presentation below is intentionally unreachable while its server
+     actions remain here for compatibility with the detail workflow. */
+  const params = (searchParams ? await searchParams : {}) ?? {};
+
+  const villageIds = session!.memberships
     .filter((m) => ADMIN_MEMBERSHIP_ROLES.has(m.role))
     .map((m) => m.villageId);
 
-  const isSuperAdmin = session.systemRole === SystemRole.SUPERADMIN;
+  const isSuperAdmin = session!.systemRole === SystemRole.SUPERADMIN;
   const houseKeyword = params.q?.trim() ?? "";
   const historyKeyword = params.historyQ?.trim() ?? "";
   const activeOccupancy = params.occupancy ?? "ALL";
@@ -934,7 +986,7 @@ export default async function Page({ searchParams }: PageProps) {
                     </li>)}
                   </ul>
                 </div> : null}
-                {session.memberships.some((membership) =>
+                {session!.memberships.some((membership) =>
                   membership.villageId === request.villageId &&
                   membership.status === MembershipStatus.ACTIVE &&
                   (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN)
