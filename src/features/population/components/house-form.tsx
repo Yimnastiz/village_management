@@ -14,8 +14,21 @@ export function HouseForm({ action, mode = "create", defaults, onSuccess }: Prop
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   return <form className="grid gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5" onSubmit={(event) => {
-    event.preventDefault(); setError(""); const formData = new FormData(event.currentTarget);
-    startTransition(async () => { const result = await action(formData); if (!result.success) { setError(result.error); toast.error(mode === "create" ? "เพิ่มบ้านไม่สำเร็จ" : "แก้ไขบ้านไม่สำเร็จ", result.error); return; } toast.success(result.message); if (mode === "create") event.currentTarget.reset(); onSuccess?.(result.id); });
+    event.preventDefault();
+    setError("");
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    startTransition(async () => {
+      const result = await action(formData);
+      if (!result.success) {
+        setError(result.error);
+        toast.error(mode === "create" ? "เพิ่มบ้านไม่สำเร็จ" : "แก้ไขบ้านไม่สำเร็จ", result.error);
+        return;
+      }
+      toast.success(result.message);
+      if (mode === "create") form.reset();
+      onSuccess?.(result.id);
+    });
   }}>
     <div className="grid gap-4 md:grid-cols-2">
       <Input name="houseNumber" label="บ้านเลขที่" required maxLength={50} defaultValue={defaults?.houseNumber} placeholder="เช่น 99/1" />
