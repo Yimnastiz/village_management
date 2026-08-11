@@ -2,7 +2,7 @@
 
 import { AuditAction, MembershipStatus, PopulationImportStage, Prisma, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { applyStoredImportRow, type StoredImportRow } from "../actions";
 
@@ -28,9 +28,9 @@ function parsePayload(value: unknown): ImportJobDetailsPayload {
   return {};
 }
 
-async function requireImportJobForAdmin(jobId: string) {
+async function requireImportJobForAdmin(jobId: string, targetVillageId = "") {
   const session = await getSessionContextFromServerCookies();
-  if (!session?.id || !isAdminUser(session)) {
+  if (!session?.id || (!isAdminUser(session) && !isSuperAdminUser(session))) {
     throw new Error("ไม่มีสิทธิ์ใช้งาน");
   }
 
@@ -39,14 +39,15 @@ async function requireImportJobForAdmin(jobId: string) {
       membership.status === MembershipStatus.ACTIVE &&
       ADMIN_MEMBERSHIP_ROLES.has(membership.role),
   );
-  if (!adminMembership) {
+  const villageId = isSuperAdminUser(session) ? targetVillageId : adminMembership?.villageId;
+  if (!villageId) {
     throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");
   }
 
   const job = await prisma.populationImportJob.findFirst({
     where: {
       id: jobId,
-      villageId: adminMembership.villageId,
+      villageId,
     },
     select: {
       id: true,
@@ -79,8 +80,9 @@ async function requireImportJobForAdmin(jobId: string) {
 export async function confirmPopulationImportAction(formData: FormData) {
   const jobId = typeof formData.get("jobId") === "string" ? formData.get("jobId")!.toString().trim() : "";
   const reason = typeof formData.get("supportReason") === "string" ? formData.get("supportReason")!.toString().trim() : "";
+  const targetVillageId = typeof formData.get("targetVillageId") === "string" ? formData.get("targetVillageId")!.toString().trim() : "";
   if (!jobId || reason.length < 5) throw new Error("กรุณาระบุงานและเหตุผลการยืนยันอย่างน้อย 5 ตัวอักษร");
-  const access = await requireImportJobForAdmin(jobId);
+  const access = await requireImportJobForAdmin(jobId, targetVillageId);
   if (access.stage !== PopulationImportStage.PENDING) throw new Error("งานนี้ถูกยืนยันหรือดำเนินการไปแล้ว");
   const claimed = await prisma.populationImportJob.updateMany({ where: { id: jobId, villageId: access.villageId, stage: PopulationImportStage.PENDING }, data: { stage: PopulationImportStage.PROCESSING, confirmedBy: access.userId, confirmedAt: new Date(), supportReason: reason } });
   if (claimed.count !== 1) throw new Error("งานนี้ถูกยืนยันไปแล้ว กรุณารีเฟรชหน้า");
@@ -104,13 +106,20 @@ export async function confirmPopulationImportAction(formData: FormData) {
     }
     const stage = failedRows > 0 ? PopulationImportStage.PARTIAL : PopulationImportStage.COMPLETED;
     await tx.populationImportJob.update({ where: { id: jobId }, data: { stage, importedRows, failedRows, completedAt: new Date(), errors: { ...access.payload, createdPersonIds, createdHouseIds } } });
-    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, fileName: access.fileName, supportReason: reason } } });
-    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
+    const actorRole = targetVillageId ? "SUPERADMIN" : "ADMIN";
+    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, supportReason: reason } } });
+    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
   });
   revalidatePath(`/admin/population/import/${jobId}`);
   revalidatePath("/admin/population/import");
   revalidatePath("/admin/population/houses");
   revalidatePath("/admin/population/people");
+  if (targetVillageId) {
+    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import`);
+    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import/${jobId}`);
+    revalidatePath(`/superadmin/villages/${targetVillageId}/houses`);
+    revalidatePath(`/superadmin/villages/${targetVillageId}/people`);
+  }
 }
 
 async function cleanupImportedHouses(villageId: string, houseIds: string[], jobCreatedAt: Date, tx: Prisma.TransactionClient) {

@@ -13,7 +13,7 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
@@ -32,6 +32,12 @@ const MAX_IMPORT_ERRORS = 50;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_IMPORT_ROWS = 10_000;
 const MAX_IMPORT_COLUMNS = 40;
+
+function requestedActorRole(formData: FormData) {
+  return typeof formData.get("targetVillageId") === "string" && String(formData.get("targetVillageId")).trim()
+    ? "SUPERADMIN"
+    : "ADMIN";
+}
 
 type CanonicalColumnKey =
   | "house_number"
@@ -501,24 +507,26 @@ function buildImportJobDetailsPayload(params: {
   };
 }
 
-async function getAdminVillageContext(): Promise<AdminVillageContext> {
+async function getAdminVillageContext(formData?: FormData): Promise<AdminVillageContext> {
   const session = await getSessionContextFromServerCookies();
-  if (!session?.id || !isAdminUser(session)) {
+  if (!session?.id || (!isAdminUser(session) && !isSuperAdminUser(session))) {
     throw new Error("ไม่มีสิทธิ์ใช้งานหน้านี้");
   }
 
+  const requestedVillageId = typeof formData?.get("targetVillageId") === "string" ? String(formData.get("targetVillageId")).trim() : "";
   const adminMembership = session.memberships.find(
     (membership) =>
       membership.status === MembershipStatus.ACTIVE &&
       ADMIN_MEMBERSHIP_ROLES.has(membership.role),
   );
 
-  if (!adminMembership) {
+  const targetVillageId = isSuperAdminUser(session) ? requestedVillageId : adminMembership?.villageId;
+  if (!targetVillageId) {
     throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");
   }
 
   const village = await prisma.village.findUnique({
-    where: { id: adminMembership.villageId },
+    where: { id: targetVillageId },
     select: {
       id: true,
       name: true,
@@ -877,7 +885,7 @@ export async function importPopulationWorkbookAction(
   let jobId: string | null = null;
 
   try {
-    const ctx = await getAdminVillageContext();
+    const ctx = await getAdminVillageContext(formData);
     const fileEntry = formData.get("importFile");
 
     if (!(fileEntry instanceof File) || fileEntry.size === 0) {
@@ -914,7 +922,7 @@ export async function importPopulationWorkbookAction(
       select: { id: true },
     });
     jobId = job.id;
-    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, fileName: fileEntry.name } } });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: requestedActorRole(formData), jobId, fileName: fileEntry.name } } });
 
     const buffer = Buffer.from(await fileEntry.arrayBuffer());
     const isCsv = /\.csv$/i.test(fileEntry.name);
@@ -971,7 +979,7 @@ export async function importPopulationWorkbookAction(
         errors: buildImportJobDetailsPayload({ rows: spreadsheetRows, sourceHeaders, errors: previewErrors, rowDetails: preview.details }),
       },
     });
-    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: requestedActorRole(formData), jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
     revalidatePath("/admin/population/import");
     return { success: true, message: `ตรวจสอบไฟล์แล้ว กรุณาเปิดงาน ${jobId} เพื่อดู Preview และยืนยัน`, summary: { fileName: fileEntry.name, totalRows: spreadsheetRows.length, importedRows: 0, failedRows: preview.failedRows + preview.conflictRows, stage: PopulationImportStage.PENDING }, errors: previewErrors };
 

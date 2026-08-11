@@ -1,16 +1,21 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { importPopulationWorkbookAction, type ImportActionState } from "./actions";
+import { useToast } from "@/components/ui/toast";
 
-export function PopulationImportForm() {
+export function PopulationImportForm({ targetVillageId, templateHref = "/api/admin/population/import-template", importAction = importPopulationWorkbookAction }: { targetVillageId?: string; templateHref?: string; importAction?: typeof importPopulationWorkbookAction }) {
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ImportActionState | null, FormData>(
-    importPopulationWorkbookAction,
+    importAction,
     null,
   );
+  const toast = useToast();
+  // The branches intentionally dispatch different toast side effects.
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+  useEffect(() => { if (!state) return; state.success ? toast.success("ตรวจสอบไฟล์สำเร็จ", state.message) : toast.error("ไฟล์ไม่ถูกต้อง", state.message); }, [state, toast]);
 
   return (
     <div className="space-y-4">
@@ -43,6 +48,7 @@ export function PopulationImportForm() {
       )}
 
       <form action={formAction} className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
+        {targetVillageId ? <input type="hidden" name="targetVillageId" value={targetVillageId} /> : null}
         <div>
           <label
             htmlFor="population-import-file"
@@ -76,7 +82,7 @@ export function PopulationImportForm() {
             นำเข้าข้อมูล
           </Button>
           <a
-            href="/api/admin/population/import-template"
+            href={templateHref}
             download
             className="inline-flex items-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
           >

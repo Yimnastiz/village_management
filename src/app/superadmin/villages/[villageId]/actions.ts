@@ -96,7 +96,17 @@ export async function reviewBindingSupportAction(
   return { success: true, message: decision === "APPROVE" ? "อนุมัติคำขอและผูกสมาชิกเรียบร้อยแล้ว" : "ปฏิเสธคำขอเรียบร้อยแล้ว" };
 }
 
+export async function reviewBindingForWorkspaceAction(
+  targetVillageId: string,
+  previousState: BindingReviewActionState,
+  formData: FormData,
+): Promise<BindingReviewActionState> {
+  formData.set("targetVillageId", targetVillageId);
+  return reviewBindingSupportAction(previousState, formData);
+}
+
 export async function setVillageAdminSupportAction(formData: FormData) {
+  // Kept below the village-bound binding wrapper so workspace routes never trust a hidden village id.
   const actor = await requireSuperAdminActionSession();
   const targetVillageId = value(formData, "targetVillageId"); const userId = value(formData, "userId"); const role = value(formData, "role") as VillageMembershipRole; const reason = requireReason(formData);
   await requireVillage(targetVillageId);
