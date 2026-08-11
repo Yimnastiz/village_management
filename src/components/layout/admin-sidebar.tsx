@@ -57,15 +57,16 @@ export const adminMenuItems: AdminMenuItem[] = [
 ];
 
 const populationMenuItems = adminMenuItems.filter((item) => item.href.startsWith("/admin/population/") && item.href !== "/admin/population");
-const primaryMenuItems = adminMenuItems.filter((item) => !item.href.startsWith("/admin/population"));
+const primaryMenuItems = adminMenuItems.filter((item) => !item.href.startsWith("/admin/population/"));
 const isItemActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 const getActiveHref = (pathname: string) => [...adminMenuItems].filter((item) => isItemActive(pathname, item.href)).sort((left, right) => right.href.length - left.href.length)[0]?.href;
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [populationOpen, setPopulationOpen] = useState(true);
+  const [populationOpen, setPopulationOpen] = useState(false);
   const populationActive = pathname === "/admin/population" || pathname.startsWith("/admin/population/");
+  const populationOverviewActive = pathname === "/admin/population";
   useEffect(() => { if (populationActive) setPopulationOpen(true); }, [populationActive]);
   useEffect(() => { const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-admin-sidebar-collapsed") === "true")); return () => cancelAnimationFrame(frame); }, []);
   const toggle = () => setCollapsed((value) => { localStorage.setItem("village-admin-sidebar-collapsed", String(!value)); return !value; });
@@ -87,6 +88,9 @@ export function AdminSidebar() {
       </div>
       <nav className={cn("sidebar-scroll flex-1 space-y-1 overflow-y-auto", collapsed ? "p-3" : "p-4")}>
         {primaryMenuItems.map((item) => {
+          if (item.href === "/admin/population") {
+            return <div key={item.href} className="space-y-1"><div className="flex items-center"><SidebarTooltip label="ทะเบียนครัวเรือน" disabled={!collapsed}><Link href={item.href} aria-label="ทะเบียนครัวเรือน" className={cn("flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", populationOverviewActive ? "bg-gray-700 text-white" : populationActive ? "text-gray-200" : "text-gray-400 hover:bg-gray-800 hover:text-white")}><UsersRound className="h-4 w-4 shrink-0" /><span className={collapsed ? "sr-only" : ""}>ทะเบียนครัวเรือน</span></Link></SidebarTooltip>{!collapsed ? <button type="button" onClick={() => setPopulationOpen(value => !value)} aria-label={populationOpen ? "ย่อเมนูทะเบียนครัวเรือน" : "ขยายเมนูทะเบียนครัวเรือน"} aria-expanded={populationOpen} className="mr-1 rounded p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><ChevronRight className={cn("h-4 w-4 transition-transform duration-150", populationOpen ? "rotate-90" : "")} /></button> : null}</div>{!collapsed && <div className={cn("grid overflow-hidden transition-[grid-template-rows] duration-150", populationOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}><div className="min-h-0 space-y-1">{populationMenuItems.map((child) => { const active = getActiveHref(pathname) === child.href; return <Link key={child.href} href={child.href} className={cn("ml-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", active ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}><child.icon className="h-4 w-4 shrink-0" />{child.label}</Link>; })}</div></div>}</div>;
+          }
           const isActive = getActiveHref(pathname) === item.href;
           return (
             <SidebarTooltip key={item.href} label={item.label} disabled={!collapsed}><Link
@@ -104,13 +108,6 @@ export function AdminSidebar() {
             </Link></SidebarTooltip>
           );
         })}
-        <div className="mt-4 border-t border-gray-800 pt-3">
-          <div className="flex items-center"><SidebarTooltip label="ทะเบียนครัวเรือน" disabled={!collapsed}><Link href="/admin/population" aria-label="ทะเบียนครัวเรือน" className={cn("flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", populationActive ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}><UsersRound className="h-4 w-4 shrink-0" /><span className={collapsed ? "sr-only" : ""}>ทะเบียนครัวเรือน</span></Link></SidebarTooltip>{!collapsed ? <button type="button" onClick={() => setPopulationOpen(value => !value)} aria-label={populationOpen ? "ย่อเมนูทะเบียนครัวเรือน" : "ขยายเมนูทะเบียนครัวเรือน"} aria-expanded={populationOpen} className="mr-1 rounded p-2 text-gray-400 hover:bg-gray-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"><ChevronRight className={cn("h-4 w-4 transition-transform", populationOpen ? "rotate-90" : "")} /></button> : null}</div>
-          {(populationOpen || collapsed) && populationMenuItems.map((item) => {
-            const isActive = getActiveHref(pathname) === item.href;
-            return <SidebarTooltip key={item.href} label={`ทะเบียนครัวเรือน · ${item.label}`} disabled={!collapsed}><Link href={item.href} aria-label={item.label} className={cn("flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition-colors", collapsed ? "px-3" : "ml-4 px-3", isActive ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}><item.icon className="h-4 w-4 flex-shrink-0" /><span className={collapsed ? "sr-only" : ""}>{item.label}</span></Link></SidebarTooltip>;
-          })}
-        </div>
       </nav>
     </aside>
   );

@@ -31,10 +31,7 @@ export default async function Page({ searchParams }: PageProps) {
       villageId: membership.villageId,
       ...(keyword ? { OR: [{ houseNumber: { contains: keyword, mode: "insensitive" as const } }, { normalizedHouseNumber: { contains: keyword.replace(/\s+/g, ""), mode: "insensitive" as const } }] } : {}),
     },
-    include: {
-      zone: { select: { name: true } },
-      _count: { select: { persons: true, memberships: true } },
-    },
+    include: { _count: { select: { persons: true, memberships: true } } },
     orderBy: [{ houseNumber: "asc" }],
     take: 300,
   });
@@ -59,11 +56,10 @@ export default async function Page({ searchParams }: PageProps) {
       </form>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="overflow-x-auto"><table className="min-w-[640px] w-full text-sm">
+        <div className="overflow-x-auto"><table className="min-w-[560px] w-full text-sm">
           <thead className="bg-gray-50 text-left text-gray-600">
             <tr>
               <th className="px-4 py-3">บ้านเลขที่</th>
-              <th className="px-4 py-3">โซน</th>
               <th className="px-4 py-3">จำนวนคน</th>
               <th className="px-4 py-3">สมาชิกที่ผูก</th>
               <th className="px-4 py-3">การจัดการ</th>
@@ -73,7 +69,6 @@ export default async function Page({ searchParams }: PageProps) {
             {houses.map((house) => (
               <tr key={house.id} className="border-t border-gray-100">
                 <td className="px-4 py-3 font-medium text-gray-900">{house.houseNumber}</td>
-                <td className="px-4 py-3 text-gray-700">{house.zone?.name ?? "-"}</td>
                 <td className="px-4 py-3 text-gray-700">{house._count.persons.toLocaleString("th-TH")} คน</td>
                 <td className="px-4 py-3 text-gray-700">{house._count.memberships.toLocaleString("th-TH")} บัญชี</td>
                 <td className="px-4 py-3">
