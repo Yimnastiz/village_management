@@ -63,7 +63,8 @@ export function AdminSidebar() {
             <LayoutDashboard className="h-4 w-4 text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-white">ระบบผู้ดูแล</p>
+            <p className="text-sm font-semibold text-white">พื้นที่ผู้ใหญ่บ้าน</p>
+            <p className="text-xs text-gray-400">จัดการข้อมูลหมู่บ้าน</p>
           </div>
         </Link> : null}
           <button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} aria-expanded={!collapsed} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900">{collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}</button>

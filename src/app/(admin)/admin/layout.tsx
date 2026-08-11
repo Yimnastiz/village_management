@@ -9,6 +9,7 @@ import {
   getSessionContextFromServerCookies,
   isAdminUser,
 } from "@/lib/access-control";
+import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionContextFromServerCookies();
@@ -51,6 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
           villageName={villageName}
+          adminRoleLabel={MEMBERSHIP_ROLE_LABELS[adminMembership.role] ?? "ผู้ใหญ่บ้าน"}
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>

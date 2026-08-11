@@ -3,7 +3,6 @@ import {
   Newspaper,
   AlertCircle,
   Calendar,
-  Home,
   Bell,
 } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -80,7 +79,6 @@ export default async function AdminDashboard() {
     recentIssues,
     todayAppointments,
     recentNews,
-    activeEmergencyBroadcasts,
   ] = await Promise.all([
     prisma.villageMembership.count({
       where: {
@@ -178,22 +176,6 @@ export default async function AdminDashboard() {
         createdAt: true,
       },
     }),
-    prisma.emergencyBroadcast.findMany({
-      where: {
-        villageId: membership.villageId,
-        status: "ACTIVE",
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      take: 3,
-      select: {
-        id: true,
-        title: true,
-        type: true,
-        createdAt: true,
-      },
-    }),
   ]);
 
   return (
@@ -202,6 +184,7 @@ export default async function AdminDashboard() {
         villageName={villageName}
         userRole={userRole}
         userName={session.name}
+        area="admin"
       />
 
       <div>
@@ -341,13 +324,13 @@ export default async function AdminDashboard() {
 
         <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold text-gray-900">แจ้งเตือนและฉุกเฉิน</h2>
+            <h2 className="font-semibold text-gray-900">การแจ้งเตือน</h2>
             <Link href="/admin/notifications" className="text-sm text-green-600 hover:underline">
               ดูแจ้งเตือน
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="max-w-sm">
             <div className="rounded-lg border border-gray-200 px-4 py-3">
               <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
                 <Bell className="h-3.5 w-3.5" />
@@ -355,32 +338,7 @@ export default async function AdminDashboard() {
               </div>
               <p className="text-lg font-semibold text-gray-900">{unreadNotificationCount}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 px-4 py-3">
-              <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                <Home className="h-3.5 w-3.5" />
-                ประกาศฉุกเฉินที่ active
-              </div>
-              <p className="text-lg font-semibold text-gray-900">{activeEmergencyBroadcasts.length}</p>
-            </div>
           </div>
-
-          {activeEmergencyBroadcasts.length > 0 ? (
-            <div className="space-y-2">
-              {activeEmergencyBroadcasts.map((broadcast) => (
-                <div
-                  key={broadcast.id}
-                  className="rounded-lg border border-red-100 bg-red-50 px-3 py-2"
-                >
-                  <p className="text-sm font-medium text-red-800">{broadcast.title}</p>
-                  <p className="text-xs text-red-600 mt-0.5">
-                    {broadcast.type} • {formatThaiDateTime(broadcast.createdAt)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400 text-center py-2">ไม่มีประกาศฉุกเฉินที่กำลังใช้งาน</p>
-          )}
         </div>
       </div>
     </div>

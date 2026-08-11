@@ -2,9 +2,10 @@ interface WelcomeBannerProps {
   villageName: string;
   userRole: "resident" | "headman" | "admin" | "superadmin";
   userName?: string;
+  area?: "admin" | "resident";
 }
 
-export function WelcomeBanner({ villageName, userRole, userName }: WelcomeBannerProps) {
+export function WelcomeBanner({ villageName, userRole, userName, area }: WelcomeBannerProps) {
   const getWelcomeMessage = () => {
     switch (userRole) {
       case "headman":
@@ -26,7 +27,7 @@ export function WelcomeBanner({ villageName, userRole, userName }: WelcomeBanner
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-green-600 to-green-700 px-6 py-8 text-white shadow-lg sm:px-8 sm:py-10">
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r px-6 py-8 text-white shadow-lg sm:px-8 sm:py-10 ${area === "admin" ? "from-blue-700 to-blue-800" : "from-green-600 to-green-700"}`}>
       {/* Background pattern */}
       <div className="absolute inset-0 opacity-10">
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
@@ -42,7 +43,7 @@ export function WelcomeBanner({ villageName, userRole, userName }: WelcomeBanner
         <h1 className="text-2xl font-bold sm:text-3xl lg:text-4xl">
           {getWelcomeMessage()}
         </h1>
-        <p className="mt-2 text-green-100 sm:text-lg">
+        <p className={`mt-2 sm:text-lg ${area === "admin" ? "text-blue-100" : "text-green-100"}`}>
           {getSubMessage()}
         </p>
       </div>

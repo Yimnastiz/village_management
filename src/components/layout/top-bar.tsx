@@ -19,6 +19,7 @@ interface TopBarProps {
   userImageUrl?: string | null;
   unreadNotificationCount: number;
   villageName?: string | null;
+  adminRoleLabel?: string;
   residentNavigationState?: ResidentNavigationState;
 }
 
@@ -28,6 +29,7 @@ export function TopBar({
   userImageUrl,
   unreadNotificationCount,
   villageName,
+  adminRoleLabel = "ผู้ใหญ่บ้าน",
   residentNavigationState,
 }: TopBarProps) {
   const pathname = usePathname();
@@ -51,7 +53,7 @@ export function TopBar({
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
-  const adminVillageLabel = villageName?.trim() ? `แอดมินหมู่บ้าน ${villageName.trim()}` : "แอดมินหมู่บ้าน";
+  const adminVillageLabel = villageName?.trim() ? `ผู้ใหญ่บ้านหมู่บ้าน ${villageName.trim()}` : "ผู้ใหญ่บ้านหมู่บ้าน";
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
   const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
@@ -112,7 +114,7 @@ export function TopBar({
         </button>
         {isAdminArea ? (
           <div className="flex items-center gap-2">
-            <span className="max-w-[14rem] truncate rounded-full bg-green-500 px-2.5 py-1 text-sm font-semibold text-white md:max-w-none">
+            <span className="max-w-[14rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-sm font-semibold text-white md:max-w-none">
               {adminVillageLabel}
             </span>
           </div>
@@ -189,7 +191,7 @@ export function TopBar({
                   </span>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">ผู้ดูแลระบบ</p>
+                <p className="text-xs text-gray-500">{adminRoleLabel}</p>
               )}
             </div>
             <div className="my-1 h-px bg-gray-100" />
@@ -229,10 +231,10 @@ export function TopBar({
                   "text-sm font-semibold",
                   isAdminArea ? "text-white" : "text-gray-900"
                 )}>
-                  {userArea === "resident" ? "เมนูลูกบ้าน" : "เมนูผู้ดูแล"}
+                  {userArea === "resident" ? "เมนูลูกบ้าน" : "เมนูผู้ใหญ่บ้าน"}
                 </p>
                 {isAdminArea ? (
-                  <span className="rounded-full bg-green-500 px-2 py-0.5 text-[11px] font-semibold text-white">{adminVillageLabel}</span>
+                  <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[11px] font-semibold text-white">{adminVillageLabel}</span>
                 ) : null}
               </div>
               <button
