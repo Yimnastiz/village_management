@@ -53,7 +53,7 @@ export function TopBar({
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
-  const adminVillageLabel = villageName?.trim() ? `ผู้ใหญ่บ้านหมู่บ้าน ${villageName.trim()}` : "ผู้ใหญ่บ้านหมู่บ้าน";
+  const adminVillageLabel = villageName?.trim() ? `ผู้ใหญ่บ้าน ${villageName.trim()}` : "ผู้ใหญ่บ้าน";
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
   const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);

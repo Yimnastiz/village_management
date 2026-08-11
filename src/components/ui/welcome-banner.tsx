@@ -9,11 +9,11 @@ export function WelcomeBanner({ villageName, userRole, userName, area }: Welcome
   const getWelcomeMessage = () => {
     switch (userRole) {
       case "headman":
-        return `ยินดีต้อนรับผู้ใหญ่บ้านหมู่บ้าน ${villageName}`;
+        return `ยินดีต้อนรับผู้ใหญ่บ้าน ${villageName}`;
       case "admin":
-        return `ยินดีต้อนรับผู้ดูแลระบบหมู่บ้าน ${villageName}`;
+        return `ยินดีต้อนรับผู้ดูแลระบบ ${villageName}`;
       case "superadmin":
-        return `ยินดีต้อนรับซูเปอร์แอดมินหมู่บ้าน ${villageName}`;
+        return `ยินดีต้อนรับซูเปอร์แอดมิน ${villageName}`;
       default:
         return `ยินดีต้อนรับเข้าสู่หมู่บ้าน ${villageName}`;
     }
