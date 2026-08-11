@@ -3,6 +3,7 @@ import { NotificationStatus } from "@prisma/client";
 import { ResidentSidebar } from "@/components/layout/resident-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
+import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import {
   getAuthenticatedAccessRedirectPath,
   getResidentMembership,
@@ -38,7 +39,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
       select: {
         name: true,
         image: true,
-        registrationVillage: { select: { slug: true, name: true } },
+        registrationVillage: { select: { id: true, slug: true, name: true, moo: true, province: true, district: true, subdistrict: true } },
       },
     }),
     prisma.notification.count({
@@ -50,7 +51,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     residentMembership
       ? prisma.village.findUnique({
           where: { id: residentMembership.villageId },
-          select: { name: true, slug: true },
+          select: { id: true, name: true, slug: true, moo: true, province: true, district: true, subdistrict: true },
         })
       : Promise.resolve(null),
   ]);
@@ -58,6 +59,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   const publicVillage = residentMembership
     ? villageProfile
     : userProfile?.registrationVillage ?? null;
+  const villageDisplayName = publicVillage ? await getVillageDisplayName(publicVillage) : null;
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
     bindingRequestHref:
@@ -81,7 +83,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           userName={userProfile?.name || session.name}
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
-          villageName={publicVillage?.name ?? null}
+          villageName={villageDisplayName}
           residentNavigationState={residentNavigationState}
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>

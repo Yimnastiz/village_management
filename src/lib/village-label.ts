@@ -3,6 +3,7 @@ function normalizedMoo(moo: string | number | null | undefined): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+
 export function formatVillageLabel(name: string, moo?: string | number | null): string {
   const parsedMoo = normalizedMoo(moo);
   return parsedMoo ? `${name} หมู่ ${parsedMoo}` : name;

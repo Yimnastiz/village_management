@@ -114,13 +114,13 @@ export function TopBar({
         </button>
         {isAdminArea ? (
           <div className="flex items-center gap-2">
-            <span className="max-w-[14rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-sm font-semibold text-white md:max-w-none">
+            <span title={adminVillageLabel} className="max-w-[14rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-sm font-semibold text-white md:max-w-none">
               {adminVillageLabel}
             </span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-gray-800">
+            <p title={residentVillageLabel} className="max-w-[14rem] truncate text-sm font-semibold text-gray-800 md:max-w-none">
               {residentVillageLabel}
             </p>
             {isResidentGuest && (
@@ -234,7 +234,7 @@ export function TopBar({
                   {userArea === "resident" ? "เมนูลูกบ้าน" : "เมนูผู้ใหญ่บ้าน"}
                 </p>
                 {isAdminArea ? (
-                  <span className="rounded-full bg-blue-500 px-2 py-0.5 text-[11px] font-semibold text-white">{adminVillageLabel}</span>
+                  <span title={adminVillageLabel} className="max-w-[12rem] truncate rounded-full bg-blue-500 px-2 py-0.5 text-[11px] font-semibold text-white">{adminVillageLabel}</span>
                 ) : null}
               </div>
               <button

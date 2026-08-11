@@ -3,7 +3,6 @@ import {
   Newspaper,
   AlertCircle,
   Calendar,
-  Bell,
 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { StatCard } from "@/components/ui/stat-card";
@@ -13,6 +12,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getAdminMembership, getSessionContextFromServerCookies, getHeadmanMembership } from "@/lib/access-control";
+import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import {
   ISSUE_STAGE_LABELS,
   APPOINTMENT_STAGE_LABELS,
@@ -41,6 +41,15 @@ const appointmentStageVariant: Record<
   COMPLETED: "success",
 };
 
+function formatNotificationTime(date: Date): string {
+  return date.toLocaleString("th-TH", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export default async function AdminDashboard() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
@@ -53,7 +62,7 @@ export default async function AdminDashboard() {
 
   const village = await prisma.village.findUnique({
     where: { id: adminMembership.villageId },
-    select: { name: true },
+    select: { id: true, name: true, moo: true, province: true, district: true, subdistrict: true },
   });
   if (!village) {
     redirect("/auth/login");
@@ -62,7 +71,7 @@ export default async function AdminDashboard() {
   const headmanMembership = getHeadmanMembership(session);
   const userRole = headmanMembership ? "headman" : "admin";
   const membership = adminMembership;
-  const villageName = village.name;
+  const villageName = await getVillageDisplayName(village);
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -75,7 +84,7 @@ export default async function AdminDashboard() {
     publishedNewsCount,
     openIssueCount,
     pendingAppointmentCount,
-    unreadNotificationCount,
+    latestNotifications,
     recentIssues,
     todayAppointments,
     recentNews,
@@ -111,10 +120,20 @@ export default async function AdminDashboard() {
         stage: "PENDING_APPROVAL",
       },
     }),
-    prisma.notification.count({
+    prisma.notification.findMany({
       where: {
         userId: session.id,
-        status: "UNREAD",
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: 4,
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        status: true,
+        createdAt: true,
       },
     }),
     prisma.issue.findMany({
@@ -330,15 +349,39 @@ export default async function AdminDashboard() {
             </Link>
           </div>
 
-          <div className="max-w-sm">
-            <div className="rounded-lg border border-gray-200 px-4 py-3">
-              <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
-                <Bell className="h-3.5 w-3.5" />
-                แจ้งเตือนยังไม่อ่าน
-              </div>
-              <p className="text-lg font-semibold text-gray-900">{unreadNotificationCount}</p>
+          {latestNotifications.length === 0 ? (
+            <p className="py-5 text-center text-sm text-gray-400">ยังไม่มีการแจ้งเตือนล่าสุด</p>
+          ) : (
+            <div className="space-y-1">
+              {latestNotifications.map((notification) => {
+                const isUnread = notification.status === "UNREAD";
+
+                return (
+                  <Link
+                    key={notification.id}
+                    href={`/admin/notifications/${notification.id}`}
+                    className="flex items-start gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-gray-50"
+                  >
+                    <span
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${isUnread ? "bg-blue-500" : "bg-gray-300"}`}
+                      aria-label={isUnread ? "ยังไม่ได้อ่าน" : "อ่านแล้ว"}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className={`line-clamp-1 text-sm ${isUnread ? "font-medium text-gray-900" : "text-gray-700"}`}>
+                        {notification.title}
+                      </p>
+                      {notification.body ? (
+                        <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">{notification.body}</p>
+                      ) : null}
+                    </div>
+                    <time className="shrink-0 text-xs text-gray-400" dateTime={notification.createdAt.toISOString()}>
+                      {formatNotificationTime(notification.createdAt)}
+                    </time>
+                  </Link>
+                );
+              })}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

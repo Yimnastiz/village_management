@@ -7,6 +7,7 @@ import { NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
+import { getVillageDisplayName } from "@/lib/village-display-name.server";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -221,13 +222,20 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
       address: true,
       village: {
         select: {
+          id: true,
           name: true,
+          moo: true,
+          province: true,
+          district: true,
+          subdistrict: true,
         },
       },
     },
   });
 
-  const villageName = residentHouse?.village.name ?? "หมู่บ้าน";
+  const villageName = residentHouse?.village
+    ? await getVillageDisplayName(residentHouse.village)
+    : "หมู่บ้าน";
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);

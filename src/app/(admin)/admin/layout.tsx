@@ -10,6 +10,7 @@ import {
   isAdminUser,
 } from "@/lib/access-control";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
+import { getVillageDisplayName } from "@/lib/village-display-name.server";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionContextFromServerCookies();
@@ -36,11 +37,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     }),
     prisma.village.findUnique({
       where: { id: adminMembership.villageId },
-      select: { name: true },
+      select: { id: true, name: true, moo: true, province: true, district: true, subdistrict: true },
     }),
   ]);
 
-  const villageName = villageProfile?.name ?? null;
+  const villageName = villageProfile ? await getVillageDisplayName(villageProfile) : null;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
