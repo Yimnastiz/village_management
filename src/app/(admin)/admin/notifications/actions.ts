@@ -26,8 +26,9 @@ export async function markNotificationAsReadAction(notificationId: string) {
     data: { status: NotificationStatus.READ, readAt: new Date() },
   });
 
-  // Revalidate the notification pages
+  revalidatePath("/admin", "layout");
   revalidatePath("/admin/notifications");
+  revalidatePath("/resident", "layout");
   revalidatePath("/resident/notifications");
 
   return { success: true };
@@ -51,8 +52,9 @@ export async function markAllNotificationsAsReadAction() {
     },
   });
 
-  // Revalidate the notification pages
+  revalidatePath("/admin", "layout");
   revalidatePath("/admin/notifications");
+  revalidatePath("/resident", "layout");
   revalidatePath("/resident/notifications");
 
   return { success: true };

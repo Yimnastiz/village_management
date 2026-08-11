@@ -155,8 +155,8 @@ export async function submitBindingRequestAction(
             userId: adminUserId,
             villageId: createdBinding.villageId,
             type: NotificationType.BINDING_REQUEST,
-            title: "New Resident Binding Request",
-            body: `${createdBinding.user.name} (${createdBinding.user.phoneNumber}) requested to bind account to village`,
+            title: "มีคำขอผูกเลขบ้านใหม่",
+            body: `${createdBinding.user.name} (${createdBinding.user.phoneNumber}) ขอผูกบัญชีกับหมู่บ้าน`,
             metadata: { bindingRequestId: createdBinding.id },
           })),
         });
