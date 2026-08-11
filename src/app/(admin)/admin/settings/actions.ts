@@ -36,34 +36,26 @@ function cleanString(formData: FormData, name: string) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-export async function updateVillageSettingsAction(formData: FormData) {
+export async function updateVillageSettingsAction(formData: FormData): Promise<{ success: true } | { success: false; error: string }> {
   const { villageId } = await requireAdminVillageContext();
 
-  const name = cleanString(formData, "name");
-  if (!name) {
-    throw new Error("กรุณาระบุชื่อหมู่บ้าน");
-  }
+  const email = cleanString(formData, "email");
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
 
   await prisma.village.update({
     where: { id: villageId },
     data: {
-      name,
       description: cleanString(formData, "description"),
       address: cleanString(formData, "address"),
-      province: cleanString(formData, "province"),
-      district: cleanString(formData, "district"),
-      subdistrict: cleanString(formData, "subdistrict"),
       phone: cleanString(formData, "phone"),
-      email: cleanString(formData, "email"),
+      email,
       website: cleanString(formData, "website"),
-      logoUrl: cleanString(formData, "logoUrl"),
-      bannerUrl: cleanString(formData, "bannerUrl"),
-      isActive: formData.get("isActive") === "on",
     },
   });
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin/settings/village");
+  return { success: true };
 }
 
 export async function updateVillageMemberAccessAction(formData: FormData) {

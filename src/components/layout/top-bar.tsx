@@ -40,7 +40,7 @@ export function TopBar({
   const [focusWithin, setFocusWithin] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const notificationsHref = userArea === "admin" ? "/admin/notifications" : "/resident/notifications";
-  const profileHref = userArea === "admin" ? "/admin/settings" : "/resident/profile";
+  const profileHref = userArea === "admin" ? "/admin/profile" : "/resident/profile";
   const mobileNavItems = useMemo(() => {
     if (userArea === "admin") {
       return adminMenuItems;
