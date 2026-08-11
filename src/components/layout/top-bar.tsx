@@ -1,5 +1,5 @@
 "use client";
-import { Bell, ChevronDown, LockKeyhole, Menu, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, LockKeyhole, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -34,6 +34,7 @@ export function TopBar({
 }: TopBarProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobilePopulationOpen, setMobilePopulationOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [lockedMenuLabel, setLockedMenuLabel] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -253,10 +254,15 @@ export function TopBar({
             </div>
             <nav className="space-y-1 p-3">
               {mobileNavItems.map((item) => {
+                const isPopulationParent = isAdminArea && item.href === "/admin/population";
+                const isPopulationChild = isAdminArea && item.href.startsWith("/admin/population/");
+                if (isPopulationChild && !mobilePopulationOpen) return null;
                 const isActive = userArea === "admin"
                   ? item.href === [...adminMenuItems].filter((candidate) => pathname === candidate.href || pathname.startsWith(candidate.href + "/")).sort((left, right) => right.href.length - left.href.length)[0]?.href
                   : pathname === item.href || pathname.startsWith(item.href + "/");
                 const showUnread = item.href === notificationsHref && unreadNotificationCount > 0;
+
+                if (isPopulationParent) return <div key={item.href} className="flex items-center rounded-md"><Link href={item.href} onClick={() => setMobileMenuOpen(false)} className={cn("flex flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium", isActive ? "bg-blue-500/20 text-blue-200" : "text-slate-200 hover:bg-slate-800")}><item.icon className="h-4 w-4" />{item.label}</Link><button type="button" onClick={() => setMobilePopulationOpen(value => !value)} aria-label="เปิดหรือปิดเมนูทะเบียนครัวเรือน" aria-expanded={mobilePopulationOpen} className="p-2 text-slate-300"><ChevronRight className={cn("h-4 w-4 transition-transform", mobilePopulationOpen ? "rotate-90" : "")} /></button></div>;
 
                 return (
                   <Link
@@ -273,6 +279,7 @@ export function TopBar({
                     }}
                     className={cn(
                       "flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isPopulationChild ? "ml-4" : "",
                       isActive
                         ? isAdminArea
                           ? "bg-blue-500/20 text-blue-200"

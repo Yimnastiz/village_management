@@ -52,10 +52,11 @@ export async function submitBindingRequestAction(
   let houseNumber: string | null = null;
   const linkedPerson = await prisma.person.findUnique({ where: { userId: session.id }, select: { houseId: true, house: { select: { houseNumber: true } } } });
   if (requestedHouseId) {
-    const house = await prisma.house.findFirst({ where: { id: requestedHouseId, villageId }, select: { id: true } });
+    const house = await prisma.house.findFirst({ where: { id: requestedHouseId, villageId }, select: { id: true, houseNumber: true } });
     if (!house) return { success: false, fieldErrors: { house: "บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้" } };
     if (!house) throw new Error("บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้");
     houseId = house.id;
+    houseNumber = house.houseNumber;
   } else {
     houseNumber = normalizeHouseNumber(rawHouseNumber!);
     if (!isValidHouseNumber(houseNumber)) return { success: false, fieldErrors: { house: "รูปแบบเลขบ้านไม่ถูกต้อง" } };

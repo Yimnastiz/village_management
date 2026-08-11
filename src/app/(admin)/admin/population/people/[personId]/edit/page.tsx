@@ -65,6 +65,7 @@ export default async function EditPersonPage({ params }: PageProps) {
           status: person.status,
           houseId: person.houseId ?? "",
         }}
+        identityLocked={Boolean(person.userId)}
       />
     </div>
   );

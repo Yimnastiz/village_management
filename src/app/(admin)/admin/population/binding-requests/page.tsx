@@ -47,7 +47,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
   return <div className="space-y-5">
     <AdminListToolbar title="คำขอผูกเลขบ้าน" description="ตรวจสอบและจัดการคำขอผูกบัญชีกับทะเบียนบ้าน" searchAction="/admin/population/binding-requests" keyword={q} searchPlaceholder="ค้นหาชื่อ เบอร์โทร หรือบ้านเลขที่" hiddenInputs={{ tab, status: selectedStatus ?? "" }} />
     <nav className="flex w-full gap-1 rounded-lg border border-gray-200 bg-white p-1 sm:w-fit" aria-label="สถานะคำขอ">
-      <Link href={query({ tab: "pending" })} className={`min-h-10 flex-1 rounded-md px-3 py-2 text-center text-sm font-medium sm:flex-none ${tab === "pending" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>รอพิจารณา ({pendingCount.toLocaleString("th-TH")})</Link>
+      <Link href={query({ tab: "pending" })} className={`min-h-10 flex-1 rounded-md px-3 py-2 text-center text-sm font-medium sm:flex-none ${tab === "pending" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>รอพิจารณา{pendingCount > 0 ? <span className="ml-2 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">{pendingCount > 99 ? "99+" : pendingCount}</span> : null}</Link>
       <Link href={query({ tab: "history" })} className={`min-h-10 flex-1 rounded-md px-3 py-2 text-center text-sm font-medium sm:flex-none ${tab === "history" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-50"}`}>ประวัติ</Link>
     </nav>
     {tab === "history" ? <div className="flex flex-wrap gap-2" aria-label="กรองสถานะประวัติ">

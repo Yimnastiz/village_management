@@ -1,41 +1,7 @@
 "use client";
-
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { deletePersonAction } from "./actions";
-
-type DeletePersonButtonProps = {
-  personId: string;
-};
-
-export function DeletePersonButton({ personId }: DeletePersonButtonProps) {
-  const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-
-  return (
-    <Button
-      variant="outline"
-      className="border-red-300 text-red-700 hover:bg-red-50"
-      isLoading={isLoading}
-      onClick={async () => {
-        const ok = window.confirm("ยืนยันการลบข้อมูลบุคคลนี้?");
-        if (!ok) return;
-
-        setIsLoading(true);
-        const result = await deletePersonAction(personId);
-        setIsLoading(false);
-
-        if (!result.success) {
-          window.alert(result.error);
-          return;
-        }
-
-        router.push("/admin/population/people");
-        router.refresh();
-      }}
-    >
-      ลบ
-    </Button>
-  );
-}
+export function DeletePersonButton({ personId }: { personId: string }) { const [open,setOpen]=useState(false);const [reason,setReason]=useState("");const [pending,startTransition]=useTransition();const router=useRouter();const toast=useToast();return <><Button variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50" onClick={()=>setOpen(true)}>ย้ายออก</Button>{open?<div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true"><div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl"><h2 className="text-lg font-semibold">ย้ายบุคคลออกจากทะเบียน</h2><label className="mt-4 block text-sm font-medium">กรุณาระบุเหตุผล <span className="text-rose-600">*</span><textarea autoFocus value={reason} onChange={e=>setReason(e.target.value)} rows={4} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></label><div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button variant="outline" onClick={()=>setOpen(false)} disabled={pending}>ยกเลิก</Button><Button variant="danger" disabled={reason.trim().length<5} isLoading={pending} onClick={()=>startTransition(async()=>{const result=await deletePersonAction(personId,reason);if(!result.success){toast.error("ไม่สามารถย้ายออกได้",result.error);return;}toast.success("ย้ายบุคคลออกแล้ว");setOpen(false);router.push("/admin/population/people");router.refresh();})}>ยืนยันการย้ายออก</Button></div></div></div>:null}</>}

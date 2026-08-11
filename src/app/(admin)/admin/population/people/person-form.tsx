@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useToast } from "@/components/ui/toast";
 import { PERSON_STATUS_LABELS } from "@/lib/constants";
 import { createPersonAction, updatePersonAction } from "./actions";
 
@@ -20,6 +21,7 @@ type FormValues = {
   email: string;
   status: string;
   houseId: string;
+  reason?: string;
 };
 
 type PersonFormProps = {
@@ -27,10 +29,12 @@ type PersonFormProps = {
   personId?: string;
   houseOptions: HouseOption[];
   defaultValues?: FormValues;
+  identityLocked?: boolean;
 };
 
-export function PersonForm({ mode, personId, houseOptions, defaultValues }: PersonFormProps) {
+export function PersonForm({ mode, personId, houseOptions, defaultValues, identityLocked = false }: PersonFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const {
     register,
     handleSubmit,
@@ -61,6 +65,7 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues }: Pers
           }
 
           router.push(`/admin/population/people/${result.id}`);
+          toast.success("เพิ่มข้อมูลบุคคลสำเร็จ");
         } else {
           const result = await updatePersonAction(personId ?? "", data);
           if (!result.success) {
@@ -69,18 +74,19 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues }: Pers
           }
 
           router.push(`/admin/population/people/${personId}`);
+          toast.success("แก้ไขข้อมูลบุคคลสำเร็จ");
         }
         router.refresh();
       })}
       className="space-y-4 rounded-xl border border-gray-200 bg-white p-6"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input label="ชื่อ" {...register("firstName")} error={errors.firstName?.message} required />
-        <Input label="นามสกุล" {...register("lastName")} error={errors.lastName?.message} required />
+        <Input label="ชื่อ" {...register("firstName")} error={errors.firstName?.message} required disabled={identityLocked} />
+        <Input label="นามสกุล" {...register("lastName")} error={errors.lastName?.message} required disabled={identityLocked} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input label="เลขบัตรประชาชน" {...register("nationalId")} error={errors.nationalId?.message} />
+        <Input label="เลขบัตรประชาชน" {...register("nationalId")} error={errors.nationalId?.message} disabled={identityLocked} />
         <Input label="วันเกิด" type="date" {...register("dateOfBirth")} error={errors.dateOfBirth?.message} />
       </div>
 
@@ -104,6 +110,9 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues }: Pers
         options={houseOptions}
         placeholder="ไม่ผูกกับบ้าน"
       />
+      {mode === "edit" ? <Input label="เหตุผล / หมายเหตุการแก้ไข" {...register("reason")} maxLength={300} helperText="ข้อมูลสำคัญจะบันทึกใน Audit Log" /> : null}
+
+      {identityLocked ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">ข้อมูลชื่อและเลขบัตรประชาชนนี้ผูกกับบัญชีผู้ใช้แล้ว กรุณาส่งคำขอแก้ไขข้อมูลหรือให้ Super Admin ตรวจสอบ</p> : null}
 
       {errors.root ? <p className="text-sm text-red-600">{errors.root.message}</p> : null}
 

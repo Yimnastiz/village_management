@@ -6,6 +6,7 @@ import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS 
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
+import { DeleteHouseButton } from "../delete-house-button";
 
 interface PageProps { params: Promise<{ houseId: string }> }
 export default async function Page({ params }: PageProps) {
@@ -59,12 +60,7 @@ export default async function Page({ params }: PageProps) {
           <h1 className="text-2xl font-bold text-gray-900">บ้านเลขที่ {house.houseNumber}</h1>
           <p className="mt-1 text-sm text-gray-500">ดูข้อมูลบ้าน ประชากร และบัญชีผู้ใช้ที่ผูกอยู่</p>
         </div>
-        <Link
-          href="/admin/population/houses"
-          className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-        >
-          กลับไปทะเบียนบ้าน
-        </Link>
+        <div className="flex flex-wrap gap-2"><Link href="/admin/population/houses" className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">กลับไปทะเบียนบ้าน</Link><DeleteHouseButton houseId={house.id} houseNumber={house.houseNumber} /></div>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2">
