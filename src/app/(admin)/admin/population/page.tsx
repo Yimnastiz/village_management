@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
@@ -372,6 +373,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; throw error; }
 
   revalidatePath("/admin/population");
+  revalidateAdminSidebar();
   revalidatePath("/admin/population/binding-requests");
   revalidatePath(`/admin/population/binding-requests/${requestId}`);
   return {

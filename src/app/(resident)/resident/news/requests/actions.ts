@@ -4,6 +4,7 @@ import { NewsStage, NewsVisibility, NotificationType, Prisma, VillageMembershipR
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
 import { areSafeImageSources } from "@/lib/image-input";
 
@@ -139,6 +140,7 @@ export async function createNewsCreateRequestAction(
   );
 
   revalidatePath("/resident/news/requests");
+  revalidateAdminSidebar();
 
   return { success: true, requestId: created.id };
 }
@@ -187,6 +189,7 @@ export async function createNewsUpdateRequestAction(
   );
 
   revalidatePath("/resident/news/requests");
+  revalidateAdminSidebar();
 
   return { success: true, requestId: created.id };
 }
@@ -224,6 +227,7 @@ export async function updatePendingNewsSubmissionAction(
   });
 
   revalidatePath("/resident/news/requests");
+  revalidateAdminSidebar();
   revalidatePath(`/resident/news/requests/${submissionId}`);
 
   return { success: true };
@@ -251,6 +255,7 @@ export async function deletePendingNewsSubmissionAction(
 
   await prisma.newsSubmission.delete({ where: { id: submissionId } });
   revalidatePath("/resident/news/requests");
+  revalidateAdminSidebar();
   return { success: true };
 }
 
@@ -325,6 +330,7 @@ export async function createNewsDeleteRequestAction(
   );
 
   revalidatePath("/resident/news/requests");
+  revalidateAdminSidebar();
 
   return { success: true, requestId: created.id };
 }

@@ -2,6 +2,7 @@
 
 import { NotificationType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { normalizeVillagePlaceInput, parseVillagePlacePayload } from "@/lib/village-place";
 
@@ -174,6 +175,7 @@ export async function adminApproveVillagePlaceSubmissionAction(
 ): Promise<{ success: true; placeId: string } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  revalidateAdminSidebar();
 
   const villagePlaceSubmission =
     (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;
@@ -305,6 +307,7 @@ export async function adminRejectVillagePlaceSubmissionAction(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  revalidateAdminSidebar();
 
   const villagePlaceSubmission =
     (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;

@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const issueInputSchema = z.object({
@@ -245,6 +246,7 @@ export async function adminUpdateStageAction(
   revalidatePath(`/resident/issues/${issueId}`);
   revalidatePath("/resident/issues");
   revalidatePath("/admin/issues");
+  revalidateAdminSidebar();
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
 

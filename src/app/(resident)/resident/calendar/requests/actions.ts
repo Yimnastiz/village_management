@@ -6,6 +6,7 @@ import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { resolveApprovedSubmissionEvent } from "@/lib/calendar-submission-event";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
@@ -114,6 +115,7 @@ export async function createVillageEventSubmissionAction(
 
     revalidatePath("/resident/calendar/requests");
     revalidatePath("/admin/calendar/requests");
+    revalidateAdminSidebar();
     revalidatePath("/admin/notifications");
 
     return { success: true, requestId: created.id };
@@ -148,7 +150,7 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
   try {
     if (source.status === "PENDING") {
       await prisma.villageEventSubmission.update({ where: { id: source.id }, data: normalized.value });
-      revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests");
+      revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
       return { success: true, requestId: source.id };
     } else {
       const event = await resolveApprovedSubmissionEvent(source);
@@ -177,7 +179,7 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
         });
       }
       revalidatePath("/admin/notifications");
-      revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests");
+      revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
       return { success: true, requestId: created[1].id };
     }
   } catch { return { success: false, error: "บันทึกคำขอไม่สำเร็จ" }; }
@@ -188,7 +190,7 @@ export async function deleteResidentVillageEventSubmissionAction(requestId: stri
   if (!context.ok) return { success: false, error: context.error };
   try {
     await prisma.villageEventSubmission.delete({ where: { id: context.request.id } });
-    revalidatePath("/resident/calendar/requests"); revalidatePath("/admin/calendar/requests");
+    revalidatePath("/resident/calendar/requests"); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
     return { success: true };
   } catch { return { success: false, error: "ลบคำขอไม่สำเร็จ" }; }
 }
@@ -211,7 +213,7 @@ export async function createResidentEventChangeRequestAction(requestId: string, 
       prisma.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } }),
       prisma.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, title: event.title, description: detail, location: event.location, startsAt: event.startsAt, endsAt: event.endsAt, isPublic: event.isPublic, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, eventId: event.id }, select: { id: true } }),
     ]);
-    revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests");
+    revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
     return { success: true };
   } catch { return { success: false, error: "ส่งคำขอไม่สำเร็จ" }; }
 }

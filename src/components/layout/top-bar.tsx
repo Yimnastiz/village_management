@@ -9,8 +9,10 @@ import {
   LockedResidentMenuDialog,
   type ResidentNavigationState,
 } from "./resident-sidebar";
-import { adminMenuItems } from "./admin-sidebar";
+import { adminMenuItems, getAdminSidebarActionBadge } from "./admin-sidebar";
 import { cn } from "@/lib/utils";
+import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-badge";
+import type { AdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
 import { useAutoHideTopBar } from "./use-auto-hide-top-bar";
 
 interface TopBarProps {
@@ -20,6 +22,7 @@ interface TopBarProps {
   unreadNotificationCount: number;
   villageName?: string | null;
   adminRoleLabel?: string;
+  adminActionCounts?: AdminSidebarActionCounts;
   residentNavigationState?: ResidentNavigationState;
 }
 
@@ -31,6 +34,7 @@ export function TopBar({
   villageName,
   adminRoleLabel = "ผู้ใหญ่บ้าน",
   residentNavigationState,
+  adminActionCounts,
 }: TopBarProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -261,8 +265,11 @@ export function TopBar({
                   ? item.href === [...adminMenuItems].filter((candidate) => pathname === candidate.href || pathname.startsWith(candidate.href + "/")).sort((left, right) => right.href.length - left.href.length)[0]?.href
                   : pathname === item.href || pathname.startsWith(item.href + "/");
                 const showUnread = item.href === notificationsHref && unreadNotificationCount > 0;
+                const actionBadge = isAdminArea && adminActionCounts
+                  ? getAdminSidebarActionBadge(item.href, adminActionCounts)
+                  : null;
 
-                if (isPopulationParent) return <div key={item.href} className="flex items-center rounded-md"><Link href={item.href} onClick={() => setMobileMenuOpen(false)} className={cn("flex flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium", isActive ? "bg-blue-500/20 text-blue-200" : "text-slate-200 hover:bg-slate-800")}><item.icon className="h-4 w-4" />{item.label}</Link><button type="button" onClick={() => setMobilePopulationOpen(value => !value)} aria-label="เปิดหรือปิดเมนูทะเบียนครัวเรือน" aria-expanded={mobilePopulationOpen} className="p-2 text-slate-300"><ChevronRight className={cn("h-4 w-4 transition-transform", mobilePopulationOpen ? "rotate-90" : "")} /></button></div>;
+                if (isPopulationParent) return <div key={item.href} className="flex min-w-0 items-center rounded-md"><Link href={item.href} onClick={() => setMobileMenuOpen(false)} className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium", isActive ? "bg-blue-500/20 text-blue-200" : "text-slate-200 hover:bg-slate-800")}><item.icon className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{item.label}</span>{actionBadge ? <SidebarNotificationBadge count={actionBadge.count} label={actionBadge.label} /> : null}</Link><button type="button" onClick={() => setMobilePopulationOpen(value => !value)} aria-label="เปิดหรือปิดเมนูทะเบียนครัวเรือน" aria-expanded={mobilePopulationOpen} className="shrink-0 p-2 text-slate-300"><ChevronRight className={cn("h-4 w-4 transition-transform", mobilePopulationOpen ? "rotate-90" : "")} /></button></div>;
 
                 return (
                   <Link
@@ -289,9 +296,9 @@ export function TopBar({
                           : "text-gray-700 hover:bg-gray-100"
                     )}
                   >
-                    <span className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      {item.label}
+                    <span className="flex min-w-0 flex-1 items-center gap-2">
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
                     </span>
                     {"locked" in item && item.locked ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องผูกเลขบ้านก่อน" /> : null}
                     {showUnread && (
@@ -299,6 +306,7 @@ export function TopBar({
                         {displayCount}
                       </span>
                     )}
+                    {actionBadge ? <SidebarNotificationBadge count={actionBadge.count} label={actionBadge.label} /> : null}
                   </Link>
                 );
               })}

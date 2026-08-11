@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { areSafeImageSources, hasSafeTotalImageDataSize } from "@/lib/image-input";
 
@@ -254,6 +255,7 @@ export async function adminApproveNewsSubmissionAction(
       });
     });
 
+    revalidateAdminSidebar();
     return { success: true, newsId: submission.targetNewsId };
   }
 
@@ -305,6 +307,7 @@ export async function adminApproveNewsSubmissionAction(
       return news;
     });
 
+    revalidateAdminSidebar();
     return { success: true, newsId: created.id };
   }
 
@@ -365,6 +368,7 @@ export async function adminApproveNewsSubmissionAction(
     });
   });
 
+  revalidateAdminSidebar();
   return { success: true, newsId: target.id };
 }
 
@@ -407,5 +411,6 @@ export async function adminRejectNewsSubmissionAction(
     },
   });
 
+  revalidateAdminSidebar();
   return { success: true };
 }

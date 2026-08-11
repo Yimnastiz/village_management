@@ -4,6 +4,7 @@ import { NotificationType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const villageEventSubmission = prisma.villageEventSubmission;
@@ -232,6 +233,7 @@ export async function adminApproveVillageEventSubmissionAction(
     revalidatePath("/admin/calendar");
     revalidatePath("/resident/calendar");
     revalidatePath("/admin/calendar/requests");
+    revalidateAdminSidebar();
     revalidatePath(`/admin/calendar/requests/${requestId}`);
     revalidatePath("/resident/calendar/requests");
     revalidatePath("/resident/notifications");
@@ -291,6 +293,7 @@ export async function adminRejectVillageEventSubmissionAction(
     });
 
     revalidatePath("/admin/calendar/requests");
+    revalidateAdminSidebar();
     revalidatePath(`/admin/calendar/requests/${requestId}`);
     revalidatePath("/resident/calendar/requests");
     revalidatePath("/resident/notifications");
@@ -325,6 +328,7 @@ export async function updateVillageEventSubmissionAction(
     });
 
     revalidatePath("/admin/calendar/requests");
+    revalidateAdminSidebar();
     revalidatePath(`/admin/calendar/requests/${requestId}`);
     revalidatePath("/resident/calendar/requests");
     return { success: true };
@@ -349,6 +353,7 @@ export async function deleteVillageEventSubmissionAction(
   try {
     await villageEventSubmission.delete({ where: { id: request.id } });
     revalidatePath("/admin/calendar/requests");
+    revalidateAdminSidebar();
     revalidatePath(`/admin/calendar/requests/${requestId}`);
     revalidatePath("/resident/calendar/requests");
     return { success: true };

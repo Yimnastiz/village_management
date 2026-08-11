@@ -1,6 +1,7 @@
 "use server";
 import { NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +9,7 @@ import { hasSafeTotalImageDataSize, isSafeImageSource } from "@/lib/image-input"
 const item = z.object({ fileUrl: z.string().trim().min(1), title: z.string().trim().max(500, "คำอธิบายรูปภาพยาวเกินไป").optional() });
 const schema = z.object({ note: z.string().trim().max(500).optional(), items: z.array(item).min(1, "กรุณาเพิ่มรูปภาพ").max(10, "เพิ่มรูปภาพได้สูงสุด 10 รูปต่อครั้ง") });
 type SubmissionInput = z.infer<typeof schema>;
-function revalidate(albumId: string, ids: string[]) { ["/resident/gallery", `/resident/gallery/${albumId}`, `/resident/gallery/${albumId}/request`, "/resident/notifications", "/admin/notifications", "/admin/gallery/submissions"].forEach((path) => revalidatePath(path)); ids.forEach((id) => revalidatePath(`/admin/gallery/submissions/${id}`)); }
+function revalidate(albumId: string, ids: string[]) { revalidateAdminSidebar(); ["/resident/gallery", `/resident/gallery/${albumId}`, `/resident/gallery/${albumId}/request`, "/resident/notifications", "/admin/notifications", "/admin/gallery/submissions"].forEach((path) => revalidatePath(path)); ids.forEach((id) => revalidatePath(`/admin/gallery/submissions/${id}`)); }
 export async function createGalleryItemSubmissionAction(albumId: string, data: SubmissionInput): Promise<{ success: true; ids: string[] } | { success: false; error: string }> {
  const session = await getSessionContextFromServerCookies(); if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
  const membership = getResidentMembership(session); if (!membership) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้าน" };

@@ -4,6 +4,7 @@ import { IssueCategory, IssuePriority, NotificationType, Prisma, VillageMembersh
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { areSafeImageSources } from "@/lib/image-input";
 
@@ -118,6 +119,7 @@ export async function createIssueAction(
   revalidatePath("/resident/issues");
   revalidatePath("/resident/dashboard");
   revalidatePath("/admin/issues");
+  revalidateAdminSidebar();
 
   return { success: true, issueId: issue.id };
 }

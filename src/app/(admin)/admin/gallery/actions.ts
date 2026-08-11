@@ -4,6 +4,7 @@ import { NotificationType, Prisma, VillageMembershipRole } from "@prisma/client"
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { hasSafeTotalImageDataSize, isSafeImageSource } from "@/lib/image-input";
 
@@ -141,6 +142,7 @@ async function notifyResidents(
 }
 
 function revalidateGalleryViews(albumId?: string, submissionId?: string) {
+  revalidateAdminSidebar();
   revalidatePath("/resident/gallery");
   revalidatePath("/admin/gallery");
   revalidatePath("/resident/notifications");

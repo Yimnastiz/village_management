@@ -3,6 +3,7 @@
 import { AuditAction, BindingRequestStatus, MembershipStatus, VillageMembershipRole, NotificationType } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
@@ -115,6 +116,7 @@ export async function submitBindingRequestAction(
     });
 
     revalidatePath("/resident/binding");
+    revalidateAdminSidebar();
     revalidatePath("/resident/binding/pending");
     redirect("/resident/binding/pending");
   } else {
@@ -182,6 +184,7 @@ export async function submitBindingRequestAction(
   });
 
   revalidatePath("/resident/binding");
+  revalidateAdminSidebar();
   revalidatePath("/resident/binding/pending");
   redirect("/resident/binding/pending");
 }
@@ -218,5 +221,6 @@ export async function cancelBindingRequestAction() {
     }
   });
   revalidatePath("/resident/binding");
+  revalidateAdminSidebar();
   revalidatePath("/resident/binding/pending");
 }

@@ -11,6 +11,7 @@ import {
 } from "@/lib/access-control";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
+import { getAdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionContextFromServerCookies();
@@ -24,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect(await getAuthenticatedAccessRedirectPath(session));
   }
 
-  const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
+  const [userProfile, unreadNotificationCount, villageProfile, sidebarActionCounts] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.id },
       select: { name: true, image: true },
@@ -39,19 +40,21 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       where: { id: adminMembership.villageId },
       select: { id: true, name: true, moo: true, province: true, district: true, subdistrict: true },
     }),
+    getAdminSidebarActionCounts(adminMembership.villageId),
   ]);
 
   const villageName = villageProfile ? await getVillageDisplayName(villageProfile) : null;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <AdminSidebar />
+      <AdminSidebar actionCounts={sidebarActionCounts} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           userArea="admin"
           userName={userProfile?.name || session.name}
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
+          adminActionCounts={sidebarActionCounts}
           villageName={villageName}
           adminRoleLabel={MEMBERSHIP_ROLE_LABELS[adminMembership.role] ?? "ผู้ใหญ่บ้าน"}
         />

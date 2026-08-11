@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isAdminUser } from "@/lib/access-control";
+import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 
 const appointmentSchema = z.object({
   title: z.string().min(3, "ชื่อนัดหมายต้องมีความยาวอย่างน้อย 3 ตัวอักษร"),
@@ -135,6 +136,7 @@ async function notifyUser(
 }
 
 function revalidateAppointmentViews(appointmentId: string) {
+  revalidateAdminSidebar();
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
   revalidatePath("/resident/appointments");
