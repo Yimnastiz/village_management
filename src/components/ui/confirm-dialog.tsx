@@ -11,6 +11,8 @@ type ConfirmDialogProps = {
   cancelLabel?: string;
   tone?: "default" | "danger";
   pending?: boolean;
+  confirmDisabled?: boolean;
+  children?: React.ReactNode;
   onConfirm: () => void;
   onClose: () => void;
 };
@@ -23,6 +25,8 @@ export function ConfirmDialog({
   cancelLabel = "ยกเลิก",
   tone = "default",
   pending = false,
+  confirmDisabled = false,
+  children,
   onConfirm,
   onClose,
 }: ConfirmDialogProps) {
@@ -34,7 +38,8 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
       <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        {description ? <p className="mt-2 text-sm text-slate-600">{description}</p> : null}
+        {description ? <p className="mt-2 whitespace-pre-line text-sm text-slate-600">{description}</p> : null}
+        {children ? <div className="mt-4">{children}</div> : null}
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
             {cancelLabel}
@@ -44,6 +49,7 @@ export function ConfirmDialog({
             variant={tone === "danger" ? "danger" : "primary"}
             onClick={onConfirm}
             isLoading={pending}
+            disabled={pending || confirmDisabled}
             className={cn(tone === "danger" ? "bg-rose-600 hover:bg-rose-700 focus:ring-rose-500" : "")}
           >
             {confirmLabel}

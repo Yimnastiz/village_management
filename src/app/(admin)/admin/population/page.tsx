@@ -78,7 +78,7 @@ function getBindingDisplayHouseNumber(request: {
   house?: { houseNumber: string } | null;
   houseNumber?: string | null;
 }) {
-  return request.house?.houseNumber ?? request.houseNumber ?? "ยังไม่ได้ระบุเลขบ้าน";
+  return request.houseNumber ?? request.house?.houseNumber ?? "ยังไม่ได้ระบุเลขบ้าน";
 }
 
 function getBindingHouseSourceLabel(request: {
@@ -235,16 +235,17 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
       }
     }
 
-    await tx.bindingRequest.update({
-      where: { id: requestId },
+    const reviewedRequest = await tx.bindingRequest.updateMany({
+      where: { id: requestId, status: BindingRequestStatus.PENDING },
       data: {
         status,
-        houseId: action === "approve" ? resolvedHouseId : null,
+        ...(action === "approve" ? { houseId: resolvedHouseId } : {}),
         reviewedBy: session.id,
         reviewedAt: now,
         reviewNote: reviewNote || null,
       },
     });
+    if (reviewedRequest.count !== 1) throw new BindingReviewValidationError("คำขอนี้ได้รับการพิจารณาแล้ว กรุณารีเฟรชหน้า");
 
     await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: action === "approve" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequest", resourceId: requestId, metadata: { actionName: action === "approve" ? "BINDING_APPROVED_TO_EXISTING_HOUSE" : "BINDING_REJECTED", houseId: resolvedHouseId, reviewNote: reviewNote || null } } });
 
@@ -386,279 +387,56 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   };
 }
 
-export async function revertOrUpdateBindingAction(formData: FormData) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session) {
-    redirect("/auth/login?callbackUrl=/admin/population");
-  }
-
-  if (!isAdminUser(session)) {
-    redirect(computeLandingPath(session));
-  }
-
-  const requestId = formData.get("requestId");
-  const actionType = formData.get("actionType");
-  const newStatus = (formData.get("newStatus") ?? "").toString().trim();
-  const reviewNote = (formData.get("reviewNote") ?? "").toString().trim();
-
-  if (!requestId || typeof requestId !== "string") {
-    throw new Error("Missing requestId");
-  }
-
-  const binding = await prisma.bindingRequest.findUnique({
-    where: { id: requestId },
-    include: { user: true },
-  });
-
-  if (!binding) {
-    throw new Error("Binding request not found");
-  }
-
-  if (!binding.villageId) {
-    throw new Error("Binding request is missing village information");
-  }
-
-  const canManage =
-    session.systemRole === SystemRole.SUPERADMIN ||
-    session.memberships.some(
-      (membership) =>
-        ADMIN_MEMBERSHIP_ROLES.has(membership.role) &&
-        membership.villageId === binding.villageId
-    );
-
-  if (!canManage) {
-    throw new Error("Unauthorized");
-  }
-
-  const now = new Date();
-
-  // Handle revert to PENDING
-  if (actionType === "revert_to_pending") {
-    await prisma.$transaction(async (tx) => {
-      await tx.bindingRequest.update({
-        where: { id: requestId },
-        data: {
-          status: BindingRequestStatus.PENDING,
-          reviewedBy: null,
-          reviewedAt: null,
-          reviewNote: null,
-        },
-      });
-
-      await tx.villageMembership.upsert({
-        where: {
-          userId_villageId: {
-            userId: binding.userId,
-            villageId: binding.villageId!,
-          },
-        },
-        update: {
-          status: MembershipStatus.PENDING,
-          houseId: null,
-          joinedAt: null,
-        },
-        create: {
-          userId: binding.userId,
-          villageId: binding.villageId!,
-          role: VillageMembershipRole.RESIDENT,
-          status: MembershipStatus.PENDING,
-          houseId: null,
-        },
-      });
-
-      // Clear citizen verification if approval was reverted
-      if (binding.status === BindingRequestStatus.APPROVED) {
-        await tx.user.update({
-          where: { id: binding.userId },
-          data: { citizenVerifiedAt: null },
-        });
-      }
-
-      // Notify resident that decision was reverted
-      await tx.notification.create({
-        data: {
-          userId: binding.userId,
-          villageId: binding.villageId,
-          type: NotificationType.BINDING_REQUEST,
-          title: "การผูกบัญชีได้ถูกยกเลิกการตัดสินใจ",
-          body: "การตัดสินใจของการผูกบัญชีนของคุณได้ถูกยกเลิก โปรดรอการพิจารณาใหม่",
-          metadata: { bindingRequestId: requestId, action: "reverted" },
-        },
-      });
-    });
-  }
-  // Handle change from APPROVED to REJECTED or vice versa
-  else if (actionType === "change_decision" && newStatus) {
-    if (!["APPROVED", "REJECTED"].includes(newStatus)) {
-      throw new Error("Invalid new status");
-    }
-
-    const membershipStatus = newStatus === "APPROVED" ? MembershipStatus.ACTIVE : MembershipStatus.REJECTED;
-
-    await prisma.$transaction(async (tx) => {
-      let resolvedHouseId: string | null = null;
-      let nationalIdForBinding: string | null = null;
-
-      if (newStatus === "APPROVED") {
-        if (binding.houseId) {
-          const house = await tx.house.findFirst({ where: { id: binding.houseId, villageId: binding.villageId! }, select: { id: true } });
-          if (!house) throw new Error("บ้านที่ผูกไว้ไม่ได้อยู่ในหมู่บ้านของคำขอ");
-          resolvedHouseId = house.id;
-      } else throw new Error("คำขอนี้ยังไม่ได้จับคู่กับบ้านในทะเบียน ต้องสร้างหรือจับคู่บ้านก่อนอนุมัติ");
-
-        nationalIdForBinding = await getNationalIdForUser(tx, binding.userId, binding.villageId);
-        if (nationalIdForBinding) await lockNationalIdClaim(tx, nationalIdForBinding);
-        if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId, binding.villageId)) {
-          throw new Error("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
-        }
-      }
-
-      await tx.bindingRequest.update({
-        where: { id: requestId },
-        data: {
-          status: newStatus as BindingRequestStatus,
-          houseId: newStatus === "APPROVED" ? resolvedHouseId : null,
-          reviewedBy: session.id,
-          reviewedAt: now,
-          reviewNote: reviewNote || null,
-        },
-      });
-
-      await tx.villageMembership.update({
-        where: {
-          userId_villageId: {
-            userId: binding.userId,
-            villageId: binding.villageId!,
-          },
-        },
-        data: {
-          status: membershipStatus,
-          houseId: newStatus === "APPROVED" ? resolvedHouseId : null,
-          joinedAt: membershipStatus === MembershipStatus.ACTIVE ? now : null,
-        },
-      });
-
-      if (newStatus === "APPROVED") {
-        await tx.user.update({
-          where: { id: binding.userId },
-          data: { citizenVerifiedAt: now },
-        });
-
-        if (resolvedHouseId) {
-          const residentUser = await tx.user.findUnique({
-            where: { id: binding.userId },
-            select: {
-              name: true,
-              phoneNumber: true,
-            },
-          });
-
-          if (residentUser) {
-            const names = splitDisplayName(residentUser.name);
-            const existingPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true } });
-
-            if (existingPerson) {
-              await tx.person.update({
-                where: { id: existingPerson.id },
-                data: {
-                  villageId: binding.villageId,
-                  houseId: resolvedHouseId,
-                  userId: binding.userId,
-                },
-              });
-            } else {
-              await tx.person.create({
-                data: {
-                  villageId: binding.villageId,
-                  houseId: resolvedHouseId,
-                  firstName: names.firstName,
-                  lastName: names.lastName,
-                  phone: residentUser.phoneNumber,
-                  userId: binding.userId,
-                },
-              });
-            }
-          }
-        }
-        if (nationalIdForBinding) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalIdForBinding, binding.userId, { actorId: session.id, villageId: binding.villageId });
-      } else {
-        await tx.user.update({
-          where: { id: binding.userId },
-          data: { citizenVerifiedAt: null },
-        });
-      }
-
-      // Notify resident of decision change
-      const title = newStatus === "APPROVED" ? "การผูกบัญชีได้รับการอนุมัติแล้ว" : "การผูกบัญชีถูกปฏิเสธ";
-      let body = "";
-      const metadata: {
-        bindingRequestId: string;
-        action: string;
-        actionUrl?: string;
-        actionLabel?: string;
-        reason?: string;
-      } = { bindingRequestId: requestId, action: newStatus.toLowerCase() };
-      
-      if (newStatus === "APPROVED") {
-        body = "ยินดีด้วย! การผูกบัญชีของคุณได้รับการอนุมัติ คุณสามารถเข้าสู่ระบบและใช้งานโปรแกรมได้แล้ว";
-        metadata.actionUrl = "/resident/dashboard";
-        metadata.actionLabel = "ไปไปที่หน้าแรก";
-      } else {
-        body = reviewNote
-          ? `การผูกบัญชีของคุณถูกปฏิเสธ เหตุผล: ${reviewNote}`
-          : "การผูกบัญชีของคุณถูกปฏิเสธ";
-        metadata.reason = reviewNote || undefined;
-      }
-
-      await tx.notification.create({
-        data: {
-          userId: binding.userId,
-          villageId: binding.villageId,
-          type: NotificationType.BINDING_REQUEST,
-          title,
-          body,
-          metadata,
-        },
-      });
-    });
-  }
-
-  revalidatePath("/admin/population");
-  revalidatePath("/admin/population/binding-requests");
-  revalidatePath(`/admin/population/binding-requests/${requestId}`);
-}
-
 export async function verifyHouseForBindingAction(_previousState: BindingReviewActionState, formData: FormData): Promise<BindingReviewActionState> {
   const session = await getSessionContextFromServerCookies();
   if (!session || !isAdminUser(session)) throw new Error("Unauthorized");
   const requestId = String(formData.get("requestId") ?? "");
+  const resolutionAction = String(formData.get("resolutionAction") ?? "");
   const selectedHouseId = String(formData.get("selectedHouseId") ?? "").trim();
+  const matchReason = String(formData.get("matchReason") ?? "").trim();
   const sourceNote = String(formData.get("sourceNote") ?? "").trim();
+  if (resolutionAction !== "create" && resolutionAction !== "select") return { success: false, message: "รูปแบบการตรวจสอบบ้านไม่ถูกต้อง" };
+  if (resolutionAction === "select" && !selectedHouseId) return { success: false, message: "กรุณาเลือกบ้านที่ต้องการจับคู่" };
+  if (resolutionAction === "create" && selectedHouseId) return { success: false, message: "ข้อมูลการสร้างบ้านไม่ถูกต้อง" };
   if (!requestId || sourceNote.length < 5) return { success: false, message: "กรุณาระบุเหตุผล/แหล่งที่มาของการยืนยันอย่างน้อย 5 ตัวอักษร" };
   try { await prisma.$transaction(async (tx) => {
     const request = await tx.bindingRequest.findFirst({ where: { id: requestId, status: BindingRequestStatus.PENDING } });
     if (!request?.villageId) throw new BindingReviewValidationError("ไม่พบคำขอที่รอตรวจสอบ");
     const canManage = session.memberships.some((m) => m.villageId === request.villageId && m.status === MembershipStatus.ACTIVE && (m.role === VillageMembershipRole.HEADMAN || m.role === VillageMembershipRole.ASSISTANT_HEADMAN));
     if (!canManage) throw new BindingReviewValidationError("คุณไม่มีสิทธิ์จัดการคำขอนี้");
+    if (request.houseId) {
+      const alreadyResolved = await tx.house.findFirst({ where: { id: request.houseId, villageId: request.villageId }, select: { id: true } });
+      if (alreadyResolved) throw new BindingReviewValidationError("คำขอนี้จับคู่กับบ้านในทะเบียนแล้ว กรุณารีเฟรชหน้า");
+    }
     let houseId = selectedHouseId;
-    if (houseId) {
-      const house = await tx.house.findFirst({ where: { id: houseId, villageId: request.villageId }, select: { id: true } });
+    let resolutionAuditAction = "BINDING_MATCHED_TO_EXISTING_HOUSE";
+    if (resolutionAction === "select") {
+      const house = await tx.house.findFirst({ where: { id: houseId, villageId: request.villageId }, select: { id: true, houseNumber: true, normalizedHouseNumber: true } });
       if (!house) throw new BindingReviewValidationError("บ้านที่เลือกไม่อยู่ในหมู่บ้านนี้");
+      const requestedNormalized = normalizeHouseNumber(request.houseNumber ?? "");
+      if (house.normalizedHouseNumber !== requestedNormalized && matchReason.length < 5) throw new BindingReviewValidationError("เลขบ้านที่เลือกไม่ตรงกับคำขอ กรุณาระบุเหตุผลการจับคู่อย่างน้อย 5 ตัวอักษร");
     } else {
       const normalized = normalizeHouseNumber(request.houseNumber ?? "");
       if (!isValidHouseNumber(normalized)) throw new BindingReviewValidationError("เลขบ้านที่ลูกบ้านแจ้งไม่ถูกต้อง");
       const existing = await tx.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId: request.villageId, normalizedHouseNumber: normalized } }, select: { id: true } });
-      if (existing) houseId = existing.id;
+      if (existing) {
+        houseId = existing.id;
+        resolutionAuditAction = "BINDING_MATCHED_DURING_HOUSE_CREATION";
+      }
       else {
         const house = await tx.house.create({ data: { villageId: request.villageId, houseNumber: request.houseNumber!.trim(), normalizedHouseNumber: normalized, sourceType: HouseSourceType.RESIDENT_REQUEST_VERIFIED, sourceNote, verifiedByUserId: session.id, verifiedAt: new Date() }, select: { id: true } });
         houseId = house.id;
+        resolutionAuditAction = "BINDING_HOUSE_CREATED_AND_MATCHED";
         await tx.auditLog.create({ data: { userId: session.id, villageId: request.villageId, action: AuditAction.CREATE, resource: "House", resourceId: house.id, metadata: { actionName: "HOUSE_CREATED_FROM_VERIFIED_BINDING_REQUEST", bindingRequestId: request.id, sourceNote, normalizedHouseNumber: normalized } } });
       }
     }
-    await tx.bindingRequest.update({ where: { id: request.id }, data: { houseId } });
-    await tx.auditLog.create({ data: { userId: session.id, villageId: request.villageId, action: AuditAction.UPDATE, resource: "BindingRequest", resourceId: request.id, metadata: { actionName: "BINDING_MATCHED_TO_EXISTING_HOUSE", houseId, sourceNote } } });
+    const resolvedRequest = await tx.bindingRequest.updateMany({ where: { id: request.id, status: BindingRequestStatus.PENDING, houseId: request.houseId }, data: { houseId } });
+    if (resolvedRequest.count !== 1) throw new BindingReviewValidationError("คำขอนี้ถูกตรวจสอบบ้านแล้ว กรุณารีเฟรชหน้า");
+    await tx.auditLog.create({ data: { userId: session.id, villageId: request.villageId, action: AuditAction.UPDATE, resource: "BindingRequest", resourceId: request.id, metadata: { actionName: resolutionAuditAction, resolutionAction, houseId, requestedHouseNumber: request.houseNumber, sourceNote, matchReason: matchReason || null } } });
   }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; throw error; }
   revalidatePath("/admin/population");
+  revalidatePath("/admin/population/binding-requests");
+  revalidatePath(`/admin/population/binding-requests/${requestId}`);
   return { success: true, message: "สร้างหรือจับคู่บ้านเรียบร้อยแล้ว กรุณาตรวจสอบและอนุมัติคำขอ" };
 }
 
@@ -992,44 +770,7 @@ export default async function Page({ searchParams }: PageProps) {
                   membership.villageId === request.villageId &&
                   membership.status === MembershipStatus.ACTIVE &&
                   (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN)
-                ) ? <><BindingReviewForm reviewAction={handleBindingRequestAction} verifyAction={verifyHouseForBindingAction} requestId={request.id} houseId={request.houseId} houseNumber={request.houseNumber} villageId={request.villageId ?? ""} houses={houses} personHouseNumber={request.person?.houseNumber} personNationalId={request.person?.nationalId ? maskNationalId(request.person.nationalId) : null} houseMismatch={Boolean(request.person?.houseId && request.houseId && request.person.houseId !== request.houseId)} nationalIdClaimed={request.nationalIdClaimed} /><div className="hidden space-y-2">
-                  <input type="hidden" name="requestId" value={request.id} />
-                  {!request.houseId ? <div className="col-span-1 md:col-span-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-                    <p className="mb-2 text-sm font-medium text-amber-900">คำขอนี้เป็นข้อมูลที่ลูกบ้านแจ้ง ยังไม่ใช่ข้อมูลบ้านจริง ต้องจับคู่หรือสร้างบ้านหลังตรวจสอบก่อน</p>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <select name="selectedHouseId" defaultValue="" className="rounded-lg border border-amber-300 bg-white p-2 text-sm"><option value="">สร้างบ้านใหม่จากคำขอที่ตรวจสอบแล้ว</option>{houses.filter((house) => house.villageId === request.villageId).map((house) => <option key={house.id} value={house.id}>จับคู่บ้านเลขที่ {house.houseNumber}</option>)}</select>
-                      <input name="sourceNote" minLength={5} placeholder="เหตุผล/แหล่งที่มาที่ใช้ยืนยันเลขบ้าน" className="rounded-lg border border-amber-300 bg-white p-2 text-sm" />
-                    </div>
-                    <button type="button" className="mt-2 rounded-lg bg-amber-700 px-3 py-2 text-sm font-medium text-white hover:bg-amber-800">ยืนยันและสร้าง/จับคู่บ้าน</button>
-                  </div> : null}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <textarea
-                      name="reviewNote"
-                      placeholder="หมายเหตุการอนุมัติ/ปฏิเสธ (ไม่บังคับ)"
-                      className="col-span-1 md:col-span-2 w-full rounded-lg border border-gray-200 p-2 text-sm"
-                      rows={2}
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        name="action"
-                        value="approve"
-                        type="submit"
-                        disabled={!request.houseId}
-                        className="flex-1 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-                      >
-                        อนุมัติ
-                      </button>
-                      <button
-                        name="action"
-                        value="reject"
-                        type="submit"
-                        className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
-                      >
-                        ปฏิเสธ
-                      </button>
-                    </div>
-                  </div>
-                </div></> : <p className="mt-4 text-sm text-gray-500">คุณมีสิทธิ์ดูคำขอนี้ แต่การอนุมัติหรือปฏิเสธต้องดำเนินการโดยผู้ใหญ่บ้านหรือผู้ช่วยผู้ใหญ่บ้าน</p>}
+                ) ? <BindingReviewForm reviewAction={handleBindingRequestAction} verifyAction={verifyHouseForBindingAction} requestId={request.id} applicantName={request.user.name} houseId={request.houseId} requestedHouseNumber={request.houseNumber ?? request.house?.houseNumber ?? null} resolvedHouseNumber={request.house?.houseNumber ?? null} houses={houses} personHouseNumber={request.person?.houseNumber} houseMismatch={Boolean(request.person?.houseId && request.houseId && request.person.houseId !== request.houseId)} nationalIdClaimed={request.nationalIdClaimed} /> : <p className="mt-4 text-sm text-gray-500">คุณมีสิทธิ์ดูคำขอนี้ แต่การอนุมัติหรือปฏิเสธต้องดำเนินการโดยผู้ใหญ่บ้านหรือผู้ช่วยผู้ใหญ่บ้าน</p>}
               </div>
             ))}
           </div>
@@ -1109,46 +850,6 @@ export default async function Page({ searchParams }: PageProps) {
                   </div>
                 )}
 
-                <div className="flex gap-2 flex-wrap">
-                  <form action={revertOrUpdateBindingAction} style={{ display: "contents" }}>
-                    <input type="hidden" name="requestId" value={request.id} />
-                    <input type="hidden" name="actionType" value="revert_to_pending" />
-                    <button
-                      type="submit"
-                      className="px-3 py-1 text-xs font-medium bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
-                    >
-                      ยกเลิกการตัดสินใจ
-                    </button>
-                  </form>
-
-                  {request.status === BindingRequestStatus.APPROVED && (
-                    <form action={revertOrUpdateBindingAction} style={{ display: "contents" }}>
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <input type="hidden" name="actionType" value="change_decision" />
-                      <input type="hidden" name="newStatus" value="REJECTED" />
-                      <button
-                        type="submit"
-                        className="px-3 py-1 text-xs font-medium bg-red-100 text-red-700 rounded hover:bg-red-200"
-                      >
-                        เปลี่ยนเป็นปฏิเสธ
-                      </button>
-                    </form>
-                  )}
-
-                  {request.status === BindingRequestStatus.REJECTED && (
-                    <form action={revertOrUpdateBindingAction} style={{ display: "contents" }}>
-                      <input type="hidden" name="requestId" value={request.id} />
-                      <input type="hidden" name="actionType" value="change_decision" />
-                      <input type="hidden" name="newStatus" value="APPROVED" />
-                      <button
-                        type="submit"
-                        className="px-3 py-1 text-xs font-medium bg-green-100 text-green-700 rounded hover:bg-green-200"
-                      >
-                        เปลี่ยนเป็นอนุมัติ
-                      </button>
-                    </form>
-                  )}
-                </div>
               </div>
             ))}
           </div>
