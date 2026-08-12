@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { maskNationalId } from "@/lib/utils";
-import { maskPhone } from "@/features/village-workspace/server/queries";
 import { prisma } from "@/lib/prisma";
 import { findBoundIdentityByNationalId, getNationalIdForUser } from "@/lib/identity";
 import { BindingReviewForm } from "../../binding-review-form";
@@ -58,7 +57,7 @@ export default async function Page({ params }: { params: Promise<{ requestId: st
         <h2 className="font-semibold text-gray-900">ข้อมูลผู้ขอ</h2>
         <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-gray-500">ชื่อ</dt><dd className="mt-1 break-words font-medium text-gray-900">{request.user.name}</dd></div>
-          <div><dt className="text-gray-500">เบอร์โทร</dt><dd className="mt-1 font-medium text-gray-900">{maskPhone(request.user.phoneNumber)}</dd></div>
+          <div><dt className="text-gray-500">เบอร์โทร</dt><dd className="mt-1 font-medium text-gray-900">{request.user.phoneNumber}</dd></div>
           <div><dt className="text-gray-500">เลขบัตรประชาชน</dt><dd className="mt-1 font-medium text-gray-900">{nationalId ? maskNationalId(nationalId) : "ไม่พบข้อมูล"}</dd></div>
           <div><dt className="text-gray-500">วันที่ยื่นคำขอ</dt><dd className="mt-1 font-medium text-gray-900">{request.createdAt.toLocaleString("th-TH")}</dd></div>
         </dl>
