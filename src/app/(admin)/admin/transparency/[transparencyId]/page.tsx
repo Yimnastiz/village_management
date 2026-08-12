@@ -1,91 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS, TRANSPARENCY_STAGE_LABELS } from "@/lib/constants";
-import { DeleteTransparencyButton } from "./transparency-delete-button";
-
-interface PageProps {
-  params: Promise<{ transparencyId: string }>;
-}
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  DRAFT: "warning",
-  PUBLISHED: "success",
-  ARCHIVED: "default",
-};
-
-export default async function TransparencyDetailPage({ params }: PageProps) {
-  const { transparencyId } = await params;
-
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
-  if (!membership) redirect("/auth/login");
-
-  const record = await prisma.transparencyRecord.findFirst({
-    where: { id: transparencyId, villageId: membership.villageId },
-  });
-  if (!record) notFound();
-
-  return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <Link href="/admin/transparency" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-          <ArrowLeft className="h-4 w-4" /> กลับรายการ
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href={`/admin/transparency/${transparencyId}/edit`}>
-            <Button size="sm" variant="outline">
-              <Pencil className="h-4 w-4 mr-1" /> แก้ไข
-            </Button>
-          </Link>
-          <DeleteTransparencyButton transparencyId={transparencyId} />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-8">
-        <div className="mb-4 flex items-center gap-2">
-          <Badge variant={stageVariant[record.stage] ?? "default"}>
-            {TRANSPARENCY_STAGE_LABELS[record.stage]}
-          </Badge>
-          <Badge variant="outline">{NEWS_VISIBILITY_LABELS[record.visibility]}</Badge>
-          {record.fiscalYear && <Badge variant="outline">ปี {record.fiscalYear}</Badge>}
-        </div>
-
-        <h1 className="text-2xl font-bold text-gray-900">{record.title}</h1>
-
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-          <div>
-            <span className="text-gray-500">หมวดหมู่:</span> {record.category || "-"}
-          </div>
-          <div>
-            <span className="text-gray-500">จำนวนเงิน:</span>{" "}
-            {record.amount != null ? record.amount.toLocaleString("th-TH") : "-"}
-          </div>
-          <div>
-            <span className="text-gray-500">สร้างเมื่อ:</span> {record.createdAt.toLocaleDateString("th-TH")}
-          </div>
-          <div>
-            <span className="text-gray-500">เผยแพร่เมื่อ:</span>{" "}
-            {record.publishedAt ? record.publishedAt.toLocaleDateString("th-TH") : "-"}
-          </div>
-        </div>
-
-        {record.description && (
-          <div className="mt-6 border-t pt-6">
-            <p className="whitespace-pre-wrap text-gray-700 leading-7">{record.description}</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { TransparencyLifecycleActions } from "./transparency-lifecycle-actions";
+const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { DRAFT: "warning", PUBLISHED: "success", ARCHIVED: "default" };
+export default async function TransparencyDetailPage({ params }: { params: Promise<{ transparencyId: string }> }) { const { transparencyId } = await params; const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login"); const membership = getAdminMembership(session); if (!membership) redirect("/resident"); const record = await prisma.transparencyRecord.findFirst({ where: { id: transparencyId, villageId: membership.villageId } }); if (!record) notFound(); return <div className="mx-auto w-full max-w-4xl space-y-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><Link href="/admin/transparency" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"><ArrowLeft className="h-4 w-4" />กลับรายการ</Link><TransparencyLifecycleActions transparencyId={record.id} title={record.title} visibilityLabel={NEWS_VISIBILITY_LABELS[record.visibility]} stage={record.stage} /></div><div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-8"><div className="mb-4 flex flex-wrap items-center gap-2"><Badge variant={stageVariant[record.stage]}>{TRANSPARENCY_STAGE_LABELS[record.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[record.visibility]}</Badge>{record.fiscalYear ? <Badge variant="outline">ปี {record.fiscalYear}</Badge> : null}</div><h1 className="break-words text-2xl font-bold text-gray-900">{record.title}</h1><dl className="mt-6 grid grid-cols-1 gap-4 text-sm text-gray-600 md:grid-cols-2"><div><dt className="text-gray-500">สถานะ</dt><dd>{TRANSPARENCY_STAGE_LABELS[record.stage]}</dd></div><div><dt className="text-gray-500">การมองเห็น</dt><dd>{NEWS_VISIBILITY_LABELS[record.visibility]}</dd></div><div><dt className="text-gray-500">หมวดหมู่</dt><dd>{record.category || "-"}</dd></div><div><dt className="text-gray-500">จำนวนเงิน</dt><dd>{record.amount != null ? `${record.amount.toLocaleString("th-TH")} บาท` : "-"}</dd></div><div><dt className="text-gray-500">ปีงบประมาณ</dt><dd>{record.fiscalYear || "-"}</dd></div><div><dt className="text-gray-500">วันที่สร้าง</dt><dd>{record.createdAt.toLocaleDateString("th-TH")}</dd></div><div><dt className="text-gray-500">วันที่เผยแพร่</dt><dd>{record.publishedAt ? record.publishedAt.toLocaleDateString("th-TH") : "-"}</dd></div></dl>{record.description ? <div className="mt-6 border-t pt-6"><h2 className="mb-2 font-semibold text-gray-900">รายละเอียด</h2><p className="whitespace-pre-wrap break-words leading-7 text-gray-700">{record.description}</p></div> : null}</div></div>; }

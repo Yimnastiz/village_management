@@ -26,9 +26,10 @@ export default async function EditTransparencyPage({ params }: PageProps) {
     where: { id: transparencyId, villageId: membership.villageId },
   });
   if (!record) notFound();
+  if (record.stage === "ARCHIVED") redirect(`/admin/transparency/${transparencyId}`);
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       <div className="flex items-center gap-3">
         <Link href={`/admin/transparency/${transparencyId}`} className="text-gray-400 hover:text-gray-600">
           <ArrowLeft className="h-5 w-5" />
@@ -44,7 +45,6 @@ export default async function EditTransparencyPage({ params }: PageProps) {
           category: record.category ?? "",
           amount: record.amount != null ? String(record.amount) : "",
           fiscalYear: record.fiscalYear ?? "",
-          stage: record.stage,
           visibility: record.visibility,
         }}
       />
