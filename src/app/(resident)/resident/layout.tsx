@@ -62,8 +62,9 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   const villageDisplayName = publicVillage ? await getVillageDisplayName(publicVillage) : null;
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
-    bindingRequestHref:
-      latestBindingRequest?.status === "PENDING"
+    bindingRequestHref: residentMembership
+      ? null
+      : latestBindingRequest?.status === "PENDING"
         ? "/resident/binding/pending"
         : "/resident/binding",
     bindingStatus: latestBindingRequest?.status ?? null,

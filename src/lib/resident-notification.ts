@@ -18,6 +18,11 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   const metadata = metadataOf(notification);
   const source = stringValue(metadata, "source");
   const explicitUrl = stringValue(metadata, "actionUrl");
+  if (notification.type === "BINDING_REQUEST") {
+    const action = stringValue(metadata, "action")?.toLowerCase();
+    if (action === "approve" || action === "approved") return "/resident/dashboard?from=notifications";
+    return "/resident/binding/pending?from=notifications";
+  }
   if (explicitUrl?.startsWith("/resident/")) return explicitUrl;
   if (notification.type === "SYSTEM" && source === "SUPERADMIN_BROADCAST") return `/resident/notifications/${notification.id}`;
 
@@ -41,6 +46,5 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   if (notification.type === "ISSUE_UPDATE") return "/resident/issues";
   if (notification.type === "NEWS") return requestId ? `/resident/news/requests/${requestId}` : "/resident/news";
   if (notification.type === "CORRECTION_REQUEST") return "/resident/household/corrections";
-  if (notification.type === "BINDING_REQUEST") return "/resident/binding/pending";
   return null;
 }

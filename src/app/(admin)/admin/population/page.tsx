@@ -366,7 +366,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
           type: NotificationType.BINDING_REQUEST,
           title: "การผูกบัญชีถูกปฏิเสธ",
           body: reviewNote ? `การผูกบัญชีของคุณถูกปฏิเสธ เหตุผล: ${reviewNote}` : "การผูกบัญชีของคุณถูกปฏิเสธ",
-          metadata: { bindingRequestId: requestId, action: "rejected", reason: reviewNote },
+          metadata: { bindingRequestId: requestId, action: "rejected", actionUrl: "/resident/binding/pending", reason: reviewNote },
         },
       });
     }

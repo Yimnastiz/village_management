@@ -223,11 +223,18 @@ export function isSuperAdminUser(session: SessionContext): boolean {
 }
 
 export function isResidentUser(session: SessionContext): boolean {
-  return session.memberships.some(
-    (membership) =>
+  return session.memberships.some(hasCompletedResidentBinding);
+}
+
+/** A resident binding is complete only after an active resident membership has a house. */
+export function hasCompletedResidentBinding(
+  membership: Pick<SessionContext["memberships"][number], "role" | "status" | "houseId"> | null | undefined
+): boolean {
+  return Boolean(
+    membership &&
       membership.role === VillageMembershipRole.RESIDENT &&
       membership.status === MembershipStatus.ACTIVE &&
-      Boolean(membership.houseId)
+      membership.houseId
   );
 }
 
@@ -253,12 +260,7 @@ export function getAdminMembership(
 }
 
 export function getResidentMembership(session: SessionContext) {
-  const residentMemberships = session.memberships.filter(
-    (membership) =>
-      membership.role === VillageMembershipRole.RESIDENT &&
-      membership.status === MembershipStatus.ACTIVE &&
-      Boolean(membership.houseId)
-  );
+  const residentMemberships = session.memberships.filter(hasCompletedResidentBinding);
 
   if (residentMemberships.length === 0) {
     return null;

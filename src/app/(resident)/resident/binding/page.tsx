@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Ban, CheckCircle2, Clock3, XCircle } from "lucide-react";
 import { BindingRequestStatus } from "@prisma/client";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { redirect } from "next/navigation";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { BindingRequestForm } from "./binding-request-form";
 import { CancelBindingButton } from "./cancel-binding-button";
@@ -9,6 +10,10 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function ResidentBindingPage() {
   const session = await getSessionContextFromServerCookies();
+  if (session && getResidentMembership(session)) {
+    redirect("/resident/dashboard");
+  }
+
   const villages = await prisma.village.findMany({
     where: { isActive: true },
     orderBy: [{ province: "asc" }, { district: "asc" }, { name: "asc" }],
