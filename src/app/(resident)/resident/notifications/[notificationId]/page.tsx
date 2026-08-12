@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -14,11 +14,6 @@ export default async function ResidentNotificationDetailPage({ params }: PagePro
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
     redirect("/auth/login?callbackUrl=/resident/notifications");
-  }
-
-  const membership = getResidentMembership(session);
-  if (!membership) {
-    redirect("/resident/dashboard");
   }
 
   const notification = await prisma.notification.findUnique({

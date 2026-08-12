@@ -28,8 +28,6 @@ export async function markNotificationAsReadAction(notificationId: string) {
 
   revalidatePath("/admin", "layout");
   revalidatePath("/admin/notifications");
-  revalidatePath("/resident", "layout");
-  revalidatePath("/resident/notifications");
 
   return { success: true };
 }
@@ -54,8 +52,6 @@ export async function markAllNotificationsAsReadAction() {
 
   revalidatePath("/admin", "layout");
   revalidatePath("/admin/notifications");
-  revalidatePath("/resident", "layout");
-  revalidatePath("/resident/notifications");
 
   return { success: true };
 }

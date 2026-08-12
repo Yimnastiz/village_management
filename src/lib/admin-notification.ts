@@ -33,23 +33,24 @@ export function resolveAdminNotificationDestination(
   const placeId = stringValue(metadata, "placeId");
   const source = stringValue(metadata, "source");
 
-  if (bindingRequestId) return `/admin/population/binding-requests/${bindingRequestId}`;
-  if (appointmentId) return `/admin/appointments/${appointmentId}`;
-  if (issueId) return `/admin/issues/${issueId}`;
+  const fromNotifications = (path: string) => `${path}${path.includes("?") ? "&" : "?"}from=notifications`;
+  if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);
+  if (appointmentId) return fromNotifications(`/admin/appointments/${appointmentId}`);
+  if (issueId) return fromNotifications(`/admin/issues/${issueId}`);
 
   if (notification.type === "NEWS") {
-    if (requestId) return `/admin/news/requests/${requestId}`;
-    if (newsId) return `/admin/news/${newsId}`;
+    if (requestId) return fromNotifications(`/admin/news/requests/${requestId}`);
+    if (newsId) return fromNotifications(`/admin/news/${newsId}`);
   }
 
   if (source?.includes("CALENDAR") || eventId) {
-    if (requestId) return `/admin/calendar/requests/${requestId}`;
-    if (eventId) return `/admin/calendar/${eventId}`;
+    if (requestId) return fromNotifications(`/admin/calendar/requests/${requestId}`);
+    if (eventId) return fromNotifications(`/admin/calendar/${eventId}`);
   }
 
   if (source?.includes("GALLERY") || gallerySubmissionId || albumId) {
-    if (gallerySubmissionId) return `/admin/gallery/submissions/${gallerySubmissionId}`;
-    if (albumId) return `/admin/gallery/${albumId}`;
+    if (gallerySubmissionId) return fromNotifications(`/admin/gallery/submissions/${gallerySubmissionId}`);
+    if (albumId) return fromNotifications(`/admin/gallery/${albumId}`);
   }
 
   if (source?.includes("CONTACT")) {
@@ -69,7 +70,7 @@ export function resolveAdminNotificationDestination(
 }
 
 const LEGACY_THAI_COPY: Partial<Record<NotificationType, { title: string; body?: string }>> = {
-  BINDING_REQUEST: { title: "มีรายการเกี่ยวกับคำขอผูกเลขบ้าน" },
+  BINDING_REQUEST: { title: "มีคำขอผูกเลขบ้านใหม่", body: "มีลูกบ้านส่งคำขอผูกเลขบ้าน กรุณาตรวจสอบรายละเอียดคำขอ" },
   APPOINTMENT_UPDATE: { title: "มีการอัปเดตนัดหมาย" },
   ISSUE_UPDATE: { title: "มีการอัปเดตการแจ้งปัญหา" },
   NEWS: { title: "มีรายการข่าวที่เกี่ยวข้อง" },
@@ -81,8 +82,6 @@ export function getAdminNotificationCopy(notification: Pick<Notification, "type"
   const titleIsEnglish = /^[\x00-\x7F]+$/.test(notification.title);
   const bodyIsEnglish = notification.body ? /^[\x00-\x7F]+$/.test(notification.body) : false;
 
-  return {
-    title: titleIsEnglish && fallback ? fallback.title : notification.title,
-    body: bodyIsEnglish && fallback?.body ? fallback.body : notification.body,
-  };
+  const isLegacyBinding = notification.type === "BINDING_REQUEST" && (titleIsEnglish || bodyIsEnglish);
+  return { title: isLegacyBinding ? fallback!.title : titleIsEnglish && fallback ? fallback.title : notification.title, body: isLegacyBinding ? fallback!.body : bodyIsEnglish && fallback?.body ? fallback.body : notification.body };
 }

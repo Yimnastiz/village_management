@@ -156,7 +156,7 @@ export async function submitBindingRequestAction(
             villageId: createdBinding.villageId,
             type: NotificationType.BINDING_REQUEST,
             title: "มีคำขอผูกเลขบ้านใหม่",
-            body: `${createdBinding.user.name} (${createdBinding.user.phoneNumber}) ขอผูกบัญชีกับหมู่บ้าน`,
+            body: `${createdBinding.user.name} (${createdBinding.user.phoneNumber}) ส่งคำขอผูกเลขบ้าน กรุณาตรวจสอบรายละเอียด`,
             metadata: { bindingRequestId: createdBinding.id },
           })),
         });
