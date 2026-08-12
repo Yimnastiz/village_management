@@ -16,7 +16,9 @@ export type VillagePersonInput = {
   firstName: string; lastName: string; nationalId: string; dateOfBirth: string;
   gender: string; phone: string; email: string; status: string; houseId: string; reason?: string;
 };
-export type VillageHouseInput = { houseNumber: string; address?: string; occupancyStatus?: string; sourceNote?: string };
+// occupancyStatus remains required by the current schema, but is deliberately
+// not part of the population-management workflow or UI.
+export type VillageHouseInput = { houseNumber: string; address?: string; sourceNote?: string };
 
 export class PopulationValidationError extends Error {}
 
@@ -48,8 +50,7 @@ export async function createVillageHouse(villageId: string, input: VillageHouseI
   const houseNumber = input.houseNumber.trim();
   const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
   if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("รูปแบบเลขที่บ้านไม่ถูกต้อง");
-  const occupancyStatus = (input.occupancyStatus || HouseholdOccupancyStatus.OCCUPIED) as HouseholdOccupancyStatus;
-  if (!Object.values(HouseholdOccupancyStatus).includes(occupancyStatus)) throw new PopulationValidationError("สถานะบ้านไม่ถูกต้อง");
+  const occupancyStatus = HouseholdOccupancyStatus.OCCUPIED;
   try {
     return await prisma.$transaction(async (tx) => {
       const house = await tx.house.create({ data: { villageId, houseNumber, normalizedHouseNumber, address: input.address?.trim() || null, occupancyStatus, sourceType: actor.role === "SUPERADMIN" ? HouseSourceType.SUPERADMIN_CREATED : HouseSourceType.ADMIN_CREATED, sourceNote: input.sourceNote?.trim() || null, verifiedByUserId: actor.id, verifiedAt: new Date() }, select: { id: true } });
@@ -66,16 +67,14 @@ export async function updateVillageHouse(villageId: string, houseId: string, inp
   const houseNumber = input.houseNumber.trim();
   const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
   if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("รูปแบบเลขที่บ้านไม่ถูกต้อง");
-  const occupancyStatus = (input.occupancyStatus || HouseholdOccupancyStatus.OCCUPIED) as HouseholdOccupancyStatus;
-  if (!Object.values(HouseholdOccupancyStatus).includes(occupancyStatus)) throw new PopulationValidationError("สถานะบ้านไม่ถูกต้อง");
   try {
     return await prisma.$transaction(async (tx) => {
-      const current = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, occupancyStatus: true, address: true } });
+      const current = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, address: true } });
       if (!current) throw new PopulationValidationError("ไม่พบบ้านในหมู่บ้านนี้");
-      const result = await tx.house.updateMany({ where: { id: houseId, villageId }, data: { houseNumber, normalizedHouseNumber, address: input.address?.trim() || null, occupancyStatus, sourceNote: input.sourceNote?.trim() || null } });
+      const result = await tx.house.updateMany({ where: { id: houseId, villageId }, data: { houseNumber, normalizedHouseNumber, address: input.address?.trim() || null, sourceNote: input.sourceNote?.trim() || null } });
       if (result.count !== 1) throw new PopulationValidationError("ไม่สามารถแก้ไขบ้านข้ามหมู่บ้านได้");
-      await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "House", resourceId: houseId, metadata: { actorRole: actor.role, actionName: current.occupancyStatus !== occupancyStatus ? "HOUSE_STATUS_CHANGED" : "HOUSE_UPDATED", reason: input.sourceNote?.trim() || null, oldValue: current, newValue: { houseNumber, occupancyStatus, address: input.address?.trim() || null } } } });
-      return { statusChanged: current.occupancyStatus !== occupancyStatus };
+      await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "House", resourceId: houseId, metadata: { actorRole: actor.role, actionName: "HOUSE_UPDATED", reason: input.sourceNote?.trim() || null, oldValue: current, newValue: { houseNumber, address: input.address?.trim() || null } } } });
+      return { statusChanged: false };
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new PopulationValidationError("เลขที่บ้านนี้มีอยู่แล้วในหมู่บ้าน");

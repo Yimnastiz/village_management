@@ -6,7 +6,6 @@ import { revalidatePath } from "next/cache";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
-import { OCCUPANCY_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
@@ -371,7 +370,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
         },
       });
     }
-  }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; throw error; }
+  }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; console.error("[population] binding action failed", { errorName: error instanceof Error ? error.name : "UnknownError" }); return { success: false, message: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" }; }
 
   revalidatePath("/admin/population");
   revalidateAdminSidebar();
@@ -433,7 +432,7 @@ export async function verifyHouseForBindingAction(_previousState: BindingReviewA
     const resolvedRequest = await tx.bindingRequest.updateMany({ where: { id: request.id, status: BindingRequestStatus.PENDING, houseId: request.houseId }, data: { houseId } });
     if (resolvedRequest.count !== 1) throw new BindingReviewValidationError("คำขอนี้ถูกตรวจสอบบ้านแล้ว กรุณารีเฟรชหน้า");
     await tx.auditLog.create({ data: { userId: session.id, villageId: request.villageId, action: AuditAction.UPDATE, resource: "BindingRequest", resourceId: request.id, metadata: { actionName: resolutionAuditAction, resolutionAction, houseId, requestedHouseNumber: request.houseNumber, sourceNote, matchReason: matchReason || null } } });
-  }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; throw error; }
+  }); } catch (error) { if (error instanceof BindingReviewValidationError) return { success: false, message: error.message }; console.error("[population] binding house resolution failed", { errorName: error instanceof Error ? error.name : "UnknownError" }); return { success: false, message: "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" }; }
   revalidatePath("/admin/population");
   revalidatePath("/admin/population/binding-requests");
   revalidatePath(`/admin/population/binding-requests/${requestId}`);
@@ -672,7 +671,6 @@ export default async function Page({ searchParams }: PageProps) {
               <tr>
                 <th className="px-4 py-3">บ้านเลขที่</th>
                 <th className="px-4 py-3">หมู่บ้าน</th>
-                <th className="px-4 py-3">สถานะ</th>
                 <th className="px-4 py-3">จำนวนคน</th>
                 <th className="px-4 py-3">รายละเอียด</th>
               </tr>
@@ -682,9 +680,6 @@ export default async function Page({ searchParams }: PageProps) {
                 <tr key={house.id} className="border-t border-gray-100">
                   <td className="px-4 py-3 font-medium text-gray-900">{house.houseNumber}</td>
                   <td className="px-4 py-3 text-gray-700">{house.village.name}</td>
-                  <td className="px-4 py-3 text-gray-700">
-                    {OCCUPANCY_STATUS_LABELS[house.occupancyStatus] ?? house.occupancyStatus}
-                  </td>
                   <td className="px-4 py-3 text-gray-700">{house._count.persons.toLocaleString("th-TH")}</td>
                   <td className="px-4 py-3">
                     <Link

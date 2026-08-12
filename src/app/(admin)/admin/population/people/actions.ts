@@ -1,5 +1,53 @@
-"use server";import {MembershipStatus,VillageMembershipRole} from "@prisma/client";import {revalidatePath} from "next/cache";import {getSessionContextFromServerCookies,isAdminUser} from "@/lib/access-control";import {createVillagePerson,deactivateVillagePerson,PopulationValidationError,updateVillagePerson,type VillagePersonInput} from "@/features/population/server/village-population-service";
-type PersonInput=VillagePersonInput;async function context(){const session=await getSessionContextFromServerCookies();if(!session?.id||!isAdminUser(session))return null;const m=session.memberships.find(x=>x.status===MembershipStatus.ACTIVE&&x.role!==VillageMembershipRole.RESIDENT);return m?{actor:{id:session.id,role:"ADMIN" as const},villageId:m.villageId}:null}const error=(e:unknown)=>e instanceof PopulationValidationError?e.message:"เกิดข้อผิดพลาด กรุณาลองใหม่";
-export async function createPersonAction(data:PersonInput):Promise<{success:true;id:string}|{success:false;error:string}>{const c=await context();if(!c)return{success:false,error:"Unauthorized"};try{const p=await createVillagePerson(c.villageId,data,c.actor);revalidatePath("/admin/population/people");return{success:true,id:p.id}}catch(e){return{success:false,error:error(e)}}}
-export async function updatePersonAction(personId:string,data:PersonInput):Promise<{success:true}|{success:false;error:string}>{const c=await context();if(!c)return{success:false,error:"Unauthorized"};try{await updateVillagePerson(c.villageId,personId,data,c.actor);revalidatePath("/admin/population/people");revalidatePath(`/admin/population/people/${personId}`);return{success:true}}catch(e){return{success:false,error:error(e)}}}
-export async function deletePersonAction(personId:string,reason:string):Promise<{success:true}|{success:false;error:string}>{const c=await context();if(!c)return{success:false,error:"Unauthorized"};try{await deactivateVillagePerson(c.villageId,personId,reason,c.actor);revalidatePath("/admin/population/people");revalidatePath(`/admin/population/people/${personId}`);return{success:true}}catch(e){return{success:false,error:error(e)}}}
+"use server";
+
+import { MembershipStatus } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { canManagePopulation, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { createVillagePerson, deactivateVillagePerson, PopulationValidationError, updateVillagePerson, type VillagePersonInput } from "@/features/population/server/village-population-service";
+
+type PersonActionResult = { success: true; id?: string } | { success: false; error: string };
+
+async function context() {
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id || !isAdminUser(session)) return null;
+  const membership = session.memberships.find((item) => item.status === MembershipStatus.ACTIVE && canManagePopulation(item.role));
+  return membership ? { actor: { id: session.id, role: "ADMIN" as const }, villageId: membership.villageId } : null;
+}
+
+function toActionError(error: unknown) {
+  if (error instanceof PopulationValidationError) return error.message;
+  console.error("[population] person action failed", { errorName: error instanceof Error ? error.name : "UnknownError" });
+  return "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+}
+
+export async function createPersonAction(data: VillagePersonInput): Promise<PersonActionResult> {
+  const current = await context();
+  if (!current) return { success: false, error: "คุณไม่มีสิทธิ์เพิ่มข้อมูลประชากร" };
+  try {
+    const person = await createVillagePerson(current.villageId, data, current.actor);
+    revalidatePath("/admin/population/people");
+    return { success: true, id: person.id };
+  } catch (error) { return { success: false, error: toActionError(error) }; }
+}
+
+export async function updatePersonAction(personId: string, data: VillagePersonInput): Promise<PersonActionResult> {
+  const current = await context();
+  if (!current) return { success: false, error: "คุณไม่มีสิทธิ์แก้ไขข้อมูลประชากร" };
+  try {
+    await updateVillagePerson(current.villageId, personId, data, current.actor);
+    revalidatePath("/admin/population/people");
+    revalidatePath(`/admin/population/people/${personId}`);
+    return { success: true };
+  } catch (error) { return { success: false, error: toActionError(error) }; }
+}
+
+export async function deletePersonAction(personId: string, reason: string): Promise<PersonActionResult> {
+  const current = await context();
+  if (!current) return { success: false, error: "คุณไม่มีสิทธิ์บันทึกการย้ายออก" };
+  try {
+    await deactivateVillagePerson(current.villageId, personId, reason, current.actor);
+    revalidatePath("/admin/population/people");
+    revalidatePath(`/admin/population/people/${personId}`);
+    return { success: true };
+  } catch (error) { return { success: false, error: toActionError(error) }; }
+}

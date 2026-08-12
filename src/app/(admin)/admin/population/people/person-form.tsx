@@ -61,6 +61,8 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, identi
           const result = await createPersonAction(data);
           if (!result.success) {
             setError("root", { message: result.error });
+            if (result.error.includes("เลขบัตรประชาชน")) setError("nationalId", { message: result.error });
+            toast.error(mode === "create" ? "เพิ่มข้อมูลประชากรไม่สำเร็จ" : "แก้ไขข้อมูลประชากรไม่สำเร็จ", result.error);
             return;
           }
 

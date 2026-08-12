@@ -207,6 +207,14 @@ export function isAdminUser(session: SessionContext): boolean {
   );
 }
 
+export function canManagePopulation(role: VillageMembershipRole): boolean {
+  return ADMIN_MEMBERSHIP_ROLE_SET.has(role);
+}
+
+export function canReviewBinding(role: VillageMembershipRole): boolean {
+  return role === VillageMembershipRole.HEADMAN || role === VillageMembershipRole.ASSISTANT_HEADMAN;
+}
+
 export function isSuperAdminUser(session: SessionContext): boolean {
   // SUPERADMIN is retained in the database enum only for migration compatibility.
   // Browser-authenticated users never receive SuperAdmin access.

@@ -783,8 +783,11 @@ async function importRowIntoVillage(
 }
 
 function formatError(error: unknown) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError || error instanceof Prisma.PrismaClientValidationError) {
+    return "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง";
+  }
   if (error instanceof Error) {
-    return error.message;
+    return /prisma|P\d{4}|unique constraint|invocation/i.test(error.message) ? "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง" : error.message;
   }
 
   return "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ";
