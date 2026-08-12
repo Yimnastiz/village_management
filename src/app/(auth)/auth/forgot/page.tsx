@@ -19,7 +19,7 @@ export default function ForgotPage() {
         </div>
       ) : (
         <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="space-y-4">
-          <Input label="เบอร์โทรศัพท์" type="tel" placeholder="0812345678" required />
+          <Input id="forgot-phone" name="phoneNumber" label="เบอร์โทรศัพท์" type="tel" placeholder="0812345678" required />
           <Button type="submit" className="w-full">ส่ง OTP</Button>
         </form>
       )}

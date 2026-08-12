@@ -476,6 +476,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           <h3 className="text-sm font-semibold text-gray-900">ข้อมูลบัญชีและยืนยันตัวตน</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
+            id="register-first-name"
             label="ชื่อ"
             name="firstName"
             placeholder="เช่น สมชาย"
@@ -490,6 +491,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             error={fieldErrors.firstName}
           />
           <Input
+            id="register-last-name"
             label="นามสกุล"
             name="lastName"
             placeholder="เช่น ใจดี"
@@ -506,6 +508,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         </div>
 
         <Input
+          id="register-phone"
           label="เบอร์โทรศัพท์"
           name="phone"
           type="tel"
@@ -525,6 +528,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         />
 
         <Input
+          id="register-national-id"
           label="เลขบัตรประจำตัวประชาชน"
           name="nationalId"
           type="text"

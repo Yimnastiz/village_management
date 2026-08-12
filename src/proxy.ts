@@ -6,12 +6,31 @@ import {
   getSessionContextFromRequest,
   isAdminUser,
 } from "@/lib/access-control";
-import { readSuperAdminSession, SUPERADMIN_SESSION_COOKIE } from "@/lib/superadmin-auth";
+import {
+  readSuperAdminSession,
+  SUPERADMIN_SESSION_COOKIE,
+  superAdminSessionCookieOptions,
+} from "@/lib/superadmin-auth";
 import { AccountStatus } from "@prisma/client";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (pathname === "/superadmin/access") return NextResponse.next();
+  if (pathname === "/superadmin/access") {
+    const token = request.cookies.get(SUPERADMIN_SESSION_COOKIE)?.value;
+    const superAdminSession = await readSuperAdminSession(token);
+    if (superAdminSession) {
+      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
+    }
+
+    const response = NextResponse.next();
+    if (token) {
+      response.cookies.set(SUPERADMIN_SESSION_COOKIE, "", {
+        ...superAdminSessionCookieOptions,
+        maxAge: 0,
+      });
+    }
+    return response;
+  }
   const session = await getSessionContextFromRequest(request);
   const duplicateNoticeSession = session ? null : await getDuplicateNoticeSessionFromRequest(request);
 

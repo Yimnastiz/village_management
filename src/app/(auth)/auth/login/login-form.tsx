@@ -39,12 +39,12 @@ function LoginContent() {
 
     const normalizedPhone = normalizePhone10(phone);
     if (!normalizedPhone) {
-      setError("Please enter a phone number.");
+      setError("กรุณากรอกเบอร์โทรศัพท์");
       return;
     }
 
     if (!/^\d{10}$/.test(normalizedPhone)) {
-      setError("Phone number must be exactly 10 digits.");
+      setError("เบอร์โทรศัพท์ต้องมี 10 หลัก");
       return;
     }
 
@@ -64,13 +64,7 @@ function LoginContent() {
       });
 
       if (!registrationResponse.ok) {
-        const registrationError = (await registrationResponse.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(
-          registrationError?.error ??
-            "This phone number is not registered yet. Please register first."
-        );
+        throw new Error("ไม่พบเบอร์โทรศัพท์นี้ในระบบ กรุณาสมัครสมาชิกก่อน");
       }
 
       const registrationData = (await registrationResponse.json()) as {
@@ -85,8 +79,7 @@ function LoginContent() {
         body: JSON.stringify({ phoneNumber: loginPhoneNumber, intent: "START_OR_RESUME" }),
       });
       if (!result.ok) {
-        const body = (await result.json().catch(() => null)) as { error?: string } | null;
-        throw new Error(body?.error ?? "Failed to send OTP.");
+        throw new Error("ไม่สามารถส่งรหัส OTP ได้");
       }
       const resultBody = (await result.json()) as { outcome?: "OTP_SENT" | "RESUME_EXISTING_CHALLENGE" | "LOCKED" };
 
@@ -96,7 +89,7 @@ function LoginContent() {
       success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS และกรอกรหัสเพื่อเข้าสู่ระบบ");
       router.push("/auth/verify-otp?mode=signin");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send OTP.");
+      setError(err instanceof Error ? err.message : "ไม่สามารถส่งรหัส OTP ได้");
       showError("ส่งรหัส OTP ไม่สำเร็จ", "กรุณาตรวจสอบเบอร์โทรศัพท์แล้วลองใหม่อีกครั้ง");
     } finally {
       setIsLoading(false);
@@ -119,6 +112,8 @@ function LoginContent() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input
+          id="login-phone"
+          name="phoneNumber"
           label="เบอร์โทรศัพท์"
           type="tel"
           placeholder="0812345678"
@@ -128,7 +123,7 @@ function LoginContent() {
             maxLength={10}
             pattern="[0-9]{10}"
             autoComplete="tel"
-            title="Phone number must be exactly 10 digits"
+            title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก"
           required
         />
 

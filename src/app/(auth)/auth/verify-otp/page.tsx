@@ -430,6 +430,7 @@ function VerifyOTPContent() {
                 inputs.current[index] = el;
               }}
               type="text"
+              id={`otp-code-${index + 1}`}
               inputMode="numeric"
               maxLength={1}
               value={digit}
