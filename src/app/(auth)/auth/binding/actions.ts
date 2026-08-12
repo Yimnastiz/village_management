@@ -106,6 +106,7 @@ export async function submitBindingRequestAction(
       update: {
         role: VillageMembershipRole.RESIDENT,
         status: MembershipStatus.PENDING,
+        houseId: null,
       },
       create: {
         userId: session.id,
@@ -174,6 +175,7 @@ export async function submitBindingRequestAction(
     update: {
       role: VillageMembershipRole.RESIDENT,
       status: MembershipStatus.PENDING,
+      houseId: null,
     },
     create: {
       userId: session.id,
