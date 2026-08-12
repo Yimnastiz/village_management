@@ -27,8 +27,16 @@ npm run dev
 
 Super Admin เป็นผู้ดำเนินการระดับระบบจาก ENV ไม่ใช่บัญชี Better Auth และไม่ต้องมีชื่อ เบอร์โทร อีเมล หรือ OTP
 
-1. ตั้ง `SUPERADMIN_ACCESS_CODE` เป็นรหัสยาวที่คาดเดายาก
-2. ตั้ง `SUPERADMIN_SESSION_SECRET` เป็น secret สำหรับลงลายเซ็น session ที่แยกจาก access code
+1. สร้างไฟล์ `.env.local` (ไม่ commit) และตั้งค่าสำหรับ Development เช่น
+   ```env
+   SUPERADMIN_ACCESS_CODE="123456"
+   SUPERADMIN_SESSION_SECRET="dev-superadmin-session-secret-change-this"
+   ```
+2. หลังแก้ `.env.local` ให้ restart server เสมอ เพราะ Fast Refresh ไม่ควรใช้คาดหวังการ reload ENV ฝั่ง Server:
+   ```bash
+   Ctrl + C
+   npm run dev
+   ```
 3. เปิด `http://localhost:3000/superadmin` แล้วกรอกรหัส
 
 รายละเอียดเพิ่มเติมอยู่ที่ [SUPERADMIN_ACCESS.md](SUPERADMIN_ACCESS.md)
