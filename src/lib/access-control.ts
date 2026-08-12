@@ -208,7 +208,10 @@ export function isAdminUser(session: SessionContext): boolean {
 }
 
 export function isSuperAdminUser(session: SessionContext): boolean {
-  return session.systemRole === SystemRole.SUPERADMIN;
+  // SUPERADMIN is retained in the database enum only for migration compatibility.
+  // Browser-authenticated users never receive SuperAdmin access.
+  void session;
+  return false;
 }
 
 export function isResidentUser(session: SessionContext): boolean {
@@ -319,10 +322,6 @@ export function computeLandingPath(session: SessionContext): string {
   if (session.accountStatus === AccountStatus.DUPLICATE_ID) {
     return "/auth/account-duplicate";
   }
-  if (session.systemRole === SystemRole.SUPERADMIN) {
-    return "/superadmin/dashboard";
-  }
-
   if (isAdminUser(session)) {
     return "/admin/dashboard";
   }
@@ -338,10 +337,6 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
   if (session.accountStatus === AccountStatus.DUPLICATE_ID) {
     return "/auth/account-duplicate";
   }
-  if (session.systemRole === SystemRole.SUPERADMIN) {
-    return "/superadmin/dashboard";
-  }
-
   if (isAdminUser(session)) {
     return "/admin/dashboard";
   }

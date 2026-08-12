@@ -27,7 +27,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
   const pageSize = 12;
 
   const where = {
-    ...(systemRole === "SUPERADMIN" ? { systemRole: "SUPERADMIN" as const } : {}),
+    systemRole: { not: "SUPERADMIN" as const },
     ...(systemRole === "USER" ? { systemRole: "USER" as const } : {}),
     ...(adminRole === "admin"
       ? { memberships: { some: { role: { in: [...ADMIN_ROLES] } } } }
@@ -97,7 +97,6 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
         <select name="systemRole" defaultValue={systemRole} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
           <option value="all">ทุก System Role</option>
           <option value="USER">USER</option>
-          <option value="SUPERADMIN">SUPERADMIN</option>
         </select>
         <select name="adminRole" defaultValue={adminRole} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
           <option value="all">ทุกบทบาทหมู่บ้าน</option>

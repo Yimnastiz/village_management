@@ -67,7 +67,6 @@ export async function upsertGlobalSettingAction(formData: FormData) {
   });
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.UPDATE,
     resource: "GlobalSetting",
     resourceId: settingKey,
@@ -90,7 +89,6 @@ export async function deleteGlobalSettingAction(formData: FormData) {
   });
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.DELETE,
     resource: "GlobalSetting",
     resourceId: deleted.question,

@@ -11,7 +11,7 @@ function readText(formData: FormData, key: string): string {
 }
 
 export async function updateFeedbackNotificationStatusAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
   const notificationId = readText(formData, "notificationId");
   const status = readText(formData, "status");
 
@@ -25,15 +25,11 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
 
   const row = await prisma.notification.findUnique({
     where: { id: notificationId },
-    select: { id: true, userId: true, metadata: true },
+    select: { id: true, metadata: true },
   });
 
   if (!row) {
     throw new Error("ไม่พบรายการ feedback");
-  }
-
-  if (row.userId !== session.id) {
-    throw new Error("Unauthorized");
   }
 
   const metadata = row.metadata as Record<string, unknown> | null;

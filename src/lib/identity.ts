@@ -89,7 +89,7 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
   db: IdentityDb,
   nationalId: string,
   winnerUserId: string,
-  options: { actorId: string; villageId?: string | null } = { actorId: winnerUserId }
+  options: { actorId: string | null; villageId?: string | null } = { actorId: winnerUserId }
 ) {
   const normalized = normalizeNationalId(nationalId);
   if (!normalized) return 0;

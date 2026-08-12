@@ -23,15 +23,15 @@ npm run dev
 
 `npm run db:up` จะสร้าง PostgreSQL local ผ่าน Docker Compose ที่ port `55432` และ `npm run setup` จะสร้าง `.env` จาก `.env.example` ให้อัตโนมัติเมื่อยังไม่มีไฟล์
 
-## การสร้าง Super Admin คนแรก
+## การเข้าถึง Super Admin
 
-หลังจากรันระบบครั้งแรก ให้ตั้งค่า `SUPERADMIN_BOOTSTRAP_SECRET` ใน `.env` เป็นรหัสที่คาดเดายาก (ห้ามใช้ค่าเริ่มต้นเมื่อ deploy production) แล้วเปิด:
+Super Admin เป็นผู้ดำเนินการระดับระบบจาก ENV ไม่ใช่บัญชี Better Auth และไม่ต้องมีชื่อ เบอร์โทร อีเมล หรือ OTP
 
-```text
-http://localhost:3000/superadmin/setup
-```
+1. ตั้ง `SUPERADMIN_ACCESS_CODE` เป็นรหัสยาวที่คาดเดายาก
+2. ตั้ง `SUPERADMIN_SESSION_SECRET` เป็น secret สำหรับลงลายเซ็น session ที่แยกจาก access code
+3. เปิด `http://localhost:3000/superadmin` แล้วกรอกรหัส
 
-กรอกชื่อ นามสกุล เบอร์โทรศัพท์ และรหัสติดตั้งดังกล่าว ระบบจะสร้าง Super Admin คนแรก แล้วพาไปล็อกอินด้วย OTP ตาม flow ปกติ เมื่อมี Super Admin แล้ว หน้านี้จะถูกปิดอัตโนมัติและใช้สร้างซ้ำไม่ได้
+รายละเอียดเพิ่มเติมอยู่ที่ [SUPERADMIN_ACCESS.md](SUPERADMIN_ACCESS.md)
 
 ## `npm run setup` ทำอะไรบ้าง
 

@@ -11,7 +11,7 @@ import {
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { prisma } from "@/lib/prisma";
 
-export type PopulationActor = { id: string; role: "ADMIN" | "SUPERADMIN" };
+export type PopulationActor = { id: string | null; role: "ADMIN" | "SUPERADMIN" };
 export type VillagePersonInput = {
   firstName: string; lastName: string; nationalId: string; dateOfBirth: string;
   gender: string; phone: string; email: string; status: string; houseId: string; reason?: string;
@@ -53,7 +53,7 @@ export async function createVillageHouse(villageId: string, input: VillageHouseI
   try {
     return await prisma.$transaction(async (tx) => {
       const house = await tx.house.create({ data: { villageId, houseNumber, normalizedHouseNumber, address: input.address?.trim() || null, occupancyStatus, sourceType: actor.role === "SUPERADMIN" ? HouseSourceType.SUPERADMIN_CREATED : HouseSourceType.ADMIN_CREATED, sourceNote: input.sourceNote?.trim() || null, verifiedByUserId: actor.id, verifiedAt: new Date() }, select: { id: true } });
-      await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.CREATE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actionName: "HOUSE_CREATED", houseNumber, normalizedHouseNumber, reason: input.sourceNote?.trim() || null } } });
+      await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.CREATE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actorType: actor.role === "SUPERADMIN" ? "SUPERADMIN_ENV" : undefined, actionName: "HOUSE_CREATED", houseNumber, normalizedHouseNumber, reason: input.sourceNote?.trim() || null } } });
       return house;
     });
   } catch (error) {

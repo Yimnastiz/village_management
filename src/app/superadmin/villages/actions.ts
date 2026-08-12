@@ -130,7 +130,7 @@ export async function createVillageAction(formData: FormData) {
     if (isUniqueConstraintError(error)) throw new Error(mode === "catalog" ? "หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว หรือ slug จากรหัสหมู่บ้านซ้ำกับข้อมูลเดิม" : "Slug นี้ถูกใช้แล้ว กรุณาใช้ slug อื่น");
     throw error;
   }
-  await writeSuperAdminAuditLog({ userId: session.id, action: mode === "catalog" ? AuditAction.VILLAGE_CREATED_FROM_CATALOG : AuditAction.VILLAGE_CREATED_MANUAL, resource: "Village", resourceId: created.id, villageId: created.id, metadata: { name: created.name, slug: created.slug, sourceNote: created.sourceNote, catalogVillageId: created.catalogVillageId, catalogSource, builtInCatalogId } });
+  await writeSuperAdminAuditLog({ action: mode === "catalog" ? AuditAction.VILLAGE_CREATED_FROM_CATALOG : AuditAction.VILLAGE_CREATED_MANUAL, resource: "Village", resourceId: created.id, villageId: created.id, metadata: { name: created.name, slug: created.slug, sourceNote: created.sourceNote, catalogVillageId: created.catalogVillageId, catalogSource, builtInCatalogId } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }
@@ -154,7 +154,7 @@ export async function updateVillageAction(formData: FormData) {
     if (isUniqueConstraintError(error)) throw new Error(mode === "catalog" ? "หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว หรือ slug จากรหัสหมู่บ้านซ้ำกับข้อมูลเดิม" : "Slug นี้ถูกใช้แล้ว กรุณาใช้ slug อื่น");
     throw error;
   }
-  await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { name: updated.name, slug: updated.slug, mode, sourceNote: updated.sourceNote, catalogVillageId: updated.catalogVillageId, catalogSource, builtInCatalogId } });
+  await writeSuperAdminAuditLog({ action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { name: updated.name, slug: updated.slug, mode, sourceNote: updated.sourceNote, catalogVillageId: updated.catalogVillageId, catalogSource, builtInCatalogId } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }
@@ -217,7 +217,7 @@ export async function toggleVillageActiveAction(formData: FormData) {
   const nextActive = readString(formData, "nextActive") === "true";
   if (!id) throw new Error("ไม่พบรหัสหมู่บ้าน");
   const updated = await prisma.village.update({ where: { id }, data: { isActive: nextActive }, select: { id: true, name: true, isActive: true } });
-  await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.UPDATE, resource: "VillageStatus", resourceId: id, villageId: id, metadata: { name: updated.name, isActive: updated.isActive } });
+  await writeSuperAdminAuditLog({ action: AuditAction.UPDATE, resource: "VillageStatus", resourceId: id, villageId: id, metadata: { name: updated.name, isActive: updated.isActive } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }
@@ -230,7 +230,7 @@ export async function deleteVillageAction(formData: FormData) {
   if (!usage) throw new Error("ไม่พบหมู่บ้าน");
   if (usage._count.houses > 0 || usage._count.memberships > 0 || usage._count.news > 0 || usage._count.issues > 0 || usage._count.appointments > 0) throw new Error("ลบหมู่บ้านนี้ไม่ได้เพราะมีข้อมูลใช้งานอยู่ ให้ปิดการใช้งานแทน");
   await prisma.village.delete({ where: { id } });
-  await writeSuperAdminAuditLog({ userId: session.id, action: AuditAction.DELETE, resource: "Village", resourceId: id, villageId: id, metadata: { name: usage.name } });
+  await writeSuperAdminAuditLog({ action: AuditAction.DELETE, resource: "Village", resourceId: id, villageId: id, metadata: { name: usage.name } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }

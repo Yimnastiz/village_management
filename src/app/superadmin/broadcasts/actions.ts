@@ -118,7 +118,6 @@ export async function broadcastAnnouncementAction(formData: FormData) {
   await prisma.notification.createMany({ data: notificationRows });
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.CREATE,
     resource: "SystemWideBroadcast",
     resourceId: groupId,
@@ -183,7 +182,6 @@ export async function updateBroadcastAnnouncementAction(formData: FormData) {
   });
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.UPDATE,
     resource: "SystemWideBroadcast",
     resourceId: groupId,
@@ -227,7 +225,6 @@ export async function deleteBroadcastAnnouncementAction(formData: FormData) {
   }
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.DELETE,
     resource: "SystemWideBroadcast",
     resourceId: groupId,

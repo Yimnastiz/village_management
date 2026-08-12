@@ -24,7 +24,7 @@ function normalizeSort(sort: string | undefined): "newest" | "oldest" {
 }
 
 export default async function SuperAdminFeedbackPage({ searchParams }: PageProps) {
-  const session = await requireSuperAdminPageSession();
+  await requireSuperAdminPageSession();
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
   const category = (params.category ?? "all").trim();
@@ -33,7 +33,6 @@ export default async function SuperAdminFeedbackPage({ searchParams }: PageProps
 
   const rows = await prisma.notification.findMany({
     where: {
-      userId: session.id,
       metadata: {
         path: ["source"],
         equals: "PUBLIC_FEEDBACK",

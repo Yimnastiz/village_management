@@ -5,17 +5,13 @@ import {
   getResidentAreaAccessInfo,
   getSessionContextFromRequest,
   isAdminUser,
-  isSuperAdminUser,
 } from "@/lib/access-control";
+import { readSuperAdminSession, SUPERADMIN_SESSION_COOKIE } from "@/lib/superadmin-auth";
 import { AccountStatus } from "@prisma/client";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  // The setup page is public only while its page/action enforce the one-time
-  // bootstrap rule. The legacy login route must still inspect active sessions.
-  if (pathname === "/superadmin/setup") {
-    return NextResponse.next();
-  }
+  if (pathname === "/superadmin/access") return NextResponse.next();
   const session = await getSessionContextFromRequest(request);
   const duplicateNoticeSession = session ? null : await getDuplicateNoticeSessionFromRequest(request);
 
@@ -40,25 +36,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
   }
 
-  if (pathname === "/superadmin/login" && session) {
-    return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
-  }
-
-  // A signed-out visitor may reach this legacy first-run page. Its server
-  // component decides whether bootstrap is still available or login is needed.
-  if (pathname === "/superadmin/login") {
-    return NextResponse.next();
-  }
-
   if (pathname.startsWith("/resident")) {
     if (!session) {
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);
-    }
-
-    if (isSuperAdminUser(session)) {
-      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
     }
 
     const residentAccess = await getResidentAreaAccessInfo(session);
@@ -89,10 +71,6 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
-    if (isSuperAdminUser(session)) {
-      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
-    }
-
     const redirectPath = await getAuthenticatedAccessRedirectPath(session);
     if (!isAdminUser(session)) {
       return NextResponse.redirect(new URL(redirectPath, request.url));
@@ -100,16 +78,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/superadmin")) {
-    if (!session) {
-      const loginUrl = new URL("/auth/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    if (!isSuperAdminUser(session)) {
-      const redirectPath = await getAuthenticatedAccessRedirectPath(session);
-      return NextResponse.redirect(new URL(redirectPath, request.url));
-    }
+    const superAdminSession = await readSuperAdminSession(request.cookies.get(SUPERADMIN_SESSION_COOKIE)?.value);
+    if (!superAdminSession) return NextResponse.redirect(new URL("/superadmin/access", request.url));
   }
 
   if (pathname === "/auth/register" && session) {

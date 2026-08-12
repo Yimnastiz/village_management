@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
-import { getAdminMembership, getSessionContextFromServerCookies, isSuperAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { requireSuperAdminActionSession } from "@/lib/superadmin";
 
 export type VillageActorContext = {
-  actorUserId: string;
+  actorUserId: string | null;
   actorRole: "ADMIN" | "SUPERADMIN";
   villageId: string;
   villageName?: string;
@@ -32,10 +33,7 @@ export async function requireAdminVillageContext(): Promise<
 }
 
 export async function requireSuperAdminVillageContext(villageId: string): Promise<VillageActorContext> {
-  const session = await getSessionContextFromServerCookies();
-  if (!session || !isSuperAdminUser(session)) {
-    throw new Error("Unauthorized");
-  }
+  await requireSuperAdminActionSession();
 
   const village = await prisma.village.findUnique({
     where: { id: villageId },
@@ -45,7 +43,7 @@ export async function requireSuperAdminVillageContext(villageId: string): Promis
   if (!village) notFound();
 
   return {
-    actorUserId: session.id,
+    actorUserId: null,
     actorRole: "SUPERADMIN",
     villageId: village.id,
     villageName: village.name,
@@ -63,4 +61,3 @@ export function requireSupportReason(reason: string | null | undefined): string 
   }
   return value;
 }
-

@@ -22,6 +22,7 @@ function parseVillageRole(value: string): VillageMembershipRole {
 
 export async function updateUserSystemRoleAction(formData: FormData) {
   const session = await requireSuperAdminActionSession();
+  throw new Error("ระบบ Super Admin ไม่ได้ผูกกับบัญชีผู้ใช้ และไม่รองรับการกำหนดสิทธิ์ SUPERADMIN ให้ผู้ใช้");
 
   const userId = getString(formData, "userId");
   const role = parseSystemRole(getString(formData, "systemRole"));
@@ -32,7 +33,7 @@ export async function updateUserSystemRoleAction(formData: FormData) {
   }
   if (reason.length < 5) throw new Error("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
 
-  if (session.id === userId && role !== SystemRole.SUPERADMIN) {
+  if (false && role !== SystemRole.SUPERADMIN) {
     throw new Error("ไม่สามารถลดสิทธิ์ Super Admin ของบัญชีตัวเองได้");
   }
 
@@ -48,7 +49,6 @@ export async function updateUserSystemRoleAction(formData: FormData) {
   });
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.UPDATE,
     resource: "UserSystemRole",
     resourceId: userId,
@@ -132,7 +132,6 @@ export async function updateUserProfileAction(formData: FormData) {
   });
 
   await writeSuperAdminAuditLog({
-    userId: session.id,
     action: AuditAction.UPDATE,
     resource: "UserProfile",
     resourceId: userId,

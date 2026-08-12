@@ -58,13 +58,17 @@ export default async function SuperAdminLogsPage({ searchParams }: PageProps) {
     } : {}),
   };
 
-  const [logs, totalCount] = await Promise.all([
+  const [rawLogs, totalCount] = await Promise.all([
     prisma.auditLog.findMany({
       where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize,
-      select: { id: true, createdAt: true, action: true, resource: true, resourceId: true, user: { select: { name: true, phoneNumber: true } }, village: { select: { name: true } } },
+      select: { id: true, createdAt: true, action: true, resource: true, resourceId: true, metadata: true, user: { select: { name: true, phoneNumber: true } }, village: { select: { name: true } } },
     }),
     prisma.auditLog.count({ where }),
   ]);
+  const logs = rawLogs.map((log) => ({
+    ...log,
+    user: log.user ?? ((log.metadata as { actorType?: string } | null)?.actorType === "SUPERADMIN_ENV" ? { name: "Super Admin", phoneNumber: "" } : null),
+  }));
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const filterParams = { q: keyword || undefined, action: selectedAction ?? undefined, resource: resource || undefined, dateFrom: startDate ? dateFrom : undefined, dateTo: endDate ? dateTo : undefined };
 

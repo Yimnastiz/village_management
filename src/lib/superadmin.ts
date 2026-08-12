@@ -1,46 +1,32 @@
 import { AuditAction, Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import {
-  getSessionContextFromServerCookies,
-  getSessionContextFromRequest,
-  isSuperAdminUser,
-  type SessionContext,
-} from "@/lib/access-control";
+import { readSuperAdminSession, readSuperAdminSessionFromServerCookies, type SuperAdminSession } from "@/lib/superadmin-auth";
 
-export async function requireSuperAdminPageSession(): Promise<SessionContext> {
-  const session = await getSessionContextFromServerCookies();
+export async function requireSuperAdminPageSession(): Promise<SuperAdminSession> {
+  const session = await readSuperAdminSessionFromServerCookies();
   if (!session) {
-    redirect("/auth/login?callbackUrl=/superadmin/dashboard");
-  }
-
-  if (!isSuperAdminUser(session)) {
-    redirect("/resident/dashboard");
+    redirect("/superadmin/access");
   }
 
   return session;
 }
 
-export async function requireSuperAdminActionSession(): Promise<SessionContext> {
-  const session = await getSessionContextFromServerCookies();
-  if (!session || !isSuperAdminUser(session)) {
+export async function requireSuperAdminActionSession(): Promise<SuperAdminSession> {
+  const session = await readSuperAdminSessionFromServerCookies();
+  if (!session) {
     throw new Error("Unauthorized");
   }
 
   return session;
 }
 
-export async function requireSuperAdminRequestSession(request: Request): Promise<SessionContext | null> {
-  const session = await getSessionContextFromRequest(request);
-  if (!session || !isSuperAdminUser(session)) {
-    return null;
-  }
-
-  return session;
+export async function requireSuperAdminRequestSession(request: Request): Promise<SuperAdminSession | null> {
+  return readSuperAdminSession(request.headers.get("cookie")?.match(/(?:^|; )village_superadmin_session=([^;]*)/)?.[1]);
 }
 
 export async function writeSuperAdminAuditLog(input: {
-  userId: string;
+  userId?: string | null;
   action: AuditAction;
   resource: string;
   resourceId?: string | null;
@@ -49,12 +35,12 @@ export async function writeSuperAdminAuditLog(input: {
 }) {
   await prisma.auditLog.create({
     data: {
-      userId: input.userId,
+      userId: input.userId ?? null,
       action: input.action,
       resource: input.resource,
       resourceId: input.resourceId ?? null,
       villageId: input.villageId ?? null,
-      metadata: input.metadata,
+      metadata: { ...(input.metadata && typeof input.metadata === "object" ? input.metadata : {}), actorType: "SUPERADMIN_ENV" },
     },
   });
 }

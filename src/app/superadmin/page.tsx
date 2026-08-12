@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { readSuperAdminSessionFromServerCookies } from "@/lib/superadmin-auth";
 
-export default function SuperAdminRootPage() {
-  redirect("/superadmin/dashboard");
+export default async function SuperAdminRootPage() {
+  redirect(await readSuperAdminSessionFromServerCookies() ? "/superadmin/dashboard" : "/superadmin/access");
 }
