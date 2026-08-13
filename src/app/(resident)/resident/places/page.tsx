@@ -17,6 +17,7 @@ type PlaceItem = {
   openingHours: string | null;
   imageUrls: unknown;
   isPublic: boolean;
+  isFeatured: boolean;
 };
 
 type VillagePlaceListDelegate = {
@@ -25,7 +26,7 @@ type VillagePlaceListDelegate = {
 };
 
 type PageProps = {
-  searchParams?: Promise<{ q?: string; category?: string; sort?: string; page?: string }>;
+  searchParams?: Promise<{ q?: string; category?: string; featured?: string; sort?: string; page?: string }>;
 };
 
 export default async function ResidentPlacesPage({ searchParams }: PageProps) {
@@ -38,6 +39,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const category = query.category?.trim() ?? "ALL";
+  const featured = query.featured === "1";
   const sort = query.sort === "oldest" || query.sort === "name_asc" || query.sort === "name_desc" ? query.sort : "newest";
   const page = Number.parseInt(query.page ?? "1", 10);
   const currentPage = Number.isNaN(page) || page < 1 ? 1 : page;
@@ -47,6 +49,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
     villageId: membership.villageId,
     ...(!membership.hasResidentAccess ? { isPublic: true } : {}),
     ...(category !== "ALL" ? { category } : {}),
+    ...(featured ? { isFeatured: true } : {}),
     ...(keyword
       ? {
           OR: [
@@ -83,6 +86,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
         openingHours: true,
         imageUrls: true,
         isPublic: true,
+        isFeatured: true,
       },
     }),
     villagePlace.count({ where }),
@@ -90,15 +94,17 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const suggestionTitles = Array.from(new Set(places.map((item) => item.name))).slice(0, 12);
 
-  function buildHref(next: { page?: number; sort?: string; q?: string; category?: string }) {
+  function buildHref(next: { page?: number; sort?: string; q?: string; category?: string; featured?: boolean }) {
     const params = new URLSearchParams();
     const nextQ = next.q ?? keyword;
     const nextCategory = next.category ?? category;
     const nextSort = next.sort ?? sort;
+    const nextFeatured = next.featured ?? featured;
     const nextPage = next.page ?? currentPage;
 
     if (nextQ) params.set("q", nextQ);
     if (nextCategory !== "ALL") params.set("category", nextCategory);
+    if (nextFeatured) params.set("featured", "1");
     if (nextSort !== "newest") params.set("sort", nextSort);
     if (nextPage > 1) params.set("page", String(nextPage));
 
@@ -111,6 +117,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
       <ResidentPlacesToolbar
         keyword={keyword}
         category={category}
+        featured={featured}
         sort={sort}
         suggestionTitles={suggestionTitles}
         canSubmit={membership.hasResidentAccess}
@@ -144,6 +151,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
                 <div className="space-y-2 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
+                    {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
                     <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
                   </div>
                   <p className="line-clamp-1 font-medium text-gray-900">{place.name}</p>

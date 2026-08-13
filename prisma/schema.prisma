@@ -965,6 +965,7 @@ model VillagePlace {
   longitude    Float?
   imageUrls    Json?
   isPublic     Boolean              @default(true)
+  isFeatured   Boolean              @default(false)
   createdById  String?
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
@@ -976,6 +977,7 @@ model VillagePlace {
   @@index([villageId])
   @@index([category])
   @@index([isPublic])
+  @@index([isFeatured])
 }
 
 model VillagePlaceSubmission {

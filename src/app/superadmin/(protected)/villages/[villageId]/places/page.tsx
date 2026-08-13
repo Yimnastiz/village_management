@@ -39,7 +39,7 @@ export default async function SuperAdminVillagePlacesPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader title="สถานที่สำคัญ" description="จัดการสถานที่ รูปภาพ พิกัด และ visibility ของหมู่บ้าน" villageId={villageId} module="places" />
+      <PageHeader title="สถานที่" description="จัดการสถานที่ รูปภาพ พิกัด และการมองเห็นของหมู่บ้าน" villageId={villageId} module="places" />
       <SupportNotice villageName={village?.name ?? "-"} />
       <SearchBar action={`/superadmin/villages/${villageId}/places`} search={search}>
         <Select name="category" label="ประเภท" defaultValue={category || "ALL"} options={[{ value: "ALL", label: "ทั้งหมด" }, ...Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))]} />

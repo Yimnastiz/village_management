@@ -66,7 +66,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
       { href: "/resident/calendar", label: "ปฏิทิน", description: "ดูกิจกรรมที่เผยแพร่สาธารณะ", icon: Calendar },
       { href: "/resident/gallery", label: "แกลเลอรี", description: "ดูภาพกิจกรรมของชุมชน", icon: Images },
       { href: "/resident/downloads", label: "เอกสาร", description: "ดาวน์โหลดเอกสารที่เปิดเผย", icon: Download },
-      { href: "/resident/places", label: "สถานที่สำคัญ", description: "ค้นหาสถานที่และบริการใกล้ตัว", icon: MapPin },
+      { href: "/resident/places", label: "สถานที่", description: "ค้นหาสถานที่และบริการใกล้ตัว", icon: MapPin },
       { href: "/resident/contacts", label: "ผู้ติดต่อ", description: "ช่องทางติดต่อของหมู่บ้าน", icon: Phone },
       { href: "/resident/profile", label: "โปรไฟล์", description: "จัดการข้อมูลบัญชีของคุณ", icon: User },
       { href: "/resident/notifications", label: "การแจ้งเตือน", description: "ดูและจัดการการแจ้งเตือนของคุณ", icon: Bell },

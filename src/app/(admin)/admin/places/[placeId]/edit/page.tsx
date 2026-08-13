@@ -21,6 +21,7 @@ type PlaceEditItem = {
   longitude: number | null;
   imageUrls: unknown;
   isPublic: boolean;
+  isFeatured: boolean;
 };
 
 type VillagePlaceEditDelegate = {
@@ -57,6 +58,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
       longitude: true,
       imageUrls: true,
       isPublic: true,
+      isFeatured: true,
     },
   });
 
@@ -86,6 +88,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
           latitude: place.latitude == null ? "" : String(place.latitude),
           longitude: place.longitude == null ? "" : String(place.longitude),
           isPublic: place.isPublic,
+          isFeatured: place.isFeatured,
           imageUrls,
         }}
       />

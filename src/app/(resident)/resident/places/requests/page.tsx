@@ -51,6 +51,7 @@ export default async function ResidentPlaceRequestsPage({ searchParams }: PagePr
     orderBy: [{ createdAt: "desc" }],
     select: {
       id: true,
+      type: true,
       status: true,
       payload: true,
       reviewNote: true,

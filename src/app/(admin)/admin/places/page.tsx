@@ -9,7 +9,7 @@ import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
 type PageProps = {
-  searchParams?: Promise<{ q?: string; category?: string; visibility?: string; sort?: string; page?: string }>;
+  searchParams?: Promise<{ q?: string; category?: string; visibility?: string; featured?: string; sort?: string; page?: string }>;
 };
 
 type PlaceItem = {
@@ -20,6 +20,7 @@ type PlaceItem = {
   openingHours: string | null;
   imageUrls: unknown;
   isPublic: boolean;
+  isFeatured: boolean;
   createdAt: Date;
 };
 
@@ -48,6 +49,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
   const keyword = params.q?.trim() ?? "";
   const activeCategory = params.category ?? "ALL";
   const activeVisibility = params.visibility ?? "ALL";
+  const activeFeatured = params.featured === "1" ? "FEATURED" : "ALL";
   const activeSort = params.sort === "oldest" || params.sort === "name_asc" || params.sort === "name_desc" ? params.sort : "newest";
   const page = Number.parseInt(params.page ?? "1", 10);
   const currentPage = Number.isNaN(page) || page < 1 ? 1 : page;
@@ -57,6 +59,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
     villageId: membership.villageId,
     ...(activeCategory !== "ALL" ? { category: activeCategory } : {}),
     ...(activeVisibility !== "ALL" ? { isPublic: activeVisibility === "PUBLIC" } : {}),
+    ...(activeFeatured === "FEATURED" ? { isFeatured: true } : {}),
     ...(keyword
       ? {
           OR: [
@@ -95,6 +98,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         openingHours: true,
         imageUrls: true,
         isPublic: true,
+        isFeatured: true,
         createdAt: true,
       },
     }),
@@ -105,19 +109,19 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  const suggestionTitles = Array.from(new Set(rows.map((item) => item.name))).slice(0, 12);
-
-  function buildHref(next: { q?: string; category?: string; visibility?: string; sort?: string; page?: number }) {
+  function buildHref(next: { q?: string; category?: string; visibility?: string; featured?: string; sort?: string; page?: number }) {
     const query = new URLSearchParams();
     const q = next.q?.trim() ?? "";
     const category = next.category ?? "ALL";
     const visibility = next.visibility ?? "ALL";
+    const featured = next.featured ?? activeFeatured;
     const sort = next.sort ?? activeSort;
     const page = next.page ?? currentPage;
 
     if (q) query.set("q", q);
     if (category !== "ALL") query.set("category", category);
     if (visibility !== "ALL") query.set("visibility", visibility);
+    if (featured === "FEATURED") query.set("featured", "1");
     if (sort !== "newest") query.set("sort", sort);
     if (page > 1) query.set("page", String(page));
 
@@ -137,9 +141,9 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         hiddenInputs={{
           category: activeCategory === "ALL" ? "" : activeCategory,
           visibility: activeVisibility === "ALL" ? "" : activeVisibility,
+          featured: activeFeatured === "FEATURED" ? "1" : "",
           sort: activeSort === "newest" ? "" : activeSort,
         }}
-        suggestionTitles={suggestionTitles}
         groups={[
           {
             label: "หมวดหมู่",
@@ -150,6 +154,13 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
                 href: buildHref({ q: keyword, category: value, visibility: activeVisibility }),
                 active: activeCategory === value,
               })),
+            ],
+          },
+          {
+            label: "ความสำคัญ",
+            options: [
+              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: "ALL" }), active: activeFeatured === "ALL" },
+              { label: "สถานที่สำคัญ", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: "FEATURED" }), active: activeFeatured === "FEATURED" },
             ],
           },
           {
@@ -185,7 +196,9 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
       {rows.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-600">ยังไม่มีสถานที่ในระบบ</p>
+          <p className="font-medium text-gray-800">{activeFeatured === "FEATURED" ? "ยังไม่มีสถานที่ที่ถูกกำหนดเป็นสถานที่สำคัญ" : keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ไม่พบสถานที่ที่ตรงกับเงื่อนไข" : "ยังไม่มีสถานที่"}</p>
+          <p className="mt-1 text-sm text-gray-500">{keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มสถานที่เพื่อให้ลูกบ้านและประชาชนค้นหาข้อมูลได้"}</p>
+          {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex"><Button size="sm">เพิ่มสถานที่</Button></Link>}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -209,6 +222,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
                 <div className="space-y-2 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
+                    {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
                     <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
                   </div>
                   <p className="line-clamp-1 font-medium text-gray-900">{place.name}</p>
@@ -223,11 +237,11 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
 
       {totalPages > 1 && (
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: activeSort, page: Math.max(1, currentPage - 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage <= 1 ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
+          <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: activeFeatured, sort: activeSort, page: Math.max(1, currentPage - 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage <= 1 ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
             ก่อนหน้า
           </Link>
           <span className="text-sm text-gray-600">หน้า {currentPage} / {totalPages}</span>
-          <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: activeSort, page: Math.min(totalPages, currentPage + 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage >= totalPages ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
+          <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: activeFeatured, sort: activeSort, page: Math.min(totalPages, currentPage + 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage >= totalPages ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
             ถัดไป
           </Link>
         </div>

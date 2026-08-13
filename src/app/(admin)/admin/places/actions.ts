@@ -1,356 +1,137 @@
 "use server";
 
-import { NotificationType } from "@prisma/client";
+import { AuditAction, NotificationType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { normalizeVillagePlaceInput, parseVillagePlacePayload } from "@/lib/village-place";
 
-type VillagePlaceRecord = {
-  id: string;
-  villageId: string;
-  name: string;
-  category: string;
-  description: string | null;
-  address: string | null;
-  openingHours: string | null;
-  contactPhone: string | null;
-  mapUrl: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  imageUrls: unknown;
-  isPublic: boolean;
-};
-
-type VillagePlaceSubmissionRecord = {
-  id: string;
-  villageId: string;
-  requesterId: string;
-  type: string;
-  targetPlaceId: string | null;
-  payload: unknown;
-  status: string;
-};
-
 type PlaceInput = {
-  name: string;
-  category: string;
-  description?: string;
-  address?: string;
-  openingHours?: string;
-  contactPhone?: string;
-  mapUrl?: string;
-  latitude?: number | string | null;
-  longitude?: number | string | null;
-  isPublic?: boolean;
-  imageUrls?: string[];
+  name: string; category: string; description?: string; address?: string; openingHours?: string;
+  contactPhone?: string; mapUrl?: string; latitude?: number | string | null; longitude?: number | string | null;
+  isPublic?: boolean; isFeatured?: boolean; imageUrls?: string[];
 };
 
-type VillagePlaceDelegate = {
-  create(args: unknown): Promise<{ id: string }>;
-  findFirst(args: unknown): Promise<VillagePlaceRecord | null>;
-  update(args: unknown): Promise<{ id: string }>;
-  delete(args: unknown): Promise<{ id: string }>;
-};
-
-type VillagePlaceSubmissionDelegate = {
-  findFirst(args: unknown): Promise<VillagePlaceSubmissionRecord | null>;
-  update(args: unknown): Promise<{ id: string }>;
+type Submission = {
+  id: string; villageId: string; requesterId: string; type: "CREATE" | "UPDATE"; targetPlaceId: string | null; payload: unknown; status: string;
 };
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
-  if (!session?.id) {
-    return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
-  }
+  if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getAdminMembership(session);
-  if (!membership) {
-    return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", session: null, villageId: "" };
-  }
-
-  return {
-    ok: true as const,
-    error: null,
-    session,
-    villageId: membership.villageId,
-  };
+  if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน" };
+  return { ok: true as const, session, villageId: membership.villageId };
 }
 
-export async function adminCreateVillagePlaceAction(
-  data: PlaceInput
-): Promise<{ success: true; placeId: string } | { success: false; error: string }> {
-  const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-
-  const normalized = normalizeVillagePlaceInput(data);
-  if (!normalized.ok) return { success: false, error: normalized.error };
-
-  const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
-  const created = await villagePlace.create({
-    data: {
-      villageId: ctx.villageId,
-      name: normalized.value.name,
-      category: normalized.value.category,
-      description: normalized.value.description || null,
-      address: normalized.value.address || null,
-      openingHours: normalized.value.openingHours || null,
-      contactPhone: normalized.value.contactPhone || null,
-      mapUrl: normalized.value.mapUrl || null,
-      latitude: normalized.value.latitude,
-      longitude: normalized.value.longitude,
-      isPublic: normalized.value.isPublic,
-      imageUrls: normalized.value.imageUrls,
-      createdById: ctx.session.id,
-    },
-    select: { id: true },
-  });
-
-  return { success: true, placeId: created.id };
-}
-
-export async function adminUpdateVillagePlaceAction(
-  placeId: string,
-  data: PlaceInput
-): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-
-  const normalized = normalizeVillagePlaceInput(data);
-  if (!normalized.ok) return { success: false, error: normalized.error };
-
-  const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
-  const existing = await villagePlace.findFirst({
-    where: { id: placeId, villageId: ctx.villageId },
-    select: { id: true },
-  });
-
-  if (!existing) {
-    return { success: false, error: "ไม่พบสถานที่ที่ต้องการแก้ไข" };
-  }
-
-  await villagePlace.update({
-    where: { id: placeId },
-    data: {
-      name: normalized.value.name,
-      category: normalized.value.category,
-      description: normalized.value.description || null,
-      address: normalized.value.address || null,
-      openingHours: normalized.value.openingHours || null,
-      contactPhone: normalized.value.contactPhone || null,
-      mapUrl: normalized.value.mapUrl || null,
-      latitude: normalized.value.latitude,
-      longitude: normalized.value.longitude,
-      isPublic: normalized.value.isPublic,
-      imageUrls: normalized.value.imageUrls,
-    },
-    select: { id: true },
-  });
-
-  return { success: true };
-}
-
-export async function adminDeleteVillagePlaceAction(
-  placeId: string
-): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-
-  const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
-  const existing = await villagePlace.findFirst({
-    where: { id: placeId, villageId: ctx.villageId },
-    select: { id: true },
-  });
-
-  if (!existing) {
-    return { success: false, error: "ไม่พบสถานที่ที่ต้องการลบ" };
-  }
-
-  await villagePlace.delete({ where: { id: placeId }, select: { id: true } });
-  return { success: true };
-}
-
-export async function adminApproveVillagePlaceSubmissionAction(
-  submissionId: string,
-  reviewNote?: string
-): Promise<{ success: true; placeId: string } | { success: false; error: string }> {
-  const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
+function revalidatePlacePaths(placeId?: string, requestId?: string) {
+  ["/admin/places", "/admin/places/requests", "/resident/places", "/resident/places/requests", ...(placeId ? [`/admin/places/${placeId}`, `/resident/places/${placeId}`] : []), ...(requestId ? [`/admin/places/requests/${requestId}`] : [])].forEach((path) => revalidatePath(path));
   revalidateAdminSidebar();
+}
 
-  const villagePlaceSubmission =
-    (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;
-  const submission = await villagePlaceSubmission.findFirst({
-    where: {
-      id: submissionId,
-      villageId: ctx.villageId,
-      status: "PENDING",
-    },
-    select: {
-      id: true,
-      villageId: true,
-      requesterId: true,
-      type: true,
-      targetPlaceId: true,
-      payload: true,
-      status: true,
-    },
+export async function adminCreateVillagePlaceAction(data: PlaceInput): Promise<{ success: true; placeId: string } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const normalized = normalizeVillagePlaceInput(data);
+  if (!normalized.ok) return { success: false, error: normalized.error };
+  const place = await prisma.$transaction(async (tx) => {
+    const created = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...normalized.value, isFeatured: Boolean(data.isFeatured), description: normalized.value.description || null, address: normalized.value.address || null, openingHours: normalized.value.openingHours || null, contactPhone: normalized.value.contactPhone || null, mapUrl: normalized.value.mapUrl || null, createdById: ctx.session.id }, select: { id: true, name: true } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "VillagePlace", resourceId: created.id, metadata: { actionName: "PLACE_CREATED", name: created.name } } });
+    return created;
   });
+  revalidatePlacePaths(place.id);
+  return { success: true, placeId: place.id };
+}
 
-  if (!submission) {
-    return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
-  }
+export async function adminUpdateVillagePlaceAction(placeId: string, data: PlaceInput): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const normalized = normalizeVillagePlaceInput(data);
+  if (!normalized.ok) return { success: false, error: normalized.error };
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true, isPublic: true, isFeatured: true } });
+    if (!existing) return false;
+    const updated = await tx.villagePlace.update({ where: { id: placeId }, data: { ...normalized.value, isFeatured: Boolean(data.isFeatured), description: normalized.value.description || null, address: normalized.value.address || null, openingHours: normalized.value.openingHours || null, contactPhone: normalized.value.contactPhone || null, mapUrl: normalized.value.mapUrl || null }, select: { id: true, name: true, isPublic: true, isFeatured: true } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "VillagePlace", resourceId: placeId, metadata: { actionName: "PLACE_UPDATED", oldValue: { name: existing.name, isPublic: existing.isPublic, isFeatured: existing.isFeatured }, newValue: { name: updated.name, isPublic: updated.isPublic, isFeatured: updated.isFeatured } } } });
+    return true;
+  });
+  if (!result) return { success: false, error: "ไม่พบสถานที่ที่ต้องการแก้ไข" };
+  revalidatePlacePaths(placeId);
+  return { success: true };
+}
 
+export async function adminDeleteVillagePlaceAction(placeId: string): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const result = await prisma.$transaction(async (tx) => {
+    const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true } });
+    if (!existing) return false;
+    await tx.villagePlace.delete({ where: { id: placeId } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillagePlace", resourceId: placeId, metadata: { actionName: "PLACE_DELETED", name: existing.name } } });
+    return true;
+  });
+  if (!result) return { success: false, error: "ไม่พบสถานที่ที่ต้องการลบ" };
+  revalidatePlacePaths(placeId);
+  return { success: true };
+}
+
+async function findPendingSubmission(submissionId: string, villageId: string): Promise<Submission | null> {
+  return prisma.villagePlaceSubmission.findFirst({ where: { id: submissionId, villageId, status: "PENDING" }, select: { id: true, villageId: true, requesterId: true, type: true, targetPlaceId: true, payload: true, status: true } });
+}
+
+export async function adminApproveVillagePlaceSubmissionAction(submissionId: string): Promise<{ success: true; placeId: string } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const submission = await findPendingSubmission(submissionId, ctx.villageId);
+  if (!submission) return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   const payload = parseVillagePlacePayload(submission.payload);
-  if (!payload) {
-    return { success: false, error: "ข้อมูลคำขอไม่ถูกต้อง ไม่สามารถอนุมัติได้" };
-  }
-
-  let created: { id: string };
+  if (!payload) return { success: false, error: "ข้อมูลคำขอไม่ถูกต้อง ไม่สามารถอนุมัติได้" };
   try {
-    created = await prisma.$transaction(async (tx) => {
-    const txPlace = (tx as unknown as { villagePlace: VillagePlaceDelegate }).villagePlace;
-    const txSubmission =
-      (tx as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;
-
-    let place: { id: string };
-    if (submission.type === "UPDATE") {
-      if (!submission.targetPlaceId) {
-        throw new Error("คำขอแก้ไขไม่มีสถานที่ปลายทาง");
+    const result = await prisma.$transaction(async (tx) => {
+      // The conditional state transition is the claim: only one admin can proceed.
+      const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "APPROVED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: null } });
+      if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
+      let place;
+      if (submission.type === "UPDATE") {
+        if (!submission.targetPlaceId) throw new Error("คำขอแก้ไขไม่มีสถานที่ปลายทาง");
+        const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId, villageId: ctx.villageId }, select: { id: true } });
+        if (!target) throw new Error("ไม่พบสถานที่ปลายทางสำหรับคำขอนี้");
+        // Resident submissions never control the featured flag.
+        place = await tx.villagePlace.update({ where: { id: target.id }, data: { ...payload, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null }, select: { id: true } });
+      } else {
+        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...payload, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: false, createdById: submission.requesterId }, select: { id: true } });
       }
-
-      const target = await txPlace.findFirst({
-        where: { id: submission.targetPlaceId, villageId: ctx.villageId },
-        select: { id: true },
-      });
-      if (!target) {
-        throw new Error("ไม่พบสถานที่ปลายทางสำหรับคำขอนี้");
-      }
-
-      place = await txPlace.update({
-        where: { id: target.id },
-        data: {
-          name: payload.name,
-          category: payload.category,
-          description: payload.description || null,
-          address: payload.address || null,
-          openingHours: payload.openingHours || null,
-          contactPhone: payload.contactPhone || null,
-          mapUrl: payload.mapUrl || null,
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          imageUrls: payload.imageUrls,
-          isPublic: payload.isPublic,
-        },
-        select: { id: true },
-      });
-    } else {
-      place = await txPlace.create({
-        data: {
-          villageId: ctx.villageId,
-          name: payload.name,
-          category: payload.category,
-          description: payload.description || null,
-          address: payload.address || null,
-          openingHours: payload.openingHours || null,
-          contactPhone: payload.contactPhone || null,
-          mapUrl: payload.mapUrl || null,
-          latitude: payload.latitude,
-          longitude: payload.longitude,
-          imageUrls: payload.imageUrls,
-          isPublic: payload.isPublic,
-          createdById: submission.requesterId,
-        },
-        select: { id: true },
-      });
-    }
-
-    await txSubmission.update({
-      where: { id: submission.id },
-      data: {
-        status: "APPROVED",
-        reviewedBy: ctx.session.id,
-        reviewedAt: new Date(),
-        reviewNote: reviewNote?.trim() || null,
-      },
-      select: { id: true },
-    });
-
-    await tx.notification.create({
-      data: {
-        villageId: ctx.villageId,
-        userId: submission.requesterId,
-        type: NotificationType.SYSTEM,
-        title: submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ",
-        body: `สถานที่: ${payload.name}`,
-        metadata: {
-          submissionId: submission.id,
-          placeId: place.id,
-          status: "APPROVED",
-          actionUrl: `/resident/places/requests`,
-        },
-      },
-    });
-
+      const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
+      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `สถานที่: ${payload.name}`, metadata: { submissionId: submission.id, placeId: place.id, status: "APPROVED", actionUrl: `/resident/places/${place.id}?from=notifications` } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
       return place;
     });
+    revalidatePlacePaths(result.id, submissionId);
+    return { success: true, placeId: result.id };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "ไม่สามารถอนุมัติคำขอได้";
-    return { success: false, error: message };
+    return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถอนุมัติคำขอได้" };
   }
-
-  return { success: true, placeId: created.id };
 }
 
-export async function adminRejectVillagePlaceSubmissionAction(
-  submissionId: string,
-  reviewNote?: string
-): Promise<{ success: true } | { success: false; error: string }> {
+export async function adminRejectVillagePlaceSubmissionAction(submissionId: string, reviewNote: string): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
-  revalidateAdminSidebar();
-
-  const villagePlaceSubmission =
-    (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;
-
-  const existing = await villagePlaceSubmission.findFirst({
-    where: { id: submissionId, villageId: ctx.villageId, status: "PENDING" },
-    select: { id: true, requesterId: true, villageId: true, payload: true, status: true },
-  });
-
-  if (!existing) {
-    return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
+  const reason = reviewNote.trim();
+  if (reason.length < 5) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  const submission = await findPendingSubmission(submissionId, ctx.villageId);
+  if (!submission) return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "REJECTED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: reason } });
+      if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
+      const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณไม่ได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ";
+      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: reason, metadata: { submissionId: submission.id, status: "REJECTED", actionUrl: "/resident/places/requests?from=notifications" } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_REJECTED", requestType: submission.type, requesterId: submission.requesterId, rejectReason: reason } } });
+    });
+    revalidatePlacePaths(undefined, submissionId);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถบันทึกการไม่อนุมัติได้" };
   }
-
-  await prisma.$transaction(async (tx) => {
-    const txSubmission =
-      (tx as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDelegate }).villagePlaceSubmission;
-
-    await txSubmission.update({
-      where: { id: submissionId },
-      data: {
-        status: "REJECTED",
-        reviewedBy: ctx.session.id,
-        reviewedAt: new Date(),
-        reviewNote: reviewNote?.trim() || null,
-      },
-      select: { id: true },
-    });
-
-    await tx.notification.create({
-      data: {
-        villageId: ctx.villageId,
-        userId: existing.requesterId,
-        type: NotificationType.SYSTEM,
-        title: "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ",
-        body: reviewNote?.trim() || "โปรดตรวจสอบหมายเหตุจากผู้ดูแล",
-        metadata: {
-          submissionId,
-          status: "REJECTED",
-          actionUrl: `/resident/places/requests`,
-        },
-      },
-    });
-  });
-
-  return { success: true };
 }

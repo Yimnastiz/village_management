@@ -71,9 +71,9 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
   const embedMapUrl = getVillagePlaceEmbedMapUrl(payload.latitude, payload.longitude);
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       <Link href="/admin/places/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-        <ArrowLeft className="h-4 w-4" /> กลับรายการคำขอ
+        <ArrowLeft className="h-4 w-4" /> คำขอสถานที่
       </Link>
 
       <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
@@ -86,11 +86,8 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
           <Badge variant={payload.isPublic ? "success" : "info"}>{payload.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
         </div>
 
-        <p className="text-sm text-gray-600">
-          ผู้ส่งคำขอ: {request.requester.name} ({request.requester.phoneNumber})
-        </p>
-
-        <h1 className="text-2xl font-bold text-gray-900">{payload.name}</h1>
+        <div><h1 className="text-2xl font-bold text-gray-900">คำขอ{VILLAGE_PLACE_SUBMISSION_TYPE_LABELS[request.type] ?? request.type}</h1><p className="mt-2 text-sm text-gray-600">ผู้ส่ง: {request.requester.name} • {request.requester.phoneNumber}</p></div>
+        <p className="font-medium text-gray-900">{payload.name}</p>
 
         <div className="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
           {payload.address && (
@@ -148,7 +145,7 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
         )}
 
         {request.status === "PENDING" ? (
-          <PlaceRequestReviewButtons requestId={request.id} />
+          <PlaceRequestReviewButtons requestId={request.id} placeName={payload.name} type={request.type as "CREATE" | "UPDATE"} />
         ) : (
           <div className="text-sm text-gray-600">
             <p>

@@ -12,7 +12,6 @@ import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
 
 type PageProps = {
   params: Promise<{ placeId: string }>;
-  searchParams?: Promise<{ created?: string; updated?: string }>;
 };
 
 type PlaceDetail = {
@@ -29,17 +28,15 @@ type PlaceDetail = {
   longitude: number | null;
   imageUrls: unknown;
   isPublic: boolean;
+  isFeatured: boolean;
 };
 
 type VillagePlaceDetailDelegate = {
   findFirst(args: unknown): Promise<PlaceDetail | null>;
 };
 
-export default async function AdminPlaceDetailPage({ params, searchParams }: PageProps) {
+export default async function AdminPlaceDetailPage({ params }: PageProps) {
   const { placeId } = await params;
-  const query = (searchParams ? await searchParams : {}) ?? {};
-  const justCreated = query.created === "1";
-  const justUpdated = query.updated === "1";
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
@@ -71,6 +68,7 @@ export default async function AdminPlaceDetailPage({ params, searchParams }: Pag
       longitude: true,
       imageUrls: true,
       isPublic: true,
+      isFeatured: true,
     },
   });
 
@@ -88,16 +86,11 @@ export default async function AdminPlaceDetailPage({ params, searchParams }: Pag
       </Link>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
-        {(justCreated || justUpdated) && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-            {justCreated ? "เพิ่มสถานที่สำเร็จแล้ว" : "บันทึกการแก้ไขสำเร็จแล้ว"}
-          </div>
-        )}
-
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
+              {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
               <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
             </div>
             <h1 className="mt-3 text-2xl font-bold text-gray-900">{place.name}</h1>
@@ -106,7 +99,7 @@ export default async function AdminPlaceDetailPage({ params, searchParams }: Pag
             <Link href={`/admin/places/${place.id}/edit`}>
               <Button variant="outline"><Pencil className="mr-1 h-4 w-4" /> แก้ไข</Button>
             </Link>
-            <DeletePlaceButton placeId={place.id} />
+            <DeletePlaceButton placeId={place.id} placeName={place.name} />
           </div>
         </div>
 
