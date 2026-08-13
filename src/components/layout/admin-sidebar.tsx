@@ -57,6 +57,7 @@ export function getAdminSidebarActionBadge(href: string, counts: AdminSidebarAct
     case "/admin/appointments": return { count: counts.appointments, label: "คำขอนัดหมาย" };
     case "/admin/issues": return { count: counts.issues, label: "ปัญหาใหม่" };
     case "/admin/places": return { count: counts.places, label: "คำขอสถานที่สำคัญ" };
+    case "/admin/contacts": return { count: counts.contacts, label: "คำขอเพิ่มผู้ติดต่อ" };
     default: return null;
   }
 }

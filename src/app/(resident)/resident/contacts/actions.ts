@@ -46,8 +46,23 @@ export async function createResidentContactRequestAction(
 
   const requestId = randomUUID();
 
-  const trackingNotification = await prisma.notification.create({
-    data: {
+  const trackingNotification = await prisma.$transaction(async (tx) => {
+    const request = await tx.contactRequest.create({
+      data: {
+        id: requestId,
+        villageId: membership.villageId,
+        requesterId: session.id,
+        name,
+        role: role || null,
+        phone,
+        email: email || null,
+        address: address || null,
+        category: category || null,
+        note: note || null,
+      },
+    });
+
+    const tracking = await tx.notification.create({ data: {
       userId: session.id,
       villageId: membership.villageId,
       type: NotificationType.SYSTEM,
@@ -67,9 +82,7 @@ export async function createResidentContactRequestAction(
           note: note || null,
         },
       },
-    },
-    select: { id: true },
-  });
+    }, select: { id: true } });
 
   const admins = await prisma.villageMembership.findMany({
     where: {
@@ -82,7 +95,7 @@ export async function createResidentContactRequestAction(
   });
 
   if (admins.length > 0) {
-    await prisma.notification.createMany({
+    await tx.notification.createMany({
       data: admins.map((admin) => ({
         userId: admin.userId,
         villageId: membership.villageId,
@@ -94,7 +107,7 @@ export async function createResidentContactRequestAction(
           requestId,
           requesterId: session.id,
           requesterName: session.name,
-          trackingNotificationId: trackingNotification.id,
+          trackingNotificationId: tracking.id,
           payload: {
             name,
             role: role || null,
@@ -106,8 +119,9 @@ export async function createResidentContactRequestAction(
           },
         },
       })),
-    });
-  }
+    }); }
+    return { id: tracking.id, requestId: request.id };
+  });
 
-  return { success: true, requestId };
+  return { success: true, requestId: trackingNotification.requestId };
 }

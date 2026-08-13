@@ -1,219 +1,180 @@
 "use server";
 
-import { NotificationStatus, NotificationType } from "@prisma/client";
+import { AuditAction, NotificationStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
-type RequestPayload = {
-  name: string;
-  role: string | null;
-  phone: string;
-  email: string | null;
-  address: string | null;
-  category: string | null;
-  note: string | null;
-};
+type RequestPayload = { name: string; role: string | null; phone: string; email: string | null; address: string | null; category: string | null; note: string | null };
+type ActionResult = { success: boolean; already?: boolean; message: string; approvedContactId?: string };
 
-function readText(formData: FormData, key: string): string {
+function readText(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
 }
 
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function payloadFrom(value: unknown): RequestPayload | null {
+  const input = objectValue(value);
+  const name = typeof input.name === "string" ? input.name.trim() : "";
+  const phone = typeof input.phone === "string" ? input.phone.trim() : "";
+  if (!name || !phone) return null;
+  const optional = (key: string) => typeof input[key] === "string" && input[key].trim() ? input[key].trim() : null;
+  return { name, phone, role: optional("role"), email: optional("email"), address: optional("address"), category: optional("category"), note: optional("note") };
+}
+
 async function requireAdminContext() {
   const session = await getSessionContextFromServerCookies();
-  if (!session?.id || !isAdminUser(session)) {
-    throw new Error("Unauthorized");
-  }
-
+  if (!session?.id || !isAdminUser(session)) return null;
   const membership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      status: "ACTIVE",
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
-    },
+    where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } },
     select: { villageId: true },
   });
-
-  if (!membership) {
-    throw new Error("Unauthorized");
-  }
-
-  return { session, villageId: membership.villageId };
+  return membership ? { session, villageId: membership.villageId } : null;
 }
 
-async function getReviewNotification(notificationId: string, adminUserId: string) {
-  const row = await prisma.notification.findUnique({
-    where: { id: notificationId },
-    select: {
-      id: true,
-      userId: true,
-      villageId: true,
-      metadata: true,
-    },
+async function syncTrackingNotification(tx: Prisma.TransactionClient, request: {
+  id: string; villageId: string; requesterId: string; status: "APPROVED" | "REJECTED"; reviewedById: string; reviewedByName: string | null; reviewedAt: Date; rejectReason?: string | null; approvedContactId?: string | null;
+}) {
+  const tracking = await tx.notification.findFirst({
+    where: { villageId: request.villageId, userId: request.requesterId, metadata: { path: ["source"], equals: "RESIDENT_CONTACT_REQUEST_TRACKING" }, AND: [{ metadata: { path: ["requestId"], equals: request.id } }] },
+    select: { id: true, metadata: true },
   });
-
-  if (!row || row.userId !== adminUserId) {
-    throw new Error("ไม่พบคำขอ");
-  }
-
-  const metadata = row.metadata as Record<string, unknown> | null;
-  if (metadata?.source !== "RESIDENT_CONTACT_REQUEST_REVIEW") {
-    throw new Error("คำขอไม่ถูกต้อง");
-  }
-
-  return {
-    row,
-    metadata,
-    requestId: typeof metadata?.requestId === "string" ? metadata.requestId : "",
-    trackingNotificationId:
-      typeof metadata?.trackingNotificationId === "string" ? metadata.trackingNotificationId : "",
-    payload: (metadata?.payload ?? null) as RequestPayload | null,
-    requesterId: typeof metadata?.requesterId === "string" ? metadata.requesterId : null,
-  };
-}
-
-export async function approveResidentContactRequestAction(formData: FormData) {
-  const { session, villageId } = await requireAdminContext();
-  const notificationId = readText(formData, "notificationId");
-
-  if (!notificationId) {
-    throw new Error("ไม่พบคำขอ");
-  }
-
-  const { metadata, requestId, trackingNotificationId, payload } = await getReviewNotification(notificationId, session.id);
-
-  if (!requestId || !payload || !payload.name || !payload.phone) {
-    throw new Error("ข้อมูลคำขอไม่ครบถ้วน");
-  }
-
-  const created = await prisma.contactDirectory.create({
+  if (!tracking) return;
+  const metadata = objectValue(tracking.metadata);
+  await tx.notification.update({
+    where: { id: tracking.id },
     data: {
-      villageId,
-      name: payload.name,
-      role: payload.role ?? undefined,
-      phone: payload.phone,
-      email: payload.email ?? undefined,
-      address: payload.address ?? undefined,
-      category: payload.category ?? undefined,
-      isPublic: false,
-      sortOrder: 0,
-    },
-    select: { id: true },
-  });
-
-  await prisma.notification.updateMany({
-    where: {
-      villageId,
+      status: NotificationStatus.READ,
+      readAt: request.reviewedAt,
       metadata: {
-        path: ["source"],
-        equals: "RESIDENT_CONTACT_REQUEST_REVIEW",
-      },
-      AND: [
-        {
-          metadata: {
-            path: ["requestId"],
-            equals: requestId,
-          },
-        },
-      ],
-    },
-    data: {
-      status: NotificationStatus.ARCHIVED,
-      readAt: new Date(),
+        ...metadata,
+        source: "RESIDENT_CONTACT_REQUEST_TRACKING",
+        workflowStatus: request.status,
+        reviewedById: request.reviewedById,
+        reviewedByName: request.reviewedByName,
+        reviewedAt: request.reviewedAt.toISOString(),
+        ...(request.status === "APPROVED" ? { approvedContactId: request.approvedContactId } : { rejectReason: request.rejectReason }),
+      } as Prisma.InputJsonValue,
     },
   });
+}
 
-  if (trackingNotificationId) {
-    await prisma.notification.update({
-      where: { id: trackingNotificationId },
-      data: {
-        status: NotificationStatus.READ,
-        readAt: new Date(),
-        title: "คำขอเพิ่มผู้ติดต่อได้รับการอนุมัติ",
-        metadata: {
-          ...metadata,
-          source: "RESIDENT_CONTACT_REQUEST_TRACKING",
-          workflowStatus: "APPROVED",
-          approvedContactId: created.id,
-          reviewedByName: session.name,
-        },
-      },
+async function archiveReviewNotifications(tx: Prisma.TransactionClient, villageId: string, requestId: string, reviewedAt: Date) {
+  await tx.notification.updateMany({
+    where: { villageId, metadata: { path: ["source"], equals: "RESIDENT_CONTACT_REQUEST_REVIEW" }, AND: [{ metadata: { path: ["requestId"], equals: requestId } }] },
+    data: { status: NotificationStatus.ARCHIVED, readAt: reviewedAt },
+  });
+}
+
+// Converts a valid pre-migration tracking notification only when it is acted on.
+// The unique request id makes this safe even if two administrators race to migrate it.
+async function materializeLegacyRequest(tx: Prisma.TransactionClient, requestId: string, villageId: string) {
+  const tracking = await tx.notification.findFirst({
+    where: { villageId, metadata: { path: ["source"], equals: "RESIDENT_CONTACT_REQUEST_TRACKING" }, AND: [{ metadata: { path: ["requestId"], equals: requestId } }] },
+    select: { userId: true, createdAt: true, metadata: true },
+  });
+  if (!tracking) return null;
+  const metadata = objectValue(tracking.metadata);
+  const payload = payloadFrom(metadata.payload);
+  const status = metadata.workflowStatus === "APPROVED" || metadata.workflowStatus === "REJECTED" ? metadata.workflowStatus : "PENDING";
+  if (!payload) return null;
+  return tx.contactRequest.upsert({
+    where: { id: requestId },
+    create: {
+      id: requestId, villageId, requesterId: tracking.userId, ...payload, status,
+      reviewedById: typeof metadata.reviewedById === "string" ? metadata.reviewedById : null,
+      reviewedByName: typeof metadata.reviewedByName === "string" ? metadata.reviewedByName : null,
+      reviewedAt: typeof metadata.reviewedAt === "string" ? new Date(metadata.reviewedAt) : null,
+      rejectReason: typeof metadata.rejectReason === "string" ? metadata.rejectReason : null,
+      approvedContactId: typeof metadata.approvedContactId === "string" ? metadata.approvedContactId : null,
+      createdAt: tracking.createdAt,
+    },
+    update: {},
+  });
+}
+
+async function runSerializable<T>(operation: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await prisma.$transaction(operation, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2034" || attempt === 2) throw error;
+    }
+  }
+  throw new Error("Unable to complete transaction");
+}
+
+function revalidateRequestPaths(requestId: string) {
+  ["/admin", "/admin/contacts", "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, "/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`].forEach((path) => revalidatePath(path));
+}
+
+export async function approveResidentContactRequestAction(formData: FormData): Promise<ActionResult> {
+  const ctx = await requireAdminContext();
+  const requestId = readText(formData, "requestId");
+  if (!ctx) return { success: false, message: "ไม่มีสิทธิ์ดำเนินการคำขอนี้" };
+  if (!requestId) return { success: false, message: "ไม่พบคำขอ" };
+
+  try {
+    const result = await runSerializable(async (tx) => {
+      let request = await tx.contactRequest.findFirst({ where: { id: requestId, villageId: ctx.villageId } });
+      if (!request) request = await materializeLegacyRequest(tx, requestId, ctx.villageId);
+      if (!request || request.villageId !== ctx.villageId) return { success: false, message: "ไม่พบคำขอหรือข้อมูลคำขอไม่ถูกต้อง" } as ActionResult;
+      if (request.status === "APPROVED") return { success: true, already: true, message: "คำขอนี้ได้รับการอนุมัติแล้ว", approvedContactId: request.approvedContactId ?? undefined };
+      if (request.status === "REJECTED") return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
+
+      const reviewedAt = new Date();
+      const claimed = await tx.contactRequest.updateMany({
+        where: { id: request.id, villageId: ctx.villageId, status: "PENDING" },
+        data: { status: "APPROVED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt },
+      });
+      if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
+
+      const contact = await tx.contactDirectory.create({ data: { villageId: ctx.villageId, name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category, isPublic: false, sortOrder: 0 }, select: { id: true } });
+      await tx.contactRequest.update({ where: { id: request.id }, data: { approvedContactId: contact.id } });
+      await syncTrackingNotification(tx, { ...request, status: "APPROVED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, approvedContactId: contact.id });
+      await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_REQUEST_APPROVED", requestId: request.id, contactId: contact.id, requesterId: request.requesterId, reviewerId: ctx.session.id } } });
+      return { success: true, message: "อนุมัติคำขอและเพิ่มผู้ติดต่อเรียบร้อยแล้ว", approvedContactId: contact.id };
     });
+    revalidateRequestPaths(requestId);
+    return result;
+  } catch (error) {
+    console.error("approve contact request", error);
+    return { success: false, message: "ไม่สามารถอนุมัติคำขอได้ กรุณาลองอีกครั้ง" };
   }
-
-  await prisma.notification.create({
-    data: {
-      userId: session.id,
-      villageId,
-      type: NotificationType.SYSTEM,
-      title: "อนุมัติคำขอเพิ่มผู้ติดต่อแล้ว",
-      body: `เพิ่มรายชื่อ ${payload.name} สำเร็จ`,
-      metadata: {
-        source: "RESIDENT_CONTACT_REQUEST_AUDIT",
-        requestId,
-        contactId: created.id,
-      },
-    },
-  });
-
-  revalidatePath("/admin/contacts");
-  revalidatePath("/admin/contacts/requests");
-  revalidatePath("/resident/contacts");
-  revalidatePath("/resident/contacts/requests");
 }
 
-export async function rejectResidentContactRequestAction(formData: FormData) {
-  const { session, villageId } = await requireAdminContext();
-  const notificationId = readText(formData, "notificationId");
+export async function rejectResidentContactRequestAction(formData: FormData): Promise<ActionResult> {
+  const ctx = await requireAdminContext();
+  const requestId = readText(formData, "requestId");
   const reason = readText(formData, "reason");
+  if (!ctx) return { success: false, message: "ไม่มีสิทธิ์ดำเนินการคำขอนี้" };
+  if (!requestId) return { success: false, message: "ไม่พบคำขอ" };
+  if (reason.length < 5) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
 
-  if (!notificationId) {
-    throw new Error("ไม่พบคำขอ");
-  }
+  try {
+    const result = await runSerializable(async (tx) => {
+      let request = await tx.contactRequest.findFirst({ where: { id: requestId, villageId: ctx.villageId } });
+      if (!request) request = await materializeLegacyRequest(tx, requestId, ctx.villageId);
+      if (!request || request.villageId !== ctx.villageId) return { success: false, message: "ไม่พบคำขอหรือข้อมูลคำขอไม่ถูกต้อง" } as ActionResult;
+      if (request.status !== "PENDING") return { success: true, already: true, message: request.status === "APPROVED" ? "คำขอนี้ได้รับการอนุมัติแล้ว" : "คำขอนี้ได้รับการพิจารณาแล้ว" };
 
-  const { metadata, requestId, trackingNotificationId } = await getReviewNotification(notificationId, session.id);
-
-  await prisma.notification.updateMany({
-    where: {
-      villageId,
-      metadata: {
-        path: ["source"],
-        equals: "RESIDENT_CONTACT_REQUEST_REVIEW",
-      },
-      AND: [
-        {
-          metadata: {
-            path: ["requestId"],
-            equals: requestId,
-          },
-        },
-      ],
-    },
-    data: {
-      status: NotificationStatus.ARCHIVED,
-      readAt: new Date(),
-    },
-  });
-
-  if (trackingNotificationId) {
-    await prisma.notification.update({
-      where: { id: trackingNotificationId },
-      data: {
-        status: NotificationStatus.READ,
-        readAt: new Date(),
-        title: "คำขอเพิ่มผู้ติดต่อไม่ได้รับการอนุมัติ",
-        metadata: {
-          ...metadata,
-          source: "RESIDENT_CONTACT_REQUEST_TRACKING",
-          workflowStatus: "REJECTED",
-          reviewedByName: session.name,
-          rejectReason: reason || null,
-        },
-      },
+      const reviewedAt = new Date();
+      const claimed = await tx.contactRequest.updateMany({ where: { id: request.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "REJECTED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, rejectReason: reason } });
+      if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
+      await syncTrackingNotification(tx, { ...request, status: "REJECTED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, rejectReason: reason });
+      await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_REQUEST_REJECTED", requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, rejectReason: reason } } });
+      return { success: true, message: "บันทึกการไม่อนุมัติเรียบร้อยแล้ว" };
     });
+    revalidateRequestPaths(requestId);
+    return result;
+  } catch (error) {
+    console.error("reject contact request", error);
+    return { success: false, message: "ไม่สามารถบันทึกการไม่อนุมัติได้ กรุณาลองอีกครั้ง" };
   }
-
-  revalidatePath("/admin/contacts/requests");
-  revalidatePath("/resident/contacts/requests");
 }

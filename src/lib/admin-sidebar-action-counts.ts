@@ -23,6 +23,7 @@ export type AdminSidebarActionCounts = {
   appointments: number;
   issues: number;
   places: number;
+  contacts: number;
 };
 
 /**
@@ -30,7 +31,7 @@ export type AdminSidebarActionCounts = {
  * decision. Every query is scoped to the active admin village.
  */
 export async function getAdminSidebarActionCounts(villageId: string): Promise<AdminSidebarActionCounts> {
-  const [bindingRequests, news, gallery, calendar, appointments, issues, places] = await Promise.all([
+  const [bindingRequests, news, gallery, calendar, appointments, issues, places, contacts] = await Promise.all([
     prisma.bindingRequest.count({
       where: { villageId, status: BindingRequestStatus.PENDING },
     }),
@@ -55,6 +56,7 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
     prisma.villagePlaceSubmission.count({
       where: { villageId, status: VillagePlaceSubmissionStatus.PENDING },
     }),
+    prisma.contactRequest.count({ where: { villageId, status: "PENDING" } }),
   ]);
 
   return {
@@ -71,5 +73,6 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
     appointments,
     issues,
     places,
+    contacts,
   };
 }

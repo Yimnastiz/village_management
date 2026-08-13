@@ -183,6 +183,12 @@ enum NotificationStatus {
   ARCHIVED
 }
 
+enum ContactRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum NotificationType {
   ISSUE_UPDATE
   APPOINTMENT_UPDATE
@@ -336,6 +342,7 @@ model User {
   memberships             VillageMembership[]
   person                  Person?
   bindingRequests         BindingRequest[]
+  contactRequests         ContactRequest[]
   notifications           Notification[]
   auditLogs               AuditLog[]
   sosCases                EmergencySOS[]
@@ -430,6 +437,7 @@ model Village {
   villagePlaceSubmissions VillagePlaceSubmission[]
   galleryAlbums           GalleryAlbum[]
   contactDirectories      ContactDirectory[]
+  contactRequests         ContactRequest[]
   faqItems                FAQItem[]
   notifications           Notification[]
   emergencyBroadcasts     EmergencyBroadcast[]
@@ -1071,6 +1079,36 @@ model ContactDirectory {
   village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
 
   @@index([villageId])
+}
+
+// The durable workflow record for a resident's requested directory contact.
+// Notifications only point here; their read/archive state is not request state.
+model ContactRequest {
+  id                String               @id
+  villageId         String
+  requesterId       String
+  name              String
+  role              String?
+  phone             String
+  email             String?
+  address           String?
+  category          String?
+  note              String?
+  status            ContactRequestStatus @default(PENDING)
+  reviewedById      String?
+  reviewedByName    String?
+  reviewedAt        DateTime?
+  rejectReason      String?
+  approvedContactId String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  requester User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@index([villageId, status])
+  @@index([requesterId, createdAt])
+  @@index([approvedContactId])
 }
 
 model FAQItem {
