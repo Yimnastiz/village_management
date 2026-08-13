@@ -24,9 +24,9 @@ export default async function Page({ searchParams }: PageProps) {
     orderBy: [{ houseNumber: "asc" }], take: 300,
   });
 
-  return <div className="flex h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] min-h-0 flex-col gap-3 overflow-visible sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-3rem)] sm:overflow-hidden">
-    <AdminListToolbar title="ทะเบียนบ้าน" description="ค้นหาเลขบ้านและเปิดดูรายละเอียดของแต่ละครัวเรือน" searchAction="/admin/population/houses" keyword={keyword} searchPlaceholder="ค้นหาเลขบ้าน เช่น 99/1" suggestionTitles={houses.map((house) => house.houseNumber).slice(0, 12)} compact />
-    <HouseForm action={createHouseAction} showReason={false} />
+  return <div className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-3rem)] sm:overflow-hidden">
+    <AdminListToolbar title="ทะเบียนบ้าน" description="ค้นหาเลขบ้านและเปิดดูรายละเอียดของแต่ละครัวเรือน" searchAction="/admin/population/houses" keyword={keyword} searchPlaceholder="ค้นหาเลขบ้าน เช่น 99/1" suggestionTitles={houses.map((house) => house.houseNumber).slice(0, 12)} compact sticky={false} />
+    <div className="shrink-0"><HouseForm action={createHouseAction} showReason={false} /></div>
     <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${houses.length ? "" : "items-center justify-center"}`}>
       {houses.length ? <div className="min-h-0 flex-1 overflow-auto"><table className="min-w-[560px] w-full text-sm">
         <thead className="sticky top-0 z-20 bg-gray-50 text-left text-gray-600 shadow-sm"><tr><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">บ้านเลขที่</th><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">จำนวนคน</th><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">สมาชิกที่ผูก</th><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">การจัดการ</th></tr></thead>
