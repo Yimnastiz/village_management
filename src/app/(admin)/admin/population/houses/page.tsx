@@ -5,8 +5,8 @@ import { normalizeHouseNumber } from "@/lib/house-number";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { HouseForm } from "@/features/population/components/house-form";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { createHouseAction } from "./actions";
-import { HousesToolbar } from "./houses-toolbar";
 
 type PageProps = { searchParams?: Promise<{ q?: string; occupancy?: string; sort?: string }> };
 
@@ -39,8 +39,46 @@ export default async function Page({ searchParams }: PageProps) {
     take: 20,
   });
 
+  function buildHref(next: { occupancy?: typeof occupancy; sort?: typeof sort }) {
+    const query = new URLSearchParams();
+    if (keyword) query.set("q", keyword);
+    const nextOccupancy = next.occupancy ?? "all";
+    const nextSort = next.sort ?? "asc";
+    if (nextOccupancy !== "all") query.set("occupancy", nextOccupancy);
+    if (nextSort !== "asc") query.set("sort", nextSort);
+    const queryString = query.toString();
+    return queryString ? `/admin/population/houses?${queryString}` : "/admin/population/houses";
+  }
+
   return <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
-    <HousesToolbar keyword={keyword} occupancy={occupancy} sort={sort} suggestions={houseSuggestions.map((house) => house.houseNumber)} />
+    <AdminListToolbar
+      compact
+      title="ทะเบียนบ้าน"
+      description="ค้นหาเลขบ้านและเปิดดูรายละเอียดของแต่ละครัวเรือน"
+      searchAction="/admin/population/houses"
+      clearHref={buildHref({ occupancy: "all", sort: "asc" })}
+      keyword={keyword}
+      searchLabel="ค้นหาบ้านเลขที่"
+      searchPlaceholder="ค้นหาเลขบ้าน เช่น 99/1"
+      suggestionTitles={houseSuggestions.map((house) => house.houseNumber)}
+      groups={[
+        {
+          label: "เรียง",
+          options: [
+            { label: "บ้านเลขที่น้อย → มาก", href: buildHref({ occupancy, sort: "asc" }), active: sort === "asc", isDefault: true },
+            { label: "บ้านเลขที่มาก → น้อย", href: buildHref({ occupancy, sort: "desc" }), active: sort === "desc" },
+          ],
+        },
+        {
+          label: "สถานะข้อมูล",
+          options: [
+            { label: "ทั้งหมด", href: buildHref({ occupancy: "all", sort }), active: occupancy === "all", isDefault: true },
+            { label: "มีคนในทะเบียน", href: buildHref({ occupancy: "withPeople", sort }), active: occupancy === "withPeople" },
+            { label: "ไม่มีคนในทะเบียน", href: buildHref({ occupancy: "withoutPeople", sort }), active: occupancy === "withoutPeople" },
+          ],
+        },
+      ]}
+    />
     <div className="shrink-0"><HouseForm action={createHouseAction} showReason={false} /></div>
     <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${houses.length ? "" : "items-center justify-center"}`}>
       {houses.length ? <div className="min-h-0 flex-1 overflow-auto"><table className="min-w-[560px] w-full text-sm">
