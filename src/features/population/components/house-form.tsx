@@ -17,7 +17,7 @@ export function HouseForm({ action, mode = "create", defaults, onSuccess, showRe
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<"houseNumber" | "address", string>>>({});
   const houseNumberRef = useRef<HTMLInputElement>(null);
 
-  return <form className="grid grid-cols-1 gap-x-4 gap-y-4 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2 md:grid-rows-[auto_auto_auto] md:gap-y-1 md:p-5 xl:grid-cols-[minmax(160px,0.7fr)_minmax(280px,1.5fr)_auto]" onSubmit={(event) => {
+  return <form className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 md:grid-cols-2 md:grid-rows-[auto_auto_auto] md:gap-y-1 xl:grid-cols-[minmax(160px,0.7fr)_minmax(280px,1.5fr)_auto]" onSubmit={(event) => {
     event.preventDefault();
     setError(""); setFieldErrors({});
     const form = event.currentTarget;

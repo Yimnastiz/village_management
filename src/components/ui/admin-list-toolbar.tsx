@@ -30,6 +30,7 @@ interface AdminListToolbarProps {
   suggestionTitles?: string[];
   groups?: ToolbarGroup[];
   actions?: ReactNode;
+  compact?: boolean;
 }
 
 export function AdminListToolbar({
@@ -43,6 +44,7 @@ export function AdminListToolbar({
   suggestionTitles = [],
   groups = [],
   actions,
+  compact = false,
 }: AdminListToolbarProps) {
   const [searchOpen, setSearchOpen] = useState(Boolean(keyword));
   const datalistId = useMemo(
@@ -51,8 +53,12 @@ export function AdminListToolbar({
   );
 
   return (
-    <div className="sticky top-0 z-30 -mx-4 space-y-3 border-y border-gray-200 bg-gray-50/95 px-4 py-3 shadow-sm backdrop-blur md:mx-0 md:space-y-4 md:border md:px-4">
-      <PageHeader title={title} description={description} actions={actions} />
+    <div className={cn(
+      compact
+        ? "sticky top-[var(--app-sticky-top,4rem)] z-30 -mt-2 space-y-2 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-white/90 sm:-mt-3 sm:p-4"
+        : "sticky top-0 z-30 -mx-4 space-y-3 border-y border-gray-200 bg-gray-50/95 px-4 py-3 shadow-sm backdrop-blur md:mx-0 md:space-y-4 md:border md:px-4",
+    )}>
+      <PageHeader title={title} description={description} actions={actions} className={compact ? "gap-2 sm:items-center [&_h1]:text-lg [&_h1]:sm:text-xl [&_p]:mt-0.5 [&_p]:leading-5" : undefined} />
 
       <div>
       <FilterBar activeFilterCount={groups.reduce((count, group) => count + Number(group.options.some((option) => option.active && option.href !== (clearHref ?? searchAction))), 0)}>
