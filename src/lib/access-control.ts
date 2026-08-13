@@ -429,7 +429,9 @@ export async function getResidentAreaAccessInfo(session: SessionContext): Promis
   }
 
   if (latestResidentMembership?.status === MembershipStatus.SUSPENDED) {
-    return { canAccess: false, redirectPath: "/resident/binding/pending?membershipStatus=SUSPENDED" };
+    // A suspended resident binding has no private-village access. It may be a
+    // move-out, so route to a fresh binding request rather than a pending page.
+    return { canAccess: false, redirectPath: "/resident/binding" };
   }
 
   if (latestResidentMembership?.status === MembershipStatus.REJECTED) {

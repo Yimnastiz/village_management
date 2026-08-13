@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PersonForm } from "../../person-form";
 
@@ -18,18 +19,18 @@ function toInputDate(value: Date | null): string {
 export default async function EditPersonPage({ params }: PageProps) {
   const { personId } = await params;
   const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
+  if (!session) redirect("/auth/login?callbackUrl=/admin/population/people");
+  if (!isAdminUser(session)) redirect(computeLandingPath(session));
 
   const membership = await prisma.villageMembership.findFirst({
     where: {
       userId: session.id,
-      status: "ACTIVE",
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+      status: MembershipStatus.ACTIVE,
+      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] },
     },
     select: { villageId: true },
   });
-  if (!membership) redirect("/resident");
+  if (!membership) redirect(computeLandingPath(session));
 
   const [person, houses] = await Promise.all([
     prisma.person.findFirst({
@@ -62,10 +63,10 @@ export default async function EditPersonPage({ params }: PageProps) {
           gender: person.gender ?? "",
           phone: person.phone ?? "",
           email: person.email ?? "",
-          status: person.status,
           houseId: person.houseId ?? "",
         }}
         identityLocked={Boolean(person.userId)}
+        movedOut={person.status === "MOVED_OUT"}
       />
     </div>
   );

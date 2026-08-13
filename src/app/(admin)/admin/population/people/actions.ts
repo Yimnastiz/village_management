@@ -3,7 +3,7 @@
 import { MembershipStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { canManagePopulation, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
-import { createVillagePerson, deactivateVillagePerson, PopulationValidationError, updateVillagePerson, type VillagePersonInput } from "@/features/population/server/village-population-service";
+import { createVillagePerson, moveOutVillagePerson, PopulationValidationError, updateVillagePerson, type VillagePersonInput } from "@/features/population/server/village-population-service";
 
 type PersonActionResult = { success: true; id?: string } | { success: false; error: string };
 
@@ -41,13 +41,16 @@ export async function updatePersonAction(personId: string, data: VillagePersonIn
   } catch (error) { return { success: false, error: toActionError(error) }; }
 }
 
-export async function deletePersonAction(personId: string, reason: string): Promise<PersonActionResult> {
+export async function moveOutPersonAction(personId: string, reason: string): Promise<PersonActionResult> {
   const current = await context();
   if (!current) return { success: false, error: "คุณไม่มีสิทธิ์บันทึกการย้ายออก" };
   try {
-    await deactivateVillagePerson(current.villageId, personId, reason, current.actor);
+    await moveOutVillagePerson(current.villageId, personId, reason, current.actor);
     revalidatePath("/admin/population/people");
     revalidatePath(`/admin/population/people/${personId}`);
+    revalidatePath("/admin/population/houses");
+    revalidatePath("/resident", "layout");
+    revalidatePath("/resident/binding");
     return { success: true };
   } catch (error) { return { success: false, error: toActionError(error) }; }
 }

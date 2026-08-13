@@ -1,6 +1,6 @@
 "use server";
 
-import { AuditAction, BindingRequestStatus, MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, BindingRequestStatus, MembershipStatus, MovementType, NotificationType, PersonStatus, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -51,7 +51,7 @@ export async function reviewBindingSupportAction(
         where: { id: requestId, villageId: targetVillageId, status: BindingRequestStatus.PENDING },
         include: {
           house: { select: { id: true, villageId: true, houseNumber: true } },
-          user: { select: { id: true, systemRole: true, accountStatus: true } },
+          user: { select: { id: true, name: true, phoneNumber: true, systemRole: true, accountStatus: true } },
         },
       });
       if (!request) throw new BindingReviewValidationError("ไม่พบคำขอในหมู่บ้านเป้าหมาย หรือคำขอนี้ถูกดำเนินการไปแล้ว");
@@ -76,6 +76,15 @@ export async function reviewBindingSupportAction(
           throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
         }
         await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
+        const linkedPerson = await tx.person.findUnique({ where: { userId: request.userId }, select: { id: true, houseId: true, villageId: true } });
+        if (linkedPerson && linkedPerson.villageId !== targetVillageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้เชื่อมกับหมู่บ้านอื่น");
+        if (linkedPerson) {
+          await tx.person.update({ where: { id: linkedPerson.id }, data: { houseId: house.id, status: PersonStatus.ACTIVE, phone: request.user.phoneNumber } });
+          if (linkedPerson.houseId !== house.id) {
+            if (linkedPerson.houseId) await tx.personMovement.create({ data: { personId: linkedPerson.id, houseId: linkedPerson.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: "ผูกเลขบ้านใหม่" } });
+            await tx.personMovement.create({ data: { personId: linkedPerson.id, houseId: house.id, movementType: MovementType.MOVE_IN, date: new Date(), note: "ผูกเลขบ้านใหม่" } });
+          }
+        }
         await tx.user.update({ where: { id: request.userId }, data: { citizenVerifiedAt: new Date(), registrationVillageId: targetVillageId } });
         await tx.authSession.updateMany({ where: { userId: request.userId, expiresAt: { gt: new Date() } }, data: { activeVillageId: targetVillageId } });
         if (nationalId) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalId, request.userId, { actorId: actor.id, villageId: targetVillageId });

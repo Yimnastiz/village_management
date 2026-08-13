@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
-import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, PersonStatus, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
@@ -314,6 +314,8 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
                 villageId: binding.villageId,
                 houseId: resolvedHouseId,
                 userId: binding.userId,
+                status: PersonStatus.ACTIVE,
+                phone: residentUser.phoneNumber,
               },
             });
             if (existingPerson.houseId !== resolvedHouseId) {

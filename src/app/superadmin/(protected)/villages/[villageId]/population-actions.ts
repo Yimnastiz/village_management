@@ -5,7 +5,7 @@ import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import {
   createVillageHouse,
   createVillagePerson,
-  deactivateVillagePerson,
+  moveOutVillagePerson,
   PopulationValidationError,
   updateVillageHouse,
   updateVillagePerson,
@@ -64,10 +64,10 @@ export async function updateSuperAdminPersonAction(villageId: string, personId: 
   } catch (error) { return { success: false, error: message(error) }; }
 }
 
-export async function deactivateSuperAdminPersonAction(villageId: string, personId: string, reason: string): Promise<PopulationActionResult> {
+export async function moveOutSuperAdminPersonAction(villageId: string, personId: string, reason: string): Promise<PopulationActionResult> {
   const actor = await requireSuperAdminActionSession();
   try {
-    await deactivateVillagePerson(villageId, personId, reason, { id: null, role: "SUPERADMIN" });
+    await moveOutVillagePerson(villageId, personId, reason, { id: null, role: "SUPERADMIN" });
     refresh(villageId, "people", personId);
     return { success: true, message: "ยกเลิกข้อมูลประชากรสำเร็จ" };
   } catch (error) { return { success: false, error: message(error) }; }
