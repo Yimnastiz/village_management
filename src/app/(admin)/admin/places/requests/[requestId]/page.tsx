@@ -12,6 +12,7 @@ import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } f
 import { parseVillagePlacePayload } from "@/lib/village-place";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
 import { PlaceRequestReviewButtons } from "../request-review-buttons";
+import { materializePlaceImages } from "@/lib/place-image.server";
 
 type RequestDetail = {
   id: string;
@@ -20,6 +21,7 @@ type RequestDetail = {
   payload: unknown;
   reviewedBy: string | null;
   reviewedAt: Date | null;
+  targetPlaceId: string | null;
   reviewNote: string | null;
   requester: {
     name: string;
@@ -69,6 +71,7 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
   const payload = parseVillagePlacePayload(request.payload);
   if (!payload) notFound();
   const embedMapUrl = getVillagePlaceEmbedMapUrl(payload.latitude, payload.longitude);
+  const imageRows = await materializePlaceImages(prisma, payload.images, membership.villageId, { existingPlaceId: request.targetPlaceId ?? undefined, trustedNew: true }) ?? [];
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -136,10 +139,10 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
           </div>
         )}
 
-        {Array.isArray(payload.imageUrls) && payload.imageUrls.length > 0 && (
+        {imageRows.length > 0 && (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {payload.imageUrls.map((url) => (
-              <img key={url} src={url} alt={payload.name} className="h-28 w-full rounded-lg object-cover" />
+            {imageRows.map((image) => (
+              <div key={`${image.url}-${image.sortOrder}`} className="relative"><img src={image.url} alt={payload.name} className="h-28 w-full rounded-lg object-cover" />{image.isCover && <span className="absolute left-2 top-2 rounded-full bg-green-700 px-2 py-1 text-xs text-white">หน้าปก</span>}</div>
             ))}
           </div>
         )}

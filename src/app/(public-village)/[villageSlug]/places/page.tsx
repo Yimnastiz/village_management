@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicPlacesToolbar } from "./public-places-toolbar";
+import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
@@ -21,6 +22,7 @@ type PlaceItem = {
   address: string | null;
   openingHours: string | null;
   imageUrls: unknown;
+  images: PlaceImageView[];
   isFeatured: boolean;
 };
 
@@ -89,6 +91,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
         address: true,
         openingHours: true,
         imageUrls: true,
+        images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
         isFeatured: true,
       },
     }),
@@ -136,9 +139,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {places.map((place) => {
-            const images = Array.isArray(place.imageUrls)
-              ? place.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-              : [];
+            const images = orderedPlaceImages(place.images, place.imageUrls);
             return (
               <Link
                 key={place.id}
@@ -147,7 +148,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
               >
                 <div className="aspect-video bg-gray-100">
                   {images[0] ? (
-                    <img src={images[0]} alt={place.name} className="h-full w-full object-cover" loading="lazy" />
+                    <img src={images[0].url} alt={place.name} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">ไม่มีรูปภาพ</div>
                   )}

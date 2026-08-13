@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PlaceForm } from "../../place-form";
+import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
 type PageProps = {
   params: Promise<{ placeId: string }>;
@@ -20,6 +21,7 @@ type PlaceEditItem = {
   latitude: number | null;
   longitude: number | null;
   imageUrls: unknown;
+  images: PlaceImageView[];
   isPublic: boolean;
   isFeatured: boolean;
 };
@@ -57,6 +59,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
       latitude: true,
       longitude: true,
       imageUrls: true,
+      images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
       isPublic: true,
       isFeatured: true,
     },
@@ -64,9 +67,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
 
   if (!place) notFound();
 
-  const imageUrls = Array.isArray(place.imageUrls)
-    ? place.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-    : [];
+  const images = orderedPlaceImages(place.images, place.imageUrls);
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -89,7 +90,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
           longitude: place.longitude == null ? "" : String(place.longitude),
           isPublic: place.isPublic,
           isFeatured: place.isFeatured,
-          imageUrls,
+          images,
         }}
       />
     </div>

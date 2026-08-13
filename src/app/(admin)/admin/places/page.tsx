@@ -7,6 +7,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; category?: string; visibility?: string; featured?: string; sort?: string; page?: string }>;
@@ -19,6 +20,7 @@ type PlaceItem = {
   address: string | null;
   openingHours: string | null;
   imageUrls: unknown;
+  images: PlaceImageView[];
   isPublic: boolean;
   isFeatured: boolean;
   createdAt: Date;
@@ -97,6 +99,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         address: true,
         openingHours: true,
         imageUrls: true,
+        images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
         isPublic: true,
         isFeatured: true,
         createdAt: true,
@@ -183,14 +186,14 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           },
         ]}
         actions={
-          <>
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/admin/places/requests">
               <Button size="sm" variant="outline" className="min-h-11 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span><span className="sr-only">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span></Button>
             </Link>
             <Link href="/admin/places/new">
               <Button size="sm" className="min-h-11 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="hidden min-[390px]:ml-1.5 min-[390px]:inline">เพิ่มสถานที่</span><span className="sr-only">เพิ่มสถานที่</span></Button>
             </Link>
-          </>
+          </div>
         }
       />
 
@@ -205,9 +208,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
       ) : (
         <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((place) => {
-            const images = Array.isArray(place.imageUrls)
-              ? place.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-              : [];
+            const images = orderedPlaceImages(place.images, place.imageUrls);
             return (
               <Link
                 key={place.id}
@@ -216,7 +217,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
               >
                 <div className="aspect-video bg-gray-100">
                   {images[0] ? (
-                    <img src={images[0]} alt={place.name} className="h-full w-full object-cover" loading="lazy" />
+                    <img src={images[0].url} alt={place.name} className="h-full w-full object-cover" loading="lazy" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">ไม่มีรูปภาพ</div>
                   )}

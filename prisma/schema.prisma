@@ -97,9 +97,15 @@ enum VillageEventSubmissionType {
 enum VillagePlaceCategory {
   TEMPLE
   SHOP
+  FOOD
+  SERVICE
   SCHOOL
   CLINIC
   GOVERNMENT
+  COMMUNITY
+  AGRICULTURE
+  ACCOMMODATION
+  TRANSPORT
   OTHER
 }
 
@@ -310,32 +316,32 @@ enum HouseSourceType {
 // ========== MODELS ==========
 
 model User {
-  id                      String        @id @default(cuid())
-  phoneNumber             String        @unique
-  phoneNumberVerified     Boolean       @default(false)
-  name                    String
-  email                   String?       @unique
-  emailVerified           Boolean       @default(false)
-  image                   String?
-  systemRole              SystemRole    @default(USER)
-  registrationProvince    String?
-  registrationDistrict    String?
-  registrationSubdistrict String?
-  registrationVillageId   String?
-  citizenVerifiedAt       DateTime?
-  consentAt               DateTime?
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  accountStatus           AccountStatus @default(ACTIVE)
-  duplicateOfUserId       String?
-  duplicateResolvedAt     DateTime?
-  duplicateReason         String?
+  id                         String        @id @default(cuid())
+  phoneNumber                String        @unique
+  phoneNumberVerified        Boolean       @default(false)
+  name                       String
+  email                      String?       @unique
+  emailVerified              Boolean       @default(false)
+  image                      String?
+  systemRole                 SystemRole    @default(USER)
+  registrationProvince       String?
+  registrationDistrict       String?
+  registrationSubdistrict    String?
+  registrationVillageId      String?
+  citizenVerifiedAt          DateTime?
+  consentAt                  DateTime?
+  createdAt                  DateTime      @default(now())
+  updatedAt                  DateTime      @updatedAt
+  accountStatus              AccountStatus @default(ACTIVE)
+  duplicateOfUserId          String?
+  duplicateResolvedAt        DateTime?
+  duplicateReason            String?
   duplicateNoticeLoginUsedAt DateTime?
-  duplicateNoticeSeenAt   DateTime?
-  deletionRequestedAt     DateTime?
-  scheduledDeletionAt     DateTime?
-  anonymizedAt            DateTime?
-  deletionRecoveryHash    String?
+  duplicateNoticeSeenAt      DateTime?
+  deletionRequestedAt        DateTime?
+  scheduledDeletionAt        DateTime?
+  anonymizedAt               DateTime?
+  deletionRecoveryHash       String?
 
   authSessions            AuthSession[]
   authAccounts            AuthAccount[]
@@ -350,7 +356,7 @@ model User {
   authoredNews            News[]
   newsSubmissions         NewsSubmission[]
   villageEventSubmissions VillageEventSubmission[]
-  villageEventsCreated   VillageEvent[]
+  villageEventsCreated    VillageEvent[]
   galleryItemSubmissions  GalleryItemSubmission[]
   villagePlacesCreated    VillagePlace[]
   villagePlaceSubmissions VillagePlaceSubmission[]
@@ -451,8 +457,8 @@ model Village {
   bindingRequests         BindingRequest[]
   catalogVillage          ThailandVillageMaster?       @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
 
-  @@index([slug])
   @@unique([province, district, subdistrict, moo], map: "village_area_moo_key")
+  @@index([slug])
 }
 
 model ThailandVillageMaster {
@@ -914,7 +920,7 @@ model VillageEvent {
   updatedAt   DateTime  @updatedAt
 
   village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  createdBy User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([villageId])
   @@index([createdById])
@@ -970,8 +976,9 @@ model VillagePlace {
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
-  village    Village     @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  createdBy  User?       @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  village    Village             @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  createdBy  User?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  images     VillagePlaceImage[]
   savedItems SavedItem[]
 
   @@index([villageId])
@@ -980,20 +987,34 @@ model VillagePlace {
   @@index([isFeatured])
 }
 
+model VillagePlaceImage {
+  id        String   @id @default(cuid())
+  placeId   String
+  url       String   @db.Text
+  fileKey   String?
+  sortOrder Int      @default(0)
+  isCover   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  place VillagePlace @relation(fields: [placeId], references: [id], onDelete: Cascade)
+
+  @@index([placeId, sortOrder])
+}
+
 model VillagePlaceSubmission {
-  id            String                       @id @default(cuid())
-  villageId     String
-  requesterId   String
-  type          VillagePlaceSubmissionType   @default(CREATE)
-  targetPlaceId String?
+  id              String                       @id @default(cuid())
+  villageId       String
+  requesterId     String
+  type            VillagePlaceSubmissionType   @default(CREATE)
+  targetPlaceId   String?
   approvedPlaceId String?
-  payload       Json
-  status        VillagePlaceSubmissionStatus @default(PENDING)
-  reviewedBy    String?
-  reviewedAt    DateTime?
-  reviewNote    String?
-  createdAt     DateTime                     @default(now())
-  updatedAt     DateTime                     @updatedAt
+  payload         Json
+  status          VillagePlaceSubmissionStatus @default(PENDING)
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNote      String?
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
 
   village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
   requester User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)

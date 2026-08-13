@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { DeletePlaceButton } from "../delete-place-button";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
+import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
 type PageProps = {
   params: Promise<{ placeId: string }>;
@@ -27,6 +28,9 @@ type PlaceDetail = {
   latitude: number | null;
   longitude: number | null;
   imageUrls: unknown;
+  images: PlaceImageView[];
+  createdAt: Date;
+  createdBy: { name: string } | null;
   isPublic: boolean;
   isFeatured: boolean;
 };
@@ -67,6 +71,9 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
       latitude: true,
       longitude: true,
       imageUrls: true,
+      images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
+      createdAt: true,
+      createdBy: { select: { name: true } },
       isPublic: true,
       isFeatured: true,
     },
@@ -74,13 +81,14 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
 
   if (!place) notFound();
 
-  const imageUrls = Array.isArray(place.imageUrls)
-    ? place.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-    : [];
+  const imageUrls = orderedPlaceImages(place.images, place.imageUrls).map((image) => image.url);
+  const approvedCreate = await prisma.villagePlaceSubmission.findFirst({ where: { villageId: membership.villageId, approvedPlaceId: place.id, type: "CREATE", status: "APPROVED" }, orderBy: { reviewedAt: "asc" }, select: { requester: { select: { name: true } } } });
+  const creatorName = approvedCreate?.requester.name ?? place.createdBy?.name;
+  const creatorLabel = approvedCreate ? "เสนอโดย" : "เพิ่มโดย";
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
 
   return (
-    <div className="max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6">
       <Link href="/admin/places" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
         <ArrowLeft className="h-4 w-4" /> กลับรายการสถานที่
       </Link>
@@ -94,6 +102,8 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
               <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
             </div>
             <h1 className="mt-3 text-2xl font-bold text-gray-900">{place.name}</h1>
+            {creatorName && <p className="mt-1 text-sm text-gray-500">{creatorLabel} {creatorName}</p>}
+            <p className="mt-0.5 text-xs text-gray-400">{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(place.createdAt)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={`/admin/places/${place.id}/edit`}>

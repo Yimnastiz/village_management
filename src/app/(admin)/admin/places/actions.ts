@@ -6,11 +6,14 @@ import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { normalizeVillagePlaceInput, parseVillagePlacePayload } from "@/lib/village-place";
+import type { PlaceImageInput } from "@/lib/place-image";
+import { materializePlaceImages, replacePlaceImages } from "@/lib/place-image.server";
+import { deletePlaceUploads } from "@/lib/place-upload.server";
 
 type PlaceInput = {
   name: string; category: string; description?: string; address?: string; openingHours?: string;
   contactPhone?: string; mapUrl?: string; latitude?: number | string | null; longitude?: number | string | null;
-  isPublic?: boolean; isFeatured?: boolean; imageUrls?: string[];
+  isPublic?: boolean; isFeatured?: boolean; images?: PlaceImageInput[];
 };
 
 type Submission = {
@@ -35,8 +38,12 @@ export async function adminCreateVillagePlaceAction(data: PlaceInput): Promise<{
   if (!ctx.ok) return { success: false, error: ctx.error };
   const normalized = normalizeVillagePlaceInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  const imageRows = await materializePlaceImages(prisma, normalized.value.images, ctx.villageId);
+  if (!imageRows) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
   const place = await prisma.$transaction(async (tx) => {
-    const created = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...normalized.value, isFeatured: Boolean(data.isFeatured), description: normalized.value.description || null, address: normalized.value.address || null, openingHours: normalized.value.openingHours || null, contactPhone: normalized.value.contactPhone || null, mapUrl: normalized.value.mapUrl || null, createdById: ctx.session.id }, select: { id: true, name: true } });
+    const { images: _images, ...fields } = normalized.value;
+    const created = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...fields, imageUrls: [], isFeatured: Boolean(data.isFeatured), description: fields.description || null, address: fields.address || null, openingHours: fields.openingHours || null, contactPhone: fields.contactPhone || null, mapUrl: fields.mapUrl || null, createdById: ctx.session.id }, select: { id: true, name: true } });
+    await replacePlaceImages(tx, created.id, imageRows);
     await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "VillagePlace", resourceId: created.id, metadata: { actionName: "PLACE_CREATED", name: created.name } } });
     return created;
   });
@@ -49,14 +56,21 @@ export async function adminUpdateVillagePlaceAction(placeId: string, data: Place
   if (!ctx.ok) return { success: false, error: ctx.error };
   const normalized = normalizeVillagePlaceInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  const imageRows = await materializePlaceImages(prisma, normalized.value.images, ctx.villageId, { existingPlaceId: placeId });
+  if (!imageRows) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
+  const currentFileKeys = await prisma.villagePlaceImage.findMany({ where: { placeId }, select: { fileKey: true } });
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true, isPublic: true, isFeatured: true } });
     if (!existing) return false;
-    const updated = await tx.villagePlace.update({ where: { id: placeId }, data: { ...normalized.value, isFeatured: Boolean(data.isFeatured), description: normalized.value.description || null, address: normalized.value.address || null, openingHours: normalized.value.openingHours || null, contactPhone: normalized.value.contactPhone || null, mapUrl: normalized.value.mapUrl || null }, select: { id: true, name: true, isPublic: true, isFeatured: true } });
+    const { images: _images, ...fields } = normalized.value;
+    const updated = await tx.villagePlace.update({ where: { id: placeId }, data: { ...fields, imageUrls: [], isFeatured: Boolean(data.isFeatured), description: fields.description || null, address: fields.address || null, openingHours: fields.openingHours || null, contactPhone: fields.contactPhone || null, mapUrl: fields.mapUrl || null }, select: { id: true, name: true, isPublic: true, isFeatured: true } });
+    await replacePlaceImages(tx, placeId, imageRows);
     await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "VillagePlace", resourceId: placeId, metadata: { actionName: "PLACE_UPDATED", oldValue: { name: existing.name, isPublic: existing.isPublic, isFeatured: existing.isFeatured }, newValue: { name: updated.name, isPublic: updated.isPublic, isFeatured: updated.isFeatured } } } });
     return true;
   });
   if (!result) return { success: false, error: "ไม่พบสถานที่ที่ต้องการแก้ไข" };
+  const retained = new Set(imageRows.flatMap((image) => image.fileKey ? [image.fileKey] : []));
+  await deletePlaceUploads(currentFileKeys.flatMap((image) => image.fileKey && !retained.has(image.fileKey) ? [image.fileKey] : []));
   revalidatePlacePaths(placeId);
   return { success: true };
 }
@@ -65,13 +79,14 @@ export async function adminDeleteVillagePlaceAction(placeId: string): Promise<{ 
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
   const result = await prisma.$transaction(async (tx) => {
-    const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true } });
+    const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true, images: { select: { fileKey: true } } } });
     if (!existing) return false;
     await tx.villagePlace.delete({ where: { id: placeId } });
     await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillagePlace", resourceId: placeId, metadata: { actionName: "PLACE_DELETED", name: existing.name } } });
-    return true;
+    return existing.images.flatMap((image) => image.fileKey ? [image.fileKey] : []);
   });
   if (!result) return { success: false, error: "ไม่พบสถานที่ที่ต้องการลบ" };
+  await deletePlaceUploads(result);
   revalidatePlacePaths(placeId);
   return { success: true };
 }
@@ -88,6 +103,7 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
   const payload = parseVillagePlacePayload(submission.payload);
   if (!payload) return { success: false, error: "ข้อมูลคำขอไม่ถูกต้อง ไม่สามารถอนุมัติได้" };
   try {
+    let removedFileKeys: string[] = [];
     const result = await prisma.$transaction(async (tx) => {
       // The conditional state transition is the claim: only one admin can proceed.
       const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "APPROVED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: null } });
@@ -95,13 +111,22 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
       let place;
       if (submission.type === "UPDATE") {
         if (!submission.targetPlaceId) throw new Error("PLACE_TARGET_NOT_FOUND");
-        const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId, villageId: ctx.villageId }, select: { id: true } });
+        const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId, villageId: ctx.villageId }, select: { id: true, images: { select: { fileKey: true } } } });
         if (!target) throw new Error("PLACE_TARGET_NOT_FOUND");
         // Resident submissions never control visibility or the featured flag.
-        const { isPublic: _submittedVisibility, ...placeChanges } = payload;
+        const imageRows = await materializePlaceImages(tx, payload.images, ctx.villageId, { existingPlaceId: target.id, trustedNew: true });
+        if (!imageRows) throw new Error("INVALID_PLACE_IMAGES");
+        const { isPublic: _submittedVisibility, images: _images, ...placeChanges } = payload;
         place = await tx.villagePlace.update({ where: { id: target.id }, data: { ...placeChanges, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null }, select: { id: true } });
+        await replacePlaceImages(tx, place.id, imageRows);
+        const retained = new Set(imageRows.flatMap((image) => image.fileKey ? [image.fileKey] : []));
+        removedFileKeys = target.images.flatMap((image) => image.fileKey && !retained.has(image.fileKey) ? [image.fileKey] : []);
       } else {
-        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...payload, isPublic: false, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: false, createdById: submission.requesterId }, select: { id: true } });
+        const imageRows = await materializePlaceImages(tx, payload.images, ctx.villageId, { trustedNew: true });
+        if (!imageRows) throw new Error("INVALID_PLACE_IMAGES");
+        const { images: _images, ...placeFields } = payload;
+        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...placeFields, imageUrls: [], isPublic: false, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: false, createdById: submission.requesterId }, select: { id: true } });
+        await replacePlaceImages(tx, place.id, imageRows);
       }
       await tx.villagePlaceSubmission.update({ where: { id: submission.id }, data: { approvedPlaceId: place.id } });
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
@@ -109,6 +134,7 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
       await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
       return place;
     });
+    await deletePlaceUploads(removedFileKeys);
     revalidatePlacePaths(result.id, submissionId);
     return { success: true, placeId: result.id };
   } catch (error) {

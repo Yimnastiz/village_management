@@ -386,8 +386,9 @@ export async function createPlace(context: VillageActorContext, input: PlaceInpu
   if (!normalized.ok) return { success: false, error: normalized.error };
   const category = normalized.value.category as VillagePlaceCategory;
   const created = await prisma.$transaction(async (tx) => {
+    const { images: _images, ...fields } = normalized.value;
     const place = await tx.villagePlace.create({
-      data: { villageId: context.villageId, ...normalized.value, category, createdById: context.actorUserId },
+      data: { villageId: context.villageId, ...fields, category, imageUrls: input.imageUrls ?? [], createdById: context.actorUserId },
       select: { id: true },
     });
     await auditSuperAdmin(tx, context, {
@@ -413,7 +414,8 @@ export async function updatePlace(context: VillageActorContext, placeId: string,
   if (!existing) return { success: false, error: "ไม่พบสถานที่หรือไม่มีสิทธิ์แก้ไข" };
   const category = normalized.value.category as VillagePlaceCategory;
   await prisma.$transaction(async (tx) => {
-    await tx.villagePlace.update({ where: { id: placeId }, data: { ...normalized.value, category } });
+    const { images: _images, ...fields } = normalized.value;
+    await tx.villagePlace.update({ where: { id: placeId }, data: { ...fields, category, imageUrls: input.imageUrls ?? [] } });
     await auditSuperAdmin(tx, context, {
       action: AuditAction.UPDATE,
       actionName: "SUPERADMIN_PLACE_UPDATED",

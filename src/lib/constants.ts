@@ -76,10 +76,16 @@ export const VILLAGE_EVENT_VISIBILITY_LABELS: Record<string, string> = {
 export const VILLAGE_PLACE_CATEGORY_LABELS: Record<string, string> = {
   TEMPLE: "วัด/ศาสนสถาน",
   SHOP: "ร้านค้า/ตลาด",
+  FOOD: "ร้านอาหาร/เครื่องดื่ม",
+  SERVICE: "บริการ/ร้านซ่อม",
   SCHOOL: "โรงเรียน/การศึกษา",
-  CLINIC: "คลินิก/สุขภาพ",
+  CLINIC: "สุขภาพ/คลินิก",
   GOVERNMENT: "หน่วยงานราชการ",
-  OTHER: "อื่นๆ",
+  COMMUNITY: "สถานที่ชุมชน",
+  AGRICULTURE: "เกษตร/ปศุสัตว์",
+  ACCOMMODATION: "ที่พัก",
+  TRANSPORT: "คมนาคม/ขนส่ง",
+  OTHER: "อื่น ๆ",
 };
 
 export const VILLAGE_PLACE_SUBMISSION_STATUS_LABELS: Record<string, string> = {

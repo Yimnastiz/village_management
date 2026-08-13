@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
 import { toggleSavePlaceAction } from "@/features/saved/server/actions";
+import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
 type PageProps = {
   params: Promise<{ placeId: string }>;
@@ -27,6 +28,7 @@ type PlaceDetail = {
   latitude: number | null;
   longitude: number | null;
   imageUrls: unknown;
+  images: PlaceImageView[];
   isPublic: boolean;
 };
 
@@ -59,6 +61,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
       latitude: true,
       longitude: true,
       imageUrls: true,
+      images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
       isPublic: true,
     },
   });
@@ -74,9 +77,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
     select: { id: true },
   });
 
-  const imageUrls = Array.isArray(place.imageUrls)
-    ? place.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-    : [];
+  const imageUrls = orderedPlaceImages(place.images, place.imageUrls).map((image) => image.url);
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
 
   return (
