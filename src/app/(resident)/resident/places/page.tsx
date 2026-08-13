@@ -92,7 +92,6 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
     villagePlace.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const suggestionTitles = Array.from(new Set(places.map((item) => item.name))).slice(0, 12);
 
   function buildHref(next: { page?: number; sort?: string; q?: string; category?: string; featured?: boolean }) {
     const params = new URLSearchParams();
@@ -119,15 +118,14 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
         category={category}
         featured={featured}
         sort={sort}
-        suggestionTitles={suggestionTitles}
         canSubmit={membership.hasResidentAccess}
       />
 
       {places.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="ยังไม่มีข้อมูลสถานที่"
-          description={keyword ? "ไม่พบสถานที่ตามคำค้นนี้" : "เมื่อมีการเพิ่มสถานที่ในระบบแล้วจะแสดงที่นี่"}
+          title={featured ? "ยังไม่มีสถานที่สำคัญ" : category !== "ALL" ? "ไม่พบสถานที่ในหมวดหมู่นี้" : keyword ? "ไม่พบสถานที่ที่ตรงกับเงื่อนไข" : "ยังไม่มีข้อมูลสถานที่"}
+          description={keyword || category !== "ALL" || featured ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อมีการเพิ่มสถานที่ในระบบแล้วจะแสดงที่นี่"}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

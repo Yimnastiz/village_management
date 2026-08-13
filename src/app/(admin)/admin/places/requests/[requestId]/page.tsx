@@ -8,7 +8,7 @@ import {
   VILLAGE_PLACE_SUBMISSION_TYPE_LABELS,
 } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, getHeadmanMembership, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { parseVillagePlacePayload } from "@/lib/village-place";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
 import { PlaceRequestReviewButtons } from "../request-review-buttons";
@@ -48,7 +48,7 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
 
-  const membership = getHeadmanMembership(session);
+  const membership = getAdminMembership(session);
   if (!membership) redirect("/auth/login");
 
   const villagePlaceSubmission =

@@ -986,6 +986,7 @@ model VillagePlaceSubmission {
   requesterId   String
   type          VillagePlaceSubmissionType   @default(CREATE)
   targetPlaceId String?
+  approvedPlaceId String?
   payload       Json
   status        VillagePlaceSubmissionStatus @default(PENDING)
   reviewedBy    String?
@@ -1001,6 +1002,7 @@ model VillagePlaceSubmission {
   @@index([requesterId])
   @@index([type])
   @@index([targetPlaceId])
+  @@index([approvedPlaceId])
   @@index([status])
 }
 

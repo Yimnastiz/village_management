@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { VILLAGE_PLACE_CATEGORY_LABELS, VILLAGE_PLACE_SUBMISSION_STATUS_LABELS, VILLAGE_PLACE_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, getHeadmanMembership, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { parseVillagePlacePayload } from "@/lib/village-place";
 
 type RequestItem = { id: string; type: string; status: string; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: { name: string; phoneNumber: string } };
@@ -13,7 +13,7 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
 
 export default async function AdminPlaceRequestListPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
   const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login"); if (!isAdminUser(session)) redirect("/resident");
-  const membership = getHeadmanMembership(session); if (!membership) redirect("/auth/login");
+  const membership = getAdminMembership(session); if (!membership) redirect("/auth/login");
   const tab = (await searchParams)?.tab === "history" ? "history" : "pending";
   const villagePlaceSubmission = (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionListDelegate }).villagePlaceSubmission;
   const where = { villageId: membership.villageId, ...(tab === "pending" ? { status: "PENDING" } : { status: { in: ["APPROVED", "REJECTED"] } }) };

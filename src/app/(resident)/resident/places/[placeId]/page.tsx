@@ -80,10 +80,10 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/resident/places" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-          <ArrowLeft className="h-4 w-4" /> กลับรายการสถานที่
+          <ArrowLeft className="h-4 w-4" /> สถานที่
         </Link>
         {membership.hasResidentAccess ? <div className="flex flex-wrap items-center gap-2">
           <SaveButton
@@ -93,7 +93,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
             label="บันทึกสถานที่"
           />
           <Link href={`/resident/places/${place.id}/request-edit`} className="text-sm font-medium text-green-700 hover:text-green-800">
-            ขอแก้ไขสถานที่
+            เสนอแก้ไข
           </Link>
         </div> : null}
       </div>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, Plus } from "lucide-react";
+import { Building2, ListChecks, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -130,8 +130,9 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
       <AdminListToolbar
+        compact
         title="สถานที่"
         description="จัดการข้อมูลสถานที่ของหมู่บ้าน"
         searchAction="/admin/places"
@@ -184,15 +185,16 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         actions={
           <>
             <Link href="/admin/places/requests">
-              <Button size="sm" variant="outline">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</Button>
+              <Button size="sm" variant="outline" className="min-h-11 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span><span className="sr-only">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span></Button>
             </Link>
             <Link href="/admin/places/new">
-              <Button size="sm"><Plus className="mr-1 h-4 w-4" /> เพิ่มสถานที่</Button>
+              <Button size="sm" className="min-h-11 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="hidden min-[390px]:ml-1.5 min-[390px]:inline">เพิ่มสถานที่</span><span className="sr-only">เพิ่มสถานที่</span></Button>
             </Link>
           </>
         }
       />
 
+      <section className={`flex min-h-[8rem] flex-1 flex-col overflow-auto rounded-xl border border-gray-200 bg-white ${rows.length ? "" : "items-center justify-center"}`}>
       {rows.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -201,7 +203,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex"><Button size="sm">เพิ่มสถานที่</Button></Link>}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((place) => {
             const images = Array.isArray(place.imageUrls)
               ? place.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
@@ -236,7 +238,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
       )}
 
       {totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-auto flex flex-wrap items-center justify-center gap-2 border-t border-gray-200 px-3 py-2 sm:px-4">
           <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: activeFeatured, sort: activeSort, page: Math.max(1, currentPage - 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage <= 1 ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
             ก่อนหน้า
           </Link>
@@ -246,6 +248,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           </Link>
         </div>
       )}
+      </section>
     </div>
   );
 }

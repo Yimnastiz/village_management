@@ -26,7 +26,7 @@ async function requireAdminVillage() {
 }
 
 function revalidatePlacePaths(placeId?: string, requestId?: string) {
-  ["/admin/places", "/admin/places/requests", "/resident/places", "/resident/places/requests", ...(placeId ? [`/admin/places/${placeId}`, `/resident/places/${placeId}`] : []), ...(requestId ? [`/admin/places/requests/${requestId}`] : [])].forEach((path) => revalidatePath(path));
+  ["/admin/places", "/admin/places/requests", "/resident/places", "/resident/places/requests", ...(placeId ? [`/admin/places/${placeId}`, `/resident/places/${placeId}`] : []), ...(requestId ? [`/admin/places/requests/${requestId}`, `/resident/places/requests/${requestId}`] : [])].forEach((path) => revalidatePath(path));
   revalidateAdminSidebar();
 }
 
@@ -94,14 +94,16 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
       if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
       let place;
       if (submission.type === "UPDATE") {
-        if (!submission.targetPlaceId) throw new Error("คำขอแก้ไขไม่มีสถานที่ปลายทาง");
+        if (!submission.targetPlaceId) throw new Error("PLACE_TARGET_NOT_FOUND");
         const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId, villageId: ctx.villageId }, select: { id: true } });
-        if (!target) throw new Error("ไม่พบสถานที่ปลายทางสำหรับคำขอนี้");
-        // Resident submissions never control the featured flag.
-        place = await tx.villagePlace.update({ where: { id: target.id }, data: { ...payload, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null }, select: { id: true } });
+        if (!target) throw new Error("PLACE_TARGET_NOT_FOUND");
+        // Resident submissions never control visibility or the featured flag.
+        const { isPublic: _submittedVisibility, ...placeChanges } = payload;
+        place = await tx.villagePlace.update({ where: { id: target.id }, data: { ...placeChanges, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null }, select: { id: true } });
       } else {
-        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...payload, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: false, createdById: submission.requesterId }, select: { id: true } });
+        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...payload, isPublic: false, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: false, createdById: submission.requesterId }, select: { id: true } });
       }
+      await tx.villagePlaceSubmission.update({ where: { id: submission.id }, data: { approvedPlaceId: place.id } });
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
       await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `สถานที่: ${payload.name}`, metadata: { submissionId: submission.id, placeId: place.id, status: "APPROVED", actionUrl: `/resident/places/${place.id}?from=notifications` } } });
       await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
@@ -110,7 +112,10 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
     revalidatePlacePaths(result.id, submissionId);
     return { success: true, placeId: result.id };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถอนุมัติคำขอได้" };
+    if (error instanceof Error && error.message === "PLACE_TARGET_NOT_FOUND") return { success: false, error: "ไม่พบสถานที่ปลายทางสำหรับคำขอนี้" };
+    if (error instanceof Error && error.message === "คำขอนี้ถูกดำเนินการแล้ว") return { success: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
+    console.error("approve village place submission", error);
+    return { success: false, error: "ไม่สามารถอนุมัติคำขอได้ กรุณาลองใหม่อีกครั้ง" };
   }
 }
 
@@ -126,12 +131,14 @@ export async function adminRejectVillagePlaceSubmissionAction(submissionId: stri
       const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "REJECTED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: reason } });
       if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณไม่ได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ";
-      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: reason, metadata: { submissionId: submission.id, status: "REJECTED", actionUrl: "/resident/places/requests?from=notifications" } } });
+      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: reason, metadata: { submissionId: submission.id, status: "REJECTED", actionUrl: `/resident/places/requests/${submission.id}?from=notifications` } } });
       await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_REJECTED", requestType: submission.type, requesterId: submission.requesterId, rejectReason: reason } } });
     });
     revalidatePlacePaths(undefined, submissionId);
     return { success: true };
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถบันทึกการไม่อนุมัติได้" };
+    if (error instanceof Error && error.message === "คำขอนี้ถูกดำเนินการแล้ว") return { success: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
+    console.error("reject village place submission", error);
+    return { success: false, error: "ไม่สามารถบันทึกการไม่อนุมัติได้ กรุณาลองใหม่อีกครั้ง" };
   }
 }

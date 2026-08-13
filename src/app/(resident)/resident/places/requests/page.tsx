@@ -3,113 +3,19 @@ import { FileClock, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  VILLAGE_PLACE_CATEGORY_LABELS,
-  VILLAGE_PLACE_SUBMISSION_STATUS_LABELS,
-  VILLAGE_PLACE_SUBMISSION_TYPE_LABELS,
-} from "@/lib/constants";
+import { VILLAGE_PLACE_CATEGORY_LABELS, VILLAGE_PLACE_SUBMISSION_STATUS_LABELS, VILLAGE_PLACE_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { parseVillagePlacePayload } from "@/lib/village-place";
+import { VillagePlaceSubmissionStatus } from "@prisma/client";
 
-type RequestItem = {
-  id: string;
-  type: string;
-  status: string;
-  payload: unknown;
-  reviewNote: string | null;
-  createdAt: Date;
-};
+type RequestItem = { id: string; type: string; status: string; payload: unknown; reviewNote: string | null; createdAt: Date };
+const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
 
-type VillagePlaceSubmissionListDelegate = {
-  findMany(args: unknown): Promise<RequestItem[]>;
-};
-
-type PageProps = {
-  searchParams?: Promise<{ submitted?: string }>;
-};
-
-const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
-
-export default async function ResidentPlaceRequestsPage({ searchParams }: PageProps) {
-  const params = (searchParams ? await searchParams : {}) ?? {};
-
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  const membership = getResidentMembership(session);
-  if (!membership) redirect("/resident/dashboard");
-
-  const villagePlaceSubmission =
-    (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionListDelegate }).villagePlaceSubmission;
-
-  const requests = await villagePlaceSubmission.findMany({
-    where: { requesterId: session.id, villageId: membership.villageId },
-    orderBy: [{ createdAt: "desc" }],
-    select: {
-      id: true,
-      type: true,
-      status: true,
-      payload: true,
-      reviewNote: true,
-      createdAt: true,
-    },
-  });
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">คำขอสถานที่ของฉัน</h1>
-          <p className="mt-1 text-sm text-gray-500">ติดตามสถานะคำขอเพิ่มสถานที่ในหมู่บ้าน</p>
-        </div>
-        <Link href="/resident/places/requests/new">
-          <Button size="sm">
-            <Plus className="mr-1 h-4 w-4" /> ส่งคำขอเพิ่มสถานที่
-          </Button>
-        </Link>
-      </div>
-
-      {params.submitted === "1" && (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          ส่งคำขอเรียบร้อยแล้ว รอแอดมินพิจารณา
-        </div>
-      )}
-
-      {requests.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
-          <FileClock className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-600">ยังไม่มีคำขอสถานที่</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {requests.map((request) => {
-            const payload = parseVillagePlacePayload(request.payload);
-            return (
-              <div key={request.id} className="rounded-xl border border-gray-200 bg-white p-5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline">
-                    {VILLAGE_PLACE_SUBMISSION_TYPE_LABELS[request.type] ?? request.type}
-                  </Badge>
-                  <Badge variant={statusVariant[request.status] ?? "default"}>
-                    {VILLAGE_PLACE_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}
-                  </Badge>
-                  <Badge variant="outline">
-                    {VILLAGE_PLACE_CATEGORY_LABELS[payload?.category ?? "OTHER"]}
-                  </Badge>
-                </div>
-                <p className="mt-2 font-medium text-gray-900">{payload?.name ?? "ไม่สามารถอ่านข้อมูลคำขอ"}</p>
-                {payload?.address && <p className="mt-1 text-sm text-gray-600">{payload.address}</p>}
-                {request.reviewNote && <p className="mt-2 text-sm text-gray-600">หมายเหตุ: {request.reviewNote}</p>}
-                <p className="mt-2 text-xs text-gray-400">{new Date(request.createdAt).toLocaleDateString("th-TH")}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+export default async function ResidentPlaceRequestsPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
+  const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login"); const membership = getResidentMembership(session); if (!membership) redirect("/resident/dashboard");
+  const tab = (await searchParams)?.tab === "history" ? "history" : "pending";
+  const where = tab === "pending" ? { requesterId: session.id, villageId: membership.villageId, status: VillagePlaceSubmissionStatus.PENDING } : { requesterId: session.id, villageId: membership.villageId, status: { in: [VillagePlaceSubmissionStatus.APPROVED, VillagePlaceSubmissionStatus.REJECTED] } };
+  const [requests, pendingCount] = await Promise.all([prisma.villagePlaceSubmission.findMany({ where, orderBy: { createdAt: "desc" }, select: { id: true, type: true, status: true, payload: true, reviewNote: true, createdAt: true } }), prisma.villagePlaceSubmission.count({ where: { requesterId: session.id, villageId: membership.villageId, status: VillagePlaceSubmissionStatus.PENDING } })]);
+  return <div className="space-y-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-bold text-gray-900">คำขอสถานที่ของฉัน</h1><p className="mt-1 text-sm text-gray-500">ติดตามสถานะคำขอเพิ่มหรือแก้ไขสถานที่</p></div><Link href="/resident/places/requests/new"><Button size="sm" className="min-h-11 whitespace-nowrap"><Plus className="mr-1 h-4 w-4" />ขอเพิ่มสถานที่</Button></Link></div><div className="flex gap-2 border-b border-gray-200"><Link href="/resident/places/requests" className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "pending" ? "border-green-700 text-green-800" : "border-transparent text-gray-500 hover:text-gray-700"}`}>รอพิจารณา ({pendingCount})</Link><Link href="/resident/places/requests?tab=history" className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "history" ? "border-green-700 text-green-800" : "border-transparent text-gray-500 hover:text-gray-700"}`}>ประวัติ</Link></div>{requests.length === 0 ? <div className="rounded-xl border border-gray-200 bg-white p-10 text-center"><FileClock className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="font-medium text-gray-700">{tab === "pending" ? "ไม่มีคำขอที่รอพิจารณา" : "ยังไม่มีประวัติคำขอสถานที่"}</p></div> : <div className="space-y-2">{requests.map((request) => { const payload = parseVillagePlacePayload(request.payload); return <Link key={request.id} href={`/resident/places/requests/${request.id}`} className="block rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-2"><Badge variant="outline">{VILLAGE_PLACE_SUBMISSION_TYPE_LABELS[request.type] ?? request.type}</Badge><Badge variant={statusVariant[request.status] ?? "default"}>{VILLAGE_PLACE_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}</Badge><Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[payload?.category ?? "OTHER"]}</Badge></div><p className="truncate font-medium text-gray-900">{payload?.name ?? "ข้อมูลคำขอไม่ถูกต้อง"}</p>{payload?.address && <p className="mt-1 line-clamp-1 text-sm text-gray-600">{payload.address}</p>}{request.status === "REJECTED" && request.reviewNote && <p className="mt-2 line-clamp-2 text-sm text-rose-700">เหตุผล: {request.reviewNote}</p>}</div><p className="shrink-0 whitespace-nowrap text-xs text-gray-400">{new Date(request.createdAt).toLocaleDateString("th-TH")}</p></div></Link>; })}</div>}</div>;
 }
