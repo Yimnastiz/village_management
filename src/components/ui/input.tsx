@@ -5,14 +5,16 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
   error?: string;
   helperText?: string;
+  /** Styles for the field container, distinct from the native input styles. */
+  wrapperClassName?: string;
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, helperText, id, ...props }, ref) => {
+  ({ className, wrapperClassName, label, error, helperText, id, ...props }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
     return (
-      <div className="w-full">
+      <div className={cn("w-full", wrapperClassName)}>
         {label && (
           <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
             {label}
