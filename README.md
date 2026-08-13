@@ -23,6 +23,23 @@ npm run dev
 
 `npm run db:up` จะสร้าง PostgreSQL local ผ่าน Docker Compose ที่ port `55432` และ `npm run setup` จะสร้าง `.env` จาก `.env.example` ให้อัตโนมัติเมื่อยังไม่มีไฟล์
 
+## Development ผ่าน LAN
+
+Better Auth และ Next.js จะอนุญาต LAN origin ที่ระบุไว้อย่างชัดเจนใน Development เท่านั้น
+
+1. หา IPv4 ของเครื่องที่รัน Next.js เช่นรัน `ipconfig` แล้วดูค่า IPv4 Address
+2. เพิ่ม origin ของเครื่องนั้นลงใน `.env.local` (ไฟล์นี้ถูก ignore และห้าม commit) โดยเปลี่ยน IP ให้ตรงกับเครื่องปัจจุบัน:
+   ```env
+   BETTER_AUTH_DEV_ORIGINS="http://192.168.1.35:3000"
+   ```
+3. restart dev server เพื่อให้โหลด ENV ใหม่:
+   ```powershell
+   npm run dev
+   ```
+4. เปิดเว็บจากโทรศัพท์หรือเครื่องใน LAN ที่ `http://<IPv4>:3000`
+
+`localhost:3000` และ `127.0.0.1:3000` ใช้ได้ใน Development โดยไม่ต้องเพิ่มค่า ENV นี้ หาก IP เปลี่ยน ให้แก้เฉพาะ `.env.local` แล้ว restart server; ห้ามใช้ wildcard LAN หรือกำหนดค่านี้ใน Production.
+
 ## การเข้าถึง Super Admin
 
 Super Admin เป็นผู้ดำเนินการระดับระบบจาก ENV ไม่ใช่บัญชี Better Auth และไม่ต้องมีชื่อ เบอร์โทร อีเมล หรือ OTP
