@@ -128,8 +128,8 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       <AdminListToolbar
-        title="สถานที่สำคัญ"
-        description="จัดการข้อมูลสถานที่สำคัญของหมู่บ้าน"
+        title="สถานที่"
+        description="จัดการข้อมูลสถานที่ของหมู่บ้าน"
         searchAction="/admin/places"
         clearHref="/admin/places"
         keyword={keyword}

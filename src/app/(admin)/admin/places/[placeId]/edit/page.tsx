@@ -70,7 +70,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
     <div className="max-w-3xl space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">แก้ไขสถานที่</h1>
-        <p className="mt-1 text-sm text-gray-500">อัปเดตข้อมูลและรูปภาพสถานที่สำคัญ</p>
+        <p className="mt-1 text-sm text-gray-500">อัปเดตข้อมูลและรูปภาพสถานที่</p>
       </div>
       <PlaceForm
         mode="edit"

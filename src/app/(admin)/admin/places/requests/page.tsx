@@ -56,7 +56,7 @@ export default async function AdminPlaceRequestListPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">คำขอสถานที่จากลูกบ้าน</h1>
-        <p className="mt-1 text-sm text-gray-500">ตรวจสอบและอนุมัติคำขอเพิ่มสถานที่สำคัญ</p>
+        <p className="mt-1 text-sm text-gray-500">ตรวจสอบและอนุมัติคำขอเพิ่มสถานที่</p>
       </div>
 
       {requests.length === 0 ? (
