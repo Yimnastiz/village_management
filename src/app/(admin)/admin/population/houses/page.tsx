@@ -24,7 +24,7 @@ export default async function Page({ searchParams }: PageProps) {
     orderBy: [{ houseNumber: "asc" }], take: 300,
   });
 
-  return <div className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-3rem)] sm:overflow-hidden">
+  return <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
     <AdminListToolbar title="ทะเบียนบ้าน" description="ค้นหาเลขบ้านและเปิดดูรายละเอียดของแต่ละครัวเรือน" searchAction="/admin/population/houses" keyword={keyword} searchPlaceholder="ค้นหาเลขบ้าน เช่น 99/1" suggestionTitles={houses.map((house) => house.houseNumber).slice(0, 12)} compact sticky={false} />
     <div className="shrink-0"><HouseForm action={createHouseAction} showReason={false} /></div>
     <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${houses.length ? "" : "items-center justify-center"}`}>
