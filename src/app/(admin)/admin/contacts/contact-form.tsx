@@ -79,34 +79,30 @@ export function ContactForm({ mode, contactId, defaultValues }: ContactFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-gray-900">ข้อมูลผู้ติดต่อ</h2>
       <Input label="ชื่อผู้ติดต่อ" {...register("name")} error={errors.name?.message} />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Input label="ตำแหน่ง/บทบาท" {...register("role")} error={errors.role?.message} />
         <Input label="หมวดหมู่" {...register("category")} error={errors.category?.message} />
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      </section>
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-gray-900">ช่องทางติดต่อ</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Input label="เบอร์โทร" {...register("phone")} error={errors.phone?.message} />
         <Input label="อีเมล" type="email" {...register("email")} error={errors.email?.message} />
       </div>
       <Textarea label="ที่อยู่" {...register("address")} error={errors.address?.message} rows={3} />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="ลำดับการแสดงผล"
-          {...register("sortOrder")}
-          error={errors.sortOrder?.message}
-          inputMode="numeric"
-        />
-        <Select
-          label="การมองเห็น"
-          {...register("isPublic")}
-          options={[
-            { value: "PUBLIC", label: "สาธารณะ" },
-            { value: "RESIDENT", label: "เฉพาะลูกบ้าน" },
-          ]}
-          error={errors.isPublic?.message}
-        />
+      </section>
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-gray-900">การแสดงผล</h2>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="space-y-1"><Input label="ลำดับการแสดงผล" {...register("sortOrder")} error={errors.sortOrder?.message} inputMode="numeric" /><p className="text-xs text-gray-500">ตัวเลขน้อยจะแสดงก่อน</p></div>
+        <div className="space-y-1"><Select label="การมองเห็น" {...register("isPublic")} options={[{ value: "PUBLIC", label: "สาธารณะ" }, { value: "RESIDENT", label: "เฉพาะลูกบ้าน" }]} error={errors.isPublic?.message} /><p className="text-xs text-gray-500">สาธารณะ: ทุกคนเห็นได้ · เฉพาะลูกบ้าน: สมาชิกที่มีสิทธิ์เท่านั้น</p></div>
       </div>
+      </section>
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 

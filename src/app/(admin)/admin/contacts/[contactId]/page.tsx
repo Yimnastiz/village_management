@@ -29,7 +29,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
   if (!contact) notFound();
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">รายละเอียดผู้ติดต่อ</h1>
@@ -43,12 +43,12 @@ export default async function ContactDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <Badge variant={contact.isPublic ? "success" : "info"}>
             {contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
           </Badge>
-          <Badge variant="outline">ลำดับ {contact.sortOrder}</Badge>
+          <Badge variant="outline">ลำดับการแสดงผล {contact.sortOrder}</Badge>
           {contact.category && <Badge variant="outline">{contact.category}</Badge>}
         </div>
         <h2 className="text-xl font-semibold text-gray-900">{contact.name}</h2>
@@ -60,11 +60,11 @@ export default async function ContactDetailPage({ params }: PageProps) {
           </div>
           <div>
             <p className="text-gray-500">เบอร์โทร</p>
-            <p className="text-gray-900 mt-1">{contact.phone || "ไม่ระบุ"}</p>
+            <p className="mt-1 text-gray-900">{contact.phone ? <a href={`tel:${contact.phone}`} className="font-medium text-green-700 hover:underline">{contact.phone}</a> : "ไม่ระบุ"}</p>
           </div>
           <div>
             <p className="text-gray-500">อีเมล</p>
-            <p className="text-gray-900 mt-1">{contact.email || "ไม่ระบุ"}</p>
+            <p className="mt-1 text-gray-900">{contact.email ? <a href={`mailto:${contact.email}`} className="font-medium text-blue-700 hover:underline">{contact.email}</a> : "ไม่ระบุ"}</p>
           </div>
           <div>
             <p className="text-gray-500">ที่อยู่</p>

@@ -13,6 +13,9 @@ interface SaveButtonProps {
   toggleAction: ToggleFn;
   label?: string;
   savedLabel?: string;
+  compact?: boolean;
+  ariaLabel?: string;
+  savedAriaLabel?: string;
 }
 
 export function SaveButton({
@@ -21,6 +24,9 @@ export function SaveButton({
   toggleAction,
   label = "บันทึก",
   savedLabel = "บันทึกแล้ว",
+  compact = false,
+  ariaLabel,
+  savedAriaLabel,
 }: SaveButtonProps) {
   const router = useRouter();
   const [saved, setSaved] = useState(initialSaved);
@@ -49,14 +55,17 @@ export function SaveButton({
         size="sm"
         onClick={handleToggle}
         isLoading={isPending}
+        aria-label={saved ? (savedAriaLabel ?? savedLabel) : (ariaLabel ?? label)}
+        title={saved ? (savedAriaLabel ?? savedLabel) : (ariaLabel ?? label)}
+        className={compact ? "h-10 w-10 shrink-0 p-0" : undefined}
       >
         {saved ? (
           <>
-            <BookmarkCheck className="mr-1 h-4 w-4" /> {savedLabel}
+            <BookmarkCheck className={compact ? "h-4 w-4" : "mr-1 h-4 w-4"} /> {!compact && savedLabel}
           </>
         ) : (
           <>
-            <Bookmark className="mr-1 h-4 w-4" /> {label}
+            <Bookmark className={compact ? "h-4 w-4" : "mr-1 h-4 w-4"} /> {!compact && label}
           </>
         )}
       </Button>

@@ -23,10 +23,10 @@ export default async function ResidentContactDetailPage({ params }: PageProps) {
   if (!contact) notFound();
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-4">
       <Link href="/resident/contacts" className="text-sm text-gray-500 hover:text-gray-700">← กลับรายชื่อผู้ติดต่อ</Link>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-3">
+      <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <Badge variant={contact.isPublic ? "success" : "info"}>
             {contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}

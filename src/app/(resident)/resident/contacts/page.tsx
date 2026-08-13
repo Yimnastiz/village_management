@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PhoneCall } from "lucide-react";
+import { MapPin, Mail, Phone, PhoneCall } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -61,67 +61,60 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
   const savedSet = new Set(savedContacts.map((s) => s.contactId));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <ResidentContactsToolbar keyword={keyword} category={category} sort={sort} categories={categoryRows.map((item) => item.category).filter((value): value is string => Boolean(value))} canSubmit={membership.hasResidentAccess} />
 
       {contacts.length === 0 ? (
         <EmptyState
           icon={PhoneCall}
-          title="ยังไม่มีรายชื่อผู้ติดต่อ"
-          description="แอดมินหมู่บ้านยังไม่ได้เพิ่มรายชื่อผู้ติดต่อ"
+          title={keyword || category || sort !== "default" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีรายชื่อผู้ติดต่อ"}
+          description={keyword || category || sort !== "default" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "แอดมินหมู่บ้านยังไม่ได้เพิ่มรายชื่อผู้ติดต่อ"}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {contacts.map((contact) => (
-            <article key={contact.id} className="flex flex-col justify-between rounded-xl border border-gray-200 bg-white p-5 space-y-3">
+            <article key={contact.id} className="rounded-xl border border-gray-200 bg-white p-4">
               <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     {contact.category && (
                       <Badge variant="outline" className="mb-1">{contact.category}</Badge>
                     )}
-                    <h2 className="font-semibold text-gray-900">
+                    <h2 className="text-base font-semibold text-gray-900">
                       <Link href={`/resident/contacts/${contact.id}`} className="hover:underline">
-                        {contact.name}
+                      {contact.name}
                       </Link>
                     </h2>
                     {contact.role && <p className="text-sm text-gray-500">{contact.role}</p>}
                   </div>
+                  {membership.hasResidentAccess ? <SaveButton itemId={contact.id} initialSaved={savedSet.has(contact.id)} toggleAction={toggleSaveContactAction} compact ariaLabel="บันทึกผู้ติดต่อ" savedAriaLabel="นำออกจากรายการบันทึก" /> : null}
                 </div>
 
-                <div className="space-y-1 text-sm text-gray-600">
+                <div className="space-y-1.5 text-sm text-gray-600">
                   {contact.phone && (
-                    <p>
-                      <span className="text-gray-400">โทร: </span>
+                    <p className="flex items-center gap-1.5">
+                      <Phone className="h-4 w-4 shrink-0 text-green-700" aria-hidden="true" />
                       <a href={`tel:${contact.phone}`} className="font-medium text-green-700 hover:underline">
                         {contact.phone}
                       </a>
                     </p>
                   )}
                   {contact.email && (
-                    <p>
-                      <span className="text-gray-400">อีเมล: </span>
-                      <a href={`mailto:${contact.email}`} className="hover:underline">
+                    <p className="flex min-w-0 items-center gap-1.5">
+                      <Mail className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                      <a href={`mailto:${contact.email}`} className="truncate hover:underline">
                         {contact.email}
                       </a>
                     </p>
                   )}
                   {contact.address && (
-                    <p>
-                      <span className="text-gray-400">ที่อยู่: </span>
-                      {contact.address}
+                    <p className="flex items-start gap-1.5">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                      <span className="line-clamp-2">{contact.address}</span>
                     </p>
                   )}
                 </div>
               </div>
-
-              {membership.hasResidentAccess ? <SaveButton
-                itemId={contact.id}
-                initialSaved={savedSet.has(contact.id)}
-                toggleAction={toggleSaveContactAction}
-                label="บันทึกผู้ติดต่อ"
-                savedLabel="บันทึกแล้ว"
-              /> : null}
             </article>
           ))}
         </div>
