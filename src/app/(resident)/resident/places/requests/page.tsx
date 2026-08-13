@@ -63,7 +63,7 @@ export default async function ResidentPlaceRequestsPage({ searchParams }: PagePr
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">คำขอสถานที่ของฉัน</h1>
-          <p className="mt-1 text-sm text-gray-500">ติดตามสถานะคำขอเพิ่มสถานที่สำคัญในหมู่บ้าน</p>
+          <p className="mt-1 text-sm text-gray-500">ติดตามสถานะคำขอเพิ่มสถานที่ในหมู่บ้าน</p>
         </div>
         <Link href="/resident/places/requests/new">
           <Button size="sm">

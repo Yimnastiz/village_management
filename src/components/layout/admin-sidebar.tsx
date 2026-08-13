@@ -24,7 +24,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
   { href: "/admin/calendar", label: "ปฏิทิน", icon: Calendar },
   { href: "/admin/gallery", label: "แกลเลอรี", icon: Image },
-  { href: "/admin/places", label: "สถานที่สำคัญ", icon: MapPin },
+  { href: "/admin/places", label: "สถานที่", icon: MapPin },
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
   { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
   { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
@@ -56,7 +56,7 @@ export function getAdminSidebarActionBadge(href: string, counts: AdminSidebarAct
     case "/admin/calendar": return { count: counts.calendar, label: "คำขอกิจกรรม" };
     case "/admin/appointments": return { count: counts.appointments, label: "คำขอนัดหมาย" };
     case "/admin/issues": return { count: counts.issues, label: "ปัญหาใหม่" };
-    case "/admin/places": return { count: counts.places, label: "คำขอสถานที่สำคัญ" };
+    case "/admin/places": return { count: counts.places, label: "คำขอสถานที่" };
     case "/admin/contacts": return { count: counts.contacts, label: "คำขอเพิ่มผู้ติดต่อ" };
     default: return null;
   }

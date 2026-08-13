@@ -46,7 +46,7 @@ export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/downloads", label: "เอกสารดาวน์โหลด", icon: Download, desktopPriority: 9, mobilePriority: 9 },
   { href: "/resident/transparency", label: "ความโปร่งใส", icon: Eye, desktopPriority: 10, mobilePriority: 10 },
   { href: "/resident/gallery", label: "แกลเลอรี", icon: Images, desktopPriority: 11, mobilePriority: 11 },
-  { href: "/resident/places", label: "สถานที่สำคัญ", icon: MapPin, desktopPriority: 12, mobilePriority: 12 },
+  { href: "/resident/places", label: "สถานที่", icon: MapPin, desktopPriority: 12, mobilePriority: 12 },
   { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone, desktopPriority: 13, mobilePriority: 13 },
   { href: "/resident/saved", label: "รายการที่บันทึก", icon: BookmarkCheck, desktopPriority: 14, mobilePriority: 14 },
   { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 15, mobilePriority: 15 },
