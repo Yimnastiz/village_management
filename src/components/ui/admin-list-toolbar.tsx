@@ -55,7 +55,7 @@ export function AdminListToolbar({
   groups = [],
   actions,
   compact = false,
-  sticky = true,
+  sticky = false,
   searchLabel = "ค้นหา",
   filterLabel = "ตัวกรอง",
 }: AdminListToolbarProps) {

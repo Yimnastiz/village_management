@@ -2,7 +2,6 @@ import Link from "next/link";
 import { MembershipStatus, MovementType, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -60,7 +59,7 @@ export default async function Page({ params }: PageProps) {
           <p className="mt-1 text-sm text-gray-500">ข้อมูลทะเบียน ประวัติการอยู่อาศัย และบัญชีผู้ใช้ที่เชื่อมโยง</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href={`/admin/population/people/${person.id}/edit`}><Button variant="outline" className="min-h-11">แก้ไขข้อมูล</Button></Link>
+          <Link href={`/admin/population/people/${person.id}/edit`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">แก้ไขข้อมูล</Link>
           {person.status !== "MOVED_OUT" ? <MoveOutPersonButton personId={person.id} /> : null}
         </div>
       </div>

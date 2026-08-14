@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft, Clock3, MapPin, Pencil, Phone } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -106,8 +105,8 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
             <p className="mt-0.5 text-xs text-gray-400">{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(place.createdAt)}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/places/${place.id}/edit`}>
-              <Button variant="outline"><Pencil className="mr-1 h-4 w-4" /> แก้ไข</Button>
+            <Link href={`/admin/places/${place.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+              <Pencil className="mr-1 h-4 w-4" /> แก้ไข
             </Link>
             <DeletePlaceButton placeId={place.id} placeName={place.name} />
           </div>

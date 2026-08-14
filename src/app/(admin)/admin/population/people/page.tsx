@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { PERSON_STATUS_LABELS } from "@/lib/constants";
@@ -114,7 +113,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
             ],
           },
         ]}
-        actions={<Link href="/admin/population/people/new"><Button size="sm" className="min-h-11 whitespace-nowrap">เพิ่มบุคคล</Button></Link>}
+        actions={<Link href="/admin/population/people/new" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มบุคคล</Link>}
       />
 
       <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${people.length ? "" : "items-center justify-center"}`}>

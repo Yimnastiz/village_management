@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Building2, ListChecks, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
@@ -136,6 +135,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
     <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
       <AdminListToolbar
         compact
+        sticky
         title="สถานที่"
         description="จัดการข้อมูลสถานที่ของหมู่บ้าน"
         searchAction="/admin/places"
@@ -187,11 +187,11 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         ]}
         actions={
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link href="/admin/places/requests">
-              <Button size="sm" variant="outline" className="min-h-11 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span><span className="sr-only">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span></Button>
+            <Link href="/admin/places/requests" aria-label={`คำขอสถานที่${pendingRequestCount > 0 ? ` ${pendingRequestCount} รายการ` : ""}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 sm:px-3">
+              <ListChecks className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:ml-1.5 sm:inline">คำขอสถานที่ {pendingRequestCount > 0 ? `(${pendingRequestCount})` : ""}</span>
             </Link>
-            <Link href="/admin/places/new">
-              <Button size="sm" className="min-h-11 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="hidden min-[390px]:ml-1.5 min-[390px]:inline">เพิ่มสถานที่</span><span className="sr-only">เพิ่มสถานที่</span></Button>
+            <Link href="/admin/places/new" aria-label="เพิ่มสถานที่" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-2 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 sm:px-3">
+              <Plus className="h-4 w-4" aria-hidden="true" /><span className="hidden min-[390px]:ml-1.5 min-[390px]:inline">เพิ่มสถานที่</span>
             </Link>
           </div>
         }
@@ -203,7 +203,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
           <p className="font-medium text-gray-800">{activeFeatured === "FEATURED" ? "ยังไม่มีสถานที่ที่ถูกกำหนดเป็นสถานที่สำคัญ" : keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ไม่พบสถานที่ที่ตรงกับเงื่อนไข" : "ยังไม่มีสถานที่"}</p>
           <p className="mt-1 text-sm text-gray-500">{keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มสถานที่เพื่อให้ลูกบ้านและประชาชนค้นหาข้อมูลได้"}</p>
-          {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex"><Button size="sm">เพิ่มสถานที่</Button></Link>}
+          {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มสถานที่</Link>}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 md:grid-cols-2 lg:grid-cols-3">
