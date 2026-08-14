@@ -28,6 +28,7 @@ type PlaceDetail = {
   latitude: number | null;
   longitude: number | null;
   imageUrls: unknown;
+  createdById: string | null;
   images: PlaceImageView[];
   isPublic: boolean;
 };
@@ -61,6 +62,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
       latitude: true,
       longitude: true,
       imageUrls: true,
+      createdById: true,
       images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
       isPublic: true,
     },
@@ -93,9 +95,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
             toggleAction={toggleSavePlaceAction}
             label="บันทึกสถานที่"
           />
-          <Link href={`/resident/places/${place.id}/request-edit`} className="text-sm font-medium text-green-700 hover:text-green-800">
-            เสนอแก้ไข
-          </Link>
+          {place.createdById === session.id ? <Link href={`/resident/places/${place.id}/request-edit`} className="text-sm font-medium text-green-700 hover:text-green-800">เสนอแก้ไข</Link> : null}
         </div> : null}
       </div>
 

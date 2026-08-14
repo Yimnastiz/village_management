@@ -51,8 +51,9 @@ export async function createVillagePlaceSubmissionAction(data: PlaceRequestInput
 export async function createVillagePlaceUpdateSubmissionAction(targetPlaceId: string, data: PlaceRequestInput): Promise<{ success: true; requestId: string } | { success: false; error: string }> {
   const ctx = await getResidentContext();
   if (!ctx) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้านสำหรับส่งคำขอสถานที่" };
-  const place = await prisma.villagePlace.findFirst({ where: { id: targetPlaceId, villageId: ctx.membership.villageId }, select: { id: true, name: true } });
+  const place = await prisma.villagePlace.findFirst({ where: { id: targetPlaceId, villageId: ctx.membership.villageId }, select: { id: true, name: true, createdById: true } });
   if (!place) return { success: false, error: "ไม่พบสถานที่ที่ต้องการเสนอแก้ไข" };
+  if (place.createdById !== ctx.session.id) return { success: false, error: "คุณสามารถเสนอแก้ไขได้เฉพาะสถานที่ที่คุณเป็นผู้เสนอสร้าง" };
   const payload = await safeResidentPayload(data, ctx.membership.villageId, targetPlaceId);
   if (!payload.ok) return { success: false, error: payload.error };
   const existingPending = await prisma.villagePlaceSubmission.findFirst({ where: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "UPDATE", targetPlaceId, status: "PENDING" }, select: { id: true } });
