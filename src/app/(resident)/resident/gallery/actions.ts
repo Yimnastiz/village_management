@@ -21,7 +21,7 @@ type SubmissionInput = z.infer<typeof schema>;
 function galleryUploadUrl(fileKey: string) { return `/api/places/images?key=${encodeURIComponent(fileKey)}`; }
 function revalidate(albumId: string, ids: string[]) {
   revalidateAdminSidebar();
-  ["/resident/gallery", `/resident/gallery/${albumId}`, `/resident/gallery/${albumId}/request`, "/resident/notifications", "/admin/notifications", "/admin/gallery/submissions"].forEach((path) => revalidatePath(path));
+  ["/resident/gallery", "/resident/gallery/requests", `/resident/gallery/${albumId}`, `/resident/gallery/${albumId}/request`, "/resident/notifications", "/admin/notifications", "/admin/gallery/submissions"].forEach((path) => revalidatePath(path));
   ids.forEach((id) => revalidatePath(`/admin/gallery/submissions/${id}`));
 }
 

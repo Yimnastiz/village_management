@@ -144,6 +144,7 @@ async function notifyResidents(
 function revalidateGalleryViews(albumId?: string, submissionId?: string) {
   revalidateAdminSidebar();
   revalidatePath("/resident/gallery");
+  revalidatePath("/resident/gallery/requests");
   revalidatePath("/admin/gallery");
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
@@ -446,8 +447,7 @@ export async function deleteGalleryItemAction(
 }
 
 export async function adminApproveGalleryItemSubmissionAction(
-  submissionId: string,
-  reviewNote?: string
+  submissionId: string
 ): Promise<{ success: true; itemId: string } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
@@ -478,7 +478,7 @@ export async function adminApproveGalleryItemSubmissionAction(
     // Claim the request first so two admins cannot approve the same upload.
     const claimed = await tx.galleryItemSubmission.updateMany({
       where: { id: submission.id, status: "PENDING" },
-      data: { status: "APPROVED", reviewedBy: ctx.userId, reviewedAt: new Date(), reviewNote: reviewNote?.trim() || null },
+      data: { status: "APPROVED", reviewedBy: ctx.userId, reviewedAt: new Date(), reviewNote: null },
     });
     if (claimed.count !== 1) throw new Error("SUBMISSION_ALREADY_REVIEWED");
     const latest = await tx.galleryItem.aggregate({ where: { albumId: submission.albumId }, _max: { sortOrder: true } });
@@ -502,11 +502,11 @@ export async function adminApproveGalleryItemSubmissionAction(
         userId: submission.requesterId,
         villageId: ctx.villageId,
         type: NotificationType.SYSTEM,
-        title: "คำขอเพิ่มรูปภาพได้รับการอนุมัติ",
-        body: `อัลบั้ม ${submission.album.title}: รูปภาพของคุณได้รับการอนุมัติแล้ว`,
+        title: "รูปภาพที่คุณส่งได้รับการอนุมัติ",
+        body: `อัลบั้ม ${submission.album.title}: รูปภาพที่คุณส่งได้รับการอนุมัติแล้ว`,
         metadata: {
-          actionUrl: `/resident/gallery/${submission.albumId}`,
-          actionLabel: "ดูอัลบั้ม",
+          actionUrl: `/resident/gallery/requests/${submission.batchId ?? submission.id}?image=${submission.id}`,
+          actionLabel: "ดูคำขอเพิ่มรูป",
           submissionId: submission.id,
           status: "APPROVED",
         },
@@ -520,6 +520,7 @@ export async function adminApproveGalleryItemSubmissionAction(
   }
 
   revalidateGalleryViews(submission.albumId, submission.id);
+  revalidatePath(`/resident/gallery/requests/${submission.batchId ?? submission.id}`);
   return { success: true, itemId: result.id };
 }
 
@@ -561,11 +562,11 @@ export async function adminRejectGalleryItemSubmissionAction(
         userId: submission.requesterId,
         villageId: ctx.villageId,
         type: NotificationType.SYSTEM,
-        title: "คำขอเพิ่มรูปภาพไม่ผ่านการอนุมัติ",
+        title: "รูปภาพที่คุณส่งไม่ได้รับการอนุมัติ",
         body: `อัลบั้ม ${submission.album.title}: ${reason}`,
         metadata: {
-          actionUrl: `/resident/gallery/${submission.albumId}/request`,
-          actionLabel: "ส่งคำขอใหม่",
+          actionUrl: `/resident/gallery/requests/${submission.batchId ?? submission.id}?image=${submission.id}`,
+          actionLabel: "ดูคำขอเพิ่มรูป",
           submissionId: submission.id,
           status: "REJECTED",
         },
@@ -577,6 +578,7 @@ export async function adminRejectGalleryItemSubmissionAction(
   }
 
   revalidateGalleryViews(submission.albumId, submission.id);
+  revalidatePath(`/resident/gallery/requests/${submission.batchId ?? submission.id}`);
 
   return { success: true };
 }

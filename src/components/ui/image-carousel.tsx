@@ -5,10 +5,11 @@ import { ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 
-type ImageCarouselProps = { images: string[]; altPrefix: string; coverIndex?: number };
+type ImageCarouselProps = { images: string[]; altPrefix: string; coverIndex?: number; initialIndex?: number; compact?: boolean };
 
-export function ImageCarousel({ images, altPrefix, coverIndex }: ImageCarouselProps) {
-  const [index, setIndex] = useState(0);
+export function ImageCarousel({ images, altPrefix, coverIndex, initialIndex = 0, compact = false }: ImageCarouselProps) {
+  const safeInitialIndex = Math.max(0, Math.min(initialIndex, Math.max(0, images.length - 1)));
+  const [index, setIndex] = useState(safeInitialIndex);
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -95,6 +96,8 @@ export function ImageCarousel({ images, altPrefix, coverIndex }: ImageCarouselPr
       </div>
     </div>
   ) : null;
+
+  if (compact) return <button type="button" onClick={(event) => openAt(safeInitialIndex, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${safeInitialIndex + 1} แบบขยาย`} className="block w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-600"><img src={images[safeInitialIndex]} alt={`${altPrefix} รูปที่ ${safeInitialIndex + 1}`} className="aspect-[4/3] w-full object-cover" />{lightbox && typeof document !== "undefined" ? createPortal(lightbox, document.body) : null}</button>;
 
   return <div className="min-w-0 space-y-3" onKeyDown={(event) => { if (event.key === "ArrowLeft" && images.length > 1) previous(); if (event.key === "ArrowRight" && images.length > 1) next(); }}>
     <div className="relative" onTouchStart={(event) => { galleryTouchRef.current = event.touches[0].clientX; }} onTouchEnd={(event) => { const start = galleryTouchRef.current; galleryTouchRef.current = null; if (start === null || images.length < 2) return; const delta = event.changedTouches[0].clientX - start; if (Math.abs(delta) >= 48) { if (delta > 0) previous(); else next(); } }}>
