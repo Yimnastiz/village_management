@@ -28,7 +28,7 @@ export function createPlaceUploadToken(fileKey: string, villageId: string, uploa
   return `${payload}.${signature(payload)}`;
 }
 
-export function verifyPlaceUploadToken(token: string | undefined, fileKey: string, villageId: string) {
+export function verifyPlaceUploadToken(token: string | undefined, fileKey: string, villageId: string, uploaderId?: string) {
   if (!token) return false;
   const [payload, supplied] = token.split(".");
   if (!payload || !supplied) return false;
@@ -36,7 +36,7 @@ export function verifyPlaceUploadToken(token: string | undefined, fileKey: strin
   if (supplied.length !== expected.length || !timingSafeEqual(Buffer.from(supplied), Buffer.from(expected))) return false;
   try {
     const value = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as Record<string, unknown>;
-    return value.fileKey === fileKey && value.villageId === villageId && typeof value.uploaderId === "string";
+    return value.fileKey === fileKey && value.villageId === villageId && typeof value.uploaderId === "string" && (!uploaderId || value.uploaderId === uploaderId);
   } catch { return false; }
 }
 

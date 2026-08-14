@@ -1049,43 +1049,51 @@ model GalleryAlbum {
 }
 
 model GalleryItem {
-  id        String   @id @default(cuid())
-  albumId   String
-  title     String?
-  fileUrl   String
-  fileKey   String?
-  mimeType  String?
-  sortOrder Int      @default(0)
-  isCover   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                 String   @id @default(cuid())
+  albumId            String
+  title              String?
+  fileUrl            String
+  fileKey            String?
+  mimeType           String?
+  sortOrder          Int      @default(0)
+  isCover            Boolean  @default(false)
+  sourceSubmissionId String?  @unique
+  createdAt          DateTime @default(now())
 
-  album GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  album            GalleryAlbum          @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  sourceSubmission GalleryItemSubmission? @relation("GalleryItemSourceSubmission", fields: [sourceSubmissionId], references: [id], onDelete: SetNull)
 
   @@index([albumId])
   @@index([albumId, sortOrder])
 }
 
 model GalleryItemSubmission {
-  id          String                      @id @default(cuid())
-  albumId     String
-  requesterId String
-  title       String?
-  fileUrl     String
-  mimeType    String?
-  note        String?
-  status      GalleryItemSubmissionStatus @default(PENDING)
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  reviewNote  String?
-  createdAt   DateTime                    @default(now())
-  updatedAt   DateTime                    @updatedAt
+  id           String                      @id @default(cuid())
+  albumId      String
+  requesterId  String
+  batchId      String?
+  batchOrder   Int?
+  title        String?
+  fileUrl      String
+  fileKey      String?
+  mimeType     String?
+  note         String?
+  status       GalleryItemSubmissionStatus @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  reviewNote   String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
 
-  album     GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
-  requester User         @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  album        GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  requester    User         @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  approvedItem GalleryItem? @relation("GalleryItemSourceSubmission")
 
   @@index([albumId])
   @@index([requesterId])
   @@index([status])
+  @@index([batchId])
+  @@index([albumId, batchId])
 }
 
 model ContactDirectory {

@@ -74,10 +74,11 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
         },
       },
       items: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+        orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
         select: {
           id: true,
           fileUrl: true,
+          isCover: true,
         },
         take: 1,
       },
@@ -97,7 +98,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
   const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       <ResidentGalleryToolbar
         keyword={keyword}
         sort={sort}
@@ -112,8 +113,8 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
       {albums.length === 0 ? (
         <EmptyState
           icon={Images}
-          title="ยังไม่มีอัลบั้มภาพ"
-          description={keyword ? "ไม่พบอัลบั้มตามคำค้นนี้" : "เมื่อแอดมินเพิ่มอัลบั้มรูปแล้วจะแสดงที่นี่"}
+          title={keyword || selectedVisibilities.length || allowSubmissionsOnly ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มภาพ"}
+          description={keyword || selectedVisibilities.length || allowSubmissionsOnly ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อผู้ดูแลหมู่บ้านเพิ่มอัลบั้มแล้วจะแสดงที่นี่"}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -124,9 +125,9 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
               className="overflow-hidden rounded-xl border border-gray-200 bg-white hover:shadow-md transition-shadow"
             >
               <div className="aspect-video bg-gray-100">
-                {album.coverUrl || album.items[0]?.fileUrl ? (
+                {album.items[0]?.fileUrl || album.coverUrl ? (
                   <img
-                    src={album.coverUrl || album.items[0]?.fileUrl || ""}
+                    src={album.items[0]?.fileUrl || album.coverUrl || ""}
                     alt={album.title}
                     className="h-full w-full object-cover"
                     loading="lazy"

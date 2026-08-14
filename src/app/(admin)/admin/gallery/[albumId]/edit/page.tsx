@@ -26,13 +26,14 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
 
   const album = await db.galleryAlbum.findFirst({
     where: { id: albumId, villageId: membership.villageId },
-    include: { items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, fileUrl: true, fileKey: true, title: true, sortOrder: true, isCover: true, mimeType: true } } },
+    include: { items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, fileUrl: true, fileKey: true, title: true, sortOrder: true, isCover: true, mimeType: true, sourceSubmission: { select: { requester: { select: { name: true } } } } } } },
   });
   if (!album) notFound();
 
   return (
     <div data-admin-compact-top className="space-y-4">
       <AdminPageToolbar variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="แก้ไขอัลบั้ม" description="อัปเดตข้อมูลอัลบั้มรูปภาพ" />
+      {album.items.some((item) => item.sourceSubmission) ? <section className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600"><p className="font-medium text-gray-900">ที่มาของรูปภาพ</p><div className="mt-2 space-y-1">{album.items.filter((item) => item.sourceSubmission).map((item) => <p key={item.id}>รูป “{item.title || "ไม่มีคำอธิบาย"}” · คำขอจาก {item.sourceSubmission?.requester.name}</p>)}</div></section> : null}
       <AlbumForm
         mode="edit"
         albumId={album.id}

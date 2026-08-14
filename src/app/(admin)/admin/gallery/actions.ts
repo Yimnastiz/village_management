@@ -488,9 +488,11 @@ export async function adminApproveGalleryItemSubmissionAction(
         albumId: submission.albumId,
         title: submission.title,
         fileUrl: submission.fileUrl,
+        fileKey: submission.fileKey,
         mimeType: submission.mimeType,
         sortOrder: (latest._max.sortOrder ?? -1) + 1,
         isCover: itemCount === 0,
+        sourceSubmissionId: submission.id,
       },
       select: { id: true },
     });
