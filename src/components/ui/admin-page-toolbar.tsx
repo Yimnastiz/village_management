@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 type ExpandedPanel = "search" | "filter" | null;
 
 export type AdminPageToolbarVariant = "list" | "detail" | "form" | "request";
+export type AdminPageToolbarBackPlacement = "top" | "header-end";
 
 type AdminPageToolbarProps = {
   title: string;
@@ -17,7 +18,11 @@ type AdminPageToolbarProps = {
   variant?: AdminPageToolbarVariant;
   backHref?: string;
   backLabel?: string;
+  /** Where to place the explicit navigation link for an admin sub-page. */
+  backPlacement?: AdminPageToolbarBackPlacement;
   actions?: ReactNode;
+  /** Contextual controls that belong beneath the heading, such as request tabs. */
+  secondaryActions?: ReactNode;
   sticky?: boolean;
   search?: {
     keyword: string;
@@ -34,7 +39,7 @@ type AdminPageToolbarProps = {
  * Shared operational-page chrome for the admin area.
  *
  * Pages own their actions and business-specific filter controls; this component
- * owns the sticky shell, responsive tool expansion, focus restoration and URL
+ * owns the optional sticky shell, responsive tool expansion, focus restoration and URL
  * search synchronization. It deliberately has no route-specific behavior.
  */
 export function AdminPageToolbar({
@@ -43,8 +48,10 @@ export function AdminPageToolbar({
   variant = "detail",
   backHref,
   backLabel = "กลับรายการ",
+  backPlacement = "top",
   actions,
-  sticky = true,
+  secondaryActions,
+  sticky = false,
   search,
   filters,
   activeFilterCount = 0,
@@ -69,6 +76,12 @@ export function AdminPageToolbar({
   const filterExpanded = expandedPanel === "filter";
   const searchLabel = search?.label ?? "ค้นหา";
   const hasTools = Boolean(search || filters);
+  const backLink = backHref ? (
+    <Link href={backHref} className="inline-flex min-h-9 items-center gap-1.5 px-1 text-sm text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      {backLabel}
+    </Link>
+  ) : null;
 
   useEffect(() => setSearchValue(search?.keyword ?? ""), [search?.keyword]);
   useEffect(() => {
@@ -122,20 +135,17 @@ export function AdminPageToolbar({
       aria-label={`เครื่องมือ${title}`}
       data-admin-page-toolbar={variant}
     >
-      {backHref ? (
-        <Link href={backHref} className="mb-2 inline-flex min-h-8 items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          {backLabel}
-        </Link>
-      ) : null}
+      {backPlacement === "top" && backLink ? <div className="mb-2">{backLink}</div> : null}
 
       <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
-          {description ? <p className="mt-0.5 hidden text-sm leading-5 text-gray-500 sm:block">{description}</p> : null}
+          {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", backPlacement === "header-end" ? "block" : "hidden sm:block")}>{description}</p> : null}
         </div>
-        {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
       </header>
+
+      {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 
       {hasTools ? <div className="mt-2 flex h-11 min-w-0 items-center gap-2" onKeyDown={(event) => {
         if (event.key === "Escape") closeExpandedPanel();

@@ -132,7 +132,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
+    <div data-admin-compact-top className="space-y-3">
       <AdminListToolbar
         compact
         sticky
@@ -197,7 +197,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         }
       />
 
-      <section className={`flex min-h-[8rem] flex-1 flex-col overflow-auto rounded-xl border border-gray-200 bg-white ${rows.length ? "" : "items-center justify-center"}`}>
+      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       {rows.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -239,7 +239,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
       )}
 
       {totalPages > 1 && (
-        <div className="mt-auto flex flex-wrap items-center justify-center gap-2 border-t border-gray-200 px-3 py-2 sm:px-4">
+        <div className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-200 px-3 py-2 sm:px-4">
           <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: activeFeatured, sort: activeSort, page: Math.max(1, currentPage - 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage <= 1 ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
             ก่อนหน้า
           </Link>

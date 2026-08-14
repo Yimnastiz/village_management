@@ -27,7 +27,7 @@ interface AdminListToolbarProps {
 /** Backward-compatible list adapter rendered through the shared admin toolbar. */
 export function AdminListToolbar({
   title, description, clearHref, keyword, searchPlaceholder, suggestionTitles = [], groups = [], actions,
-  sticky = true, searchLabel = "ค้นหา",
+  sticky = false, searchLabel = "ค้นหา",
 }: AdminListToolbarProps) {
   const activeFilterCount = groups.reduce(
     (count, group) => count + Number(group.options.some((option, index) => option.active && !(option.isDefault ?? index === 0))),
