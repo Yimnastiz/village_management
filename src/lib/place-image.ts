@@ -16,7 +16,7 @@ export type PlaceImageView = Required<Pick<PlaceImageInput, "url" | "sortOrder" 
 };
 
 export function normalizePlaceImages(images: readonly PlaceImageInput[]): PlaceImageInput[] {
-  const trimmed = images.slice(0, MAX_IMAGES_PER_REQUEST).map((image) => ({
+  const trimmed = [...images].sort((a, b) => a.sortOrder - b.sortOrder).slice(0, MAX_IMAGES_PER_REQUEST).map((image) => ({
     id: image.id?.trim() || undefined,
     url: image.url?.trim() || undefined,
     fileKey: image.fileKey?.trim() || undefined,
@@ -43,6 +43,13 @@ export function orderedPlaceImages(
   const coverIndex = source.findIndex((image) => image.isCover);
   if (coverIndex > 0) source.unshift(source.splice(coverIndex, 1)[0]);
   return source;
+}
+
+/** Returns the cover without resolving storage or materializing uploads. */
+export function selectPlaceCoverImage(images: readonly PlaceImageInput[] | null | undefined): PlaceImageInput | undefined {
+  if (!images?.length) return undefined;
+  const sorted = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
+  return sorted.find((image) => image.isCover) ?? sorted[0];
 }
 
 export function parsePlaceImageInputs(value: unknown): PlaceImageInput[] | null {
