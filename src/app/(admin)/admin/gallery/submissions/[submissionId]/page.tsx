@@ -52,7 +52,7 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
 
   return (
     <div data-admin-compact-top className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">
-      <AdminPageToolbar variant="request" backHref="/admin/gallery/submissions" backLabel="กลับรายการคำขอ" backPlacement="header-end" title="รายละเอียดคำขอเพิ่มรูปภาพ" description="ตรวจสอบรูปภาพและข้อมูลผู้ส่งคำขอ" />
+      <AdminPageToolbar sticky variant="request" backHref="/admin/gallery/submissions" backLabel="กลับรายการคำขอ" backPlacement="header-end" title="รายละเอียดคำขอเพิ่มรูปภาพ" description="ตรวจสอบรูปภาพและข้อมูลผู้ส่งคำขอ" />
 
       <article className="min-w-0 space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">

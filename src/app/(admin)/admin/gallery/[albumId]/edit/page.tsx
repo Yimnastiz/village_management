@@ -32,8 +32,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
 
   return (
     <div data-admin-compact-top className="space-y-4">
-      <AdminPageToolbar variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="แก้ไขอัลบั้ม" description="อัปเดตข้อมูลอัลบั้มรูปภาพ" />
-      {album.items.some((item) => item.sourceSubmission) ? <section className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600"><p className="font-medium text-gray-900">ที่มาของรูปภาพ</p><div className="mt-2 space-y-1">{album.items.filter((item) => item.sourceSubmission).map((item) => <p key={item.id}>รูป “{item.title || "ไม่มีคำอธิบาย"}” · คำขอจาก {item.sourceSubmission?.requester.name}</p>)}</div></section> : null}
+      <AdminPageToolbar sticky variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="แก้ไขอัลบั้ม" description="อัปเดตข้อมูลอัลบั้มรูปภาพ" />
       <AlbumForm
         mode="edit"
         albumId={album.id}
@@ -44,7 +43,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
           isPublic: album.isPublic ? "PUBLIC" : "RESIDENT",
           allowResidentSubmissions: album.allowResidentSubmissions ? "ALLOW" : "DISALLOW",
         }}
-        initialItems={album.items.map((item) => ({ id: item.id, url: item.fileUrl, fileKey: item.fileKey ?? undefined, mimeType: item.mimeType ?? undefined, description: item.title ?? "", sortOrder: item.sortOrder, isCover: item.isCover }))}
+        initialItems={album.items.map((item) => ({ id: item.id, url: item.fileUrl, fileKey: item.fileKey ?? undefined, mimeType: item.mimeType ?? undefined, description: item.title ?? "", sortOrder: item.sortOrder, isCover: item.isCover, source: item.sourceSubmission ? { type: "RESIDENT_SUBMISSION" as const, requesterName: item.sourceSubmission.requester.name } : undefined }))}
       />
     </div>
   );

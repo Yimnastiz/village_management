@@ -85,8 +85,9 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-admin-compact-top className="space-y-3">
       <AdminListToolbar
+        sticky
         title="แกลเลอรี"
         description="จัดการอัลบั้มและรูปภาพของหมู่บ้าน"
         searchAction="/admin/gallery"

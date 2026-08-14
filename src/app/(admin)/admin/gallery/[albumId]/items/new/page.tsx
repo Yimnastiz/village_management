@@ -29,7 +29,7 @@ export default async function NewGalleryItemPage({ params }: PageProps) {
 
   return (
     <div data-admin-compact-top className="space-y-4">
-      <AdminPageToolbar variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="เพิ่มรูปภาพ" description={`อัลบั้ม: ${album.title}`} />
+      <AdminPageToolbar sticky variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="เพิ่มรูปภาพ" description={`อัลบั้ม: ${album.title}`} />
       <ItemForm mode="create" albumId={album.id} hasExistingItems={album._count.items > 0} />
     </div>
   );
