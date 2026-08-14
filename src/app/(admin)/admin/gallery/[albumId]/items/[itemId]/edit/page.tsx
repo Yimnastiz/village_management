@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { ItemForm } from "../../../../item-form";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 
 interface PageProps {
   params: Promise<{ albumId: string; itemId: string }>;
@@ -30,11 +31,8 @@ export default async function EditGalleryItemPage({ params }: PageProps) {
   if (!item) notFound();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แก้ไขรูปภาพ</h1>
-        <p className="text-sm text-gray-500 mt-1">อัปเดตข้อมูลรูปภาพในอัลบั้ม</p>
-      </div>
+    <div data-admin-compact-top className="space-y-4">
+      <AdminPageToolbar variant="form" backHref={`/admin/gallery/${albumId}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="แก้ไขรูปภาพ" description="อัปเดตข้อมูลรูปภาพในอัลบั้ม" />
       <ItemForm
         mode="edit"
         albumId={albumId}
@@ -44,6 +42,7 @@ export default async function EditGalleryItemPage({ params }: PageProps) {
           fileUrl: item.fileUrl,
           mimeType: item.mimeType || "",
           sortOrder: String(item.sortOrder),
+          isCover: item.isCover,
         }}
       />
     </div>

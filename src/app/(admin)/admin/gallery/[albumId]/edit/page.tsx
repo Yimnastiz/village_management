@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { AlbumForm } from "../../album-form";
 import { formatDateInputValue } from "@/lib/utils";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 
 const db = prisma;
 
@@ -29,11 +30,8 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
   if (!album) notFound();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แก้ไขอัลบั้ม</h1>
-        <p className="text-sm text-gray-500 mt-1">อัปเดตข้อมูลอัลบั้มรูปภาพ</p>
-      </div>
+    <div data-admin-compact-top className="space-y-4">
+      <AdminPageToolbar variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="แก้ไขอัลบั้ม" description="อัปเดตข้อมูลอัลบั้มรูปภาพ" />
       <AlbumForm
         mode="edit"
         albumId={album.id}

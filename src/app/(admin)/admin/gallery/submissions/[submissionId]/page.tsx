@@ -1,10 +1,10 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { GallerySubmissionReviewButtons } from "../request-review-buttons";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { formatThaiDateTime } from "@/lib/utils";
 
 const db = prisma;
 
@@ -51,13 +51,8 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
   if (!submission) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">
-      <Link
-        href="/admin/gallery/submissions"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
-      >
-        <ArrowLeft className="h-4 w-4" /> กลับรายการคำขอ
-      </Link>
+    <div data-admin-compact-top className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">
+      <AdminPageToolbar variant="request" backHref="/admin/gallery/submissions" backLabel="กลับรายการคำขอ" backPlacement="header-end" title="รายละเอียดคำขอเพิ่มรูปภาพ" description="ตรวจสอบรูปภาพและข้อมูลผู้ส่งคำขอ" />
 
       <article className="min-w-0 space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
@@ -69,8 +64,9 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
 
         <div className="space-y-1 break-words text-sm text-gray-600">
           <p>ผู้ส่งคำขอ: {submission.requester.name} ({submission.requester.phoneNumber})</p>
-          <p>วันที่ส่ง: {submission.createdAt.toLocaleString("th-TH")}</p>
-          {submission.reviewedAt && <p>วันที่รีวิว: {submission.reviewedAt.toLocaleString("th-TH")}</p>}
+          <p>วันที่ส่ง: {formatThaiDateTime(submission.createdAt)}</p>
+          {submission.reviewedAt && <p>พิจารณาเมื่อ: {formatThaiDateTime(submission.reviewedAt)}</p>}
+          {submission.reviewedBy && <p>ผู้พิจารณา: ผู้ดูแลหมู่บ้าน</p>}
         </div>
 
         <div className="rounded-xl border border-gray-200 overflow-hidden bg-gray-50">

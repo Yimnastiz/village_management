@@ -1,12 +1,10 @@
 import { AlbumForm } from "../album-form";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 
 export default function NewGalleryAlbumPage() {
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">เพิ่มอัลบั้ม</h1>
-        <p className="text-sm text-gray-500 mt-1">สร้างอัลบั้มเพื่อรวบรวมรูปภาพ พร้อมกำหนดวัน เดือน ปีของอัลบั้ม</p>
-      </div>
+    <div data-admin-compact-top className="space-y-4">
+      <AdminPageToolbar variant="form" backHref="/admin/gallery" backLabel="กลับรายการแกลเลอรี" backPlacement="header-end" title="เพิ่มอัลบั้ม" description="สร้างอัลบั้มเพื่อรวบรวมรูปภาพของหมู่บ้าน" />
       <AlbumForm mode="create" />
     </div>
   );

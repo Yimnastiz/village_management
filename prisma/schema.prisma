@@ -1056,11 +1056,13 @@ model GalleryItem {
   fileKey   String?
   mimeType  String?
   sortOrder Int      @default(0)
+  isCover   Boolean  @default(false)
   createdAt DateTime @default(now())
 
   album GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
 
   @@index([albumId])
+  @@index([albumId, sortOrder])
 }
 
 model GalleryItemSubmission {

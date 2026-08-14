@@ -1,6 +1,6 @@
 "use server";
 
-import { NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +24,7 @@ const itemSchema = z.object({
   fileUrl: z.string().min(1, "กรุณาอัปโหลดรูปภาพ"),
   mimeType: z.string().optional(),
   sortOrder: z.string().optional(),
+  isCover: z.boolean().optional(),
 });
 
 type AlbumInput = z.infer<typeof albumSchema>;
@@ -102,6 +103,7 @@ function normalizeItemInput(data: GalleryItemInput) {
       fileUrl: parsed.data.fileUrl.trim(),
       mimeType: parsed.data.mimeType?.trim() || null,
       sortOrder,
+      isCover: Boolean(parsed.data.isCover),
     },
   };
 }
@@ -290,7 +292,7 @@ export async function createGalleryItemAction(
 }
 
 const batchItemsSchema = z.object({
-  items: z.array(z.object({ fileUrl: z.string().min(1), title: z.string().trim().max(500).optional() })).min(1, "กรุณาเพิ่มรูปภาพ").max(10, "เพิ่มรูปภาพได้สูงสุด 10 รูปต่อครั้ง"),
+  items: z.array(z.object({ fileUrl: z.string().min(1), title: z.string().trim().max(500).optional(), isCover: z.boolean().optional(), sortOrder: z.number().int().nonnegative().optional() })).min(1, "กรุณาเพิ่มรูปภาพ").max(10, "เพิ่มรูปภาพได้สูงสุด 10 รูปต่อครั้ง"),
 });
 
 export async function createGalleryItemsAction(
@@ -307,7 +309,13 @@ export async function createGalleryItemsAction(
   if (!album) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์" };
   const latest = await db.galleryItem.aggregate({ where: { albumId }, _max: { sortOrder: true } });
   const start = (latest._max.sortOrder ?? -1) + 1;
-  await db.$transaction((tx) => tx.galleryItem.createMany({ data: parsed.data.items.map((item, index) => ({ albumId, title: item.title?.trim() || null, fileUrl: urls[index], mimeType: /^data:(image\/[^;]+)/.exec(urls[index])?.[1] ?? null, sortOrder: start + index })) }));
+  const requestedCover = parsed.data.items.findIndex((item) => item.isCover);
+  await db.$transaction(async (tx) => {
+    const hasCover = await tx.galleryItem.count({ where: { albumId, isCover: true } });
+    if (requestedCover >= 0) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
+    await tx.galleryItem.createMany({ data: parsed.data.items.map((item, index) => ({ albumId, title: item.title?.trim() || null, fileUrl: urls[index], mimeType: /^data:(image\/[^;]+)/.exec(urls[index])?.[1] ?? null, sortOrder: start + (item.sortOrder ?? index), isCover: requestedCover >= 0 ? index === requestedCover : hasCover === 0 && index === 0 })) });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "GalleryAlbum", resourceId: albumId, metadata: { actionName: "GALLERY_ITEMS_ADDED", count: parsed.data.items.length } } });
+  });
   await notifyResidents(ctx.villageId, "แกลเลอรีหมู่บ้าน: มีรูปภาพใหม่", `อัลบั้ม ${album.title} มีรูปใหม่ ${parsed.data.items.length} รูป`, { albumId, actionUrl: `/resident/gallery/${albumId}` });
   revalidateGalleryViews(albumId);
   return { success: true, count: parsed.data.items.length };
@@ -330,14 +338,9 @@ export async function updateGalleryItemAction(
   });
   if (!item) return { success: false, error: "ไม่พบรูปภาพนี้หรือไม่มีสิทธิ์แก้ไข" };
 
-  await prisma.galleryItem.update({
-    where: { id: itemId },
-    data: {
-      title: normalized.value.title,
-      fileUrl: normalized.value.fileUrl,
-      mimeType: normalized.value.mimeType,
-      sortOrder: normalized.value.sortOrder,
-    },
+  await prisma.$transaction(async (tx) => {
+    if (normalized.value.isCover) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
+    await tx.galleryItem.update({ where: { id: itemId }, data: { title: normalized.value.title, fileUrl: normalized.value.fileUrl, mimeType: normalized.value.mimeType, sortOrder: normalized.value.sortOrder, ...(normalized.value.isCover ? { isCover: true } : {}) } });
   });
 
   revalidateGalleryViews(albumId);
@@ -358,7 +361,14 @@ export async function deleteGalleryItemAction(
   });
   if (!item) return { success: false, error: "ไม่พบรูปภาพนี้หรือไม่มีสิทธิ์ลบ" };
 
-  await prisma.galleryItem.delete({ where: { id: itemId } });
+  await prisma.$transaction(async (tx) => {
+    const deleting = await tx.galleryItem.findUnique({ where: { id: itemId }, select: { isCover: true } });
+    await tx.galleryItem.delete({ where: { id: itemId } });
+    if (deleting?.isCover) {
+      const next = await tx.galleryItem.findFirst({ where: { albumId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
+      if (next) await tx.galleryItem.update({ where: { id: next.id }, data: { isCover: true } });
+    }
+  });
   revalidateGalleryViews(albumId);
   return { success: true };
 }
@@ -391,26 +401,26 @@ export async function adminApproveGalleryItemSubmissionAction(
     return { success: false, error: "ไม่พบคำขอหรือคำขอถูกดำเนินการแล้ว" };
   }
 
-  const result = await db.$transaction(async (tx) => {
+  let result: { id: string };
+  try { result = await db.$transaction(async (tx) => {
+    // Claim the request first so two admins cannot approve the same upload.
+    const claimed = await tx.galleryItemSubmission.updateMany({
+      where: { id: submission.id, status: "PENDING" },
+      data: { status: "APPROVED", reviewedBy: ctx.userId, reviewedAt: new Date(), reviewNote: reviewNote?.trim() || null },
+    });
+    if (claimed.count !== 1) throw new Error("SUBMISSION_ALREADY_REVIEWED");
+    const latest = await tx.galleryItem.aggregate({ where: { albumId: submission.albumId }, _max: { sortOrder: true } });
+    const itemCount = await tx.galleryItem.count({ where: { albumId: submission.albumId } });
     const createdItem = await tx.galleryItem.create({
       data: {
         albumId: submission.albumId,
         title: submission.title,
         fileUrl: submission.fileUrl,
         mimeType: submission.mimeType,
-        sortOrder: 0,
+        sortOrder: (latest._max.sortOrder ?? -1) + 1,
+        isCover: itemCount === 0,
       },
       select: { id: true },
-    });
-
-    await tx.galleryItemSubmission.update({
-      where: { id: submission.id },
-      data: {
-        status: "APPROVED",
-        reviewedBy: ctx.userId,
-        reviewedAt: new Date(),
-        reviewNote: reviewNote?.trim() || null,
-      },
     });
 
     await tx.notification.create({
@@ -430,10 +440,12 @@ export async function adminApproveGalleryItemSubmissionAction(
     });
 
     return createdItem;
-  });
+  }); } catch (error) {
+    if (error instanceof Error && error.message === "SUBMISSION_ALREADY_REVIEWED") return { success: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
+    throw error;
+  }
 
   revalidateGalleryViews(submission.albumId, submission.id);
-
   return { success: true, itemId: result.id };
 }
 
@@ -443,6 +455,8 @@ export async function adminRejectGalleryItemSubmissionAction(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  const reason = reviewNote?.trim() ?? "";
+  if (reason.length < 5) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
 
   const submission = await db.galleryItemSubmission.findFirst({
     where: {
@@ -464,16 +478,9 @@ export async function adminRejectGalleryItemSubmissionAction(
     return { success: false, error: "ไม่พบคำขอหรือคำขอถูกดำเนินการแล้ว" };
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.galleryItemSubmission.update({
-      where: { id: submission.id },
-      data: {
-        status: "REJECTED",
-        reviewedBy: ctx.userId,
-        reviewedAt: new Date(),
-        reviewNote: reviewNote?.trim() || "ไม่ผ่านเงื่อนไขการอนุมัติ",
-      },
-    });
+  try { await db.$transaction(async (tx) => {
+    const claimed = await tx.galleryItemSubmission.updateMany({ where: { id: submission.id, status: "PENDING" }, data: { status: "REJECTED", reviewedBy: ctx.userId, reviewedAt: new Date(), reviewNote: reason } });
+    if (claimed.count !== 1) throw new Error("SUBMISSION_ALREADY_REVIEWED");
 
     await tx.notification.create({
       data: {
@@ -481,7 +488,7 @@ export async function adminRejectGalleryItemSubmissionAction(
         villageId: ctx.villageId,
         type: NotificationType.SYSTEM,
         title: "คำขอเพิ่มรูปภาพไม่ผ่านการอนุมัติ",
-        body: `อัลบั้ม ${submission.album.title}: ${reviewNote?.trim() || "โปรดแก้ไขและส่งใหม่"}`,
+        body: `อัลบั้ม ${submission.album.title}: ${reason}`,
         metadata: {
           actionUrl: `/resident/gallery/${submission.albumId}/request`,
           actionLabel: "ส่งคำขอใหม่",
@@ -490,7 +497,10 @@ export async function adminRejectGalleryItemSubmissionAction(
         },
       },
     });
-  });
+  }); } catch (error) {
+    if (error instanceof Error && error.message === "SUBMISSION_ALREADY_REVIEWED") return { success: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
+    throw error;
+  }
 
   revalidateGalleryViews(submission.albumId, submission.id);
 

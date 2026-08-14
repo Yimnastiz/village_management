@@ -58,6 +58,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
       albumDate: true,
       isPublic: true,
       allowResidentSubmissions: true,
+      items: { orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }], take: 1, select: { fileUrl: true } },
       _count: { select: { items: true } },
     },
   });
@@ -68,17 +69,6 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
       status: "PENDING",
     },
   });
-
-  const suggestionTitles = Array.from(
-    new Set(
-      (albums as Array<{ title?: unknown }>).reduce<string[]>((titles, album) => {
-        if (typeof album.title === "string" && album.title) {
-          titles.push(album.title);
-        }
-        return titles;
-      }, []),
-    ),
-  ).slice(0, 12);
 
   function buildGalleryHref(next: { q?: string; visibility?: string; submissions?: string; sort?: string }) {
     const query = new URLSearchParams();
@@ -104,7 +94,6 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
         keyword={keyword}
         searchPlaceholder="ค้นหาชื่ออัลบั้มหรือคำอธิบาย"
         hiddenInputs={{ visibility: activeVisibility === "ALL" ? "" : activeVisibility, submissions: activeSubmissions === "ALL" ? "" : activeSubmissions, sort: activeSort === "newest" ? "" : activeSort }}
-        suggestionTitles={suggestionTitles}
         groups={[
           {
             label: "การมองเห็น",
@@ -131,15 +120,11 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
         ]}
         actions={
           <>
-            <Link href="/admin/gallery/submissions">
-              <Button size="sm" variant="outline">
+            <Link href="/admin/gallery/submissions" className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
                 คำขอเพิ่มรูป {pendingSubmissionCount > 0 ? `(${pendingSubmissionCount})` : ""}
-              </Button>
             </Link>
-            <Link href="/admin/gallery/new">
-              <Button size="sm">
+            <Link href="/admin/gallery/new" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
                 <Plus className="h-4 w-4 mr-1" /> เพิ่มอัลบั้ม
-              </Button>
             </Link>
           </>
         }
@@ -148,7 +133,8 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
       {albums.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
           <ImagePlus className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600">ยังไม่มีอัลบั้มรูปภาพ</p>
+          <p className="text-gray-600">{keyword || activeVisibility !== "ALL" || activeSubmissions !== "ALL" ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มรูปภาพ"}</p>
+          {(keyword || activeVisibility !== "ALL" || activeSubmissions !== "ALL") && <p className="mt-1 text-sm text-gray-500">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -159,9 +145,9 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
               className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-md transition-shadow"
             >
               <div className="aspect-video bg-gray-100">
-                {album.coverUrl ? (
+                {album.items[0]?.fileUrl ?? album.coverUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={album.coverUrl} alt={album.title} className="w-full h-full object-cover" />
+                  <img src={album.items[0]?.fileUrl ?? album.coverUrl ?? ""} alt={album.title} className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm">ไม่มีรูปหน้าปก</div>
                 )}

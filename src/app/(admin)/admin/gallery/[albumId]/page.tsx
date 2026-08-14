@@ -7,17 +7,16 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { DeleteAlbumButton } from "./delete-album-button";
 import { DeleteGalleryItemButton } from "./delete-item-button";
 import { formatThaiDate } from "@/lib/utils";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 
 const db = prisma;
 
 interface PageProps {
   params: Promise<{ albumId: string }>;
-  searchParams?: Promise<{ success?: string }>;
 }
 
-export default async function GalleryAlbumDetailPage({ params, searchParams }: PageProps) {
+export default async function GalleryAlbumDetailPage({ params }: PageProps) {
   const { albumId } = await params;
-  const query = (searchParams ? await searchParams : {}) ?? {};
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
@@ -49,28 +48,15 @@ export default async function GalleryAlbumDetailPage({ params, searchParams }: P
   if (!album) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-1 sm:px-0">
-      {query.success && <div role="status" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">{query.success === "items" ? "เพิ่มรูปภาพเรียบร้อยแล้ว" : query.success === "created" ? "สร้างอัลบั้มเรียบร้อยแล้ว" : "บันทึกการแก้ไขเรียบร้อยแล้ว"}</div>}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900">{album.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">จัดการรายละเอียดอัลบั้มและรูปภาพ</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link href={`/admin/gallery/${album.id}/edit`}>
-            <Button variant="outline">แก้ไขอัลบั้ม</Button>
-          </Link>
-          <Link href={`/admin/gallery/submissions?albumId=${album.id}`}>
-            <Button variant="outline">
+    <div data-admin-compact-top className="mx-auto w-full max-w-6xl space-y-6 px-1 sm:px-0">
+      <AdminPageToolbar variant="detail" backHref="/admin/gallery" backLabel="กลับรายการแกลเลอรี" backPlacement="header-end" title={album.title} description="จัดการรายละเอียดอัลบั้มและรูปภาพ" actions={<div className="flex flex-wrap items-center gap-2">
+          <Link href={`/admin/gallery/${album.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">แก้ไขอัลบั้ม</Link>
+          <Link href={`/admin/gallery/submissions?albumId=${album.id}`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               คำขอเพิ่มรูป {album._count.itemSubmissions > 0 ? `(${album._count.itemSubmissions})` : ""}
-            </Button>
           </Link>
-          <Link href={`/admin/gallery/${album.id}/items/new`}>
-            <Button>เพิ่มรูปภาพ</Button>
-          </Link>
+          <Link href={`/admin/gallery/${album.id}/items/new`} className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">เพิ่มรูปภาพ</Link>
           <DeleteAlbumButton albumId={album.id} />
-        </div>
-      </div>
+        </div>} />
 
       <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
         <div className="flex items-center gap-2">
@@ -83,10 +69,6 @@ export default async function GalleryAlbumDetailPage({ params, searchParams }: P
         </div>
         <p className="text-sm text-gray-600">วันที่อัลบั้ม: {formatThaiDate(album.albumDate)}</p>
         {album.description && <p className="text-sm text-gray-700 whitespace-pre-wrap">{album.description}</p>}
-        {album.coverUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={album.coverUrl} alt={album.title} className="h-auto w-full max-w-xl rounded-lg border border-gray-200 object-contain" />
-        )}
       </div>
 
       <div className="space-y-3">
@@ -103,11 +85,9 @@ export default async function GalleryAlbumDetailPage({ params, searchParams }: P
                 </div>
                 <div className="p-3 space-y-2">
                   <p className="text-sm font-medium text-gray-900 line-clamp-1">{item.title || "(ไม่มีหัวข้อ)"}</p>
-                  <p className="text-xs text-gray-500">ลำดับ: {item.sortOrder}</p>
+                  {item.isCover && <Badge variant="success">หน้าปก</Badge>}
                   <div className="flex items-center gap-2">
-                    <Link href={`/admin/gallery/${album.id}/items/${item.id}/edit`}>
-                      <Button variant="outline" size="sm">แก้ไข</Button>
-                    </Link>
+                    <Link href={`/admin/gallery/${album.id}/items/${item.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">แก้ไข</Link>
                     <DeleteGalleryItemButton albumId={album.id} itemId={item.id} />
                   </div>
                 </div>

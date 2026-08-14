@@ -3,97 +3,25 @@ import { ImagePlus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { formatThaiDateTime } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import { GallerySubmissionReviewButtons } from "./request-review-buttons";
 
-const db = prisma;
+const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
+const statusLabel: Record<string, string> = { PENDING: "รออนุมัติ", APPROVED: "อนุมัติแล้ว", REJECTED: "ไม่อนุมัติ" };
 
-type AdminGallerySubmissionsPageProps = {
-  searchParams?: Promise<{ albumId?: string }>;
-};
-
-const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
-
-const statusLabel: Record<string, string> = {
-  PENDING: "รออนุมัติ",
-  APPROVED: "อนุมัติแล้ว",
-  REJECTED: "ไม่อนุมัติ",
-};
-
-export default async function AdminGallerySubmissionsPage({ searchParams }: AdminGallerySubmissionsPageProps) {
-  const params = (searchParams ? await searchParams : {}) ?? {};
-
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
-  if (!membership) redirect("/auth/login");
-
-  const submissions = await db.galleryItemSubmission.findMany({
-    where: {
-      album: {
-        villageId: membership.villageId,
-      },
-      ...(params.albumId ? { albumId: params.albumId } : {}),
-    },
-    include: {
-      album: { select: { id: true, title: true } },
-      requester: { select: { id: true, name: true, phoneNumber: true } },
-    },
-    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-  });
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">คำขอเพิ่มรูปในอัลบั้ม</h1>
-          <p className="mt-1 text-sm text-gray-500">ตรวจสอบและอนุมัติรูปที่ลูกบ้านร้องขอ</p>
-        </div>
-        <Link href="/admin/gallery" className="text-sm text-gray-600 hover:text-gray-900 hover:underline">
-          กลับไปหน้าแกลเลอรี
-        </Link>
-      </div>
-
-      {submissions.length === 0 ? (
-        <EmptyState icon={ImagePlus} title="ยังไม่มีคำขอเพิ่มรูป" description="เมื่อมีลูกบ้านส่งคำขอจะปรากฏที่หน้านี้" />
-      ) : (
-        <div className="space-y-3">
-          {submissions.map((submission) => (
-            <Link
-              key={submission.id}
-              href={`/admin/gallery/submissions/${submission.id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="mb-2 flex items-center gap-2">
-                    <Badge variant={statusVariant[submission.status] ?? "default"}>
-                      {statusLabel[submission.status]}
-                    </Badge>
-                    <Badge variant="outline">{submission.album.title}</Badge>
-                  </div>
-                  <p className="font-medium text-gray-900">{submission.title || "(ไม่มีหัวข้อรูปภาพ)"}</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    ผู้ส่งคำขอ: {submission.requester.name} ({submission.requester.phoneNumber})
-                  </p>
-                </div>
-                <p className="whitespace-nowrap text-xs text-gray-400">
-                  {submission.createdAt.toLocaleDateString("th-TH")}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+export default async function AdminGallerySubmissionsPage({ searchParams }: { searchParams?: Promise<{ albumId?: string; tab?: string }> }) {
+  const params = (searchParams ? await searchParams : {}) ?? {}; const tab = params.tab === "history" ? "history" : "pending";
+  const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login"); if (!isAdminUser(session)) redirect("/resident");
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE" }, select: { villageId: true } }); if (!membership) redirect("/auth/login");
+  const scope = { album: { villageId: membership.villageId }, ...(params.albumId ? { albumId: params.albumId } : {}) };
+  const [pendingCount, submissions] = await Promise.all([
+    prisma.galleryItemSubmission.count({ where: { ...scope, status: "PENDING" } }),
+    prisma.galleryItemSubmission.findMany({ where: tab === "pending" ? { ...scope, status: "PENDING" } : { ...scope, status: { in: ["APPROVED", "REJECTED"] } }, include: { album: { select: { id: true, title: true } }, requester: { select: { name: true, phoneNumber: true } } }, orderBy: { createdAt: "desc" } }),
+  ]);
+  const href = (next: "pending" | "history") => `/admin/gallery/submissions?${new URLSearchParams({ ...(params.albumId ? { albumId: params.albumId } : {}), ...(next === "history" ? { tab: "history" } : {}) })}`;
+  return <div data-admin-compact-top className="space-y-3"><AdminPageToolbar variant="request" backHref="/admin/gallery" backLabel="กลับรายการแกลเลอรี" backPlacement="header-end" title="คำขอเพิ่มรูปภาพ" description="ตรวจสอบและพิจารณารูปภาพที่ลูกบ้านส่งมา" secondaryActions={<div className="flex gap-1 border-b border-gray-200"><Link href={href("pending")} className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "pending" ? "border-green-700 text-green-800" : "border-transparent text-gray-500"}`}>รอพิจารณา ({pendingCount})</Link><Link href={href("history")} className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "history" ? "border-green-700 text-green-800" : "border-transparent text-gray-500"}`}>ประวัติ</Link></div>} />
+    {submissions.length === 0 ? <EmptyState icon={ImagePlus} title={tab === "pending" ? "ไม่มีคำขอที่รอพิจารณา" : "ยังไม่มีประวัติคำขอ"} description="คำขอรูปภาพจะแสดงที่นี่" /> : <div className="space-y-2">{submissions.map((submission) => <article key={submission.id} className="rounded-xl border border-gray-200 bg-white p-3"><div className="flex flex-col gap-3 sm:flex-row"><Link href={`/admin/gallery/submissions/${submission.id}`} className="h-28 w-full shrink-0 overflow-hidden rounded-lg bg-gray-100 sm:h-28 sm:w-36">{/* eslint-disable-next-line @next/next/no-img-element */}<img src={submission.fileUrl} alt={submission.title || "รูปภาพคำขอ"} loading="lazy" className="h-full w-full object-cover" /></Link><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge variant={statusVariant[submission.status] ?? "default"}>{statusLabel[submission.status]}</Badge><Badge variant="outline">{submission.album.title}</Badge></div><Link href={`/admin/gallery/submissions/${submission.id}`} className="mt-2 block font-medium text-gray-900 hover:underline">{submission.title || "ไม่มีคำอธิบายรูปภาพ"}</Link><p className="mt-1 text-sm text-gray-500">ผู้ส่ง: {submission.requester.name} · {submission.requester.phoneNumber}</p>{submission.note ? <p className="mt-1 line-clamp-1 text-sm text-gray-600">{submission.note}</p> : null}<p className="mt-1 text-xs text-gray-400">ส่งเมื่อ {formatThaiDateTime(submission.createdAt)}</p>{tab === "history" && submission.reviewNote ? <p className="mt-1 line-clamp-1 text-xs text-rose-700">เหตุผล: {submission.reviewNote}</p> : null}</div>{tab === "pending" ? <div className="shrink-0"><GallerySubmissionReviewButtons submissionId={submission.id} compact /></div> : null}</div></article>)}</div>}</div>;
 }
