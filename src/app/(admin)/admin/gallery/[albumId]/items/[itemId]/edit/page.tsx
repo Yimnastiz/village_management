@@ -40,6 +40,7 @@ export default async function EditGalleryItemPage({ params }: PageProps) {
         defaultValues={{
           title: item.title || "",
           fileUrl: item.fileUrl,
+          fileKey: item.fileKey ?? undefined,
           mimeType: item.mimeType || "",
           sortOrder: String(item.sortOrder),
           isCover: item.isCover,

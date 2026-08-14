@@ -1,101 +1,38 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { DeleteAlbumButton } from "./delete-album-button";
-import { DeleteGalleryItemButton } from "./delete-item-button";
 import { formatThaiDate } from "@/lib/utils";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { AlbumGalleryViewer } from "@/components/gallery/album-gallery-viewer";
 
-const db = prisma;
-
-interface PageProps {
-  params: Promise<{ albumId: string }>;
-}
+interface PageProps { params: Promise<{ albumId: string }> }
 
 export default async function GalleryAlbumDetailPage({ params }: PageProps) {
   const { albumId } = await params;
-
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE" }, select: { villageId: true } });
   if (!membership) redirect("/auth/login");
-
-  const album = await db.galleryAlbum.findFirst({
+  const album = await prisma.galleryAlbum.findFirst({
     where: { id: albumId, villageId: membership.villageId },
     include: {
-      items: {
-        orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-      },
-      _count: {
-        select: {
-          itemSubmissions: {
-            where: {
-              status: "PENDING",
-            },
-          },
-        },
-      },
+      items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, title: true, fileUrl: true, isCover: true } },
+      _count: { select: { itemSubmissions: { where: { status: "PENDING" } } } },
     },
   });
   if (!album) notFound();
 
-  return (
-    <div data-admin-compact-top className="mx-auto w-full max-w-6xl space-y-6 px-1 sm:px-0">
-      <AdminPageToolbar variant="detail" backHref="/admin/gallery" backLabel="กลับรายการแกลเลอรี" backPlacement="header-end" title={album.title} description="จัดการรายละเอียดอัลบั้มและรูปภาพ" actions={<div className="flex flex-wrap items-center gap-2">
-          <Link href={`/admin/gallery/${album.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">แก้ไขอัลบั้ม</Link>
-          <Link href={`/admin/gallery/submissions?albumId=${album.id}`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              คำขอเพิ่มรูป {album._count.itemSubmissions > 0 ? `(${album._count.itemSubmissions})` : ""}
-          </Link>
-          <Link href={`/admin/gallery/${album.id}/items/new`} className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">เพิ่มรูปภาพ</Link>
-          <DeleteAlbumButton albumId={album.id} />
-        </div>} />
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
-        <div className="flex items-center gap-2">
-          <Badge variant={album.isPublic ? "success" : "info"}>
-            {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
-          </Badge>
-          <Badge variant={album.allowResidentSubmissions ? "warning" : "default"}>
-            {album.allowResidentSubmissions ? "ลูกบ้านขอเพิ่มรูปได้" : "ปิดรับคำขอเพิ่มรูป"}
-          </Badge>
-        </div>
-        <p className="text-sm text-gray-600">วันที่อัลบั้ม: {formatThaiDate(album.albumDate)}</p>
-        {album.description && <p className="text-sm text-gray-700 whitespace-pre-wrap">{album.description}</p>}
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">รูปภาพในอัลบั้ม ({album.items.length})</h2>
-        {album.items.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 text-sm text-gray-500">ยังไม่มีรูปภาพ</div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 lg:grid-cols-3">
-            {album.items.map((item) => (
-              <div key={item.id} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                <div className="aspect-video bg-gray-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.fileUrl} alt={item.title || "gallery item"} className="w-full h-full object-cover" />
-                </div>
-                <div className="p-3 space-y-2">
-                  <p className="text-sm font-medium text-gray-900 line-clamp-1">{item.title || "(ไม่มีหัวข้อ)"}</p>
-                  {item.isCover && <Badge variant="success">หน้าปก</Badge>}
-                  <div className="flex items-center gap-2">
-                    <Link href={`/admin/gallery/${album.id}/items/${item.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">แก้ไข</Link>
-                    <DeleteGalleryItemButton albumId={album.id} itemId={item.id} />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <div data-admin-compact-top className="mx-auto w-full max-w-6xl space-y-6 px-1 sm:px-0">
+    <AdminPageToolbar variant="detail" backHref="/admin/gallery" backLabel="กลับรายการแกลเลอรี" backPlacement="header-end" title={album.title} description="รายละเอียดอัลบั้มและรูปภาพ" actions={<div className="flex flex-wrap items-center gap-2"><Link href={`/admin/gallery/${album.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">แก้ไขอัลบั้ม</Link><Link href={`/admin/gallery/submissions?albumId=${album.id}`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">คำขอเพิ่มรูป{album._count.itemSubmissions > 0 ? ` (${album._count.itemSubmissions})` : ""}</Link><Link href={`/admin/gallery/${album.id}/items/new`} className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">เพิ่มรูปภาพ</Link><DeleteAlbumButton albumId={album.id} /></div>} />
+    <article className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+      <div className="flex flex-wrap items-center gap-2"><Badge variant={album.isPublic ? "success" : "info"}>{album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge><Badge variant={album.allowResidentSubmissions ? "warning" : "default"}>{album.allowResidentSubmissions ? "ลูกบ้านขอเพิ่มรูปได้" : "ปิดรับคำขอเพิ่มรูป"}</Badge><Badge variant="outline">{album.items.length} รูป</Badge></div>
+      <p className="text-sm text-gray-500">วันที่อัลบั้ม {formatThaiDate(album.albumDate)}</p>
+      {album.description && <p className="whitespace-pre-wrap text-sm leading-6 text-gray-700">{album.description}</p>}
+      <AlbumGalleryViewer items={album.items} />
+    </article>
+  </div>;
 }

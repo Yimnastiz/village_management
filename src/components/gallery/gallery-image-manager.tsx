@@ -2,8 +2,9 @@
 
 import { PlaceImageManager } from "@/components/places/place-image-manager";
 import type { PlaceImageInput, PlaceImageView } from "@/lib/place-image";
+import { MAX_GALLERY_IMAGE_BYTES } from "@/lib/image-constraints";
 
-export type GalleryImageDraft = PlaceImageView & { id: string; description: string; fileKey?: string; mimeType?: string };
+export type GalleryImageDraft = PlaceImageView & { id: string; description: string; fileKey?: string; mimeType?: string; fileName?: string; sizeBytes?: number };
 
 type Props = {
   value: GalleryImageDraft[];
@@ -24,6 +25,9 @@ export function GalleryImageManager({ value, onChange, maxCount, label = "รู
     disabled={disabled}
     onBusyChange={onBusyChange}
     autoSelectFirstCover={autoSelectFirstCover}
+    maxSizeBytes={MAX_GALLERY_IMAGE_BYTES}
+    uploadEndpoint="/api/gallery/images"
+    helpText="รองรับ JPG, PNG และ WebP สูงสุด 10 MB ต่อรูป ไม่เกิน 10 รูปต่อครั้ง"
     onChange={(next: PlaceImageInput[]) => onChange(next.map((image, index) => {
       const previous = image.id ? value.find((item) => item.id === image.id) : undefined;
       return {
@@ -34,6 +38,8 @@ export function GalleryImageManager({ value, onChange, maxCount, label = "รู
         sortOrder: image.sortOrder,
         isCover: image.isCover,
         description: image.description ?? previous?.description ?? "",
+        fileName: image.fileName ?? previous?.fileName,
+        sizeBytes: image.sizeBytes ?? previous?.sizeBytes,
       };
     }))}
   />;

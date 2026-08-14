@@ -72,7 +72,7 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
 
   return (
     <div data-admin-compact-top className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-      <AdminPageToolbar variant="form" backHref={`/admin/places/${place.id}`} backLabel="กลับรายละเอียดสถานที่" title="แก้ไขสถานที่" description="อัปเดตข้อมูลและรูปภาพสถานที่" />
+      <AdminPageToolbar variant="form" backHref={`/admin/places/${place.id}`} backLabel="กลับรายละเอียดสถานที่" backPlacement="header-end" title="แก้ไขสถานที่" description="อัปเดตข้อมูลและรูปภาพสถานที่" />
       <PlaceForm
         mode="edit"
         placeId={place.id}

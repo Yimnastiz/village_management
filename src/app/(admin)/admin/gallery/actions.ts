@@ -6,7 +6,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { hasSafeTotalImageDataSize, isSafeImageSource } from "@/lib/image-input";
+import { isSafeImageSource } from "@/lib/image-input";
+import { deletePlaceUploads, verifyPlaceUploadToken } from "@/lib/place-upload.server";
 
 const db = prisma;
 
@@ -14,7 +15,6 @@ const albumSchema = z.object({
   title: z.string().min(2, "กรุณาระบุชื่ออัลบั้ม"),
   description: z.string().optional(),
   albumDate: z.string().min(1, "กรุณาระบุวันที่อัลบั้ม"),
-  coverUrl: z.string().optional(),
   isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
   allowResidentSubmissions: z.string().min(1, "กรุณาเลือกการรับคำขอเพิ่มรูป"),
 });
@@ -22,6 +22,8 @@ const albumSchema = z.object({
 const itemSchema = z.object({
   title: z.string().trim().max(500, "คำอธิบายรูปภาพยาวเกินไป").optional(),
   fileUrl: z.string().min(1, "กรุณาอัปโหลดรูปภาพ"),
+  fileKey: z.string().optional(),
+  uploadToken: z.string().optional(),
   mimeType: z.string().optional(),
   sortOrder: z.string().optional(),
   isCover: z.boolean().optional(),
@@ -55,18 +57,12 @@ function normalizeAlbumInput(data: AlbumInput) {
     return { ok: false as const, error: "วันที่อัลบั้มไม่ถูกต้อง" };
   }
 
-  const coverUrl = parsed.data.coverUrl?.trim() || null;
-  if (coverUrl && !isSafeImageSource(coverUrl)) {
-    return { ok: false as const, error: "รูปหน้าปกไม่ถูกต้องหรือมีขนาดเกินกำหนด" };
-  }
-
   return {
     ok: true as const,
     value: {
       title: parsed.data.title.trim(),
       description: parsed.data.description?.trim() || null,
       albumDate,
-      coverUrl,
       isPublic: parsed.data.isPublic === "PUBLIC",
       allowResidentSubmissions: parsed.data.allowResidentSubmissions === "ALLOW",
     },
@@ -92,7 +88,7 @@ function normalizeItemInput(data: GalleryItemInput) {
     return { ok: false as const, error: "ลำดับการแสดงผลไม่ถูกต้อง" };
   }
 
-  if (!isSupportedImageSource(parsed.data.fileUrl)) {
+  if (!isSupportedImageSource(parsed.data.fileUrl) && !(parsed.data.fileKey && parsed.data.fileUrl === galleryUploadUrl(parsed.data.fileKey))) {
     return { ok: false as const, error: "รูปภาพต้องเป็นไฟล์ที่อัปโหลดหรือ URL ที่ถูกต้อง" };
   }
 
@@ -101,6 +97,8 @@ function normalizeItemInput(data: GalleryItemInput) {
     value: {
       title: parsed.data.title?.trim() || null,
       fileUrl: parsed.data.fileUrl.trim(),
+      fileKey: parsed.data.fileKey?.trim() || null,
+      uploadToken: parsed.data.uploadToken?.trim() || undefined,
       mimeType: parsed.data.mimeType?.trim() || null,
       sortOrder,
       isCover: Boolean(parsed.data.isCover),
@@ -154,6 +152,8 @@ function revalidateGalleryViews(albumId?: string, submissionId?: string) {
   if (albumId) {
     revalidatePath(`/resident/gallery/${albumId}`);
     revalidatePath(`/admin/gallery/${albumId}`);
+    revalidatePath(`/admin/gallery/${albumId}/edit`);
+    revalidatePath(`/admin/gallery/${albumId}/items/new`);
   }
 
   if (submissionId) {
@@ -176,7 +176,6 @@ export async function createGalleryAlbumAction(
       title: normalized.value.title,
       description: normalized.value.description,
       albumDate: normalized.value.albumDate,
-      coverUrl: normalized.value.coverUrl,
       isPublic: normalized.value.isPublic,
       allowResidentSubmissions: normalized.value.allowResidentSubmissions,
     },
@@ -217,7 +216,6 @@ export async function updateGalleryAlbumAction(
       title: normalized.value.title,
       description: normalized.value.description,
       albumDate: normalized.value.albumDate,
-      coverUrl: normalized.value.coverUrl,
       isPublic: normalized.value.isPublic,
       allowResidentSubmissions: normalized.value.allowResidentSubmissions,
     },
@@ -235,6 +233,75 @@ export async function updateGalleryAlbumAction(
   return { success: true };
 }
 
+const albumEditSchema = z.object({
+  album: albumSchema,
+  items: z.array(z.object({
+    id: z.string().optional(), url: z.string().optional(), fileKey: z.string().optional(), uploadToken: z.string().optional(),
+    description: z.string().trim().max(500).optional(), sortOrder: z.number().int().nonnegative(), isCover: z.boolean(),
+  })),
+});
+
+type GalleryAlbumEditInput = z.infer<typeof albumEditSchema>;
+
+function galleryUploadUrl(fileKey: string) {
+  return `/api/places/images?key=${encodeURIComponent(fileKey)}`;
+}
+
+/** Saves album fields and the complete image draft together; removed files are released only after commit. */
+export async function saveGalleryAlbumEditAction(
+  albumId: string,
+  data: GalleryAlbumEditInput,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const parsed = albumEditSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
+  const normalizedAlbum = normalizeAlbumInput(parsed.data.album);
+  if (!normalizedAlbum.ok) return { success: false, error: normalizedAlbum.error };
+
+  const draft = [...parsed.data.items].sort((a, b) => a.sortOrder - b.sortOrder).map((item, index) => ({ ...item, sortOrder: index }));
+  const hasRequestedCover = draft.some((item) => item.isCover);
+  const normalizedDraft = draft.map((item, index) => ({ ...item, isCover: hasRequestedCover ? item.isCover : index === 0 }));
+  const existingItems = await prisma.galleryItem.findMany({
+    where: { albumId, album: { villageId: ctx.villageId } }, select: { id: true, fileUrl: true, fileKey: true },
+  });
+  const existingById = new Map(existingItems.map((item) => [item.id, item]));
+  const seenIds = new Set<string>();
+  const rows: Array<{ id?: string; fileUrl: string; fileKey: string | null; title: string | null; sortOrder: number; isCover: boolean }> = [];
+  for (const item of normalizedDraft) {
+    if (item.id) {
+      const existing = existingById.get(item.id);
+      if (!existing || seenIds.has(item.id)) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาโหลดหน้าใหม่" };
+      seenIds.add(item.id);
+      rows.push({ id: item.id, fileUrl: existing.fileUrl, fileKey: existing.fileKey, title: item.description?.trim() || null, sortOrder: item.sortOrder, isCover: item.isCover });
+      continue;
+    }
+    if (!item.url || !item.fileKey || item.url !== galleryUploadUrl(item.fileKey) || !verifyPlaceUploadToken(item.uploadToken, item.fileKey, ctx.villageId)) {
+      return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
+    }
+    rows.push({ fileUrl: item.url, fileKey: item.fileKey, title: item.description?.trim() || null, sortOrder: item.sortOrder, isCover: item.isCover });
+  }
+
+  const removedFileKeys = existingItems.flatMap((item) => item.fileKey && !seenIds.has(item.id) ? [item.fileKey] : []);
+  const saved = await prisma.$transaction(async (tx) => {
+    const album = await tx.galleryAlbum.findFirst({ where: { id: albumId, villageId: ctx.villageId }, select: { id: true } });
+    if (!album) return false;
+    await tx.galleryAlbum.update({ where: { id: albumId }, data: normalizedAlbum.value });
+    await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
+    await tx.galleryItem.deleteMany({ where: { albumId, id: { notIn: [...seenIds] } } });
+    for (const row of rows) {
+      if (row.id) await tx.galleryItem.update({ where: { id: row.id }, data: { title: row.title, sortOrder: row.sortOrder, isCover: row.isCover } });
+      else await tx.galleryItem.create({ data: { albumId, title: row.title, fileUrl: row.fileUrl, fileKey: row.fileKey, sortOrder: row.sortOrder, isCover: row.isCover } });
+    }
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "GalleryAlbum", resourceId: albumId, metadata: { actionName: "GALLERY_ALBUM_EDIT_SAVED", imageCount: rows.length } } });
+    return true;
+  });
+  if (!saved) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์แก้ไข" };
+  await deletePlaceUploads(removedFileKeys);
+  revalidateGalleryViews(albumId);
+  return { success: true };
+}
+
 export async function deleteGalleryAlbumAction(
   id: string
 ): Promise<{ success: true } | { success: false; error: string }> {
@@ -243,11 +310,12 @@ export async function deleteGalleryAlbumAction(
 
   const existing = await prisma.galleryAlbum.findFirst({
     where: { id, villageId: ctx.villageId },
-    select: { id: true },
+    select: { id: true, items: { select: { fileKey: true } } },
   });
   if (!existing) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์ลบ" };
 
   await prisma.galleryAlbum.delete({ where: { id } });
+  await deletePlaceUploads(existing.items.flatMap((item) => item.fileKey ? [item.fileKey] : []));
   revalidateGalleryViews(id);
   return { success: true };
 }
@@ -292,7 +360,7 @@ export async function createGalleryItemAction(
 }
 
 const batchItemsSchema = z.object({
-  items: z.array(z.object({ fileUrl: z.string().min(1), title: z.string().trim().max(500).optional(), isCover: z.boolean().optional(), sortOrder: z.number().int().nonnegative().optional() })).min(1, "กรุณาเพิ่มรูปภาพ").max(10, "เพิ่มรูปภาพได้สูงสุด 10 รูปต่อครั้ง"),
+  items: z.array(z.object({ fileUrl: z.string().min(1), fileKey: z.string().optional(), uploadToken: z.string().optional(), title: z.string().trim().max(500).optional(), isCover: z.boolean().optional(), sortOrder: z.number().int().nonnegative().optional() })).min(1, "กรุณาเพิ่มรูปภาพ").max(10, "เพิ่มรูปภาพได้สูงสุด 10 รูปต่อครั้ง"),
 });
 
 export async function createGalleryItemsAction(
@@ -304,7 +372,7 @@ export async function createGalleryItemsAction(
   const parsed = batchItemsSchema.safeParse(data);
   if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
   const urls = parsed.data.items.map((item) => item.fileUrl.trim());
-  if (!urls.every(isSafeImageSource) || !hasSafeTotalImageDataSize(urls)) return { success: false, error: "รูปภาพไม่ถูกต้องหรือขนาดรวมเกินกำหนด" };
+  if (!parsed.data.items.every((item) => item.fileKey && item.fileUrl.trim() === galleryUploadUrl(item.fileKey) && verifyPlaceUploadToken(item.uploadToken, item.fileKey, ctx.villageId))) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
   const album = await db.galleryAlbum.findFirst({ where: { id: albumId, villageId: ctx.villageId }, select: { id: true, title: true } });
   if (!album) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์" };
   const latest = await db.galleryItem.aggregate({ where: { albumId }, _max: { sortOrder: true } });
@@ -313,7 +381,7 @@ export async function createGalleryItemsAction(
   await db.$transaction(async (tx) => {
     const hasCover = await tx.galleryItem.count({ where: { albumId, isCover: true } });
     if (requestedCover >= 0) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
-    await tx.galleryItem.createMany({ data: parsed.data.items.map((item, index) => ({ albumId, title: item.title?.trim() || null, fileUrl: urls[index], mimeType: /^data:(image\/[^;]+)/.exec(urls[index])?.[1] ?? null, sortOrder: start + (item.sortOrder ?? index), isCover: requestedCover >= 0 ? index === requestedCover : hasCover === 0 && index === 0 })) });
+    await tx.galleryItem.createMany({ data: parsed.data.items.map((item, index) => ({ albumId, title: item.title?.trim() || null, fileUrl: urls[index], fileKey: item.fileKey!, sortOrder: start + (item.sortOrder ?? index), isCover: requestedCover >= 0 ? index === requestedCover : hasCover === 0 && index === 0 })) });
     await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "GalleryAlbum", resourceId: albumId, metadata: { actionName: "GALLERY_ITEMS_ADDED", count: parsed.data.items.length } } });
   });
   await notifyResidents(ctx.villageId, "แกลเลอรีหมู่บ้าน: มีรูปภาพใหม่", `อัลบั้ม ${album.title} มีรูปใหม่ ${parsed.data.items.length} รูป`, { albumId, actionUrl: `/resident/gallery/${albumId}` });
@@ -334,14 +402,18 @@ export async function updateGalleryItemAction(
 
   const item = await prisma.galleryItem.findFirst({
     where: { id: itemId, albumId, album: { villageId: ctx.villageId } },
-    select: { id: true },
+    select: { id: true, fileKey: true, fileUrl: true },
   });
   if (!item) return { success: false, error: "ไม่พบรูปภาพนี้หรือไม่มีสิทธิ์แก้ไข" };
 
+  const newFileKey = normalized.value.fileKey;
+  const isReplacingUpload = Boolean(newFileKey && newFileKey !== item.fileKey);
+  if (isReplacingUpload && (!newFileKey || !normalized.value.uploadToken || normalized.value.fileUrl !== galleryUploadUrl(newFileKey) || !verifyPlaceUploadToken(normalized.value.uploadToken, newFileKey, ctx.villageId))) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
   await prisma.$transaction(async (tx) => {
     if (normalized.value.isCover) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
-    await tx.galleryItem.update({ where: { id: itemId }, data: { title: normalized.value.title, fileUrl: normalized.value.fileUrl, mimeType: normalized.value.mimeType, sortOrder: normalized.value.sortOrder, ...(normalized.value.isCover ? { isCover: true } : {}) } });
+    await tx.galleryItem.update({ where: { id: itemId }, data: { title: normalized.value.title, fileUrl: normalized.value.fileUrl, fileKey: normalized.value.fileKey ?? item.fileKey, mimeType: normalized.value.mimeType, sortOrder: normalized.value.sortOrder, ...(normalized.value.isCover ? { isCover: true } : {}) } });
   });
+  if (isReplacingUpload && item.fileKey) await deletePlaceUploads([item.fileKey]);
 
   revalidateGalleryViews(albumId);
 

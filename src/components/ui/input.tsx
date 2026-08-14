@@ -17,7 +17,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       <div className={cn("w-full", wrapperClassName)}>
         {label && (
           <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
+            <span>{label}</span>{(props.required || props["aria-required"] === true || props["aria-required"] === "true") && <span aria-hidden="true" className="ml-1 text-red-600">*</span>}
           </label>
         )}
         <input

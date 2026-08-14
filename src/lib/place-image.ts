@@ -9,6 +9,9 @@ export type PlaceImageInput = {
   isCover: boolean;
   /** Optional per-image caption. Consumers that do not persist captions ignore it. */
   description?: string;
+  /** Client-side upload metadata; intentionally optional for legacy database rows. */
+  fileName?: string;
+  sizeBytes?: number;
 };
 
 export type PlaceImageView = Required<Pick<PlaceImageInput, "url" | "sortOrder" | "isCover">> & {
@@ -16,6 +19,8 @@ export type PlaceImageView = Required<Pick<PlaceImageInput, "url" | "sortOrder" 
   fileKey?: string | null;
   uploadToken?: string;
   description?: string;
+  fileName?: string;
+  sizeBytes?: number;
 };
 
 export function normalizePlaceImages(images: readonly PlaceImageInput[]): PlaceImageInput[] {
@@ -27,6 +32,8 @@ export function normalizePlaceImages(images: readonly PlaceImageInput[]): PlaceI
     sortOrder: 0,
     isCover: Boolean(image.isCover),
     description: image.description?.trim() || undefined,
+    fileName: image.fileName?.trim() || undefined,
+    sizeBytes: typeof image.sizeBytes === "number" && image.sizeBytes >= 0 ? image.sizeBytes : undefined,
   })).filter((image) => image.id || image.url);
   const coverIndex = Math.max(0, trimmed.findIndex((image) => image.isCover));
   return trimmed.map((image, index) => ({ ...image, sortOrder: index, isCover: index === coverIndex }));
@@ -75,6 +82,8 @@ export function parsePlaceImageInputs(value: unknown): PlaceImageInput[] | null 
       sortOrder: typeof row.sortOrder === "number" ? row.sortOrder : parsed.length,
       isCover: Boolean(row.isCover),
       description: typeof row.description === "string" ? row.description : undefined,
+      fileName: typeof row.fileName === "string" ? row.fileName : undefined,
+      sizeBytes: typeof row.sizeBytes === "number" ? row.sizeBytes : undefined,
     });
   }
   return normalizePlaceImages(parsed);

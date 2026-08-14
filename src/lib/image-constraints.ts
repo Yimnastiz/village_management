@@ -1,5 +1,7 @@
 /** Safe to import from both client and server modules. */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Gallery accepts original phone/camera photos without loosening Place/News limits. */
+export const MAX_GALLERY_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_IMAGES_PER_REQUEST = 10;
 
 // Data URLs are sent in a Server Action body. This leaves headroom under Next's 12 MB limit.

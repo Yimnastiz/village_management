@@ -26,6 +26,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
 
   const album = await db.galleryAlbum.findFirst({
     where: { id: albumId, villageId: membership.villageId },
+    include: { items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, fileUrl: true, fileKey: true, title: true, sortOrder: true, isCover: true, mimeType: true } } },
   });
   if (!album) notFound();
 
@@ -39,10 +40,10 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
           title: album.title,
           description: album.description || "",
           albumDate: formatDateInputValue(album.albumDate),
-          coverUrl: album.coverUrl || "",
           isPublic: album.isPublic ? "PUBLIC" : "RESIDENT",
           allowResidentSubmissions: album.allowResidentSubmissions ? "ALLOW" : "DISALLOW",
         }}
+        initialItems={album.items.map((item) => ({ id: item.id, url: item.fileUrl, fileKey: item.fileKey ?? undefined, mimeType: item.mimeType ?? undefined, description: item.title ?? "", sortOrder: item.sortOrder, isCover: item.isCover }))}
       />
     </div>
   );

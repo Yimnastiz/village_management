@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { TextareaHTMLAttributes, forwardRef } from "react";
+import { TextareaHTMLAttributes, forwardRef, useId } from "react";
 
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -9,12 +9,13 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, label, error, helperText, id, ...props }, ref) => {
-    const inputId = id ?? label;
+    const generatedId = useId();
+    const inputId = id ?? generatedId;
     return (
       <div className="w-full">
         {label && (
           <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
+            <span>{label}</span>{(props.required || props["aria-required"] === true || props["aria-required"] === "true") && <span aria-hidden="true" className="ml-1 text-red-600">*</span>}
           </label>
         )}
         <textarea

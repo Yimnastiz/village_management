@@ -8,7 +8,7 @@ import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/
 import { prisma } from "@/lib/prisma";
 import { formatThaiDate } from "@/lib/utils";
 import { toggleSaveAlbumAction } from "@/features/saved/server/actions";
-import { AlbumGalleryViewer } from "./album-gallery-viewer";
+import { AlbumGalleryViewer } from "@/components/gallery/album-gallery-viewer";
 
 const db = prisma;
 
@@ -40,6 +40,7 @@ export default async function ResidentAlbumDetailPage({ params, searchParams }: 
           id: true,
           title: true,
           fileUrl: true,
+          isCover: true,
         },
       },
     },

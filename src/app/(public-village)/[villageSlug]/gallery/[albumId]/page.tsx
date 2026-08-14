@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
-import { AlbumGalleryViewer } from "./album-gallery-viewer";
+import { AlbumGalleryViewer } from "@/components/gallery/album-gallery-viewer";
 
 type PublicGalleryAlbumDetailPageProps = {
   params: Promise<{ villageSlug: string; albumId: string }>;
@@ -33,6 +33,7 @@ export default async function PublicGalleryAlbumDetailPage({ params }: PublicGal
           id: true,
           title: true,
           fileUrl: true,
+          isCover: true,
         },
       },
     },

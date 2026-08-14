@@ -30,7 +30,7 @@ export function DeleteAlbumButton({ albumId }: { albumId: string }) {
 
   return (
     <div className="space-y-2">
-      <Button variant="danger" onClick={() => setOpen(true)} isLoading={isSubmitting}>ลบอัลบั้ม</Button>
+      <Button variant="dangerOutline" size="sm" onClick={() => setOpen(true)} isLoading={isSubmitting}>ลบอัลบั้ม</Button>
       <ConfirmDialog open={open} title="ลบอัลบั้ม" description="รูปภาพภายในอัลบั้มจะถูกลบทั้งหมด" confirmLabel="ลบอัลบั้ม" tone="danger" pending={isSubmitting} onClose={() => setOpen(false)} onConfirm={onDelete} />
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

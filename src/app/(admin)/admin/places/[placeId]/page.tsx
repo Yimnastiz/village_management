@@ -93,6 +93,7 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
         variant="detail"
         backHref="/admin/places"
         backLabel="กลับรายการสถานที่"
+        backPlacement="header-end"
         title="รายละเอียดสถานที่"
         description="ข้อมูลสถานที่และการแสดงผล"
         actions={<><Link href={`/admin/places/${place.id}/edit`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"><Pencil className="mr-1 h-4 w-4" /> แก้ไข</Link><DeletePlaceButton placeId={place.id} placeName={place.name} /></>}
