@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { DOWNLOAD_CATEGORY_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ResidentDownloadsToolbar } from "./resident-downloads-toolbar";
@@ -66,9 +66,11 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
       title: true,
       description: true,
       category: true,
+      categoryLabel: true,
       visibility: true,
       publishedAt: true,
       createdAt: true,
+      _count: { select: { attachments: true } },
     },
   });
 
@@ -124,7 +126,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
                   </div> : null}
                   <p className="font-medium text-gray-900">{file.title}</p>
                   <p className="text-sm text-gray-500 mt-1 line-clamp-2">{file.description || "-"}</p>
-                  <p className="text-xs text-gray-400 mt-1">{file.category || "ทั่วไป"}</p>
+                  <p className="text-xs text-gray-400 mt-1">{file.category === "OTHER" ? file.categoryLabel || DOWNLOAD_CATEGORY_LABELS.OTHER : file.category ? DOWNLOAD_CATEGORY_LABELS[file.category] || file.category : "ทั่วไป"} · {file._count.attachments} ไฟล์</p>
                 </div>
                 <p className="text-xs text-gray-400 whitespace-nowrap">
                   {(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}

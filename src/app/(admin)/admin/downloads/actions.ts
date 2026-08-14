@@ -3,126 +3,70 @@
 import { DownloadStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { DOWNLOAD_CATEGORY_OPTIONS, DOWNLOAD_CATEGORY_LABELS } from "@/lib/constants";
+import { MAX_DOWNLOAD_ATTACHMENT_BYTES, MAX_DOWNLOAD_ATTACHMENTS, MAX_DOWNLOAD_TOTAL_BYTES } from "@/lib/download-upload";
+import { deleteDownloadUploads, verifyDownloadUploadToken } from "@/lib/download-upload.server";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const CATEGORY_KEYS = DOWNLOAD_CATEGORY_OPTIONS.map((option) => option.value) as [string, ...string[]];
+const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
 
-const schema = z.object({
-  title: z.string().min(3, "กรุณาระบุชื่อเอกสาร"),
-  description: z.string().optional(),
-  category: z.string().optional(),
-  stage: z.string().min(1, "กรุณาเลือกสถานะ"),
-  visibility: z.string().min(1, "กรุณาเลือกการมองเห็น"),
-  fileName: z.string().optional(),
-  mimeType: z.string().optional(),
-  fileSize: z.number().optional(),
-  fileDataUrl: z.string().optional(),
+const attachmentSchema = z.object({
+  id: z.string().cuid().optional(),
+  fileName: z.string().trim().min(1).max(255).optional(),
+  fileKey: z.string().trim().min(1).optional(),
+  fileUrl: z.string().trim().min(1).optional(),
+  fileSize: z.number().int().positive().max(MAX_DOWNLOAD_ATTACHMENT_BYTES).optional(),
+  mimeType: z.string().trim().min(1).max(255).optional(),
+  uploadToken: z.string().trim().min(1).optional(),
 });
 
-type DownloadInput = z.infer<typeof schema>;
+const schema = z.object({
+  title: z.string().trim().min(3, "กรุณาระบุชื่อเอกสาร").max(255),
+  description: z.string().trim().max(5000).optional(),
+  category: z.enum(CATEGORY_KEYS, { message: "กรุณาเลือกหมวดหมู่" }),
+  categoryLabel: z.string().trim().max(100).optional(),
+  visibility: z.enum(["PUBLIC", "RESIDENT_ONLY"], { message: "กรุณาเลือกการมองเห็น" }),
+  attachments: z.array(attachmentSchema).min(1, "กรุณาเพิ่มไฟล์เอกสารอย่างน้อย 1 ไฟล์").max(MAX_DOWNLOAD_ATTACHMENTS, `เพิ่มไฟล์ได้สูงสุด ${MAX_DOWNLOAD_ATTACHMENTS} ไฟล์`),
+});
 
-const VALID_STAGE: DownloadStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
-const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
-const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
+export type DownloadFormInput = z.infer<typeof schema>;
+export type DownloadActionResult = { success: true; id?: string } | { success: false; error: string; fieldErrors?: Record<string, string> };
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
-  if (!session?.id) {
-    return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
-  }
+  if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
   const membership = getAdminMembership(session);
-  if (!membership) {
-    return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", session: null, villageId: "" };
-  }
-
+  if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน", session: null, villageId: "" };
   return { ok: true as const, error: null, session, villageId: membership.villageId };
 }
 
-function normalizeInput(data: DownloadInput, requireFile: boolean) {
+function invalid(error: string, fieldErrors?: Record<string, string>): DownloadActionResult {
+  return { success: false, error, ...(fieldErrors ? { fieldErrors } : {}) };
+}
+
+function normalizeInput(data: DownloadFormInput) {
   const parsed = schema.safeParse(data);
   if (!parsed.success) {
-    return {
-      ok: false as const,
-      error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง",
-    };
+    const fieldErrors = Object.fromEntries(Object.entries(parsed.error.flatten().fieldErrors).flatMap(([key, values]) => values?.[0] ? [[key, values[0]]] : []));
+    return { ok: false as const, result: invalid(Object.values(fieldErrors)[0] ?? "ข้อมูลไม่ถูกต้อง", fieldErrors) };
   }
-
-  const stage = parsed.data.stage as DownloadStage;
-  const visibility = parsed.data.visibility as NewsVisibility;
-  if (!VALID_STAGE.includes(stage)) {
-    return { ok: false as const, error: "สถานะไม่ถูกต้อง" };
-  }
-  if (!VALID_VISIBILITY.includes(visibility)) {
-    return { ok: false as const, error: "การมองเห็นไม่ถูกต้อง" };
-  }
-
-  const fileDataUrl = parsed.data.fileDataUrl?.trim() || "";
-  const fileName = parsed.data.fileName?.trim() || "";
-  const mimeType = parsed.data.mimeType?.trim() || null;
-  const fileSize = parsed.data.fileSize ?? null;
-
-  if (requireFile && (!fileDataUrl || !fileName)) {
-    return { ok: false as const, error: "กรุณาอัปโหลดไฟล์เอกสาร" };
-  }
-
-  if (fileDataUrl && !fileDataUrl.startsWith("data:")) {
-    return { ok: false as const, error: "รูปแบบไฟล์ไม่ถูกต้อง" };
-  }
-
-  if (fileSize != null && (Number.isNaN(fileSize) || fileSize < 0 || fileSize > MAX_FILE_SIZE)) {
-    return { ok: false as const, error: "ไฟล์มีขนาดเกินกำหนด (สูงสุด 10MB)" };
-  }
-
-  return {
-    ok: true as const,
-    value: {
-      title: parsed.data.title.trim(),
-      description: parsed.data.description?.trim() || null,
-      category: parsed.data.category?.trim() || null,
-      stage,
-      visibility,
-      fileName: fileName || null,
-      fileDataUrl: fileDataUrl || null,
-      mimeType,
-      fileSize,
-    },
-  };
+  if (parsed.data.category === "OTHER" && !parsed.data.categoryLabel) return { ok: false as const, result: invalid("กรุณาระบุหมวดหมู่", { categoryLabel: "กรุณาระบุหมวดหมู่" }) };
+  if (parsed.data.category !== "OTHER" && parsed.data.categoryLabel) return { ok: false as const, result: invalid("หมวดหมู่ไม่ถูกต้อง", { category: "หมวดหมู่ไม่ถูกต้อง" }) };
+  if (parsed.data.attachments.reduce((total, item) => total + (item.fileSize ?? 0), 0) > MAX_DOWNLOAD_TOTAL_BYTES) return { ok: false as const, result: invalid("ขนาดไฟล์รวมต้องไม่เกิน 100 MB", { attachments: "ขนาดไฟล์รวมต้องไม่เกิน 100 MB" }) };
+  return { ok: true as const, value: parsed.data };
 }
 
 async function getResidentRecipientIds(villageId: string) {
-  const residents = await prisma.villageMembership.findMany({
-    where: {
-      villageId,
-      status: "ACTIVE",
-      role: { in: RESIDENT_MEMBERSHIP_ROLES },
-    },
-    select: { userId: true },
-    distinct: ["userId"],
-  });
-
+  const residents = await prisma.villageMembership.findMany({ where: { villageId, status: "ACTIVE", role: { in: RESIDENT_MEMBERSHIP_ROLES } }, select: { userId: true }, distinct: ["userId"] });
   return residents.map((item) => item.userId);
 }
 
-async function notifyResidents(
-  villageId: string,
-  title: string,
-  body: string,
-  metadata?: Prisma.InputJsonObject
-) {
+async function notifyResidents(villageId: string, title: string, body: string, metadata?: Prisma.InputJsonObject) {
   const recipientIds = await getResidentRecipientIds(villageId);
-  if (recipientIds.length === 0) return;
-
-  await prisma.notification.createMany({
-    data: recipientIds.map((userId) => ({
-      userId,
-      villageId,
-      type: NotificationType.SYSTEM,
-      title,
-      body,
-      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
-    })),
-  });
+  if (!recipientIds.length) return;
+  await prisma.notification.createMany({ data: recipientIds.map((userId) => ({ userId, villageId, type: NotificationType.SYSTEM, title, body, ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}) })) });
 }
 
 function revalidateDownloadViews(fileId?: string) {
@@ -130,130 +74,116 @@ function revalidateDownloadViews(fileId?: string) {
   revalidatePath("/admin/downloads");
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
-
   if (fileId) {
     revalidatePath(`/resident/downloads/${fileId}`);
     revalidatePath(`/admin/downloads/${fileId}`);
+    revalidatePath(`/admin/downloads/${fileId}/edit`);
   }
 }
 
-export async function createDownloadAction(
-  data: DownloadInput
-): Promise<{ success: true; id: string } | { success: false; error: string }> {
+async function resolveAttachments(input: DownloadFormInput["attachments"], existing: Array<{ id: string; fileName: string; fileKey: string | null; fileUrl: string; fileSize: number; mimeType: string | null }>, villageId: string, userId: string) {
+  const existingById = new Map(existing.map((item) => [item.id, item]));
+  const usedExistingIds = new Set<string>();
+  const resolved: Array<{ id?: string; fileName: string; fileKey: string | null; fileUrl: string; fileSize: number; mimeType: string | null }> = [];
+  for (const item of input) {
+    if (item.id) {
+      const persisted = existingById.get(item.id);
+      if (!persisted || usedExistingIds.has(item.id)) return { ok: false as const, result: invalid("ข้อมูลไฟล์แนบไม่ถูกต้อง", { attachments: "ข้อมูลไฟล์แนบไม่ถูกต้อง" }) };
+      usedExistingIds.add(item.id);
+      resolved.push(persisted);
+      continue;
+    }
+    if (!item.fileName || !item.fileKey || !item.fileUrl || !item.fileSize || !item.mimeType || !verifyDownloadUploadToken(item.uploadToken, item.fileKey, villageId, userId)) return { ok: false as const, result: invalid("ข้อมูลไฟล์ที่อัปโหลดไม่ถูกต้อง กรุณาอัปโหลดใหม่", { attachments: "ข้อมูลไฟล์ที่อัปโหลดไม่ถูกต้อง กรุณาอัปโหลดใหม่" }) };
+    resolved.push({ fileName: item.fileName, fileKey: item.fileKey, fileUrl: item.fileUrl, fileSize: item.fileSize, mimeType: item.mimeType });
+  }
+  return { ok: true as const, value: resolved, removedKeys: existing.filter((item) => !usedExistingIds.has(item.id)).map((item) => item.fileKey).filter((value): value is string => Boolean(value)) };
+}
+
+export async function createDownloadAction(data: DownloadFormInput, stage: "DRAFT" | "PUBLISHED"): Promise<DownloadActionResult> {
   const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-
-  const normalized = normalizeInput(data, true);
-  if (!normalized.ok) return { success: false, error: normalized.error };
-
+  if (!ctx.ok) return invalid(ctx.error);
+  const normalized = normalizeInput(data);
+  if (!normalized.ok) return normalized.result;
+  const attachments = await resolveAttachments(normalized.value.attachments, [], ctx.villageId, ctx.session.id);
+  if (!attachments.ok) return attachments.result;
+  const primary = attachments.value[0];
   const created = await prisma.downloadFile.create({
     data: {
-      villageId: ctx.villageId,
-      title: normalized.value.title,
-      description: normalized.value.description,
-      category: normalized.value.category,
-      stage: normalized.value.stage,
-      visibility: normalized.value.visibility,
-      fileKey: normalized.value.fileName,
-      fileUrl: normalized.value.fileDataUrl,
-      mimeType: normalized.value.mimeType,
-      fileSize: normalized.value.fileSize,
-      publishedAt: normalized.value.stage === "PUBLISHED" ? new Date() : null,
-    },
-    select: { id: true },
+      villageId: ctx.villageId, title: normalized.value.title, description: normalized.value.description || null,
+      category: normalized.value.category, categoryLabel: normalized.value.category === "OTHER" ? normalized.value.categoryLabel : null,
+      visibility: normalized.value.visibility as NewsVisibility, stage, publishedAt: stage === "PUBLISHED" ? new Date() : null,
+      fileKey: primary.fileKey, fileUrl: primary.fileUrl, fileSize: primary.fileSize, mimeType: primary.mimeType,
+      attachments: { create: attachments.value.map((attachment, sortOrder) => ({ ...attachment, sortOrder })) },
+    }, select: { id: true },
   });
-
-  if (normalized.value.stage === "PUBLISHED") {
-    await notifyResidents(
-      ctx.villageId,
-      "เอกสารดาวน์โหลด: มีเอกสารใหม่",
-      `เอกสาร ${normalized.value.title} พร้อมให้ดาวน์โหลดแล้ว`,
-      { fileId: created.id, actionUrl: `/resident/downloads/${created.id}` }
-    );
-  }
-
+  if (stage === "PUBLISHED") await notifyResidents(ctx.villageId, "เอกสารดาวน์โหลด: มีเอกสารใหม่", `เอกสาร ${normalized.value.title} พร้อมให้ดาวน์โหลดแล้ว`, { fileId: created.id, actionUrl: `/resident/downloads/${created.id}` });
   revalidateDownloadViews(created.id);
-
   return { success: true, id: created.id };
 }
 
-export async function updateDownloadAction(
-  fileId: string,
-  data: DownloadInput
-): Promise<{ success: true } | { success: false; error: string }> {
+export async function updateDownloadAction(fileId: string, data: DownloadFormInput): Promise<DownloadActionResult> {
   const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-
-  const existing = await prisma.downloadFile.findFirst({
-    where: { id: fileId, villageId: ctx.villageId },
-    select: {
-      id: true,
-      stage: true,
-      publishedAt: true,
-      fileKey: true,
-      fileUrl: true,
-      mimeType: true,
-      fileSize: true,
-    },
+  if (!ctx.ok) return invalid(ctx.error);
+  const normalized = normalizeInput(data);
+  if (!normalized.ok) return normalized.result;
+  const existing = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: ctx.villageId }, include: { attachments: { orderBy: { sortOrder: "asc" } } } });
+  if (!existing) return invalid("ไม่พบเอกสารนี้หรือไม่มีสิทธิ์แก้ไข");
+  const attachments = await resolveAttachments(normalized.value.attachments, existing.attachments, ctx.villageId, ctx.session.id);
+  if (!attachments.ok) return attachments.result;
+  const primary = attachments.value[0];
+  const existingIds = new Set(existing.attachments.map((item) => item.id));
+  await prisma.$transaction(async (tx) => {
+    await tx.downloadFile.update({ where: { id: fileId }, data: {
+      title: normalized.value.title, description: normalized.value.description || null, category: normalized.value.category,
+      categoryLabel: normalized.value.category === "OTHER" ? normalized.value.categoryLabel : null, visibility: normalized.value.visibility as NewsVisibility,
+      fileKey: primary.fileKey, fileUrl: primary.fileUrl, fileSize: primary.fileSize, mimeType: primary.mimeType,
+    } });
+    const retainedIds = attachments.value.flatMap((item) => item.id ? [item.id] : []);
+    await tx.downloadAttachment.deleteMany({ where: { downloadId: fileId, id: { notIn: retainedIds } } });
+    for (const [sortOrder, attachment] of attachments.value.entries()) {
+      if (attachment.id && existingIds.has(attachment.id)) await tx.downloadAttachment.update({ where: { id: attachment.id }, data: { sortOrder } });
+      else await tx.downloadAttachment.create({ data: { downloadId: fileId, fileName: attachment.fileName, fileKey: attachment.fileKey, fileUrl: attachment.fileUrl, fileSize: attachment.fileSize, mimeType: attachment.mimeType, sortOrder } });
+    }
   });
-  if (!existing) {
-    return { success: false, error: "ไม่พบเอกสารนี้หรือไม่มีสิทธิ์แก้ไข" };
-  }
-
-  const normalized = normalizeInput(data, false);
-  if (!normalized.ok) return { success: false, error: normalized.error };
-
-  const shouldSetPublishedAt =
-    normalized.value.stage === "PUBLISHED" &&
-    (existing.stage !== "PUBLISHED" || !existing.publishedAt);
-
-  await prisma.downloadFile.update({
-    where: { id: fileId },
-    data: {
-      title: normalized.value.title,
-      description: normalized.value.description,
-      category: normalized.value.category,
-      stage: normalized.value.stage,
-      visibility: normalized.value.visibility,
-      fileKey: normalized.value.fileName ?? existing.fileKey,
-      fileUrl: normalized.value.fileDataUrl ?? existing.fileUrl,
-      mimeType: normalized.value.mimeType ?? existing.mimeType,
-      fileSize: normalized.value.fileSize ?? existing.fileSize,
-      publishedAt: shouldSetPublishedAt ? new Date() : existing.publishedAt,
-    },
-  });
-
-  if (normalized.value.stage === "PUBLISHED") {
-    await notifyResidents(
-      ctx.villageId,
-      existing.stage === "PUBLISHED" ? "เอกสารดาวน์โหลด: มีการอัปเดต" : "เอกสารดาวน์โหลด: เผยแพร่แล้ว",
-      existing.stage === "PUBLISHED"
-        ? `เอกสาร ${normalized.value.title} มีการอัปเดตข้อมูล`
-        : `เอกสาร ${normalized.value.title} พร้อมให้ดาวน์โหลดแล้ว`,
-      { fileId, actionUrl: `/resident/downloads/${fileId}` }
-    );
-  }
-
+  if (existing.stage === "PUBLISHED" && (attachments.value.length !== existing.attachments.length || attachments.removedKeys.length > 0 || attachments.value.some((item) => !item.id))) await notifyResidents(ctx.villageId, "เอกสารดาวน์โหลด: อัปเดตไฟล์แนบ", `เอกสาร ${normalized.value.title} มีการอัปเดตไฟล์แนบ`, { fileId, actionUrl: `/resident/downloads/${fileId}` });
+  void deleteDownloadUploads(attachments.removedKeys);
   revalidateDownloadViews(fileId);
-
   return { success: true };
 }
 
-export async function deleteDownloadAction(
-  fileId: string
-): Promise<{ success: true } | { success: false; error: string }> {
+export async function publishDownloadAction(fileId: string): Promise<DownloadActionResult> {
+  return transitionDownload(fileId, "PUBLISHED", ["DRAFT", "ARCHIVED"]);
+}
+
+export async function archiveDownloadAction(fileId: string): Promise<DownloadActionResult> {
+  return transitionDownload(fileId, "ARCHIVED", ["PUBLISHED"]);
+}
+
+export async function restoreDownloadAction(fileId: string): Promise<DownloadActionResult> {
+  return transitionDownload(fileId, "DRAFT", ["ARCHIVED"]);
+}
+
+async function transitionDownload(fileId: string, nextStage: DownloadStage, allowedCurrent: DownloadStage[]): Promise<DownloadActionResult> {
   const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
+  if (!ctx.ok) return invalid(ctx.error);
+  const existing = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: ctx.villageId }, select: { id: true, title: true, stage: true } });
+  if (!existing) return invalid("ไม่พบเอกสารนี้หรือไม่มีสิทธิ์ดำเนินการ");
+  if (!allowedCurrent.includes(existing.stage)) return invalid("ไม่สามารถเปลี่ยนสถานะเอกสารจากสถานะปัจจุบันได้");
+  await prisma.downloadFile.update({ where: { id: fileId }, data: { stage: nextStage, ...(nextStage === "PUBLISHED" ? { publishedAt: new Date() } : {}) } });
+  if (nextStage === "PUBLISHED") await notifyResidents(ctx.villageId, existing.stage === "ARCHIVED" ? "เอกสารดาวน์โหลด: เผยแพร่อีกครั้ง" : "เอกสารดาวน์โหลด: เผยแพร่แล้ว", `เอกสาร ${existing.title} พร้อมให้ดาวน์โหลดแล้ว`, { fileId, actionUrl: `/resident/downloads/${fileId}` });
+  revalidateDownloadViews(fileId);
+  return { success: true };
+}
 
-  const existing = await prisma.downloadFile.findFirst({
-    where: { id: fileId, villageId: ctx.villageId },
-    select: { id: true },
-  });
-  if (!existing) {
-    return { success: false, error: "ไม่พบเอกสารนี้หรือไม่มีสิทธิ์ลบ" };
-  }
-
+export async function deleteDownloadAction(fileId: string): Promise<DownloadActionResult> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return invalid(ctx.error);
+  const existing = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: ctx.villageId }, include: { attachments: { select: { fileKey: true } } } });
+  if (!existing) return invalid("ไม่พบเอกสารนี้หรือไม่มีสิทธิ์ลบ");
   await prisma.downloadFile.delete({ where: { id: fileId } });
+  void deleteDownloadUploads(existing.attachments.map((item) => item.fileKey).filter((value): value is string => Boolean(value)));
   revalidateDownloadViews(fileId);
   return { success: true };
 }
+
+export { DOWNLOAD_CATEGORY_LABELS };

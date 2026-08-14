@@ -2,6 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { DownloadForm } from "../../download-form";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/constants";
 
 interface PageProps {
   params: Promise<{ fileId: string }>;
@@ -22,22 +24,24 @@ export default async function Page({ params }: PageProps) {
 
   const file = await prisma.downloadFile.findFirst({
     where: { id: fileId, villageId: membership.villageId },
+    include: { attachments: { orderBy: { sortOrder: "asc" } } },
   });
   if (!file) notFound();
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">แก้ไขเอกสาร</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-3" data-admin-compact-top>
+      <AdminPageToolbar sticky variant="form" backHref={`/admin/downloads/${file.id}`} backLabel="กลับรายละเอียดเอกสาร" backPlacement="header-end" title="แก้ไขเอกสาร" description="แก้ไขข้อมูลและจัดการไฟล์แนบของเอกสาร" />
       <DownloadForm
         mode="edit"
         fileId={file.id}
         defaultValues={{
           title: file.title,
           description: file.description || "",
-          category: file.category || "",
-          stage: file.stage,
+          category: file.category && file.category in DOWNLOAD_CATEGORY_LABELS ? file.category : "OTHER",
+          categoryLabel: file.category === "OTHER" ? file.categoryLabel : (file.category && !(file.category in DOWNLOAD_CATEGORY_LABELS) ? file.category : null),
           visibility: file.visibility,
         }}
+        initialAttachments={file.attachments}
       />
     </div>
   );

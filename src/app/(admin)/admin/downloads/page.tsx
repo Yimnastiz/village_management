@@ -3,178 +3,49 @@ import { Files, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { DOWNLOAD_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { DOWNLOAD_CATEGORY_LABELS, DOWNLOAD_CATEGORY_OPTIONS, DOWNLOAD_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { formatFileSize } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
-type PageProps = {
-  searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
-};
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  DRAFT: "warning",
-  PUBLISHED: "success",
-  ARCHIVED: "default",
-};
+type PageProps = { searchParams?: Promise<{ q?: string; stage?: string; category?: string; visibility?: string; sort?: string }> };
+const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { DRAFT: "warning", PUBLISHED: "success", ARCHIVED: "default" };
 
 export default async function Page({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE" }, select: { villageId: true } });
   if (!membership) redirect("/auth/login");
 
   const keyword = params.q?.trim() ?? "";
   const activeStage = params.stage ?? "ALL";
+  const activeCategory = params.category ?? "ALL";
   const activeVisibility = params.visibility ?? "ALL";
   const activeSort = params.sort ?? "newest";
-
   const where: Prisma.DownloadFileWhereInput = { villageId: membership.villageId };
-  if (activeStage !== "ALL") {
-    where.stage = activeStage as Prisma.DownloadFileWhereInput["stage"];
-  }
-  if (activeVisibility !== "ALL") {
-    where.visibility = activeVisibility as Prisma.DownloadFileWhereInput["visibility"];
-  }
-  if (keyword) {
-    where.OR = [
-      { title: { contains: keyword, mode: "insensitive" } },
-      { description: { contains: keyword, mode: "insensitive" } },
-      { category: { contains: keyword, mode: "insensitive" } },
-    ];
-  }
+  if (["DRAFT", "PUBLISHED", "ARCHIVED"].includes(activeStage)) where.stage = activeStage as Prisma.DownloadFileWhereInput["stage"];
+  if (DOWNLOAD_CATEGORY_OPTIONS.some((option) => option.value === activeCategory)) where.category = activeCategory;
+  if (["PUBLIC", "RESIDENT_ONLY"].includes(activeVisibility)) where.visibility = activeVisibility as Prisma.DownloadFileWhereInput["visibility"];
+  if (keyword) where.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { description: { contains: keyword, mode: "insensitive" } }, { categoryLabel: { contains: keyword, mode: "insensitive" } }];
+  const orderBy = activeSort === "oldest" ? [{ createdAt: "asc" as const }] : activeSort === "downloads" ? [{ downloadCount: "desc" as const }, { createdAt: "desc" as const }] : [{ createdAt: "desc" as const }];
+  const [files, suggestions] = await Promise.all([
+    prisma.downloadFile.findMany({ where, orderBy, select: { id: true, title: true, description: true, category: true, categoryLabel: true, stage: true, visibility: true, downloadCount: true, createdAt: true, publishedAt: true, attachments: { select: { fileSize: true } } } }),
+    prisma.downloadFile.findMany({ where: { villageId: membership.villageId }, orderBy: { updatedAt: "desc" }, take: 50, select: { title: true } }),
+  ]);
+  const suggestionTitles = Array.from(new Set(suggestions.map((file) => file.title))).slice(0, 12);
+  const href = (next: { q?: string; stage?: string; category?: string; visibility?: string; sort?: string }) => {
+    const query = new URLSearchParams(); const values = { q: next.q?.trim() ?? "", stage: next.stage ?? "ALL", category: next.category ?? "ALL", visibility: next.visibility ?? "ALL", sort: next.sort ?? "newest" };
+    if (values.q) query.set("q", values.q); if (values.stage !== "ALL") query.set("stage", values.stage); if (values.category !== "ALL") query.set("category", values.category); if (values.visibility !== "ALL") query.set("visibility", values.visibility); if (values.sort !== "newest") query.set("sort", values.sort);
+    return query.size ? `/admin/downloads?${query}` : "/admin/downloads";
+  };
+  const optionGroup = (label: string, entries: Array<[string, string]>, key: "stage" | "category" | "visibility" | "sort", active: string) => ({ label, options: entries.map(([value, text]) => ({ label: text, href: href({ q: keyword, stage: key === "stage" ? value : activeStage, category: key === "category" ? value : activeCategory, visibility: key === "visibility" ? value : activeVisibility, sort: key === "sort" ? value : activeSort }), active: active === value })) });
+  const filtered = Boolean(keyword || activeStage !== "ALL" || activeCategory !== "ALL" || activeVisibility !== "ALL" || activeSort !== "newest");
 
-  const orderBy =
-    activeSort === "oldest"
-      ? [{ createdAt: "asc" as const }]
-      : activeSort === "downloads"
-        ? [{ downloadCount: "desc" as const }, { createdAt: "desc" as const }]
-        : [{ createdAt: "desc" as const }];
-
-  const files = await prisma.downloadFile.findMany({
-    where,
-    orderBy,
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      category: true,
-      stage: true,
-      visibility: true,
-      fileKey: true,
-      fileSize: true,
-      downloadCount: true,
-      createdAt: true,
-      publishedAt: true,
-    },
-  });
-
-  const suggestionTitles = Array.from(new Set(files.map((file) => file.title))).slice(0, 12);
-
-  function buildDownloadsHref(next: { q?: string; stage?: string; visibility?: string; sort?: string }) {
-    const query = new URLSearchParams();
-    const q = next.q?.trim() ?? "";
-    const stage = next.stage ?? "ALL";
-    const visibility = next.visibility ?? "ALL";
-    const sort = next.sort ?? "newest";
-    if (q) query.set("q", q);
-    if (stage !== "ALL") query.set("stage", stage);
-    if (visibility !== "ALL") query.set("visibility", visibility);
-    if (sort !== "newest") query.set("sort", sort);
-    const queryString = query.toString();
-    return queryString ? `/admin/downloads?${queryString}` : "/admin/downloads";
-  }
-
-  return (
-    <div className="space-y-6">
-      <AdminListToolbar
-        title="เอกสารดาวน์โหลด"
-        description="ค้นหาเอกสาร กรองตามสถานะและการมองเห็น และดูไฟล์ยอดดาวน์โหลดสูง"
-        searchAction="/admin/downloads"
-        clearHref="/admin/downloads"
-        keyword={keyword}
-        searchPlaceholder="ค้นหาชื่อเอกสาร รายละเอียด หรือหมวดหมู่"
-        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "newest" ? "" : activeSort }}
-        suggestionTitles={suggestionTitles}
-        groups={[
-          {
-            label: "สถานะ",
-            options: [
-              { label: "ทั้งหมด", href: buildDownloadsHref({ q: keyword, stage: "ALL", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ALL" },
-              { label: "ร่าง", href: buildDownloadsHref({ q: keyword, stage: "DRAFT", visibility: activeVisibility, sort: activeSort }), active: activeStage === "DRAFT" },
-              { label: "เผยแพร่", href: buildDownloadsHref({ q: keyword, stage: "PUBLISHED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "PUBLISHED" },
-              { label: "เก็บถาวร", href: buildDownloadsHref({ q: keyword, stage: "ARCHIVED", visibility: activeVisibility, sort: activeSort }), active: activeStage === "ARCHIVED" },
-            ],
-          },
-          {
-            label: "การมองเห็น",
-            options: [
-              { label: "ทั้งหมด", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: "ALL", sort: activeSort }), active: activeVisibility === "ALL" },
-              { label: "สาธารณะ", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: "PUBLIC", sort: activeSort }), active: activeVisibility === "PUBLIC" },
-              { label: "ลูกบ้าน", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: "RESIDENT_ONLY", sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
-            ],
-          },
-          {
-            label: "เรียงลำดับ",
-            options: [
-              { label: "ล่าสุดก่อน", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest" },
-              { label: "เก่าก่อน", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "oldest" }), active: activeSort === "oldest" },
-              { label: "ดาวน์โหลดสูง", href: buildDownloadsHref({ q: keyword, stage: activeStage, visibility: activeVisibility, sort: "downloads" }), active: activeSort === "downloads" },
-            ],
-          },
-        ]}
-        actions={
-          <Link href="/admin/downloads/new">
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-1" /> เพิ่มเอกสาร
-            </Button>
-          </Link>
-        }
-      />
-
-      {files.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-          <Files className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600">ยังไม่มีเอกสาร</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {files.map((file) => (
-            <Link
-              key={file.id}
-              href={`/admin/downloads/${file.id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Badge variant={stageVariant[file.stage] ?? "default"}>
-                      {DOWNLOAD_STAGE_LABELS[file.stage]}
-                    </Badge>
-                    <Badge variant="outline">{NEWS_VISIBILITY_LABELS[file.visibility]}</Badge>
-                    {file.category && <Badge variant="outline">{file.category}</Badge>}
-                  </div>
-                  <p className="font-medium text-gray-900 line-clamp-1">{file.title}</p>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{file.description || "-"}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    ไฟล์: {file.fileKey || "-"} • ดาวน์โหลด {file.downloadCount} ครั้ง
-                  </p>
-                </div>
-                <p className="text-xs text-gray-400 whitespace-nowrap">
-                  {(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <div data-admin-compact-top className="space-y-3">
+    <AdminListToolbar sticky title="เอกสารดาวน์โหลด" description="ค้นหาและจัดการเอกสารของหมู่บ้าน" searchAction="/admin/downloads" clearHref="/admin/downloads" keyword={keyword} searchPlaceholder="ค้นหาชื่อเอกสารหรือรายละเอียด" hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, category: activeCategory === "ALL" ? "" : activeCategory, visibility: activeVisibility === "ALL" ? "" : activeVisibility, sort: activeSort === "newest" ? "" : activeSort }} suggestionTitles={suggestionTitles} groups={[optionGroup("สถานะ", [["ALL", "ทั้งหมด"], ["DRAFT", "ร่าง"], ["PUBLISHED", "เผยแพร่"], ["ARCHIVED", "เก็บถาวร"]], "stage", activeStage), optionGroup("หมวดหมู่", [["ALL", "ทั้งหมด"], ...DOWNLOAD_CATEGORY_OPTIONS.map((option) => [option.value, option.label] as [string, string])], "category", activeCategory), optionGroup("การมองเห็น", [["ALL", "ทั้งหมด"], ["PUBLIC", "สาธารณะ"], ["RESIDENT_ONLY", "เฉพาะลูกบ้าน"]], "visibility", activeVisibility), optionGroup("เรียงลำดับ", [["newest", "ล่าสุดก่อน"], ["oldest", "เก่าก่อน"], ["downloads", "ดาวน์โหลดสูง"]], "sort", activeSort)]} actions={<Link href="/admin/downloads/new" className="inline-flex min-h-9 items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"><Plus className="mr-1 h-4 w-4" />เพิ่มเอกสาร</Link>} />
+    {files.length === 0 ? <div className="rounded-xl border border-gray-200 bg-white p-10 text-center"><Files className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="text-gray-700">{filtered ? "ไม่พบเอกสารที่ตรงกับเงื่อนไข" : "ยังไม่มีเอกสาร"}</p>{filtered ? <p className="mt-1 text-sm text-gray-500">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p> : null}</div> : <div className="space-y-2">{files.map((file) => { const totalSize = file.attachments.reduce((total, item) => total + item.fileSize, 0); return <Link key={file.id} href={`/admin/downloads/${file.id}`} className="block rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-5"><div className="flex min-w-0 items-start justify-between gap-3"><div className="min-w-0"><div className="mb-1 flex flex-wrap items-center gap-1.5"><Badge variant={stageVariant[file.stage] ?? "default"}>{DOWNLOAD_STAGE_LABELS[file.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[file.visibility]}</Badge>{file.category ? <Badge variant="outline">{file.category === "OTHER" ? file.categoryLabel || DOWNLOAD_CATEGORY_LABELS.OTHER : DOWNLOAD_CATEGORY_LABELS[file.category] || file.category}</Badge> : null}</div><p className="truncate font-medium text-gray-900">{file.title}</p>{file.description ? <p className="mt-1 line-clamp-2 text-sm text-gray-500">{file.description}</p> : null}<p className="mt-2 text-xs text-gray-500">{file.attachments.length} ไฟล์ · รวม {formatFileSize(totalSize)} · ดาวน์โหลด {file.downloadCount} ครั้ง</p></div><p className="shrink-0 text-xs text-gray-400">{(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}</p></div></Link>; })}</div>}
+  </div>;
 }

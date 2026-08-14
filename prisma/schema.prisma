@@ -865,6 +865,7 @@ model DownloadFile {
   title         String
   description   String?
   category      String?
+  categoryLabel String?
   stage         DownloadStage  @default(DRAFT)
   visibility    NewsVisibility @default(PUBLIC)
   fileKey       String?
@@ -878,10 +879,28 @@ model DownloadFile {
 
   village    Village     @relation(fields: [villageId], references: [id], onDelete: Cascade)
   savedItems SavedItem[]
+  attachments DownloadAttachment[]
 
   @@index([villageId])
   @@index([stage])
   @@index([visibility])
+  @@index([category])
+}
+
+model DownloadAttachment {
+  id            String   @id @default(cuid())
+  downloadId    String
+  fileName      String
+  fileKey       String?
+  fileUrl       String
+  fileSize      Int
+  mimeType      String?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  download DownloadFile @relation(fields: [downloadId], references: [id], onDelete: Cascade)
+
+  @@index([downloadId, sortOrder])
 }
 
 model TransparencyRecord {

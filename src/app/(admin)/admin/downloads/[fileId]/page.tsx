@@ -1,99 +1,22 @@
-import Link from "next/link";
-import { ArrowLeft, Pencil } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { Download, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DOWNLOAD_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { DOWNLOAD_CATEGORY_LABELS, DOWNLOAD_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { downloadTypeLabel } from "@/lib/download-upload";
 import { formatFileSize } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
-import { DownloadDeleteButton } from "./delete-button";
+import { DownloadManagementActions } from "./download-management-actions";
 
-interface PageProps {
-  params: Promise<{ fileId: string }>;
-}
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  DRAFT: "warning",
-  PUBLISHED: "success",
-  ARCHIVED: "default",
-};
+interface PageProps { params: Promise<{ fileId: string }> }
+const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { DRAFT: "warning", PUBLISHED: "success", ARCHIVED: "default" };
 
 export default async function Page({ params }: PageProps) {
-  const { fileId } = await params;
-
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
-  if (!membership) redirect("/auth/login");
-
-  const file = await prisma.downloadFile.findFirst({
-    where: { id: fileId, villageId: membership.villageId },
-  });
-  if (!file) notFound();
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link href="/admin/downloads" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-          <ArrowLeft className="h-4 w-4" /> กลับรายการเอกสาร
-        </Link>
-        <div className="flex items-center gap-2">
-          <Link href={`/admin/downloads/${file.id}/edit`}>
-            <Button variant="outline" size="sm">
-              <Pencil className="h-4 w-4 mr-1" /> แก้ไข
-            </Button>
-          </Link>
-          <DownloadDeleteButton fileId={file.id} />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <Badge variant={stageVariant[file.stage] ?? "default"}>{DOWNLOAD_STAGE_LABELS[file.stage]}</Badge>
-          <Badge variant="outline">{NEWS_VISIBILITY_LABELS[file.visibility]}</Badge>
-          {file.category && <Badge variant="outline">{file.category}</Badge>}
-        </div>
-
-        <h1 className="text-2xl font-bold text-gray-900">{file.title}</h1>
-        {file.description && <p className="text-gray-600">{file.description}</p>}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-gray-500">ชื่อไฟล์</p>
-            <p className="text-gray-900 mt-1">{file.fileKey || "-"}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">ขนาดไฟล์</p>
-            <p className="text-gray-900 mt-1">{file.fileSize != null ? formatFileSize(file.fileSize) : "-"}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">ประเภทไฟล์</p>
-            <p className="text-gray-900 mt-1">{file.mimeType || "-"}</p>
-          </div>
-          <div>
-            <p className="text-gray-500">จำนวนดาวน์โหลด</p>
-            <p className="text-gray-900 mt-1">{file.downloadCount} ครั้ง</p>
-          </div>
-        </div>
-
-        {file.fileUrl ? (
-          <a
-            href={file.fileUrl}
-            download={file.fileKey || file.title}
-            className="inline-flex items-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
-          >
-            ดาวน์โหลดเอกสาร
-          </a>
-        ) : (
-          <p className="text-sm text-red-600">ยังไม่มีไฟล์แนบ</p>
-        )}
-      </div>
-    </div>
-  );
+  const { fileId } = await params; const session = await getSessionContextFromServerCookies();
+  if (!session?.id) redirect("/auth/login"); if (!isAdminUser(session)) redirect("/resident");
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE" }, select: { villageId: true } }); if (!membership) redirect("/auth/login");
+  const file = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: membership.villageId }, include: { attachments: { orderBy: { sortOrder: "asc" } } } }); if (!file) notFound();
+  const totalSize = file.attachments.reduce((total, attachment) => total + attachment.fileSize, 0);
+  return <div data-admin-compact-top className="space-y-3"><AdminPageToolbar sticky variant="detail" title={file.title} description="รายละเอียดเอกสารและไฟล์แนบ" backHref="/admin/downloads" backLabel="กลับรายการเอกสาร" backPlacement="header-end" actions={<DownloadManagementActions fileId={file.id} stage={file.stage} />} /><section className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"><div className="flex flex-wrap gap-2"><Badge variant={stageVariant[file.stage] ?? "default"}>{DOWNLOAD_STAGE_LABELS[file.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[file.visibility]}</Badge>{file.category ? <Badge variant="outline">{file.category === "OTHER" ? file.categoryLabel || DOWNLOAD_CATEGORY_LABELS.OTHER : DOWNLOAD_CATEGORY_LABELS[file.category] || file.category}</Badge> : null}</div>{file.description ? <p className="text-sm leading-6 text-gray-600">{file.description}</p> : null}<div className="grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-3"><div><p className="text-gray-500">ไฟล์แนบ</p><p className="mt-1 font-medium text-gray-900">{file.attachments.length} ไฟล์</p></div><div><p className="text-gray-500">ขนาดรวม</p><p className="mt-1 font-medium text-gray-900">{formatFileSize(totalSize)}</p></div><div><p className="text-gray-500">ดาวน์โหลด</p><p className="mt-1 font-medium text-gray-900">{file.downloadCount} ครั้ง</p></div></div><div><div className="mb-2 flex items-center justify-between"><h2 className="font-semibold text-gray-900">ไฟล์แนบ ({file.attachments.length})</h2></div>{file.attachments.length ? <ul className="overflow-hidden rounded-xl border border-gray-200 divide-y divide-gray-100">{file.attachments.map((attachment) => <li key={attachment.id} className="flex min-w-0 items-center gap-3 px-3 py-3 sm:px-4"><FileText className="h-5 w-5 shrink-0 text-gray-400" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-gray-800">{attachment.fileName}</p><p className="mt-0.5 text-xs text-gray-500">{downloadTypeLabel(attachment.mimeType, attachment.fileName)} · {formatFileSize(attachment.fileSize)}</p></div><a href={`/api/downloads/${attachment.id}`} className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-2 text-sm font-medium text-green-700 hover:bg-green-50"><Download className="mr-1 h-4 w-4" />ดาวน์โหลด</a></li>)}</ul> : <p className="text-sm text-rose-600">ยังไม่มีไฟล์แนบ</p>}</div></section></div>;
 }
