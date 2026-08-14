@@ -2,37 +2,14 @@
 
 import { DownloadStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
-import { DOWNLOAD_CATEGORY_OPTIONS, DOWNLOAD_CATEGORY_LABELS } from "@/lib/constants";
-import { MAX_DOWNLOAD_ATTACHMENT_BYTES, MAX_DOWNLOAD_ATTACHMENTS, MAX_DOWNLOAD_TOTAL_BYTES } from "@/lib/download-upload";
+import { MAX_DOWNLOAD_TOTAL_BYTES } from "@/lib/download-upload";
 import { deleteDownloadUploads, verifyDownloadUploadToken } from "@/lib/download-upload.server";
 import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { downloadFormSchema } from "@/lib/downloads/schema";
+import type { DownloadActionResult, DownloadFormInput } from "@/lib/downloads/types";
 
-const CATEGORY_KEYS = DOWNLOAD_CATEGORY_OPTIONS.map((option) => option.value) as [string, ...string[]];
 const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
-
-const attachmentSchema = z.object({
-  id: z.string().cuid().optional(),
-  fileName: z.string().trim().min(1).max(255).optional(),
-  fileKey: z.string().trim().min(1).optional(),
-  fileUrl: z.string().trim().min(1).optional(),
-  fileSize: z.number().int().positive().max(MAX_DOWNLOAD_ATTACHMENT_BYTES).optional(),
-  mimeType: z.string().trim().min(1).max(255).optional(),
-  uploadToken: z.string().trim().min(1).optional(),
-});
-
-const schema = z.object({
-  title: z.string().trim().min(3, "กรุณาระบุชื่อเอกสาร").max(255),
-  description: z.string().trim().max(5000).optional(),
-  category: z.enum(CATEGORY_KEYS, { message: "กรุณาเลือกหมวดหมู่" }),
-  categoryLabel: z.string().trim().max(100).optional(),
-  visibility: z.enum(["PUBLIC", "RESIDENT_ONLY"], { message: "กรุณาเลือกการมองเห็น" }),
-  attachments: z.array(attachmentSchema).min(1, "กรุณาเพิ่มไฟล์เอกสารอย่างน้อย 1 ไฟล์").max(MAX_DOWNLOAD_ATTACHMENTS, `เพิ่มไฟล์ได้สูงสุด ${MAX_DOWNLOAD_ATTACHMENTS} ไฟล์`),
-});
-
-export type DownloadFormInput = z.infer<typeof schema>;
-export type DownloadActionResult = { success: true; id?: string } | { success: false; error: string; fieldErrors?: Record<string, string> };
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
@@ -47,7 +24,7 @@ function invalid(error: string, fieldErrors?: Record<string, string>): DownloadA
 }
 
 function normalizeInput(data: DownloadFormInput) {
-  const parsed = schema.safeParse(data);
+  const parsed = downloadFormSchema.safeParse(data);
   if (!parsed.success) {
     const fieldErrors = Object.fromEntries(Object.entries(parsed.error.flatten().fieldErrors).flatMap(([key, values]) => values?.[0] ? [[key, values[0]]] : []));
     return { ok: false as const, result: invalid(Object.values(fieldErrors)[0] ?? "ข้อมูลไม่ถูกต้อง", fieldErrors) };
@@ -185,5 +162,3 @@ export async function deleteDownloadAction(fileId: string): Promise<DownloadActi
   revalidateDownloadViews(fileId);
   return { success: true };
 }
-
-export { DOWNLOAD_CATEGORY_LABELS };

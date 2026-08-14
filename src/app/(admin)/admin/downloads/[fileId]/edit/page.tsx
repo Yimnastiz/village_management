@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { DownloadForm } from "../../download-form";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
-import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/constants";
+import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/downloads/constants";
 
 interface PageProps {
   params: Promise<{ fileId: string }>;

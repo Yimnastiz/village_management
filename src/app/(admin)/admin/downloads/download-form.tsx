@@ -9,10 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { DOWNLOAD_CATEGORY_OPTIONS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { DOWNLOAD_CATEGORY_OPTIONS } from "@/lib/downloads/constants";
+import type { DownloadFormInput } from "@/lib/downloads/types";
 import { DOWNLOAD_ACCEPT, MAX_DOWNLOAD_ATTACHMENT_BYTES, MAX_DOWNLOAD_ATTACHMENTS, downloadTypeLabel } from "@/lib/download-upload";
 import { formatFileSize } from "@/lib/utils";
-import { createDownloadAction, updateDownloadAction, type DownloadFormInput } from "./actions";
+import { createDownloadAction, updateDownloadAction } from "./actions";
 
 type FormValues = { title: string; description?: string; category: string; categoryLabel?: string; visibility: "PUBLIC" | "RESIDENT_ONLY" };
 type Attachment = { localId: string; status: "uploaded" | "uploading" | "error"; error?: string; id?: string; fileName: string; fileKey?: string; fileUrl?: string; fileSize: number; mimeType?: string; uploadToken?: string };

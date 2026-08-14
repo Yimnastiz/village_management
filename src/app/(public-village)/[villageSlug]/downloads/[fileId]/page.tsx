@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Download, FileText } from "lucide-react";
 import { notFound } from "next/navigation";
-import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/constants";
+import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/downloads/constants";
 import { downloadTypeLabel } from "@/lib/download-upload";
 import { formatFileSize } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
