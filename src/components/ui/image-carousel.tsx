@@ -5,9 +5,9 @@ import { ChevronLeft, ChevronRight, Minus, Plus, X } from "lucide-react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 
-type ImageCarouselProps = { images: string[]; altPrefix: string };
+type ImageCarouselProps = { images: string[]; altPrefix: string; coverIndex?: number };
 
-export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
+export function ImageCarousel({ images, altPrefix, coverIndex }: ImageCarouselProps) {
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
@@ -57,6 +57,7 @@ export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
   }, [images, index, open]);
 
   if (!images.length) return null;
+  const hasCover = coverIndex != null && coverIndex >= 0 && coverIndex < images.length;
   const lightbox = open ? (
     <div
       role="dialog"
@@ -82,7 +83,8 @@ export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
         onDoubleClick={() => { setZoom((value) => value === 1 ? 2 : 1); setPan({ x: 0, y: 0 }); }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} draggable={false} className="max-h-full max-w-full select-none object-contain transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`, transformOrigin: "center" }} />
+        <img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}${hasCover && index === coverIndex ? " หน้าปก" : ""}`} draggable={false} className="max-h-full max-w-full select-none object-contain transition-transform duration-150 motion-reduce:transition-none" style={{ transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`, transformOrigin: "center" }} />
+        {hasCover && index === coverIndex ? <span className="absolute left-3 top-3 rounded bg-black/60 px-2 py-1 text-xs font-medium text-white">หน้าปก</span> : null}
       </div>
       <div className="flex min-h-16 items-center justify-center gap-2 border-t border-white/10 px-3 py-2">
         {images.length > 1 ? <Button type="button" variant="outline" onClick={previous} aria-label="ดูรูปก่อนหน้า" className="h-11 min-w-11 border-white/30 bg-white/10 px-3 text-white hover:bg-white/20"><ChevronLeft className="h-5 w-5" /></Button> : null}
@@ -96,12 +98,13 @@ export function ImageCarousel({ images, altPrefix }: ImageCarouselProps) {
 
   return <div className="min-w-0 space-y-3" onKeyDown={(event) => { if (event.key === "ArrowLeft" && images.length > 1) previous(); if (event.key === "ArrowRight" && images.length > 1) next(); }}>
     <div className="relative" onTouchStart={(event) => { galleryTouchRef.current = event.touches[0].clientX; }} onTouchEnd={(event) => { const start = galleryTouchRef.current; galleryTouchRef.current = null; if (start === null || images.length < 2) return; const delta = event.changedTouches[0].clientX - start; if (Math.abs(delta) >= 48) { if (delta > 0) previous(); else next(); } }}>
-      <button type="button" onClick={(event) => openAt(index, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${index + 1} แบบขยาย`} className="block w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-600">
+      <button type="button" onClick={(event) => openAt(index, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${index + 1}${hasCover && index === coverIndex ? " หน้าปก" : ""} แบบขยาย`} className="block w-full overflow-hidden rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-600">
         {/* eslint-disable-next-line @next/next/no-img-element */}<img src={images[index]} alt={`${altPrefix} รูปที่ ${index + 1}`} className="max-h-[min(60dvh,520px)] w-full object-contain" />
       </button>
+      {hasCover && index === coverIndex ? <span className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-xs font-medium text-white">หน้าปก</span> : null}
       {images.length > 1 ? <><Button type="button" variant="outline" onClick={previous} aria-label="ดูรูปก่อนหน้า" className="absolute left-2 top-1/2 h-11 w-11 -translate-y-1/2 bg-white/90 p-0"><ChevronLeft className="h-5 w-5" /></Button><Button type="button" variant="outline" onClick={next} aria-label="ดูรูปถัดไป" className="absolute right-2 top-1/2 h-11 w-11 -translate-y-1/2 bg-white/90 p-0"><ChevronRight className="h-5 w-5" /></Button><span aria-live="polite" className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/65 px-2 py-1 text-xs text-white">{index + 1} / {images.length}</span></> : null}
     </div>
-    {images.length > 1 ? <div className="flex max-w-full gap-2 overflow-x-auto pb-1">{images.map((url, itemIndex) => <button key={`${url}-${itemIndex}`} type="button" onClick={(event) => openAt(itemIndex, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${itemIndex + 1} แบบขยาย`} className={`h-14 w-20 shrink-0 overflow-hidden rounded-md border focus:outline-none focus:ring-2 focus:ring-green-600 ${itemIndex === index ? "border-green-500" : "border-gray-200"}`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={url} alt="" className="h-full w-full object-cover" /></button>)}</div> : null}
+    {images.length > 1 ? <div className="flex max-w-full gap-2 overflow-x-auto pb-1">{images.map((url, itemIndex) => <button key={`${url}-${itemIndex}`} type="button" onClick={(event) => openAt(itemIndex, event.currentTarget)} aria-label={`เปิดดูรูปที่ ${itemIndex + 1}${hasCover && itemIndex === coverIndex ? " หน้าปก" : ""} แบบขยาย`} className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border focus:outline-none focus:ring-2 focus:ring-green-600 ${itemIndex === index ? "border-green-500" : "border-gray-200"}`}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={url} alt="" className="h-full w-full object-cover" />{hasCover && itemIndex === coverIndex ? <span className="pointer-events-none absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">หน้าปก</span> : null}</button>)}</div> : null}
     {lightbox && typeof document !== "undefined" ? createPortal(lightbox, document.body) : null}
   </div>;
 }

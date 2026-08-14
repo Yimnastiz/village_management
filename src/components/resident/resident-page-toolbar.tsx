@@ -23,6 +23,7 @@ type ResidentPageToolbarProps = {
   filters?: ReactNode;
   activeFilterCount?: number;
   className?: string;
+  compactSpacing?: boolean;
 };
 
 /**
@@ -39,6 +40,7 @@ export function ResidentPageToolbar({
   filters,
   activeFilterCount = 0,
   className,
+  compactSpacing = false,
 }: ResidentPageToolbarProps) {
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(search?.keyword ? "search" : null);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
@@ -101,7 +103,7 @@ export function ResidentPageToolbar({
 
   return (
     <section
-      className={cn("sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-30 -mx-4 -mt-2 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4", className)}
+      className={cn("sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-30 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90 lg:mx-0 lg:rounded-xl lg:border lg:px-4", compactSpacing ? "-mx-4 sm:-mx-6 sm:px-6" : "-mx-4 -mt-2 sm:-mx-6 sm:-mt-3 sm:px-6", className)}
       aria-label={`เครื่องมือ${title}`}
     >
       <div className="flex min-w-0 items-center justify-between gap-2">

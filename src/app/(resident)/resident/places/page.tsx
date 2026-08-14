@@ -115,7 +115,7 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       <ResidentPlacesToolbar
         keyword={keyword}
         category={category}

@@ -159,7 +159,8 @@ export function AdminListToolbar({
   return (
     <section
       className={cn(
-        "shrink-0 space-y-2 rounded-xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4",
+        sticky && "sticky top-[var(--app-sticky-top,4rem)] z-30 bg-white/95 backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-white/90",
+        "shrink-0 space-y-2 rounded-xl border border-gray-200 p-3 shadow-sm sm:p-4",
       )}
       aria-label={`เครื่องมือ${title}`}
     >
