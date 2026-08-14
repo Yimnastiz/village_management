@@ -46,7 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const villageName = villageProfile ? await getVillageDisplayName(villageProfile) : null;
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-100 [--app-sticky-top:var(--app-topbar-visible-offset,4rem)]">
       <AdminSidebar actionCounts={sidebarActionCounts} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar

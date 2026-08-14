@@ -152,7 +152,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           {
             label: "หมวดหมู่",
             options: [
-              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: "ALL", visibility: activeVisibility }), active: activeCategory === "ALL" },
+              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: "ALL", visibility: activeVisibility }), active: activeCategory === "ALL", isDefault: true },
               ...Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => ({
                 label,
                 href: buildHref({ q: keyword, category: value, visibility: activeVisibility }),
@@ -163,14 +163,14 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           {
             label: "ความสำคัญ",
             options: [
-              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: "ALL" }), active: activeFeatured === "ALL" },
+              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: "ALL" }), active: activeFeatured === "ALL", isDefault: true },
               { label: "สถานที่สำคัญ", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: "FEATURED" }), active: activeFeatured === "FEATURED" },
             ],
           },
           {
             label: "การมองเห็น",
             options: [
-              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: activeCategory, visibility: "ALL" }), active: activeVisibility === "ALL" },
+              { label: "ทั้งหมด", href: buildHref({ q: keyword, category: activeCategory, visibility: "ALL" }), active: activeVisibility === "ALL", isDefault: true },
               { label: "สาธารณะ", href: buildHref({ q: keyword, category: activeCategory, visibility: "PUBLIC" }), active: activeVisibility === "PUBLIC" },
               { label: "เฉพาะลูกบ้าน", href: buildHref({ q: keyword, category: activeCategory, visibility: "RESIDENT" }), active: activeVisibility === "RESIDENT" },
             ],
@@ -178,7 +178,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           {
             label: "เรียง",
             options: [
-              { label: "ล่าสุดก่อน", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest" },
+              { label: "ล่าสุดก่อน", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: "newest" }), active: activeSort === "newest", isDefault: true },
               { label: "เก่าก่อน", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: "oldest" }), active: activeSort === "oldest" },
               { label: "ชื่อ ก-ฮ", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: "name_asc" }), active: activeSort === "name_asc" },
               { label: "ชื่อ ฮ-ก", href: buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, sort: "name_desc" }), active: activeSort === "name_desc" },

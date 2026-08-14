@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { cn } from "@/lib/utils";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 
 type ExpandedPanel = "search" | "filter" | null;
 
@@ -82,6 +83,12 @@ export function NewsToolbar({
     setExpandedPanel(null);
     requestAnimationFrame(() => filterButtonRef.current?.focus());
   };
+
+  // Keep the resident presentation intact while routing the admin variant
+  // through the shared admin shell during the migration.
+  if (namespace === "admin-news") {
+    return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} search={{ keyword, placeholder: searchPlaceholder, label: "ค้นหาข่าว", suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} />;
+  }
 
   return (
     <section className="sticky top-[var(--app-sticky-top,4rem)] z-30 -mx-4 -mt-2 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4" aria-label={`เครื่องมือ${title}`}>

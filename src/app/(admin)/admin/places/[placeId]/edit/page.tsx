@@ -1,9 +1,8 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PlaceForm } from "../../place-form";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
 type PageProps = {
@@ -72,14 +71,8 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
   const images = orderedPlaceImages(place.images, place.imageUrls);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
-      <Link href={`/admin/places/${place.id}`} className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-        <ArrowLeft className="h-4 w-4" /> กลับรายละเอียดสถานที่
-      </Link>
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แก้ไขสถานที่</h1>
-        <p className="mt-1 text-sm text-gray-500">อัปเดตข้อมูลและรูปภาพสถานที่</p>
-      </div>
+    <div data-admin-compact-top className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+      <AdminPageToolbar variant="form" backHref={`/admin/places/${place.id}`} backLabel="กลับรายละเอียดสถานที่" title="แก้ไขสถานที่" description="อัปเดตข้อมูลและรูปภาพสถานที่" />
       <PlaceForm
         mode="edit"
         placeId={place.id}

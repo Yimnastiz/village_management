@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Clock3, MapPin, Pencil, Phone } from "lucide-react";
+import { Clock3, MapPin, Pencil, Phone } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
@@ -7,6 +7,7 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { DeletePlaceButton } from "../delete-place-button";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
 import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
 
@@ -87,28 +88,27 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
-      <Link href="/admin/places" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
-        <ArrowLeft className="h-4 w-4" /> กลับรายการสถานที่
-      </Link>
+    <div data-admin-compact-top className="mx-auto flex w-full max-w-4xl flex-col gap-3">
+      <AdminPageToolbar
+        variant="detail"
+        backHref="/admin/places"
+        backLabel="กลับรายการสถานที่"
+        title="รายละเอียดสถานที่"
+        description="ข้อมูลสถานที่และการแสดงผล"
+        actions={<><Link href={`/admin/places/${place.id}/edit`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"><Pencil className="mr-1 h-4 w-4" /> แก้ไข</Link><DeletePlaceButton placeId={place.id} placeName={place.name} /></>}
+      />
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
               {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
               <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
             </div>
-            <h1 className="mt-3 text-2xl font-bold text-gray-900">{place.name}</h1>
+            <h2 className="mt-3 text-xl font-bold text-gray-900">{place.name}</h2>
             {creatorName && <p className="mt-1 text-sm text-gray-500">{creatorLabel} {creatorName}</p>}
             <p className="mt-0.5 text-xs text-gray-400">{new Intl.DateTimeFormat("th-TH", { dateStyle: "medium" }).format(place.createdAt)}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/places/${place.id}/edit`} className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-              <Pencil className="mr-1 h-4 w-4" /> แก้ไข
-            </Link>
-            <DeletePlaceButton placeId={place.id} placeName={place.name} />
           </div>
         </div>
 
