@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1000 900"
+     role="img"
+     aria-labelledby="logo-title logo-desc"
+     preserveAspectRatio="xMidYMid meet">
+  <title id="logo-title">Village Management Logo</title>
+  <desc id="logo-desc">Rounded green house logo with chimney, four-pane window, and arched doorway.</desc>
+
+  <defs>
+    <!-- Green-focused gradients; intentionally avoids the strong yellow cast of the PNG. -->
+    <linearGradient id="g-roof" x1="120" y1="120" x2="870" y2="560" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#48E75E"/>
+      <stop offset="0.46" stop-color="#16C992"/>
+      <stop offset="1" stop-color="#087A67"/>
+    </linearGradient>
+
+    <linearGradient id="g-house" x1="270" y1="280" x2="760" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#54E83E"/>
+      <stop offset="0.42" stop-color="#13C98A"/>
+      <stop offset="1" stop-color="#087B69"/>
+    </linearGradient>
+
+    <linearGradient id="g-chimney" x1="760" y1="110" x2="820" y2="385" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#36DB66"/>
+      <stop offset="1" stop-color="#087C69"/>
+    </linearGradient>
+
+    <linearGradient id="g-door-frame" x1="500" y1="630" x2="500" y2="875" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#075F50"/>
+      <stop offset="0.55" stop-color="#0B8A65"/>
+      <stop offset="1" stop-color="#24C96A"/>
+    </linearGradient>
+
+    <linearGradient id="g-light" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#EAFBF2"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Chimney, behind roof -->
+  <rect x="744" y="118" width="142" height="292" rx="48" fill="url(#g-chimney)"/>
+
+  <!-- Main house body: intentionally broad, rounded and soft like the approved PNG. -->
+  <path fill="url(#g-house)" d="
+    M 202 438
+    L 440 226
+    C 476 194, 524 194, 560 226
+    L 798 438
+    C 830 467, 846 503, 846 548
+    L 846 727
+    C 846 811, 785 862, 696 862
+    L 304 862
+    C 215 862, 154 811, 154 727
+    L 154 548
+    C 154 503, 170 467, 202 438
+    Z"/>
+
+  <!-- Thick rounded roof. A stroked centerline keeps the roof continuously rounded at all sizes. -->
+  <path d="
+    M 92 446
+    L 454 122
+    C 480 98, 520 98, 546 122
+    L 908 446"
+    fill="none"
+    stroke="url(#g-roof)"
+    stroke-width="118"
+    stroke-linecap="round"
+    stroke-linejoin="round"/>
+
+  <!-- Four rounded window panes -->
+  <g fill="url(#g-light)">
+    <rect x="404" y="384" width="82" height="82" rx="22"/>
+    <rect x="514" y="384" width="82" height="82" rx="22"/>
+    <rect x="404" y="486" width="82" height="82" rx="22"/>
+    <rect x="514" y="486" width="82" height="82" rx="22"/>
+  </g>
+
+  <!-- Recessed arched doorway frame -->
+  <path fill="url(#g-door-frame)" d="
+    M 374 862
+    L 374 696
+    C 374 626, 430 570, 500 570
+    C 570 570, 626 626, 626 696
+    L 626 862
+    Z"/>
+
+  <!-- Door opening -->
+  <path fill="url(#g-light)" d="
+    M 420 862
+    L 420 706
+    C 420 660, 456 624, 500 624
+    C 544 624, 580 660, 580 706
+    L 580 862
+    Z"/>
+</svg>

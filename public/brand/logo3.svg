@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Village Management Logo</title>
+  <desc id="desc">Green gradient house logo redrawn as true SVG vector shapes.</desc>
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b9ff16"/>
+      <stop offset="36%" stop-color="#39e22a"/>
+      <stop offset="68%" stop-color="#00b978"/>
+      <stop offset="100%" stop-color="#008f75"/>
+    </linearGradient>
+    <linearGradient id="roofGrad" x1="12%" y1="0%" x2="88%" y2="100%">
+      <stop offset="0%" stop-color="#baff1a"/>
+      <stop offset="40%" stop-color="#4ee72e"/>
+      <stop offset="72%" stop-color="#08bf78"/>
+      <stop offset="100%" stop-color="#008d74"/>
+    </linearGradient>
+    <linearGradient id="doorGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dfffea"/>
+    </linearGradient>
+    <linearGradient id="windowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eefcf3"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#003c29" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+
+  <rect x="835" y="175" width="205" height="300" rx="55" fill="url(#roofGrad)" filter="url(#softShadow)"/>
+
+  <path d="M205 545
+           Q205 485 250 448
+           L525 225
+           Q600 165 675 225
+           L950 448
+           Q995 485 995 545
+           L995 930
+           Q995 1035 890 1035
+           L310 1035
+           Q205 1035 205 930
+           Z"
+        fill="url(#bodyGrad)" filter="url(#softShadow)"/>
+
+  <path d="M118 505
+           L523 165
+           Q600 100 677 165
+           L1082 505
+           Q1122 540 1088 585
+           Q1050 635 1002 600
+           L660 314
+           Q600 264 540 314
+           L198 600
+           Q150 635 112 585
+           Q78 540 118 505 Z"
+        fill="url(#roofGrad)" filter="url(#softShadow)"/>
+
+  <path d="M137 492 L530 164 Q600 107 670 164"
+        fill="none" stroke="#e8ff73" stroke-width="18"
+        stroke-linecap="round" opacity="0.34"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="487" y="446" width="99" height="99" rx="26" fill="url(#windowGrad)"/>
+    <rect x="614" y="446" width="99" height="99" rx="26" fill="url(#windowGrad)"/>
+    <rect x="487" y="572" width="99" height="99" rx="26" fill="url(#windowGrad)"/>
+    <rect x="614" y="572" width="99" height="99" rx="26" fill="url(#windowGrad)"/>
+  </g>
+
+  <path d="M465 1035 L465 860
+           Q465 720 600 720
+           Q735 720 735 860
+           L735 1035 Z"
+        fill="#008f63" opacity="0.80"/>
+
+  <path d="M515 1035 L515 874
+           Q515 785 600 785
+           Q685 785 685 874
+           L685 1035 Z"
+        fill="url(#doorGrad)" filter="url(#softShadow)"/>
+
+  <ellipse cx="600" cy="1040" rx="245" ry="18" fill="#baff16" opacity="0.30"/>
+</svg>
