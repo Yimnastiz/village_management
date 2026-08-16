@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
+import { issueStageBadgeVariant } from "@/components/issues/issue-status-indicator";
 import {
   AdminEditForm,
   AdminStageForm,
@@ -17,15 +18,6 @@ import {
 } from "./admin-issue-client";
 
 interface PageProps { params: Promise<{ issueId: string }> }
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  OPEN: "warning",
-  IN_PROGRESS: "info",
-  WAITING: "warning",
-  RESOLVED: "success",
-  CLOSED: "default",
-  REJECTED: "danger",
-};
 
 const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   LOW: "default",
@@ -108,7 +100,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
                 <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
                 <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
               </div>
-              <Badge className="self-start" variant={stageVariant[issue.stage] ?? "default"}>
+              <Badge className="self-start" variant={issueStageBadgeVariant[issue.stage] ?? "default"}>
                 {ISSUE_STAGE_LABELS[issue.stage]}
               </Badge>
             </div>

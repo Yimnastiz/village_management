@@ -10,25 +10,24 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { getUserDisplayName } from "@/lib/user-display";
+import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 
 interface PageProps {
   searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
 }
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  OPEN: "warning",
-  IN_PROGRESS: "info",
-  WAITING: "warning",
-  RESOLVED: "success",
-  CLOSED: "default",
-  REJECTED: "danger",
-};
 
 const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   LOW: "default",
   MEDIUM: "info",
   HIGH: "warning",
   URGENT: "danger",
+};
+
+const priorityBorderColor: Record<string, string> = {
+  URGENT: "border-l-red-500",
+  HIGH: "border-l-orange-500",
+  MEDIUM: "border-l-yellow-400",
+  LOW: "border-l-green-500",
 };
 
 function formatDate(date: Date): string {
@@ -201,10 +200,10 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
           <p className="font-medium text-gray-700">ไม่พบคำร้อง</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white">
-          <table className="w-full table-fixed text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left text-gray-600">
+        <div className="max-h-[65vh] overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+          <table className="w-full min-w-[680px] table-fixed text-sm">
+            <thead className="sticky top-0 z-10 shadow-[0_1px_0_rgb(229_231_235)]">
+              <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-3 font-medium">หัวข้อ / ผู้แจ้ง</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">หมวดหมู่</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">ความสำคัญ</th>
@@ -215,10 +214,9 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
             </thead>
             <tbody>
               {issues.map((issue) => (
-                <tr key={issue.id} className="border-b hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                <tr key={issue.id} className="border-b border-gray-100 last:border-b-0 transition-colors hover:bg-gray-50/80">
+                  <td className={`border-l-4 px-4 py-3 ${priorityBorderColor[issue.priority] ?? "border-l-gray-300"}`}>
+                    <div className="min-w-0">
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 line-clamp-1">{issue.title}</p>
                         <p className="mt-1 truncate text-xs font-medium text-gray-700">{getUserDisplayName(reporterById.get(issue.reporterId))}</p>
@@ -238,9 +236,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={stageVariant[issue.stage] ?? "default"}>
-                      {ISSUE_STAGE_LABELS[issue.stage]}
-                    </Badge>
+                    <IssueStatusIndicator stage={issue.stage} />
                   </td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell tabular-nums">
                     {formatDate(issue.createdAt)}

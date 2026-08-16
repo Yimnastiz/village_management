@@ -28,10 +28,10 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
 };
 
 const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-red-500",
-  HIGH: "border-l-orange-500",
-  MEDIUM: "border-l-yellow-400",
-  LOW: "border-l-green-500",
+  URGENT: "border-l-8 border-l-red-500",
+  HIGH: "border-l-8 border-l-orange-500",
+  MEDIUM: "border-l-8 border-l-yellow-400",
+  LOW: "border-l-8 border-l-green-500",
 };
 
 function formatDate(date: Date): string {
@@ -168,7 +168,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
             <Link
               key={issue.id}
               href={`/resident/issues/${issue.id}`}
-              className={`block rounded-xl border border-gray-200 border-l-4 bg-white p-4 hover:shadow-md transition-shadow ${priorityBorderColor[issue.priority] ?? "border-l-gray-300"}`}
+              className={`block rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow ${priorityBorderColor[issue.priority] ?? "border-l-8 border-l-gray-300"}`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
