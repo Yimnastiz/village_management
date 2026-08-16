@@ -4,19 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Calendar,
-  Download,
-  Eye,
-  Home,
-  Image,
-  MapPin,
   Menu,
-  Newspaper,
-  Phone,
+  ArrowLeft,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VillageSwitcher } from "./village-switcher";
+import { isPublicVillageNavItemActive, PUBLIC_VILLAGE_NAV_ITEMS } from "./public-village-nav";
 
 type VillageOption = {
   id: string;
@@ -58,16 +52,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, []);
 
-  const navItems = [
-    { href: base, label: "หน้าแรก", icon: Home },
-    { href: `${base}/news`, label: "ข่าวสาร", icon: Newspaper },
-    { href: `${base}/calendar`, label: "ปฏิทิน", icon: Calendar },
-    { href: `${base}/gallery`, label: "แกลเลอรี", icon: Image },
-    { href: `${base}/places`, label: "สถานที่", icon: MapPin },
-    { href: `${base}/transparency`, label: "ความโปร่งใส", icon: Eye },
-    { href: `${base}/downloads`, label: "ดาวน์โหลด", icon: Download },
-    { href: `${base}/contacts`, label: "ติดต่อ", icon: Phone },
-  ];
+  const navItems = PUBLIC_VILLAGE_NAV_ITEMS(base);
 
   return (
     <>
@@ -112,19 +97,17 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
             {/* Nav items */}
             <nav className="flex-1 space-y-0.5 p-3">
               {navItems.map((item) => {
-                const isActive =
-                  item.href === base
-                    ? pathname === base || pathname === base + "/"
-                    : pathname === item.href || pathname.startsWith(item.href + "/");
+                const isActive = isPublicVillageNavItemActive(pathname, item.href, base);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     onClick={() => setOpen(false)}
                     className={cn(
                       "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       isActive
-                        ? "bg-white/20 text-white"
+                        ? "border-l-2 border-emerald-200 bg-white/20 pl-[0.625rem] font-semibold text-white"
                         : "text-green-100 hover:bg-white/10 hover:text-white",
                     )}
                   >
@@ -143,7 +126,7 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
                 onClick={() => setOpen(false)}
                 className="block rounded-lg bg-white/10 px-3 py-2 text-center text-sm text-white hover:bg-white/20"
               >
-                หน้าค้นหาหมู่บ้าน
+                <span className="inline-flex items-center justify-center gap-2"><ArrowLeft className="h-4 w-4" />กลับหน้าหลัก</span>
               </Link>
               <Link
                 href="/auth/login"

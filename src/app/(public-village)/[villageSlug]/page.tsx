@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar, Compass, Eye, HeartPulse, Info, Mail, MapPin, Newspaper, Phone } from "lucide-react";
+import { Calendar, Compass, Eye, Globe, HeartPulse, Info, Mail, MapPin, Newspaper, Phone } from "lucide-react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSlugVariants, normalizeVillageSlugParam } from "@/lib/village-slug";
@@ -14,7 +14,7 @@ export default async function VillageHomePage({ params }: PageProps) {
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
-    select: { id: true, name: true, description: true, address: true, phone: true, email: true },
+    select: { id: true, name: true, description: true, address: true, phone: true, email: true, website: true },
   });
   if (!village) notFound();
 
@@ -72,7 +72,8 @@ export default async function VillageHomePage({ params }: PageProps) {
             {village.address && <div className="flex gap-3 text-sm"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" /><span className="text-gray-600">{village.address}</span></div>}
             {village.phone && <div className="flex gap-3 text-sm"><Phone className="h-4 w-4 shrink-0 text-gray-400" /><a href={`tel:${village.phone}`} className="text-emerald-700 hover:underline">{village.phone}</a></div>}
             {village.email && <div className="flex gap-3 text-sm"><Mail className="h-4 w-4 shrink-0 text-gray-400" /><a href={`mailto:${village.email}`} className="break-all text-emerald-700 hover:underline">{village.email}</a></div>}
-            {!village.address && !village.phone && !village.email && <p className="text-sm text-gray-500">ยังไม่มีช่องทางติดต่อที่เผยแพร่สาธารณะ</p>}
+            {village.website && <div className="flex gap-3 text-sm"><Globe className="h-4 w-4 shrink-0 text-gray-400" /><a href={village.website} target="_blank" rel="noreferrer" className="break-all text-emerald-700 hover:underline">{village.website}</a></div>}
+            {!village.address && !village.phone && !village.email && !village.website && <p className="text-sm text-gray-500">ยังไม่มีข้อมูลติดต่อสาธารณะ</p>}
           </div>
         </aside>
       </div>

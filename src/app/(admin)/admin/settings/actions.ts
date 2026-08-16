@@ -42,7 +42,7 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
   const email = cleanString(formData, "email");
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
 
-  await prisma.village.update({
+  const village = await prisma.village.update({
     where: { id: villageId },
     data: {
       description: cleanString(formData, "description"),
@@ -51,10 +51,12 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
       email,
       website: cleanString(formData, "website"),
     },
+    select: { slug: true },
   });
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin/settings/village");
+  revalidatePath(`/${village.slug}`);
   return { success: true };
 }
 
