@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ResidentIssuesToolbar } from "./resident-issues-toolbar";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
+import { getIssuePriorityMeta } from "@/lib/issues/priority";
 
 interface PageProps {
   searchParams: Promise<{
@@ -18,13 +19,6 @@ interface PageProps {
     sort?: string;
   }>;
 }
-
-const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-8 border-l-red-500",
-  HIGH: "border-l-8 border-l-orange-600",
-  MEDIUM: "border-l-8 border-l-yellow-400",
-  LOW: "border-l-8 border-l-emerald-600",
-};
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
@@ -156,12 +150,17 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="space-y-3">
-          {sortedIssues.map((issue) => (
+          {sortedIssues.map((issue) => {
+            const priorityMeta = getIssuePriorityMeta(issue.priority);
+
+            return (
             <Link
               key={issue.id}
               href={`/resident/issues/${issue.id}`}
-              className={`block rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow ${priorityBorderColor[issue.priority] ?? "border-l-8 border-l-gray-300"}`}
+              className="relative block overflow-hidden rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
             >
+              <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
+              <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                 <div className="min-w-0">
                   <div className="min-w-0">
@@ -183,7 +182,8 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
                 </div>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

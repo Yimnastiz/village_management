@@ -4,31 +4,19 @@ import { Prisma } from "@prisma/client";
 import { AlertCircle, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { getUserDisplayName } from "@/lib/user-display";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { ISSUE_STATUS_META } from "@/lib/issues/status";
+import { getIssuePriorityMeta } from "@/lib/issues/priority";
+import { normalizeIssueImageUrls } from "@/lib/issues/images";
 
 interface PageProps {
   searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
 }
-
-const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-red-500",
-  HIGH: "border-l-orange-600",
-  MEDIUM: "border-l-yellow-400",
-  LOW: "border-l-emerald-600",
-};
-
-const priorityBadgeClass: Record<string, string> = {
-  URGENT: "bg-red-100 text-red-700",
-  HIGH: "bg-orange-100 text-orange-900",
-  MEDIUM: "bg-yellow-100 text-yellow-900",
-  LOW: "bg-emerald-100 text-emerald-900",
-};
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
@@ -95,6 +83,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         stage: true,
         createdAt: true,
         location: true,
+        imageUrls: true,
       },
     }),
     prisma.issue.count({ where: whereClause }),
@@ -206,7 +195,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
           <table className="w-full min-w-[800px] table-fixed text-sm">
             <thead className="sticky top-0 z-10 shadow-[0_1px_0_rgb(229_231_235)]">
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="border-l-8 border-l-transparent px-4 py-3 font-medium">หัวข้อ</th>
+                <th className="w-[34%] px-4 py-3 font-medium">หัวข้อ</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">ผู้แจ้ง</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">หมวดหมู่</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">ความสำคัญ</th>
@@ -216,15 +205,28 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
               </tr>
             </thead>
             <tbody>
-              {issues.map((issue) => (
+              {issues.map((issue) => {
+                const priorityMeta = getIssuePriorityMeta(issue.priority);
+                const imageUrls = normalizeIssueImageUrls(issue.imageUrls);
+                const firstImage = imageUrls[0];
+                const extraImageCount = imageUrls.length - 1;
+
+                return (
                 <tr key={issue.id} className="border-b border-gray-100 last:border-b-0 transition-colors hover:bg-gray-50/80">
-                  <td className={`border-l-8 px-4 py-3 ${priorityBorderColor[issue.priority] ?? "border-l-gray-300"}`}>
-                    <div className="min-w-0">
+                  <td className="relative px-4 py-3">
+                    <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
+                    <div className="flex min-w-0 items-center gap-3">
+                      {firstImage && (
+                        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                          <img src={firstImage} alt="" loading="lazy" className="h-full w-full object-cover" />
+                          {extraImageCount > 0 && (
+                            <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">+{extraImageCount}</span>
+                          )}
+                        </div>
+                      )}
                       <div className="min-w-0">
-                        <p className="font-medium text-gray-900 line-clamp-1">{issue.title}</p>
-                        {issue.location && (
-                          <p className="text-xs text-gray-400">{issue.location}</p>
-                        )}
+                        <p className="line-clamp-1 font-medium text-gray-900">{issue.title}</p>
+                        {issue.location && <p className="truncate text-xs text-gray-400">{issue.location}</p>}
                       </div>
                     </div>
                   </td>
@@ -236,8 +238,8 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                     {ISSUE_CATEGORY_LABELS[issue.category]}
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${priorityBadgeClass[issue.priority] ?? "bg-gray-100 text-gray-800"}`}>
-                      {ISSUE_PRIORITY_LABELS[issue.priority]}
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${priorityMeta.badgeClass}`}>
+                      {priorityMeta.label}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -254,7 +256,8 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

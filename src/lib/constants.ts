@@ -1,11 +1,5 @@
 export { ISSUE_STAGE_LABELS } from "@/lib/issues/status";
-
-export const ISSUE_PRIORITY_LABELS: Record<string, string> = {
-  LOW: "ต่ำ",
-  MEDIUM: "ปานกลาง",
-  HIGH: "สูง",
-  URGENT: "เร่งด่วน",
-};
+export { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
 
 export const ISSUE_CATEGORY_LABELS: Record<string, string> = {
   ROAD: "ถนน/ทางสาธารณะ",
