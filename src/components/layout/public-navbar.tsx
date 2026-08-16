@@ -3,9 +3,18 @@
 import Link from "next/link";
 import { Home, Menu } from "lucide-react";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { TopNavigationLink, isTopNavigationItemActive } from "./top-navigation-link";
+
+const marketingNavItems = [
+  { href: "/info", label: "ข้อมูลโครงการ" },
+  { href: "/faq", label: "คำถามพบบ่อย" },
+  { href: "/feedback", label: "เสนอแนะ" },
+] as const;
 
 export function PublicNavbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -23,10 +32,18 @@ export function PublicNavbar() {
             <Home className="h-5 w-5" />
             <span className="truncate text-base sm:text-lg">ระบบหมู่บ้านอัจฉริยะ</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-            <Link href="/info" className="hover:text-green-700">ข้อมูลโครงการ</Link>
-            <Link href="/faq" className="hover:text-green-700">คำถามพบบ่อย</Link>
-            <Link href="/feedback" className="hover:text-green-700">เสนอแนะ</Link>
+          <nav className="hidden items-center gap-6 text-sm md:flex">
+            {marketingNavItems.map((item) => (
+              <TopNavigationLink
+                key={item.href}
+                href={item.href}
+                active={isTopNavigationItemActive(pathname, item.href, "/")}
+                activeIndicatorClassName="bg-green-600"
+                className="font-medium text-gray-600 transition-colors hover:text-green-700"
+              >
+                {item.label}
+              </TopNavigationLink>
+            ))}
           </nav>
           <div className="hidden md:flex items-center gap-3">
             <Link
@@ -55,9 +72,19 @@ export function PublicNavbar() {
             </button>
             {mobileMenuOpen ? <div id="public-mobile-menu" className="absolute right-0 top-12 w-[min(92vw,22rem)] rounded-xl border border-gray-200 bg-white p-3 shadow-xl">
               <nav className="space-y-1 text-sm text-gray-700">
-                <Link href="/info" className="block rounded-lg px-3 py-2 hover:bg-gray-100">ข้อมูลโครงการ</Link>
-                <Link href="/faq" className="block rounded-lg px-3 py-2 hover:bg-gray-100">คำถามพบบ่อย</Link>
-                <Link href="/feedback" className="block rounded-lg px-3 py-2 hover:bg-gray-100">เสนอแนะ</Link>
+                {marketingNavItems.map((item) => {
+                  const active = isTopNavigationItemActive(pathname, item.href, "/");
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className={active ? "block rounded-lg border-l-2 border-green-600 bg-green-50 py-2 pl-2.5 pr-3 font-semibold text-green-700" : "block rounded-lg px-3 py-2 hover:bg-gray-100"}
+                    >
+                      {item.label}
+                    </Link>
+                  );
+                })}
                 <Link href="/consent" className="block rounded-lg px-3 py-2 hover:bg-gray-100">นโยบายความเป็นส่วนตัว</Link>
               </nav>
               <div className="my-3 h-px bg-gray-100" />

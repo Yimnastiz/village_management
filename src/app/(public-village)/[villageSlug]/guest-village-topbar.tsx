@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TopNavigationLink } from "@/components/layout/top-navigation-link";
 import { VillageSwitcher } from "./village-switcher";
 import { VillagePublicMobileNav } from "./village-mobile-nav";
 import { isPublicVillageNavItemActive, PUBLIC_VILLAGE_NAV_ITEMS } from "./public-village-nav";
@@ -25,10 +26,10 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
         <nav aria-label="เมนูข้อมูลสาธารณะ" className="hidden min-w-0 flex-1 items-stretch self-stretch xl:flex">
           {items.map((item) => {
             const active = isPublicVillageNavItemActive(pathname, item.href, base);
-            return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn(
-              "inline-flex min-w-0 flex-1 items-center justify-center border-b-2 border-transparent px-2 text-sm font-medium whitespace-nowrap transition-colors",
-              active ? "border-emerald-200 text-white font-semibold" : "text-emerald-100 hover:border-emerald-100/60 hover:text-white"
-            )}>{item.label}</Link>;
+            return <TopNavigationLink key={item.href} href={item.href} active={active} activeIndicatorClassName="bg-white" className={cn(
+              "min-w-0 flex-1 justify-center px-2 text-sm font-medium whitespace-nowrap transition-colors",
+              active ? "text-white font-semibold" : "text-emerald-100 hover:text-white"
+            )}>{item.label}</TopNavigationLink>;
           })}
         </nav>
 
@@ -47,10 +48,10 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
           <div className="flex h-10 min-w-max items-stretch gap-1">
             {items.map((item) => {
               const active = isPublicVillageNavItemActive(pathname, item.href, base);
-              return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn(
-                "inline-flex items-center gap-1.5 rounded-t-md border-b-2 border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-colors sm:px-3 sm:text-sm",
-                active ? "border-emerald-200 text-white font-semibold" : "text-emerald-100 hover:border-emerald-100/60 hover:text-white"
-              )}><item.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{item.label}</Link>;
+              return <TopNavigationLink key={item.href} href={item.href} active={active} activeIndicatorClassName="bg-white" leading={<item.icon className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" />} className={cn(
+                "px-2.5 text-xs font-medium whitespace-nowrap transition-colors sm:px-3 sm:text-sm",
+                active ? "text-white font-semibold" : "text-emerald-100 hover:text-white"
+              )}>{item.label}</TopNavigationLink>;
             })}
           </div>
         </div>
