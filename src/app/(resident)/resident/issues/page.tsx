@@ -3,7 +3,7 @@ import { AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { IssueCategory, IssuePriority, Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ResidentIssuesToolbar } from "./resident-issues-toolbar";
@@ -27,11 +27,11 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   REJECTED: "danger",
 };
 
-const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  LOW: "default",
-  MEDIUM: "info",
-  HIGH: "warning",
-  URGENT: "danger",
+const priorityBorderColor: Record<string, string> = {
+  URGENT: "border-l-red-500",
+  HIGH: "border-l-orange-500",
+  MEDIUM: "border-l-yellow-400",
+  LOW: "border-l-green-500",
 };
 
 function formatDate(date: Date): string {
@@ -168,11 +168,10 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
             <Link
               key={issue.id}
               href={`/resident/issues/${issue.id}`}
-              className="block bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              className={`block rounded-xl border border-gray-200 border-l-4 bg-white p-4 hover:shadow-md transition-shadow ${priorityBorderColor[issue.priority] ?? "border-l-gray-300"}`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <AlertCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                <div className="min-w-0">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 truncate">{issue.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
@@ -188,12 +187,6 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
                   {issue.reporterId !== session.id && (
                     <Badge variant="outline" className="hidden md:inline-flex">ชุมชน</Badge>
                   )}
-                  <Badge
-                    variant={priorityVariant[issue.priority] ?? "default"}
-                    className="hidden sm:inline-flex"
-                  >
-                    {ISSUE_PRIORITY_LABELS[issue.priority]}
-                  </Badge>
                   <Badge variant={stageVariant[issue.stage] ?? "default"}>
                     {ISSUE_STAGE_LABELS[issue.stage]}
                   </Badge>
