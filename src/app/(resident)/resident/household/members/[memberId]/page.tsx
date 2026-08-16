@@ -90,7 +90,10 @@ export default async function MemberDetailPage({ params }: PageProps) {
         nationalId: true,
         phone: true,
         email: true,
-        profilePhoto: true,
+        // A person's stored profilePhoto may be a historical copy. Use the
+        // linked account's image so this page always reflects its current
+        // profile picture.
+        user: { select: { image: true } },
         house: { select: { houseNumber: true } },
       },
     });
@@ -104,7 +107,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
       nationalId: person.nationalId,
       phone: person.phone,
       email: person.email,
-      profilePhoto: person.profilePhoto,
+      profilePhoto: person.user?.image ?? null,
       houseNumber: person.house?.houseNumber,
       source: "ทะเบียนบุคคล",
     };
@@ -237,4 +240,3 @@ export default async function MemberDetailPage({ params }: PageProps) {
     </div>
   );
 }
-
