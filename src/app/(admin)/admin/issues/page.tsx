@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { AlertCircle, Plus, Eye } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
@@ -16,18 +15,18 @@ interface PageProps {
   searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
 }
 
-const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  LOW: "default",
-  MEDIUM: "info",
-  HIGH: "warning",
-  URGENT: "danger",
-};
-
 const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-red-500",
-  HIGH: "border-l-orange-500",
+  URGENT: "border-l-red-600",
+  HIGH: "border-l-amber-400",
   MEDIUM: "border-l-yellow-400",
   LOW: "border-l-green-500",
+};
+
+const priorityBadgeClass: Record<string, string> = {
+  URGENT: "bg-red-100 text-red-800",
+  HIGH: "bg-amber-100 text-amber-900",
+  MEDIUM: "bg-yellow-100 text-yellow-800",
+  LOW: "bg-green-100 text-green-800",
 };
 
 function formatDate(date: Date): string {
@@ -201,10 +200,11 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         </div>
       ) : (
         <div className="max-h-[65vh] overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-          <table className="w-full min-w-[680px] table-fixed text-sm">
+          <table className="w-full min-w-[800px] table-fixed text-sm">
             <thead className="sticky top-0 z-10 shadow-[0_1px_0_rgb(229_231_235)]">
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3 font-medium">หัวข้อ / ผู้แจ้ง</th>
+                <th className="px-4 py-3 font-medium">หัวข้อ</th>
+                <th className="px-4 py-3 font-medium hidden md:table-cell">ผู้แจ้ง</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">หมวดหมู่</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">ความสำคัญ</th>
                 <th className="px-4 py-3 font-medium">สถานะ</th>
@@ -219,21 +219,23 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                     <div className="min-w-0">
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 line-clamp-1">{issue.title}</p>
-                        <p className="mt-1 truncate text-xs font-medium text-gray-700">{getUserDisplayName(reporterById.get(issue.reporterId))}</p>
-                        <p className="truncate text-xs text-gray-500">{reporterById.get(issue.reporterId)?.phoneNumber ?? "ไม่พบข้อมูลผู้แจ้ง"}</p>
                         {issue.location && (
                           <p className="text-xs text-gray-400">{issue.location}</p>
                         )}
                       </div>
                     </div>
                   </td>
+                  <td className="hidden px-4 py-3 md:table-cell">
+                    <p className="truncate text-sm font-medium text-gray-700">{getUserDisplayName(reporterById.get(issue.reporterId))}</p>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">{reporterById.get(issue.reporterId)?.phoneNumber ?? "ไม่พบข้อมูลผู้แจ้ง"}</p>
+                  </td>
                   <td className="px-4 py-3 hidden md:table-cell text-gray-600">
                     {ISSUE_CATEGORY_LABELS[issue.category]}
                   </td>
                   <td className="px-4 py-3 hidden lg:table-cell">
-                    <Badge variant={priorityVariant[issue.priority] ?? "default"}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${priorityBadgeClass[issue.priority] ?? "bg-gray-100 text-gray-800"}`}>
                       {ISSUE_PRIORITY_LABELS[issue.priority]}
-                    </Badge>
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <IssueStatusIndicator stage={issue.stage} />

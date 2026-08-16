@@ -28,8 +28,8 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
 };
 
 const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-8 border-l-red-500",
-  HIGH: "border-l-8 border-l-orange-500",
+  URGENT: "border-l-8 border-l-red-600",
+  HIGH: "border-l-8 border-l-amber-400",
   MEDIUM: "border-l-8 border-l-yellow-400",
   LOW: "border-l-8 border-l-green-500",
 };
