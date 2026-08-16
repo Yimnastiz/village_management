@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   adminEditIssueAction,
   adminUpdateStageAction,
@@ -117,32 +118,47 @@ export function AdminEditForm({
 
 type AdminStageFormProps = {
   issueId: string;
-  currentStage: string;
   stageOptions: { value: string; label: string }[];
 };
 
-export function AdminStageForm({ issueId, currentStage, stageOptions }: AdminStageFormProps) {
+export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
   const router = useRouter();
-  const [stage, setStage] = useState(currentStage);
+  const [stage, setStage] = useState(stageOptions[0]?.value ?? "");
   const [note, setNote] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (stage === currentStage) return;
+    if (!stage) return;
+    if (stage === "REJECTED") {
+      setRejectDialogOpen(true);
+      return;
+    }
+    await submitStage(note);
+  };
+
+  const submitStage = async (submissionNote: string) => {
     setIsSubmitting(true);
     setError(null);
-    const result = await adminUpdateStageAction(issueId, stage, note);
+    const result = await adminUpdateStageAction(issueId, stage, submissionNote);
     if (!result.success) {
       setError(result.error);
       setIsSubmitting(false);
       return;
     }
     setNote("");
+    setRejectReason("");
+    setRejectDialogOpen(false);
     setIsSubmitting(false);
     router.refresh();
   };
+
+  if (stageOptions.length === 0) {
+    return <p className="text-sm text-gray-500">สถานะนี้สิ้นสุดกระบวนการแล้ว</p>;
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
@@ -153,7 +169,7 @@ export function AdminStageForm({ issueId, currentStage, stageOptions }: AdminSta
         options={stageOptions}
       />
       <Textarea
-        label="หมายเหตุ (ไม่บังคับ)"
+        label={stage === "RESOLVED" ? "รายละเอียดการแก้ไข (ไม่บังคับ)" : "หมายเหตุ (ไม่บังคับ)"}
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="เช่น ช่างออกไปตรวจสอบแล้ว..."
@@ -164,10 +180,34 @@ export function AdminStageForm({ issueId, currentStage, stageOptions }: AdminSta
         type="submit"
         size="sm"
         isLoading={isSubmitting}
-        disabled={stage === currentStage}
+        disabled={!stage}
       >
         บันทึกสถานะ
       </Button>
+      <ConfirmDialog
+        open={rejectDialogOpen}
+        title="ปฏิเสธคำร้อง"
+        description="โปรดระบุเหตุผลเพื่อแจ้งผู้แจ้งปัญหา"
+        confirmLabel="ยืนยันการปฏิเสธ"
+        tone="danger"
+        pending={isSubmitting}
+        confirmDisabled={rejectReason.trim().length < 5 || rejectReason.trim().length > 500}
+        onClose={() => !isSubmitting && setRejectDialogOpen(false)}
+        onConfirm={() => submitStage(rejectReason)}
+      >
+        <Textarea
+          label="เหตุผลที่ปฏิเสธ"
+          required
+          minLength={5}
+          maxLength={500}
+          value={rejectReason}
+          onChange={(event) => setRejectReason(event.target.value)}
+          error={rejectReason.length > 0 && (rejectReason.trim().length < 5 || rejectReason.trim().length > 500) ? "กรุณาระบุ 5–500 ตัวอักษร" : undefined}
+          helperText={`${rejectReason.trim().length}/500 ตัวอักษร`}
+          rows={4}
+          autoFocus
+        />
+      </ConfirmDialog>
     </form>
   );
 }

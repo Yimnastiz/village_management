@@ -4,12 +4,13 @@ import { Prisma } from "@prisma/client";
 import { AlertCircle, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { getUserDisplayName } from "@/lib/user-display";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
+import { ISSUE_STATUS_META } from "@/lib/issues/status";
 
 interface PageProps {
   searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
@@ -45,14 +46,16 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   if (!membership) redirect("/auth/login");
 
   const keyword = q?.trim() ?? "";
-  const activeStage = stage ?? "ALL";
+  const activeStage = stage === "OPEN" || stage === "WAITING" ? "PENDING" : stage === "CLOSED" ? "RESOLVED" : stage ?? "ALL";
   const activeCategory = category ?? "ALL";
   const activeSort = sort ?? "newest";
   const page = Math.max(1, Number(pageParam ?? "1") || 1);
   const pageSize = 25;
 
   const whereClause: Prisma.IssueWhereInput = { villageId: membership.villageId };
-  if (activeStage !== "ALL") whereClause.stage = activeStage as Prisma.IssueWhereInput["stage"];
+  if (activeStage === "PENDING") whereClause.stage = { in: ["OPEN", "WAITING"] };
+  else if (activeStage === "RESOLVED") whereClause.stage = { in: ["RESOLVED", "CLOSED"] };
+  else if (activeStage !== "ALL") whereClause.stage = activeStage as Prisma.IssueWhereInput["stage"];
   if (activeCategory !== "ALL") whereClause.category = activeCategory as Prisma.IssueWhereInput["category"];
   if (keyword) {
     const matchingReporters = await prisma.user.findMany({
@@ -112,14 +115,14 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
   const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
 
+  const pendingCount = (counts.OPEN ?? 0) + (counts.WAITING ?? 0);
+  const resolvedCount = (counts.RESOLVED ?? 0) + (counts.CLOSED ?? 0);
   const stageFilters = [
     { value: "ALL", label: "ทั้งหมด", count: totalCount },
-    { value: "OPEN", label: "เปิด" },
-    { value: "IN_PROGRESS", label: "กำลังดำเนินการ" },
-    { value: "WAITING", label: "รอดำเนินการ" },
-    { value: "RESOLVED", label: "แก้ไขแล้ว" },
-    { value: "CLOSED", label: "ปิด" },
-    { value: "REJECTED", label: "ปฏิเสธ" },
+    { value: "PENDING", label: ISSUE_STATUS_META.PENDING.label, count: pendingCount },
+    { value: "IN_PROGRESS", label: ISSUE_STATUS_META.IN_PROGRESS.label },
+    { value: "RESOLVED", label: ISSUE_STATUS_META.RESOLVED.label, count: resolvedCount },
+    { value: "REJECTED", label: ISSUE_STATUS_META.REJECTED.label },
   ];
 
   const suggestionTitles = Array.from(new Set(issues.map((issue) => issue.title))).slice(0, 12);
@@ -144,7 +147,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
     <div className="space-y-6">
       <AdminListToolbar
         title="จัดการปัญหา/คำร้อง"
-        description={`เปิด ${counts["OPEN"] ?? 0} • กำลังดำเนินการ ${counts["IN_PROGRESS"] ?? 0} • รอ ${counts["WAITING"] ?? 0}`}
+        description={`รอดำเนินการ ${pendingCount} • กำลังดำเนินการ ${counts["IN_PROGRESS"] ?? 0} • แก้ไขแล้ว ${resolvedCount}`}
         searchAction="/admin/issues"
         keyword={keyword}
         searchPlaceholder="ค้นหาหัวข้อ ผู้แจ้ง เบอร์โทร หรือรายละเอียด"

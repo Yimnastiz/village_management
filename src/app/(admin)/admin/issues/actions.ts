@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -117,6 +118,7 @@ export async function adminCreateIssueAction(
       category: parsed.data.category as IssueCategory,
       priority: parsed.data.priority as IssuePriority,
       location: parsed.data.location?.trim() || null,
+      stage: "WAITING",
     },
   });
 
@@ -126,6 +128,7 @@ export async function adminCreateIssueAction(
       actorId: ctx.session!.id,
       action: "แจ้งปัญหา",
       description: "แอดมินสร้างคำร้องใหม่",
+      metadata: { eventType: "STATUS_CHANGE", stage: "PENDING" },
     },
   });
 
@@ -175,24 +178,6 @@ export async function adminEditIssueAction(
   return { success: true };
 }
 
-const VALID_STAGES: IssueStage[] = [
-  "OPEN",
-  "IN_PROGRESS",
-  "WAITING",
-  "RESOLVED",
-  "CLOSED",
-  "REJECTED",
-];
-
-const STAGE_LABELS: Record<string, string> = {
-  OPEN: "เปิด",
-  IN_PROGRESS: "กำลังดำเนินการ",
-  WAITING: "รอดำเนินการ",
-  RESOLVED: "แก้ไขแล้ว",
-  CLOSED: "ปิด",
-  REJECTED: "ปฏิเสธ",
-};
-
 export async function adminUpdateStageAction(
   issueId: string,
   stage: string,
@@ -201,7 +186,7 @@ export async function adminUpdateStageAction(
   const ctx = await requireAdminCtx();
   if (ctx.error) return { success: false, error: ctx.error };
 
-  if (!(VALID_STAGES as string[]).includes(stage)) {
+  if (!Object.hasOwn(ISSUE_USER_STATUS_TO_STAGE, stage)) {
     return { success: false, error: "สถานะไม่ถูกต้อง" };
   }
 
@@ -210,12 +195,22 @@ export async function adminUpdateStageAction(
   });
   if (!issue) return { success: false, error: "ไม่พบคำร้อง" };
 
+  const currentStatus = getIssueUserStatus(issue.stage);
+  const nextStatus = stage as IssueUserStatus;
+  if (!ISSUE_ALLOWED_TRANSITIONS[currentStatus].includes(nextStatus)) {
+    return { success: false, error: "ไม่สามารถเปลี่ยนสถานะตามลำดับงานนี้ได้" };
+  }
+  const trimmedNote = note?.trim() || "";
+  if (nextStatus === "REJECTED" && (trimmedNote.length < 5 || trimmedNote.length > 500)) {
+    return { success: false, error: "เหตุผลที่ปฏิเสธต้องมี 5–500 ตัวอักษร" };
+  }
+  const persistedStage = ISSUE_USER_STATUS_TO_STAGE[nextStatus] as IssueStage;
+
   await prisma.issue.update({
     where: { id: issueId },
     data: {
-      stage: stage as IssueStage,
-      ...(stage === "RESOLVED" && { resolvedAt: new Date() }),
-      ...(stage === "CLOSED" && { closedAt: new Date() }),
+      stage: persistedStage,
+      ...(nextStatus === "RESOLVED" && { resolvedAt: new Date() }),
     },
   });
 
@@ -223,8 +218,9 @@ export async function adminUpdateStageAction(
     data: {
       issueId,
       actorId: ctx.session!.id,
-      action: `เปลี่ยนสถานะเป็น "${STAGE_LABELS[stage]}"`,
-      description: note?.trim() || null,
+      action: "เปลี่ยนสถานะ",
+      description: trimmedNote || null,
+      metadata: { eventType: "STATUS_CHANGE", stage: nextStatus },
     },
   });
 
@@ -236,16 +232,17 @@ export async function adminUpdateStageAction(
     includeReporter: true,
     includeAdmins: true,
     title: "สถานะคำร้องถูกอัปเดต",
-    body: `${issue.title} • ${STAGE_LABELS[stage]}`,
+    body: `${issue.title} • ${ISSUE_STATUS_META[nextStatus].label}`,
     metadata: {
-      stage,
-      note: note?.trim() || undefined,
+      stage: nextStatus,
+      note: trimmedNote || undefined,
     },
   });
 
   revalidatePath(`/resident/issues/${issueId}`);
   revalidatePath("/resident/issues");
   revalidatePath("/admin/issues");
+  revalidatePath(`/admin/issues/${issueId}`);
   revalidateAdminSidebar();
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");

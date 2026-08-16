@@ -1,11 +1,4 @@
-export const ISSUE_STAGE_LABELS: Record<string, string> = {
-  OPEN: "เปิด",
-  IN_PROGRESS: "กำลังดำเนินการ",
-  WAITING: "รอดำเนินการ",
-  RESOLVED: "แก้ไขแล้ว",
-  CLOSED: "ปิด",
-  REJECTED: "ปฏิเสธ",
-};
+export { ISSUE_STAGE_LABELS } from "@/lib/issues/status";
 
 export const ISSUE_PRIORITY_LABELS: Record<string, string> = {
   LOW: "ต่ำ",

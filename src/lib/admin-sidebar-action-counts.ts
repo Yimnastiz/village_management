@@ -51,7 +51,7 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
       where: { villageId, stage: AppointmentStage.PENDING_APPROVAL },
     }),
     prisma.issue.count({
-      where: { villageId, stage: IssueStage.OPEN },
+      where: { villageId, stage: { in: [IssueStage.OPEN, IssueStage.WAITING] } },
     }),
     prisma.villagePlaceSubmission.count({
       where: { villageId, status: VillagePlaceSubmissionStatus.PENDING },

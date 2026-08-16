@@ -4,12 +4,13 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Timeline } from "@/components/ui/timeline";
 import { ImageCarousel } from "@/components/ui/image-carousel";
-import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META } from "@/lib/issues/status";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
-import { issueStageBadgeVariant } from "@/components/issues/issue-status-indicator";
+import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import {
   AdminEditForm,
   AdminStageForm,
@@ -74,7 +75,8 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
 
   const categoryOptions = Object.entries(ISSUE_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }));
   const priorityOptions = Object.entries(ISSUE_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }));
-  const stageOptions = Object.entries(ISSUE_STAGE_LABELS).map(([v, l]) => ({ value: v, label: l }));
+  const currentStatus = getIssueUserStatus(issue.stage);
+  const stageOptions = ISSUE_ALLOWED_TRANSITIONS[currentStatus].map((value) => ({ value, label: ISSUE_STATUS_META[value].label }));
 
   const publicMessages = issue.messages.filter((m) => !m.isInternal);
   const internalMessages = issue.messages.filter((m) => m.isInternal);
@@ -100,9 +102,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
                 <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
                 <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
               </div>
-              <Badge className="self-start" variant={issueStageBadgeVariant[issue.stage] ?? "default"}>
-                {ISSUE_STAGE_LABELS[issue.stage]}
-              </Badge>
+              <IssueStatusIndicator stage={issue.stage} className="self-start rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1" />
             </div>
             <div className="mb-4 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <div>
@@ -185,7 +185,6 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
             <h2 className="font-semibold text-gray-900 mb-4">เปลี่ยนสถานะ</h2>
             <AdminStageForm
               issueId={issueId}
-              currentStage={issue.stage}
               stageOptions={stageOptions}
             />
           </div>

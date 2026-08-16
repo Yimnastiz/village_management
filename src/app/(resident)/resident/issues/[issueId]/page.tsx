@@ -6,24 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Timeline } from "@/components/ui/timeline";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { SaveButton } from "@/components/ui/save-button";
-import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
 import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
+import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
+import { getIssueUserStatus } from "@/lib/issues/status";
 
 interface PageProps { params: Promise<{ issueId: string }> }
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  OPEN: "warning",
-  IN_PROGRESS: "info",
-  WAITING: "warning",
-  RESOLVED: "success",
-  CLOSED: "default",
-  REJECTED: "danger",
-};
 
 const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   LOW: "default",
@@ -83,7 +76,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   const imageUrls = Array.isArray(issue.imageUrls)
     ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
     : [];
-  const canEdit = isOwner && issue.stage === "OPEN";
+  const canEdit = isOwner && getIssueUserStatus(issue.stage) === "PENDING";
   const canMessage =
     issue.stage !== "CLOSED" && issue.stage !== "REJECTED" && (isOwner || issue.isPublic);
 
@@ -112,9 +105,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={stageVariant[issue.stage] ?? "default"}>
-              {ISSUE_STAGE_LABELS[issue.stage]}
-            </Badge>
+            <IssueStatusIndicator stage={issue.stage} />
             <SaveButton
               itemId={issue.id}
               initialSaved={Boolean(saved)}

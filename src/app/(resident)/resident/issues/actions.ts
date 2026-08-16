@@ -97,6 +97,7 @@ export async function createIssueAction(
       category: parsed.data.category as IssueCategory,
       priority: parsed.data.priority as IssuePriority,
       location: parsed.data.location?.trim() || null,
+      stage: "WAITING",
     },
   });
 
@@ -106,6 +107,7 @@ export async function createIssueAction(
       actorId: session.id,
       action: "แจ้งปัญหา",
       description: "สร้างคำร้องใหม่",
+      metadata: { eventType: "STATUS_CHANGE", stage: "PENDING" },
     },
   });
 
@@ -151,7 +153,7 @@ export async function editIssueAction(
     return { success: false, error: "ไม่มีสิทธิ์เข้าถึงคำร้องในหมู่บ้านนี้" };
   }
   if (issue.reporterId !== session.id) return { success: false, error: "ไม่มีสิทธิ์แก้ไขคำร้องนี้" };
-  if (issue.stage !== "OPEN") {
+  if (issue.stage !== "OPEN" && issue.stage !== "WAITING") {
     return { success: false, error: "แก้ไขได้เฉพาะคำร้องที่ยังไม่ถูกรับไปดำเนินการ" };
   }
 
@@ -204,7 +206,7 @@ export async function deleteIssueAction(
     return { success: false, error: "ไม่มีสิทธิ์เข้าถึงคำร้องในหมู่บ้านนี้" };
   }
   if (issue.reporterId !== session.id) return { success: false, error: "ไม่มีสิทธิ์ลบคำร้องนี้" };
-  if (issue.stage !== "OPEN") {
+  if (issue.stage !== "OPEN" && issue.stage !== "WAITING") {
     return { success: false, error: "ลบได้เฉพาะคำร้องที่สถานะ 'เปิด' เท่านั้น" };
   }
 

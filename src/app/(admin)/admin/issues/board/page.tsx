@@ -2,9 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getIssueUserStatus, ISSUE_STATUS_META, type IssueUserStatus } from "@/lib/issues/status";
 
 const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   LOW: "default",
@@ -13,16 +14,14 @@ const priorityVariant: Record<string, "default" | "info" | "success" | "warning"
   URGENT: "danger",
 };
 
-const stageColors: Record<string, string> = {
-  OPEN: "border-yellow-200 bg-yellow-50",
+const stageColors: Record<IssueUserStatus, string> = {
+  PENDING: "border-slate-200 bg-slate-50",
   IN_PROGRESS: "border-blue-200 bg-blue-50",
-  WAITING: "border-orange-200 bg-orange-50",
   RESOLVED: "border-green-200 bg-green-50",
-  CLOSED: "border-gray-200 bg-gray-50",
   REJECTED: "border-red-200 bg-red-50",
 };
 
-const BOARD_STAGES = ["OPEN", "IN_PROGRESS", "WAITING", "RESOLVED", "CLOSED", "REJECTED"] as const;
+const BOARD_STAGES: IssueUserStatus[] = ["PENDING", "IN_PROGRESS", "RESOLVED", "REJECTED"];
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("th-TH", { month: "short", day: "numeric" });
@@ -53,7 +52,7 @@ export default async function AdminIssuesBoardPage() {
 
   const grouped = BOARD_STAGES.reduce(
     (acc, stage) => {
-      acc[stage] = issues.filter((issue) => issue.stage === stage);
+      acc[stage] = issues.filter((issue) => getIssueUserStatus(issue.stage) === stage);
       return acc;
     },
     {} as Record<string, typeof issues>
@@ -78,7 +77,7 @@ export default async function AdminIssuesBoardPage() {
         {BOARD_STAGES.map((stage) => (
           <div key={stage} className={`rounded-xl border p-4 ${stageColors[stage]}`}>
             <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold text-gray-800 text-sm">{ISSUE_STAGE_LABELS[stage]}</h2>
+              <h2 className="font-semibold text-gray-800 text-sm">{ISSUE_STATUS_META[stage].label}</h2>
               <span className="text-xs text-gray-500 bg-white/60 rounded-full px-2 py-0.5">
                 {grouped[stage]?.length ?? 0}
               </span>

@@ -3,10 +3,11 @@ import { AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { IssueCategory, IssuePriority, Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { ISSUE_STAGE_LABELS, ISSUE_CATEGORY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ResidentIssuesToolbar } from "./resident-issues-toolbar";
+import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 
 interface PageProps {
   searchParams: Promise<{
@@ -17,15 +18,6 @@ interface PageProps {
     sort?: string;
   }>;
 }
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  OPEN: "warning",
-  IN_PROGRESS: "info",
-  WAITING: "warning",
-  RESOLVED: "success",
-  CLOSED: "default",
-  REJECTED: "danger",
-};
 
 const priorityBorderColor: Record<string, string> = {
   URGENT: "border-l-8 border-l-red-600",
@@ -187,9 +179,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
                   {issue.reporterId !== session.id && (
                     <Badge variant="outline" className="hidden md:inline-flex">ชุมชน</Badge>
                   )}
-                  <Badge variant={stageVariant[issue.stage] ?? "default"}>
-                    {ISSUE_STAGE_LABELS[issue.stage]}
-                  </Badge>
+                  <IssueStatusIndicator stage={issue.stage} />
                 </div>
               </div>
             </Link>
