@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   Home,
   Newspaper,
@@ -114,9 +115,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
       <div className={cn("border-b border-gray-200", collapsed ? "p-3" : "p-4")}>
         <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "justify-between")}>
           {!collapsed ? <Link href="/resident" className="flex min-w-0 items-center gap-2">
-          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-            <Home className="h-4 w-4 text-white" />
-          </div>
+          <BrandLogo size="sm" alt="" />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900">พื้นที่ลูกบ้าน</p>
             {state.hasMembership ? (

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { TopNavigationLink, isTopNavigationItemActive } from "./top-navigation-link";
+import { BrandLogo } from "@/components/brand-logo";
 
 const marketingNavItems = [
   { href: "/info", label: "ข้อมูลโครงการ" },
@@ -29,7 +30,7 @@ export function PublicNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-2">
           <Link href="/" className="flex min-w-0 items-center gap-2 font-bold text-green-700 text-lg">
-            <Home className="h-5 w-5" />
+            <BrandLogo size="sm" alt="" priority />
             <span className="truncate text-base sm:text-lg">ระบบหมู่บ้านอัจฉริยะ</span>
           </Link>
           <nav className="hidden items-center gap-6 text-sm md:flex">
