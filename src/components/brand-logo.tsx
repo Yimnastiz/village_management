@@ -2,9 +2,9 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const sizeClasses = {
-  sm: "h-9 w-9",
-  md: "h-12 w-12",
-  lg: "h-16 w-16",
+  sm: "h-9 w-auto",
+  md: "h-12 w-auto",
+  lg: "h-16 w-auto",
 } as const;
 
 type BrandLogoProps = {
@@ -22,12 +22,12 @@ export function BrandLogo({
 }: BrandLogoProps) {
   return (
     <Image
-      src="/brand/logo.png"
+      src="/brand/logo.svg"
       alt={alt}
-      width={1254}
-      height={1254}
+      width={210}
+      height={297}
       priority={priority}
-      sizes="(max-width: 640px) 36px, 64px"
+      sizes="(max-width: 640px) 36px, 48px"
       className={cn("shrink-0 object-contain", sizeClasses[size], className)}
     />
   );
