@@ -11,8 +11,24 @@ export const PUBLIC_VILLAGE_NAV_ITEMS = (base: string) => [
   { href: `${base}/contacts`, label: "ติดต่อ", icon: Phone },
 ] as const;
 
+function normalizePathname(pathname: string) {
+  let normalized = pathname;
+  try {
+    normalized = decodeURIComponent(normalized);
+  } catch {
+    // Keep the browser pathname when it contains an incomplete escape sequence.
+  }
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  return normalized.length > 1 ? normalized.replace(/\/+$/, "") : normalized;
+}
+
 export function isPublicVillageNavItemActive(pathname: string, href: string, base: string) {
-  return href === base
-    ? pathname === base || pathname === `${base}/`
-    : pathname === href || pathname.startsWith(`${href}/`);
+  const currentPath = normalizePathname(pathname);
+  const itemPath = normalizePathname(href);
+  const villageRoot = normalizePathname(base);
+  const isHome = itemPath === villageRoot;
+
+  return isHome
+    ? currentPath === itemPath
+    : currentPath === itemPath || currentPath.startsWith(`${itemPath}/`);
 }

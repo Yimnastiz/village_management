@@ -16,7 +16,7 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
   const items = PUBLIC_VILLAGE_NAV_ITEMS(base);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-emerald-950/15 bg-emerald-800 text-white shadow-sm [&>nav]:hidden">
+    <header className="sticky top-0 z-40 border-b border-emerald-950/15 bg-emerald-800 text-white shadow-sm">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 xl:h-16 xl:px-8">
         <Link href={base} className="min-w-0 flex-1 truncate text-sm font-bold sm:text-base xl:max-w-40 xl:flex-none">
           หมู่บ้าน {villageName}
@@ -26,8 +26,8 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
           {items.map((item) => {
             const active = isPublicVillageNavItemActive(pathname, item.href, base);
             return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn(
-              "relative inline-flex min-w-0 flex-1 items-center justify-center px-2 text-sm font-medium whitespace-nowrap transition",
-              active ? "bg-white/12 text-white after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-emerald-300" : "text-emerald-100 hover:bg-white/10 hover:text-white"
+              "inline-flex min-w-0 flex-1 items-center justify-center border-b-2 border-transparent px-2 text-sm font-medium whitespace-nowrap transition-colors",
+              active ? "border-emerald-200 text-white font-semibold" : "text-emerald-100 hover:border-emerald-100/60 hover:text-white"
             )}>{item.label}</Link>;
           })}
         </nav>
@@ -48,8 +48,8 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
             {items.map((item) => {
               const active = isPublicVillageNavItemActive(pathname, item.href, base);
               return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className={cn(
-                "relative inline-flex items-center gap-1.5 rounded-t-md px-2.5 text-xs font-medium whitespace-nowrap transition sm:px-3 sm:text-sm",
-                active ? "bg-white/15 text-white after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-emerald-300" : "text-emerald-100 hover:bg-white/10 hover:text-white"
+                "inline-flex items-center gap-1.5 rounded-t-md border-b-2 border-transparent px-2.5 text-xs font-medium whitespace-nowrap transition-colors sm:px-3 sm:text-sm",
+                active ? "border-emerald-200 text-white font-semibold" : "text-emerald-100 hover:border-emerald-100/60 hover:text-white"
               )}><item.icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />{item.label}</Link>;
             })}
           </div>
