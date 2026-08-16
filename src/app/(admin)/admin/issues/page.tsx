@@ -17,14 +17,14 @@ interface PageProps {
 }
 
 const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-red-700",
+  URGENT: "border-l-red-500",
   HIGH: "border-l-orange-600",
   MEDIUM: "border-l-yellow-400",
   LOW: "border-l-emerald-600",
 };
 
 const priorityBadgeClass: Record<string, string> = {
-  URGENT: "bg-red-100 text-red-900",
+  URGENT: "bg-red-100 text-red-700",
   HIGH: "bg-orange-100 text-orange-900",
   MEDIUM: "bg-yellow-100 text-yellow-900",
   LOW: "bg-emerald-100 text-emerald-900",
@@ -206,7 +206,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
           <table className="w-full min-w-[800px] table-fixed text-sm">
             <thead className="sticky top-0 z-10 shadow-[0_1px_0_rgb(229_231_235)]">
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3 font-medium">หัวข้อ</th>
+                <th className="border-l-8 border-l-transparent px-4 py-3 font-medium">หัวข้อ</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">ผู้แจ้ง</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">หมวดหมู่</th>
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">ความสำคัญ</th>
