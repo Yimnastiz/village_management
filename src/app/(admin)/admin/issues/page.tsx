@@ -18,15 +18,15 @@ interface PageProps {
 
 const priorityBorderColor: Record<string, string> = {
   URGENT: "border-l-red-600",
-  HIGH: "border-l-amber-400",
-  MEDIUM: "border-l-yellow-400",
+  HIGH: "border-l-orange-600",
+  MEDIUM: "border-l-sky-500",
   LOW: "border-l-green-500",
 };
 
 const priorityBadgeClass: Record<string, string> = {
   URGENT: "bg-red-100 text-red-800",
-  HIGH: "bg-amber-100 text-amber-900",
-  MEDIUM: "bg-yellow-100 text-yellow-800",
+  HIGH: "bg-orange-100 text-orange-900",
+  MEDIUM: "bg-sky-100 text-sky-800",
   LOW: "bg-green-100 text-green-800",
 };
 

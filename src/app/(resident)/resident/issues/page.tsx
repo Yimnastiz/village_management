@@ -21,8 +21,8 @@ interface PageProps {
 
 const priorityBorderColor: Record<string, string> = {
   URGENT: "border-l-8 border-l-red-600",
-  HIGH: "border-l-8 border-l-amber-400",
-  MEDIUM: "border-l-8 border-l-yellow-400",
+  HIGH: "border-l-8 border-l-orange-600",
+  MEDIUM: "border-l-8 border-l-sky-500",
   LOW: "border-l-8 border-l-green-500",
 };
 
