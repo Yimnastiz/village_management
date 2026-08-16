@@ -17,17 +17,17 @@ interface PageProps {
 }
 
 const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-red-600",
+  URGENT: "border-l-red-700",
   HIGH: "border-l-orange-600",
-  MEDIUM: "border-l-sky-500",
-  LOW: "border-l-green-500",
+  MEDIUM: "border-l-yellow-400",
+  LOW: "border-l-emerald-600",
 };
 
 const priorityBadgeClass: Record<string, string> = {
-  URGENT: "bg-red-100 text-red-800",
+  URGENT: "bg-red-100 text-red-900",
   HIGH: "bg-orange-100 text-orange-900",
-  MEDIUM: "bg-sky-100 text-sky-800",
-  LOW: "bg-green-100 text-green-800",
+  MEDIUM: "bg-yellow-100 text-yellow-900",
+  LOW: "bg-emerald-100 text-emerald-900",
 };
 
 function formatDate(date: Date): string {
@@ -218,7 +218,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
             <tbody>
               {issues.map((issue) => (
                 <tr key={issue.id} className="border-b border-gray-100 last:border-b-0 transition-colors hover:bg-gray-50/80">
-                  <td className={`border-l-4 px-4 py-3 ${priorityBorderColor[issue.priority] ?? "border-l-gray-300"}`}>
+                  <td className={`border-l-8 px-4 py-3 ${priorityBorderColor[issue.priority] ?? "border-l-gray-300"}`}>
                     <div className="min-w-0">
                       <div className="min-w-0">
                         <p className="font-medium text-gray-900 line-clamp-1">{issue.title}</p>

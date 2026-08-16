@@ -20,10 +20,10 @@ interface PageProps {
 }
 
 const priorityBorderColor: Record<string, string> = {
-  URGENT: "border-l-8 border-l-red-600",
+  URGENT: "border-l-8 border-l-red-700",
   HIGH: "border-l-8 border-l-orange-600",
-  MEDIUM: "border-l-8 border-l-sky-500",
-  LOW: "border-l-8 border-l-green-500",
+  MEDIUM: "border-l-8 border-l-yellow-400",
+  LOW: "border-l-8 border-l-emerald-600",
 };
 
 function formatDate(date: Date): string {
