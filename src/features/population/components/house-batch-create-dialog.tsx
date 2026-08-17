@@ -85,13 +85,13 @@ export function HouseBatchCreateDialog({ compact = false }: { compact?: boolean 
   const confirmCount = items.length + (draft.houseNumber.trim() ? 1 : 0);
 
   return <>
-    <Button type="button" className="min-h-11" onClick={() => setOpen(true)}><span>{compact ? "Add house" : "Add house"}</span></Button>
+    <Button type="button" className="min-h-11" onClick={() => setOpen(true)}><span>{compact ? "เพิ่มบ้าน" : "เพิ่มบ้าน"}</span></Button>
     <Dialog open={open} onClose={resetAndClose} title="เพิ่มบ้าน" description="เพิ่มบ้านไว้ในรายการก่อนตรวจสอบและยืนยันการบันทึก" className="sm:max-w-3xl" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="min-h-11" onClick={resetAndClose} disabled={pending}>ยกเลิก</Button><Button type="button" className="min-h-11" onClick={submit} isLoading={pending} disabled={pending}>{confirmCount ? `ยืนยันเพิ่มบ้าน ${confirmCount} หลัง` : "ยืนยันเพิ่มบ้าน"}</Button></div>}>
       <div className="space-y-5">
         <form className="grid gap-3 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] md:items-end" onSubmit={addDraft}>
           <Input ref={houseNumberRef} id={`${dialogId}-number`} label="บ้านเลขที่" required maxLength={50} placeholder="เช่น 99/1" value={draft.houseNumber} onChange={(event) => { setDraft((current) => ({ ...current, houseNumber: event.target.value })); setDraftError(undefined); }} error={draftError} disabled={pending} />
           <Input id={`${dialogId}-address`} label="ที่อยู่เพิ่มเติม" maxLength={300} placeholder="ซอย จุดสังเกต หรือรายละเอียดที่ช่วยระบุตำแหน่งบ้าน" value={draft.address} onChange={(event) => setDraft((current) => ({ ...current, address: event.target.value }))} disabled={pending} />
-          <Button type="submit" className="min-h-11 w-full md:w-auto" disabled={pending || items.length >= MAX_BATCH_SIZE}>Add</Button>
+          <Button type="submit" className="min-h-11 w-full md:w-auto" disabled={pending || items.length >= MAX_BATCH_SIZE}>เพิ่ม</Button>
         </form>
         {items.length >= MAX_BATCH_SIZE ? <p className="text-sm text-gray-500">เพิ่มได้สูงสุด 50 หลังต่อครั้ง</p> : null}
         {items.length ? <section aria-labelledby={`${dialogId}-staged-title`} className="space-y-2">
