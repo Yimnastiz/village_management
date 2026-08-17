@@ -38,7 +38,7 @@ export function MoveOutPersonButton({ personId }: { personId: string }) {
   };
 
   return <>
-    <Button variant="outline" className="min-h-11 border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => { setError(""); setOpen(true); }}>ย้ายออก</Button>
+    <Button variant="warning" className="min-h-11" onClick={() => { setError(""); setOpen(true); }}>ย้ายออก</Button>
     <ConfirmDialog
       open={open}
       title="ย้ายบุคคลออกจากทะเบียน"

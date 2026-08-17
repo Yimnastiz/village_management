@@ -64,6 +64,7 @@ export default async function Page({ params }: PageProps) {
   return <div data-admin-compact-top className="space-y-3 sm:space-y-4">
     <header className="space-y-3">
       <AdminPageToolbar
+        sticky
         variant="detail"
         backHref="/admin/population/people"
         backLabel="กลับทะเบียนประชากร"

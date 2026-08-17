@@ -42,7 +42,7 @@ export function MarkDeceasedPersonButton({ personId }: { personId: string }) {
   };
 
   return <>
-    <Button type="button" variant="dangerOutline" className="min-h-11" onClick={() => { setDateError(""); setReasonError(""); setOpen(true); }}>บันทึกการเสียชีวิต</Button>
+    <Button type="button" variant="danger" className="min-h-11" onClick={() => { setDateError(""); setReasonError(""); setOpen(true); }}>บันทึกการเสียชีวิต</Button>
     <ConfirmDialog
       open={open}
       title="บันทึกการเสียชีวิต"

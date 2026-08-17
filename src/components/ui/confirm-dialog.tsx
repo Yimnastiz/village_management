@@ -1,5 +1,6 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +35,7 @@ export function ConfirmDialog({
     return null;
   }
 
-  return (
+  const dialog = (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
       <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
@@ -58,4 +59,10 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") {
+    return null;
+  }
+
+  return createPortal(dialog, document.body);
 }
