@@ -147,6 +147,7 @@ export function AdminPageToolbar({
         </div>
         {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
       </header> : null}
+      {hideHeading && actions ? <div className="flex min-w-0 justify-end">{actions}</div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 
