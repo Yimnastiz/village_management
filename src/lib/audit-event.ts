@@ -77,7 +77,8 @@ const actionNameLabels: Record<string, string> = {
   TRANSPARENCY_CREATED: "เพิ่มรายการความโปร่งใส",
   TRANSPARENCY_UPDATED: "แก้ไขรายการความโปร่งใส",
   TRANSPARENCY_PUBLISHED: "เผยแพร่รายการความโปร่งใส",
-  TRANSPARENCY_ARCHIVED: "เก็บถาวรรายการความโปร่งใส",
+  TRANSPARENCY_ARCHIVED: "จัดเก็บรายการความโปร่งใส",
+  TRANSPARENCY_REPUBLISHED: "นำข้อมูลความโปร่งใสกลับมาเผยแพร่",
   TRANSPARENCY_DRAFT_DELETED: "ลบรายการความโปร่งใส",
 };
 

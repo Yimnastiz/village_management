@@ -49,7 +49,7 @@ export default async function SavedPage({
       download: { select: { id: true, title: true, description: true, visibility: true, category: true, villageId: true } },
       issue: { select: { id: true, title: true, stage: true, category: true, villageId: true } },
       galleryAlbum: { select: { id: true, title: true, villageId: true } },
-      transparencyRecord: { select: { id: true, title: true, category: true, visibility: true, villageId: true } },
+      transparencyRecord: { select: { id: true, title: true, category: true, visibility: true, villageId: true, stage: true } },
       contact: { select: { id: true, name: true, role: true, phone: true, category: true, villageId: true } },
       place: { select: { id: true, name: true, address: true, category: true, villageId: true } },
     },
@@ -59,6 +59,7 @@ export default async function SavedPage({
     const vid = item.news?.villageId ?? item.download?.villageId ?? item.issue?.villageId
       ?? item.galleryAlbum?.villageId ?? item.transparencyRecord?.villageId ?? item.contact?.villageId ?? item.place?.villageId;
     if (vid && vid !== membership.villageId) return false;
+    if (item.transparencyRecord && item.transparencyRecord.stage !== "PUBLISHED") return false;
     if (type === "news") return !!item.newsId;
     if (type === "issue") return !!item.issueId;
     if (type === "album") return !!item.galleryAlbumId;

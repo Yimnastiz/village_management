@@ -38,10 +38,13 @@ function normalizeInput(data: TransparencyInput) {
 function revalidateTransparencyViews(recordId?: string) {
   revalidatePath("/admin/transparency");
   revalidatePath("/resident/transparency");
+  revalidatePath("/resident/saved");
+  revalidatePath("/[villageSlug]/transparency", "page");
   revalidatePath("/resident/notifications");
   if (recordId) {
     revalidatePath(`/admin/transparency/${recordId}`);
     revalidatePath(`/resident/transparency/${recordId}`);
+    revalidatePath(`/[villageSlug]/transparency/${recordId}`, "page");
   }
 }
 
@@ -112,11 +115,33 @@ export async function archiveTransparencyAction(id: string): Promise<ActionResul
   const result = await prisma.$transaction(async (tx) => {
     const record = await tx.transparencyRecord.findFirst({ where: { id, villageId: ctx.villageId } });
     if (!record || record.stage !== TransparencyStage.PUBLISHED) return false;
-    await tx.transparencyRecord.update({ where: { id }, data: { stage: TransparencyStage.ARCHIVED } });
+    const archived = await tx.transparencyRecord.updateMany({ where: { id, villageId: ctx.villageId, stage: TransparencyStage.PUBLISHED }, data: { stage: TransparencyStage.ARCHIVED } });
+    if (archived.count !== 1) return false;
     await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "TransparencyRecord", resourceId: id, metadata: { actionName: "TRANSPARENCY_ARCHIVED", oldValue: { stage: record.stage }, newValue: { stage: TransparencyStage.ARCHIVED } } } });
     return true;
   });
   if (!result) return { success: false, error: "ไม่พบรายการที่เผยแพร่นี้หรือรายการถูกเก็บถาวรแล้ว" };
+  revalidateTransparencyViews(id);
+  return { success: true };
+}
+
+/** Restores an archived record without changing its original publication date or visibility. */
+export async function republishTransparencyAction(id: string): Promise<ActionResult> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const result = await prisma.$transaction(async (tx) => {
+    const record = await tx.transparencyRecord.findFirst({ where: { id, villageId: ctx.villageId } });
+    if (!record || record.stage !== TransparencyStage.ARCHIVED) return false;
+    const republished = await tx.transparencyRecord.updateMany({
+      where: { id, villageId: ctx.villageId, stage: TransparencyStage.ARCHIVED },
+      data: { stage: TransparencyStage.PUBLISHED },
+    });
+    if (republished.count !== 1) return false;
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "TransparencyRecord", resourceId: id, metadata: { actionName: "TRANSPARENCY_REPUBLISHED", title: record.title, oldValue: { stage: record.stage }, newValue: { stage: TransparencyStage.PUBLISHED, visibility: record.visibility, publishedAt: record.publishedAt } } } });
+    return true;
+  });
+  if (!result) return { success: false, error: "ไม่พบรายการที่จัดเก็บแล้ว หรือสถานะรายการถูกเปลี่ยนไปแล้ว" };
+  // This is a visibility restore, not a new publication: do not notify residents again.
   revalidateTransparencyViews(id);
   return { success: true };
 }

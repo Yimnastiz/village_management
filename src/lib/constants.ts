@@ -110,7 +110,7 @@ export const CORRECTION_STATUS_LABELS: Record<string, string> = {
 export const TRANSPARENCY_STAGE_LABELS: Record<string, string> = {
   DRAFT: "ร่าง",
   PUBLISHED: "เผยแพร่แล้ว",
-  ARCHIVED: "เก็บถาวร",
+  ARCHIVED: "จัดเก็บแล้ว",
 };
 
 export const FEEDBACK_RATING_LABELS: Record<string, string> = {
