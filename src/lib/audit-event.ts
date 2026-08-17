@@ -61,6 +61,7 @@ const actionNameLabels: Record<string, string> = {
   PLACE_REQUEST_APPROVED: "อนุมัติคำขอสถานที่",
   PLACE_REQUEST_REJECTED: "ไม่อนุมัติคำขอสถานที่",
   HOUSE_CREATED: "เพิ่มทะเบียนบ้าน",
+  HOUSE_BATCH_CREATED: "เพิ่มบ้านหลายหลัง",
   HOUSE_UPDATED: "แก้ไขทะเบียนบ้าน",
   HOUSE_DELETED: "ลบทะเบียนบ้าน",
   HOUSE_CREATED_FROM_VERIFIED_BINDING_REQUEST: "เพิ่มทะเบียนบ้านจากคำขอ",
@@ -92,6 +93,7 @@ const fieldLabels: Record<string, string> = {
   role: "บทบาท",
   houseNumber: "บ้านเลขที่",
   address: "ที่อยู่",
+  houseNumbers: "บ้านเลขที่",
   isPublic: "การเผยแพร่สู่สาธารณะ",
   isFeatured: "การแนะนำ",
   category: "หมวดหมู่",
@@ -177,7 +179,7 @@ export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
     .map(text)
     .find((value): value is string => Boolean(value && value.trim()));
   return {
-    label: actionName && actionNameLabels[actionName] ? actionNameLabels[actionName] : fallbackLabel(input.action, resourceLabel),
+    label: actionName === "HOUSE_BATCH_CREATED" && typeof metadata.count === "number" ? `เพิ่มบ้าน ${metadata.count} หลัง` : actionName && actionNameLabels[actionName] ? actionNameLabels[actionName] : fallbackLabel(input.action, resourceLabel),
     ...classify(input.action, input.resource),
     resourceLabel,
     targetFromMetadata: targetFromMetadata ?? null,

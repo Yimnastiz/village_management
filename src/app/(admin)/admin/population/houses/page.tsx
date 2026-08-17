@@ -4,9 +4,8 @@ import { redirect } from "next/navigation";
 import { normalizeHouseNumber } from "@/lib/house-number";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { HouseForm } from "@/features/population/components/house-form";
+import { HouseBatchCreateDialog } from "@/features/population/components/house-batch-create-dialog";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { createHouseAction } from "./actions";
 
 type PageProps = { searchParams?: Promise<{ q?: string; occupancy?: string; sort?: string }> };
 
@@ -78,13 +77,13 @@ export default async function Page({ searchParams }: PageProps) {
           ],
         },
       ]}
+      actions={<HouseBatchCreateDialog />}
     />
-    <div className="shrink-0"><HouseForm action={createHouseAction} showReason={false} /></div>
     <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${houses.length ? "" : "items-center justify-center"}`}>
       {houses.length ? <div className="min-h-0 flex-1 overflow-auto"><table className="min-w-[560px] w-full text-sm">
         <thead className="sticky top-0 z-20 bg-gray-50 text-left text-gray-600 shadow-sm"><tr><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">บ้านเลขที่</th><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">ประชากรปัจจุบัน</th><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">สมาชิกที่ผูก</th><th scope="col" className="whitespace-nowrap bg-gray-50 px-4 py-3">การจัดการ</th></tr></thead>
         <tbody>{houses.map((house) => <tr key={house.id} className="group border-t border-gray-100 transition-colors hover:bg-blue-50/60 focus-within:bg-blue-50/60"><td className="break-words px-4 py-3 font-medium text-gray-900">{house.houseNumber}</td><td className="px-4 py-3 text-gray-700">{house._count.persons.toLocaleString("th-TH")} คน</td><td className="px-4 py-3 text-gray-700">{house._count.memberships.toLocaleString("th-TH")} บัญชี</td><td className="px-4 py-3"><Link href={`/admin/population/houses/${house.id}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">ดูรายละเอียด</Link></td></tr>)}</tbody>
-      </table></div> : <div className="px-4 py-10 text-center text-sm text-gray-500">{keyword ? <><p className="font-medium text-gray-700">ไม่พบบ้านเลขที่ที่ตรงกับคำค้นหา</p><p className="mt-1">ลองตรวจสอบเลขบ้านหรือใช้คำค้นหาที่สั้นลง</p></> : <><p className="font-medium text-gray-700">ยังไม่มีข้อมูลทะเบียนบ้าน</p><p className="mt-1">เพิ่มบ้านเลขที่เพื่อเริ่มจัดทำทะเบียนครัวเรือน</p></>}</div>}
+      </table></div> : <div className="px-4 py-10 text-center text-sm text-gray-500">{keyword ? <><p className="font-medium text-gray-700">ไม่พบบ้านเลขที่ที่ตรงกับคำค้นหา</p><p className="mt-1">ลองตรวจสอบเลขบ้านหรือใช้คำค้นหาที่สั้นลง</p></> : <><p className="font-medium text-gray-700">ยังไม่มีข้อมูลทะเบียนบ้าน</p><p className="mt-1">เพิ่มบ้านเลขที่เพื่อเริ่มจัดทำทะเบียนครัวเรือน</p><div className="mt-4 flex justify-center"><HouseBatchCreateDialog /></div></>}</div>}
     </section>
   </div>;
 }
