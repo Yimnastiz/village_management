@@ -147,7 +147,7 @@ export function AdminPageToolbar({
         </div>
         {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
       </header> : null}
-      {hideHeading && actions ? <div className="flex min-w-0 justify-end">{actions}</div> : null}
+      {hideHeading && actions && !hasTools ? <div className="flex min-w-0 justify-end">{actions}</div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 
@@ -173,6 +173,7 @@ export function AdminPageToolbar({
           </button>
           {filterExpanded ? <div id={filterPanelId} className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]"><div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div></div> : <div id={filterPanelId} hidden />}
         </> : null}
+        {hideHeading && actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
       </div> : null}
       {search?.suggestions?.length ? <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist> : null}
     </section>

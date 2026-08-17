@@ -30,11 +30,13 @@ export function HouseBatchCreateDialog({ compact = false, createAction = createH
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string>();
+  const [showReasonPrompt, setShowReasonPrompt] = useState(false);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
   const [pending, startTransition] = useTransition();
 
   const resetAndClose = () => {
     if (pending) return;
-    setOpen(false); setDraft(makeDraft()); setItems([]); setDraftError(undefined); setFieldErrors({}); setReason(""); setReasonError(undefined);
+    setOpen(false); setDraft(makeDraft()); setItems([]); setDraftError(undefined); setFieldErrors({}); setReason(""); setReasonError(undefined); setShowReasonPrompt(false);
   };
 
   const stageDraft = () => {
@@ -69,7 +71,12 @@ export function HouseBatchCreateDialog({ compact = false, createAction = createH
     }
     if (!itemsToSubmit.length) { setDraftError("กรุณาเพิ่มบ้านอย่างน้อย 1 หลัง"); houseNumberRef.current?.focus(); return; }
     const normalizedReason = reason.trim();
-    if (requireReason && normalizedReason.length < 5) { setReasonError("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"); return; }
+    if (requireReason && !showReasonPrompt) {
+      setShowReasonPrompt(true);
+      requestAnimationFrame(() => reasonRef.current?.focus());
+      return;
+    }
+    if (requireReason && normalizedReason.length < 5) { setReasonError("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"); reasonRef.current?.focus(); return; }
 
     startTransition(async () => {
       const result = await createAction(itemsToSubmit.map(({ houseNumber, address }) => ({ houseNumber, address })), normalizedReason || undefined);
@@ -82,17 +89,15 @@ export function HouseBatchCreateDialog({ compact = false, createAction = createH
         return;
       }
       toast.success(result.message);
-      setOpen(false); setDraft(makeDraft()); setItems([]); setDraftError(undefined); setFieldErrors({}); setReason(""); setReasonError(undefined);
+      setOpen(false); setDraft(makeDraft()); setItems([]); setDraftError(undefined); setFieldErrors({}); setReason(""); setReasonError(undefined); setShowReasonPrompt(false);
       router.refresh();
     });
   };
 
   const confirmCount = items.length + (draft.houseNumber.trim() ? 1 : 0);
-  const reasonIsValid = !requireReason || reason.trim().length >= 5;
-
   return <>
     <Button type="button" className="min-h-11" onClick={() => setOpen(true)}><span>{compact ? "เพิ่มบ้าน" : "เพิ่มบ้าน"}</span></Button>
-    <Dialog open={open} onClose={resetAndClose} title="เพิ่มบ้าน" description="เพิ่มบ้านไว้ในรายการก่อนตรวจสอบและยืนยันการบันทึก" className="sm:max-w-3xl" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="min-h-11" onClick={resetAndClose} disabled={pending}>ยกเลิก</Button><Button type="button" className="min-h-11" onClick={submit} isLoading={pending} disabled={pending || !reasonIsValid}>{confirmCount ? `ยืนยันเพิ่มบ้าน ${confirmCount} หลัง` : "ยืนยันเพิ่มบ้าน"}</Button></div>}>
+    <Dialog open={open} onClose={resetAndClose} title="เพิ่มบ้าน" description="เพิ่มบ้านไว้ในรายการก่อนตรวจสอบและยืนยันการบันทึก" className="sm:max-w-3xl" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" className="min-h-11" onClick={resetAndClose} disabled={pending}>ยกเลิก</Button><Button type="button" className="min-h-11" onClick={submit} isLoading={pending} disabled={pending}>{showReasonPrompt ? "ยืนยันบันทึก" : confirmCount ? `ยืนยันเพิ่มบ้าน ${confirmCount} หลัง` : "ยืนยันเพิ่มบ้าน"}</Button></div>}>
       <div className="space-y-5">
         <form className="grid gap-3 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] md:items-end" onSubmit={addDraft}>
           <Input ref={houseNumberRef} id={`${dialogId}-number`} label="บ้านเลขที่" required maxLength={50} placeholder="เช่น 99/1" value={draft.houseNumber} onChange={(event) => { setDraft((current) => ({ ...current, houseNumber: event.target.value })); setDraftError(undefined); }} error={draftError} disabled={pending} />
@@ -109,9 +114,9 @@ export function HouseBatchCreateDialog({ compact = false, createAction = createH
             </article>)}
           </div>
         </section> : null}
-        {requireReason ? <div>
+        {requireReason && showReasonPrompt ? <div>
           <label htmlFor={`${dialogId}-reason`} className="mb-1 block text-sm font-medium text-gray-700">เหตุผลในการดำเนินการ <span className="text-red-600">*</span></label>
-          <textarea id={`${dialogId}-reason`} required minLength={5} maxLength={500} value={reason} onChange={(event) => { setReason(event.target.value); setReasonError(undefined); }} placeholder="ระบุเหตุผลที่เพิ่มบ้านให้หมู่บ้านนี้" disabled={pending} className={`block min-h-24 w-full rounded-lg border px-3 py-2 text-sm shadow-sm outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-green-500 ${reasonError ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"}`} />
+          <textarea ref={reasonRef} id={`${dialogId}-reason`} required minLength={5} maxLength={500} value={reason} onChange={(event) => { setReason(event.target.value); setReasonError(undefined); }} placeholder="ระบุเหตุผลที่เพิ่มบ้านให้หมู่บ้านนี้" disabled={pending} className={`block min-h-24 w-full rounded-lg border px-3 py-2 text-sm shadow-sm outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-green-500 ${reasonError ? "border-red-300 bg-red-50" : "border-gray-300 bg-white"}`} />
           {reasonError ? <p className="mt-1 text-xs text-red-600">{reasonError}</p> : <p className="mt-1 text-xs text-gray-500">โปรดระบุอย่างน้อย 5 ตัวอักษรเพื่อบันทึกใน Audit Log</p>}
         </div> : null}
       </div>
