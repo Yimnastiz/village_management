@@ -22,7 +22,7 @@ export function VillageSwitcher({ villages, currentSlug }: VillageSwitcherProps)
   const router = useRouter();
 
   return (
-    <label className="flex min-w-0 items-center gap-2 text-sm text-green-100">
+    <label className="inline-flex h-9 min-w-0 items-center gap-2 leading-none text-sm text-green-100">
       <span className="hidden sm:inline">เปลี่ยนหมู่บ้าน</span>
       <select
         value={currentSlug}

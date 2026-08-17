@@ -20,7 +20,7 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
   return (
     <header className="sticky top-0 z-40 border-b border-emerald-950/15 bg-emerald-800 text-white shadow-sm">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 xl:h-16 xl:px-8">
-        <Link href={base} className="flex min-w-0 flex-1 items-center gap-2 text-sm font-bold sm:text-base xl:max-w-48 xl:flex-none">
+        <Link href={base} className="inline-flex h-9 min-w-0 flex-1 items-center gap-2 leading-none text-sm font-bold sm:text-base xl:max-w-48 xl:flex-none">
           <BrandLogo size="sm" alt="" priority />
           <span className="truncate">หมู่บ้าน {villageName}</span>
         </Link>
@@ -36,7 +36,7 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
         </nav>
 
         <VillagePublicMobileNav base={base} villageName={villageName} villages={villages} currentSlug={currentSlug} />
-        <div className="min-w-0 shrink-0"><VillageSwitcher villages={villages} currentSlug={currentSlug} /></div>
+        <div className="flex min-w-0 shrink-0 items-center"><VillageSwitcher villages={villages} currentSlug={currentSlug} /></div>
         <Link href="/" aria-label="กลับหน้าหลัก" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/20 xl:px-3">
           <ArrowLeft className="h-4 w-4" /><span className="hidden 2xl:inline">กลับหน้าหลัก</span>
         </Link>
