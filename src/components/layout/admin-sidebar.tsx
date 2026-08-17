@@ -84,7 +84,7 @@ export function AdminSidebar({ actionCounts }: { actionCounts: AdminSidebarActio
   const [collapsed, setCollapsed] = useState(false);
   const [populationOpen, setPopulationOpen] = useState(false);
   const populationActive = pathname === "/admin/population" || pathname.startsWith("/admin/population/");
-  const populationOverviewActive = pathname === "/admin/population";
+  const populationMenuId = "admin-sidebar-population-menu";
 
   useEffect(() => { if (populationActive) setPopulationOpen(true); }, [populationActive]);
   useEffect(() => {
@@ -116,29 +116,27 @@ export function AdminSidebar({ actionCounts }: { actionCounts: AdminSidebarActio
           const badge = getAdminSidebarActionBadge(item.href, actionCounts);
           if (item.href === "/admin/population") {
             return <div key={item.href} className="space-y-1">
-              <div className="flex items-center">
-                <SidebarTooltip label={item.label} disabled={!collapsed}>
-                  <Link href={item.href} aria-label={item.label} className={cn("flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", collapsed && "justify-center", populationOverviewActive ? "bg-gray-700 text-white" : populationActive ? "text-gray-200" : "text-gray-400 hover:bg-gray-800 hover:text-white")}>
-                    <NavigationIcon icon={item.icon} badge={badge} collapsed={collapsed} />
-                    <span className={cn("min-w-0 flex-1 truncate", collapsed && "sr-only")}>{item.label}</span>
-                    {!collapsed && badge ? <SidebarNotificationBadge count={badge.count} label={badge.label} /> : null}
-                  </Link>
-                </SidebarTooltip>
-                {!collapsed ? <button type="button" onClick={() => setPopulationOpen((value) => !value)} aria-label={populationOpen ? "ย่อเมนูทะเบียนครัวเรือน" : "ขยายเมนูทะเบียนครัวเรือน"} aria-expanded={populationOpen} className="mr-1 shrink-0 rounded p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                  <ChevronRight className={cn("h-4 w-4 transition-transform duration-150", populationOpen && "rotate-90")} />
-                </button> : null}
-              </div>
-              {!collapsed ? <div className={cn("grid overflow-hidden transition-[grid-template-rows] duration-150", populationOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}><div className="min-h-0 space-y-1">
+              <SidebarTooltip label={item.label} disabled={!collapsed}>
+                <button type="button" onClick={() => setPopulationOpen((value) => !value)} aria-label={populationOpen ? "ย่อเมนูทะเบียนครัวเรือน" : "ขยายเมนูทะเบียนครัวเรือน"} aria-expanded={populationOpen} aria-controls={populationMenuId} className={cn("flex w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400", collapsed && "justify-center", populationActive ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}>
+                  <NavigationIcon icon={item.icon} badge={badge} collapsed={collapsed} />
+                  <span className={cn("min-w-0 flex-1 truncate text-left", collapsed && "sr-only")}>{item.label}</span>
+                  {!collapsed && badge ? <SidebarNotificationBadge count={badge.count} label={badge.label} /> : null}
+                  <ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform duration-150", collapsed && "sr-only", populationOpen && "rotate-90")} />
+                </button>
+              </SidebarTooltip>
+              <div id={populationMenuId} className={cn("grid overflow-hidden transition-[grid-template-rows] duration-150", populationOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")}><div className={cn("min-h-0 space-y-1", collapsed && "flex flex-col items-center")}>
                 {populationMenuItems.map((child) => {
                   const childBadge = getAdminSidebarActionBadge(child.href, actionCounts);
                   const active = getActiveHref(pathname) === child.href;
-                  return <Link key={child.href} href={child.href} className={cn("ml-4 flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", active ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}>
-                    <child.icon className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 flex-1 truncate">{child.label}</span>
-                    {childBadge ? <SidebarNotificationBadge count={childBadge.count} label={childBadge.label} /> : null}
-                  </Link>;
+                  return <SidebarTooltip key={child.href} label={child.label} disabled={!collapsed}>
+                    <Link href={child.href} aria-label={child.label} className={cn("flex min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors", collapsed ? "w-9 justify-center px-0" : "ml-4", active ? "bg-gray-700 text-white" : "text-gray-400 hover:bg-gray-800 hover:text-white")}>
+                      <NavigationIcon icon={child.icon} badge={childBadge} collapsed={collapsed} />
+                      <span className={cn("min-w-0 flex-1 truncate", collapsed && "sr-only")}>{child.label}</span>
+                      {!collapsed && childBadge ? <SidebarNotificationBadge count={childBadge.count} label={childBadge.label} /> : null}
+                    </Link>
+                  </SidebarTooltip>;
                 })}
-              </div></div> : null}
+              </div></div>
             </div>;
           }
 

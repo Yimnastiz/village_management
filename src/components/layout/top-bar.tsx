@@ -62,6 +62,7 @@ export function TopBar({
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
   const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
+  const mobilePopulationMenuId = "admin-mobile-population-menu";
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 4);
@@ -269,11 +270,12 @@ export function TopBar({
                   ? getAdminSidebarActionBadge(item.href, adminActionCounts)
                   : null;
 
-                if (isPopulationParent) return <div key={item.href} className="flex min-w-0 items-center rounded-md"><Link href={item.href} onClick={() => setMobileMenuOpen(false)} className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium", isActive ? "bg-blue-500/20 text-blue-200" : "text-slate-200 hover:bg-slate-800")}><item.icon className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{item.label}</span>{actionBadge ? <SidebarNotificationBadge count={actionBadge.count} label={actionBadge.label} /> : null}</Link><button type="button" onClick={() => setMobilePopulationOpen(value => !value)} aria-label="เปิดหรือปิดเมนูทะเบียนครัวเรือน" aria-expanded={mobilePopulationOpen} className="shrink-0 p-2 text-slate-300"><ChevronRight className={cn("h-4 w-4 transition-transform", mobilePopulationOpen ? "rotate-90" : "")} /></button></div>;
+                if (isPopulationParent) return <button key={item.href} type="button" onClick={() => setMobilePopulationOpen(value => !value)} aria-label="เปิดหรือปิดเมนูทะเบียนครัวเรือน" aria-expanded={mobilePopulationOpen} aria-controls={mobilePopulationMenuId} className={cn("flex w-full min-w-0 items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors", pathname === "/admin/population" || pathname.startsWith("/admin/population/") ? "bg-blue-500/20 text-blue-200" : "text-slate-200 hover:bg-slate-800")}><item.icon className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{item.label}</span>{actionBadge ? <SidebarNotificationBadge count={actionBadge.count} label={actionBadge.label} /> : null}<ChevronRight className={cn("h-4 w-4 shrink-0 transition-transform", mobilePopulationOpen ? "rotate-90" : "")} /></button>;
 
                 return (
                   <Link
                     key={item.href}
+                    id={isPopulationChild && item.href === "/admin/population/houses" ? mobilePopulationMenuId : undefined}
                     href={item.href}
                     onClick={(event) => {
                       if ("locked" in item && item.locked) {
