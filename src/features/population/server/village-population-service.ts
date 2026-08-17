@@ -76,7 +76,7 @@ export async function createVillageHouse(villageId: string, input: VillageHouseI
   await assertTargetVillage(villageId);
   const houseNumber = input.houseNumber.trim();
   const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
-  if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("รูปแบบเลขที่บ้านไม่ถูกต้อง");
+  if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1");
   const occupancyStatus = HouseholdOccupancyStatus.OCCUPIED;
   try {
     return await prisma.$transaction(async (tx) => {
@@ -100,7 +100,7 @@ export async function createVillageHouses(villageId: string, inputs: VillageHous
     const address = typeof input?.address === "string" ? input.address.trim() : "";
     const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
     if (!houseNumber) errors.push({ index, field: "houseNumber", message: "กรุณาระบุบ้านเลขที่" });
-    else if (!isValidHouseNumber(normalizedHouseNumber)) errors.push({ index, field: "houseNumber", message: "รูปแบบเลขที่บ้านไม่ถูกต้อง" });
+    else if (!isValidHouseNumber(normalizedHouseNumber)) errors.push({ index, field: "houseNumber", message: "กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1" });
     if (address.length > 300) errors.push({ index, field: "address", message: "ที่อยู่เพิ่มเติมต้องไม่เกิน 300 ตัวอักษร" });
     return { houseNumber, address, normalizedHouseNumber };
   });
@@ -148,7 +148,7 @@ export async function createVillageHouses(villageId: string, inputs: VillageHous
 export async function updateVillageHouse(villageId: string, houseId: string, input: VillageHouseInput, actor: PopulationActor) {
   const houseNumber = input.houseNumber.trim();
   const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
-  if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("รูปแบบเลขที่บ้านไม่ถูกต้อง");
+  if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1");
   try {
     return await prisma.$transaction(async (tx) => {
       const current = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, address: true } });
