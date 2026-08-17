@@ -4,6 +4,7 @@ import { AuditAction, BindingRequestStatus, MembershipStatus, MovementType, Noti
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { isRequestPlaceholderStatus } from "@/lib/settings-access";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, getNationalIdForUser, lockNationalIdClaim } from "@/lib/identity";
@@ -75,7 +76,7 @@ export async function reviewBindingSupportAction(
         if (nationalId && await findBoundIdentityByNationalId(tx, nationalId, request.userId, targetVillageId)) {
           throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
         }
-        await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
+        await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
         const linkedPerson = await tx.person.findUnique({ where: { userId: request.userId }, select: { id: true, houseId: true, villageId: true } });
         if (linkedPerson && linkedPerson.villageId !== targetVillageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้เชื่อมกับหมู่บ้านอื่น");
         if (linkedPerson) {
@@ -89,7 +90,9 @@ export async function reviewBindingSupportAction(
         await tx.authSession.updateMany({ where: { userId: request.userId, expiresAt: { gt: new Date() } }, data: { activeVillageId: targetVillageId } });
         if (nationalId) await cleanupDuplicateUnboundUsersByNationalId(tx, nationalId, request.userId, { actorId: actor.id, villageId: targetVillageId });
       } else {
-        await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.REJECTED, houseId: null, joinedAt: null }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.REJECTED } });
+        const placeholder = await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, select: { id: true, status: true } });
+        if (!placeholder) await tx.villageMembership.create({ data: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.REJECTED } });
+        else if (isRequestPlaceholderStatus(placeholder.status)) await tx.villageMembership.update({ where: { id: placeholder.id }, data: { status: MembershipStatus.REJECTED, houseId: null, joinedAt: null } });
       }
 
       await tx.bindingRequest.update({ where: { id: request.id }, data: { status: decision === "APPROVE" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED, houseId: decision === "APPROVE" ? resolvedHouseId : null, reviewedBy: actor.id, reviewedAt: new Date(), reviewNote: reason } });

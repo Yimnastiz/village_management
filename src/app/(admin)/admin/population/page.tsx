@@ -7,6 +7,7 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, PersonStatus, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { isRequestPlaceholderStatus } from "@/lib/settings-access";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
 import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, getNationalIdForUser, lockNationalIdClaim } from "@/lib/identity";
@@ -212,7 +213,6 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
   const now = new Date();
   const status = action === "approve" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED;
-  const membershipStatus = action === "approve" ? MembershipStatus.ACTIVE : MembershipStatus.REJECTED;
   const confirmPersonHouseChange = formData.get("confirmPersonHouseChange") === "true";
   let releasedDuplicateCount = 0;
 
@@ -248,27 +248,17 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
     await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: action === "approve" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequest", resourceId: requestId, metadata: { actionName: action === "approve" ? "BINDING_APPROVED_TO_EXISTING_HOUSE" : "BINDING_REJECTED", houseId: resolvedHouseId, reviewNote: reviewNote || null } } });
 
-    await tx.villageMembership.upsert({
-      where: {
-        userId_villageId: {
-          userId: binding.userId,
-          villageId: binding.villageId!,
-        },
-      },
-      update: {
-        status: membershipStatus,
-        houseId: action === "approve" ? resolvedHouseId : null,
-        joinedAt: membershipStatus === MembershipStatus.ACTIVE ? now : null,
-      },
-      create: {
-        userId: binding.userId,
-        villageId: binding.villageId!,
-        role: VillageMembershipRole.RESIDENT,
-        status: membershipStatus,
-        houseId: action === "approve" ? resolvedHouseId : null,
-        joinedAt: membershipStatus === MembershipStatus.ACTIVE ? now : null,
-      },
-    });
+    if (action === "approve") {
+      await tx.villageMembership.upsert({
+        where: { userId_villageId: { userId: binding.userId, villageId: binding.villageId! } },
+        update: { status: MembershipStatus.ACTIVE, houseId: resolvedHouseId, joinedAt: now },
+        create: { userId: binding.userId, villageId: binding.villageId!, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: resolvedHouseId, joinedAt: now },
+      });
+    } else {
+      const placeholder = await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: binding.userId, villageId: binding.villageId! } }, select: { id: true, status: true } });
+      if (!placeholder) await tx.villageMembership.create({ data: { userId: binding.userId, villageId: binding.villageId!, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.REJECTED } });
+      else if (isRequestPlaceholderStatus(placeholder.status)) await tx.villageMembership.update({ where: { id: placeholder.id }, data: { status: MembershipStatus.REJECTED, houseId: null, joinedAt: null } });
+    }
 
     if (action === "approve") {
       await tx.user.update({

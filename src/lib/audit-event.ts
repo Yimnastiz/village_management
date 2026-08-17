@@ -47,6 +47,9 @@ const resourceLabels: Record<string, string> = {
 };
 
 const actionNameLabels: Record<string, string> = {
+  MEMBER_ROLE_CHANGED: "เปลี่ยนบทบาทของ",
+  MEMBER_SUSPENDED: "ระงับการใช้งานของ",
+  MEMBER_REACTIVATED: "เปิดใช้งานอีกครั้งให้",
   NEWS_CREATED: "เพิ่มข่าว",
   NEWS_UPDATED: "แก้ไขข่าว",
   NEWS_DELETED: "ลบข่าว",

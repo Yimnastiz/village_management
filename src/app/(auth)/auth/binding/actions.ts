@@ -7,6 +7,18 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
+import { isAccessMembershipStatus } from "@/lib/settings-access";
+
+async function ensurePendingBindingMembership(userId: string, villageId: string) {
+  const existing = await prisma.villageMembership.findUnique({ where: { userId_villageId: { userId, villageId } }, select: { status: true } });
+  // A request is workflow state only. Never downgrade an existing real member.
+  if (existing && isAccessMembershipStatus(existing.status)) return;
+  await prisma.villageMembership.upsert({
+    where: { userId_villageId: { userId, villageId } },
+    update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.PENDING, houseId: null },
+    create: { userId, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.PENDING },
+  });
+}
 
 function toOptionalString(value: FormDataEntryValue | null): string | null {
   if (typeof value !== "string") {
@@ -96,25 +108,7 @@ export async function submitBindingRequestAction(
       },
     });
 
-    await prisma.villageMembership.upsert({
-      where: {
-        userId_villageId: {
-          userId: session.id,
-          villageId: existingPending.villageId ?? villageId,
-        },
-      },
-      update: {
-        role: VillageMembershipRole.RESIDENT,
-        status: MembershipStatus.PENDING,
-        houseId: null,
-      },
-      create: {
-        userId: session.id,
-        villageId: existingPending.villageId ?? villageId,
-        role: VillageMembershipRole.RESIDENT,
-        status: MembershipStatus.PENDING,
-      },
-    });
+    await ensurePendingBindingMembership(session.id, existingPending.villageId ?? villageId);
 
     revalidatePath("/resident/binding");
     revalidateAdminSidebar();
@@ -165,25 +159,7 @@ export async function submitBindingRequestAction(
     }
   }
 
-  await prisma.villageMembership.upsert({
-    where: {
-      userId_villageId: {
-        userId: session.id,
-        villageId,
-      },
-    },
-    update: {
-      role: VillageMembershipRole.RESIDENT,
-      status: MembershipStatus.PENDING,
-      houseId: null,
-    },
-    create: {
-      userId: session.id,
-      villageId,
-      role: VillageMembershipRole.RESIDENT,
-      status: MembershipStatus.PENDING,
-    },
-  });
+  await ensurePendingBindingMembership(session.id, villageId);
 
   revalidatePath("/resident/binding");
   revalidateAdminSidebar();

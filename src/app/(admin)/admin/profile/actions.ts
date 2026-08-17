@@ -16,9 +16,10 @@ export async function updateAdminProfileAction(data: { phoneNumber: string; emai
   const phoneNumber = normalizePhone10(parsed.data.phoneNumber); if (!phoneNumber) return { success: false, error: "กรุณากรอกเบอร์โทรศัพท์ 10 หลัก" };
   if (data.image?.trim() && !parsed.data.image) return { success: false, error: "รูปโปรไฟล์ไม่ถูกต้อง" };
   const email = parsed.data.email;
-  const [phoneConflict, emailConflict, current] = await Promise.all([prisma.user.findFirst({ where: { phoneNumber, id: { not: session.id }, accountStatus: "ACTIVE" }, select: { id: true } }), email ? prisma.user.findFirst({ where: { email, id: { not: session.id } }, select: { id: true } }) : null, prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { phoneNumber: true, email: true } })]);
-  if (phoneConflict) return { success: false, error: "เบอร์โทรศัพท์นี้ถูกใช้งานแล้ว" }; if (emailConflict) return { success: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
-  await prisma.$transaction([prisma.user.update({ where: { id: session.id }, data: { phoneNumber, email, image: parsed.data.image, ...(phoneNumber !== current.phoneNumber ? { phoneNumberVerified: false } : {}), ...(email !== current.email ? { emailVerified: false } : {}) } }), prisma.person.updateMany({ where: { userId: session.id }, data: { phone: phoneNumber, email } })]);
+  const [emailConflict, current] = await Promise.all([email ? prisma.user.findFirst({ where: { email, id: { not: session.id } }, select: { id: true } }) : null, prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { phoneNumber: true, email: true } })]);
+  if (phoneNumber !== current.phoneNumber) return { success: false, error: "เบอร์โทรศัพท์เป็นข้อมูลเข้าสู่ระบบ ต้องเปลี่ยนผ่านขั้นตอนยืนยัน OTP" };
+  if (emailConflict) return { success: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
+  await prisma.$transaction([prisma.user.update({ where: { id: session.id }, data: { email, image: parsed.data.image, ...(email !== current.email ? { emailVerified: false } : {}) } }), prisma.person.updateMany({ where: { userId: session.id }, data: { email } })]);
   revalidatePath("/admin/profile"); revalidatePath("/admin", "layout"); return { success: true };
 }
 export async function revealOwnAdminNationalIdAction(): Promise<{ success: true; nationalId: string } | { success: false }> { const session = await currentAdmin(); if (!session) return { success: false }; const person = await prisma.person.findUnique({ where: { userId: session.id }, select: { nationalId: true } }); return person?.nationalId ? { success: true, nationalId: person.nationalId } : { success: false }; }
