@@ -36,16 +36,22 @@ export async function findBoundIdentityByNationalId(
     }),
     db.registrationTemp.findMany({
       where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED, ...(villageId ? { villageId } : {}) },
-      select: { phoneNumber: true },
+      select: { userId: true },
     }),
   ]);
   const personUserIds = persons.flatMap((person) => person.userId ? [person.userId] : []);
-  const phoneNumbers = [...new Set(registrations.map((registration) => registration.phoneNumber))];
-  if (!personUserIds.length && !phoneNumbers.length) return null;
+  const registrationUserIds = registrations.flatMap((registration) => registration.userId ? [registration.userId] : []);
+  if (!personUserIds.length && !registrationUserIds.length) return null;
   return db.user.findFirst({
     where: {
       ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
       accountStatus: AccountStatus.ACTIVE,
+      OR: [
+        ...(personUserIds.length ? [{ id: { in: personUserIds } }] : []),
+        // RegistrationTemp is only a legacy fallback when a Person row does
+        // not exist. A Person is the canonical identity once it has been made.
+        ...(registrationUserIds.length ? [{ id: { in: registrationUserIds }, person: { is: null } }] : []),
+      ],
       memberships: {
         some: {
           status: MembershipStatus.ACTIVE,
@@ -53,10 +59,6 @@ export async function findBoundIdentityByNationalId(
           ...(villageId ? { villageId } : {}),
         },
       },
-      OR: [
-        ...(personUserIds.length ? [{ id: { in: personUserIds } }] : []),
-        ...(phoneNumbers.length ? [{ phoneNumber: { in: phoneNumbers } }] : []),
-      ],
     },
     select: { id: true },
   });
@@ -66,12 +68,12 @@ export async function findBoundIdentityByNationalId(
 export async function getNationalIdForUser(db: IdentityDb, userId: string, villageId?: string | null) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { phoneNumber: true, person: { select: { nationalId: true } } },
+    select: { person: { select: { nationalId: true } } },
   });
   if (!user) return null;
   if (user.person?.nationalId) return normalizeNationalId(user.person.nationalId) || null;
   const registration = await db.registrationTemp.findFirst({
-    where: { phoneNumber: user.phoneNumber, status: RegistrationTempStatus.VERIFIED, ...(villageId ? { villageId } : {}) },
+    where: { userId, status: RegistrationTempStatus.VERIFIED, ...(villageId ? { villageId } : {}) },
     orderBy: { updatedAt: "desc" },
     select: { nationalId: true },
   });
@@ -80,10 +82,10 @@ export async function getNationalIdForUser(db: IdentityDb, userId: string, villa
 
 /**
  * Keeps the bound account and disables only accounts with the same identity that
- * still have no active house membership. Their phone identity is archived so
- * it can be reused for a new registration. The account status blocks all
- * protected routes; the existing session is retained only for the one-time
- * duplicate-account notice, which clears it after rendering.
+ * still have no active membership. RegistrationTemp is considered only when it
+ * has an explicit owner userId; phone numbers are reusable and are not identity
+ * ownership. Their phone identity is archived so it can be reused for a new
+ * registration.
  */
 export async function cleanupDuplicateUnboundUsersByNationalId(
   db: IdentityDb,
@@ -94,39 +96,38 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
   const normalized = normalizeNationalId(nationalId);
   if (!normalized) return 0;
 
-  // A new resident can have a verified registration before it has a Person row.
-  // Merge both sources, then revoke only users without *any* active membership.
+  // Merge stable Person and RegistrationTemp ownership. Legacy registrations
+  // without an owner are intentionally diagnostic-only: matching them by phone
+  // can revoke an unrelated account after a number has been reassigned.
   const [registrations, persons] = await Promise.all([
     db.registrationTemp.findMany({
       where: { nationalId: normalized, status: RegistrationTempStatus.VERIFIED, ...(options.villageId ? { villageId: options.villageId } : {}) },
-      select: { phoneNumber: true },
+      select: { userId: true },
     }),
     db.person.findMany({
       where: { nationalId: normalized, userId: { not: null }, ...(options.villageId ? { villageId: options.villageId } : {}) },
       select: { userId: true },
     }),
   ]);
-  const phoneNumbers = [...new Set(registrations.map((registration) => registration.phoneNumber))];
+  const registrationUserIds = registrations.flatMap((registration) => registration.userId ? [registration.userId] : []);
   const personUserIds = persons.flatMap((person) => person.userId ? [person.userId] : []);
-  const [personCandidates, registrationCandidates] = await Promise.all([
-    personUserIds.length
-      ? db.user.findMany({
-          where: { id: { in: personUserIds, not: winnerUserId }, accountStatus: AccountStatus.ACTIVE, systemRole: { not: SystemRole.SUPERADMIN } },
-          select: { id: true, phoneNumber: true, memberships: { select: { status: true } } },
-        })
-      : [],
-    phoneNumbers.length
-      ? db.user.findMany({
-          where: { phoneNumber: { in: phoneNumbers }, id: { not: winnerUserId }, accountStatus: AccountStatus.ACTIVE, systemRole: { not: SystemRole.SUPERADMIN } },
-          select: { id: true, phoneNumber: true, memberships: { select: { status: true } } },
-        })
-      : [],
-  ]);
-  const loserIds = [...new Map(
-    [...personCandidates, ...registrationCandidates]
-      .filter((candidate) => candidate.memberships.every((membership) => membership.status !== MembershipStatus.ACTIVE))
-      .map((candidate) => [candidate.id, candidate.id]),
-  ).values()];
+  const candidates = personUserIds.length || registrationUserIds.length
+    ? await db.user.findMany({
+        where: {
+          id: { not: winnerUserId },
+          accountStatus: AccountStatus.ACTIVE,
+          systemRole: { not: SystemRole.SUPERADMIN },
+          OR: [
+            ...(personUserIds.length ? [{ id: { in: personUserIds } }] : []),
+            ...(registrationUserIds.length ? [{ id: { in: registrationUserIds }, person: { is: null } }] : []),
+          ],
+        },
+        select: { id: true, phoneNumber: true, memberships: { select: { status: true } } },
+      })
+    : [];
+  const loserIds = candidates
+    .filter((candidate) => candidate.memberships.every((membership) => membership.status !== MembershipStatus.ACTIVE))
+    .map((candidate) => candidate.id);
   if (!loserIds.length) {
     await db.auditLog.create({
       data: {
@@ -140,11 +141,7 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
     });
     return 0;
   }
-  const loserUsers = [...new Map(
-    [...personCandidates, ...registrationCandidates]
-      .filter((candidate) => loserIds.includes(candidate.id))
-      .map((candidate) => [candidate.id, candidate]),
-  ).values()];
+  const loserUsers = candidates.filter((candidate) => loserIds.includes(candidate.id));
   const loserPhoneNumbers = [...new Set(loserUsers.map((candidate) => candidate.phoneNumber))];
 
   const resolvedAt = new Date();
@@ -169,7 +166,7 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
     db.person.updateMany({ where: { userId: { in: loserIds } }, data: { phone: null } }),
     db.registrationTemp.updateMany({
       where: {
-        phoneNumber: { in: loserPhoneNumbers }, nationalId: normalized,
+        userId: { in: loserIds }, nationalId: normalized,
         status: { in: [RegistrationTempStatus.WAITING_OTP, RegistrationTempStatus.VERIFIED] },
         ...(options.villageId ? { villageId: options.villageId } : {}),
       },

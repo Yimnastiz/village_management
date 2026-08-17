@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-    await tx.registrationTemp.update({ where: { id: currentDraft.id }, data: { status: RegistrationTempStatus.VERIFIED } });
+    await tx.registrationTemp.update({
+      where: { id: currentDraft.id },
+      data: { status: RegistrationTempStatus.VERIFIED, userId: user.id },
+    });
     await tx.registrationTemp.updateMany({ where: { phoneNumber, id: { not: currentDraft.id }, status: RegistrationTempStatus.WAITING_OTP }, data: { status: RegistrationTempStatus.CANCELLED } });
     await tx.registrationOtpChallenge.update({ where: { id: challenge.id }, data: { status: RegistrationOtpChallengeStatus.CONSUMED } });
     await tx.authVerification.deleteMany({ where: { identifier: challenge.otpIdentifier } });

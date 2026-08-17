@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedAccessRedirectPath,
-  getDuplicateNoticeSessionFromRequest,
+  getDuplicateAccountRoutingStateFromRequest,
   getResidentAreaAccessInfo,
-  getSessionContextFromRequest,
   isAdminUser,
 } from "@/lib/access-control";
 import {
@@ -11,7 +10,7 @@ import {
   SUPERADMIN_SESSION_COOKIE,
   superAdminSessionCookieOptions,
 } from "@/lib/superadmin-auth";
-import { AccountStatus } from "@prisma/client";
+import { expireSessionCookies } from "@/lib/session-cookie";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -31,24 +30,46 @@ export async function proxy(request: NextRequest) {
     }
     return response;
   }
-  const session = await getSessionContextFromRequest(request);
-  const duplicateNoticeSession = session ? null : await getDuplicateNoticeSessionFromRequest(request);
+  const authState = await getDuplicateAccountRoutingStateFromRequest(request);
+  const session = authState.kind === "ACTIVE_SESSION" ? authState.session : null;
+  const clearAndContinue = () => {
+    const response = NextResponse.next();
+    expireSessionCookies(response);
+    return response;
+  };
+  const clearAndRedirectToLogin = () => {
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("reason", "account-disabled");
+    const response = NextResponse.redirect(loginUrl);
+    expireSessionCookies(response);
+    return response;
+  };
 
   if (pathname === "/auth/account-duplicate") {
-    if (duplicateNoticeSession) {
+    if (authState.kind === "DUPLICATE_NOTICE_PENDING") {
       return NextResponse.next();
     }
-    if (!session) {
-      return NextResponse.redirect(new URL("/auth/login", request.url));
+    if (authState.kind === "DUPLICATE_NOTICE_SEEN" || authState.kind === "RESTRICTED_SESSION") {
+      return clearAndRedirectToLogin();
     }
-    if (session.accountStatus !== AccountStatus.DUPLICATE_ID) {
+    if (session) {
       return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));
     }
-    return NextResponse.next();
+    return authState.kind === "STALE_SESSION"
+      ? clearAndRedirectToLogin()
+      : NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  if (duplicateNoticeSession || session?.accountStatus === AccountStatus.DUPLICATE_ID) {
+  if (authState.kind === "DUPLICATE_NOTICE_PENDING") {
     return NextResponse.redirect(new URL("/auth/account-duplicate", request.url));
+  }
+
+  if (authState.kind === "DUPLICATE_NOTICE_SEEN" || authState.kind === "RESTRICTED_SESSION") {
+    return pathname === "/auth/login" ? clearAndContinue() : clearAndRedirectToLogin();
+  }
+
+  if (authState.kind === "STALE_SESSION" && pathname === "/auth/login") {
+    return clearAndContinue();
   }
 
   if (pathname === "/auth/login" && session) {

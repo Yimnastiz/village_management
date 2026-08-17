@@ -345,6 +345,7 @@ model User {
 
   authSessions            AuthSession[]
   authAccounts            AuthAccount[]
+  registrationTemps       RegistrationTemp[]       @relation("RegistrationTempOwner")
   memberships             VillageMembership[]
   person                  Person?
   bindingRequests         BindingRequest[]
@@ -1363,6 +1364,7 @@ model LoginOtpChallenge {
 
 model RegistrationTemp {
   id               String                 @id @default(cuid())
+  userId           String?
   phoneNumber      String
   registrationMode RegistrationMode       @default(RESIDENT)
   name             String
@@ -1386,8 +1388,10 @@ model RegistrationTemp {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
+  user             User?                  @relation("RegistrationTempOwner", fields: [userId], references: [id], onDelete: SetNull)
   verifierSessions RegistrationVerifierSession[]
 
+  @@index([userId])
   @@index([phoneNumber])
   @@index([status])
   @@index([expiresAt])

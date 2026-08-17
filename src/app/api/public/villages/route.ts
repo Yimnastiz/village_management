@@ -1,0 +1,4 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { validateThaiLocation } from "@/lib/thai-geography";
+export async function GET(request:NextRequest){const location=validateThaiLocation({province:request.nextUrl.searchParams.get("province")??"",district:request.nextUrl.searchParams.get("district")??"",subdistrict:request.nextUrl.searchParams.get("subdistrict")??""});if(!location.ok)return NextResponse.json({villages:[]},{status:400});const villages=await prisma.village.findMany({where:{isActive:true,province:location.province,district:location.district,subdistrict:location.subdistrict},orderBy:[{name:"asc"},{moo:"asc"}],select:{id:true,slug:true,name:true,moo:true,province:true,district:true,subdistrict:true}});return NextResponse.json({villages},{headers:{"Cache-Control":"public, max-age=60, s-maxage=300"}})}

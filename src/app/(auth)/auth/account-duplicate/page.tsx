@@ -1,43 +1,29 @@
-import { AccountStatus, AuditAction } from "@prisma/client";
-import { redirect } from "next/navigation";
-import { getDuplicateNoticeSessionFromServerCookies } from "@/lib/access-control";
+import { getDuplicateAccountRoutingStateFromServerCookies } from "@/lib/access-control";
 import { DUPLICATE_NATIONAL_ID_REASON } from "@/lib/identity";
 import { prisma } from "@/lib/prisma";
 import { DuplicateAccountActions } from "./duplicate-account-actions";
 
 export default async function DuplicateAccountNoticePage() {
-  const session = await getDuplicateNoticeSessionFromServerCookies();
-  if (!session) {
-    redirect("/auth/login");
-  }
-
-  const now = new Date();
-  const contact = await prisma.user.findUnique({
-    where: { id: session.id },
+  const authState = await getDuplicateAccountRoutingStateFromServerCookies();
+  const userId = authState.kind === "DUPLICATE_NOTICE_PENDING" ? authState.id : null;
+  const contact = userId ? await prisma.user.findUnique({
+    where: { id: userId },
     select: { registrationVillage: { select: { name: true, phone: true } } },
-  });
-  await prisma.$transaction(async (tx) => {
-    const marked = await tx.user.updateMany({
-      where: {
-        id: session.id,
-        accountStatus: AccountStatus.DUPLICATE_ID,
-        duplicateNoticeSeenAt: null,
-      },
-      data: { duplicateNoticeSeenAt: now },
-    });
-    if (marked.count) {
-      await tx.auditLog.create({
-        data: {
-          userId: session.id,
-          action: AuditAction.VIEW_SENSITIVE,
-          resource: "DuplicateNationalIdNotice",
-          resourceId: session.id,
-          metadata: { event: "DUPLICATE_NATIONAL_ID_NOTICE_SEEN" },
-        },
-      });
-    }
-    await tx.authSession.deleteMany({ where: { userId: session.id } });
-  });
+  }) : null;
+
+  if (!userId) {
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">
+        <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow-xl shadow-amber-950/5 sm:p-8">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-950">ไม่พบช่วงเวลาแสดงข้อความแจ้งเตือน</h1>
+          <p className="mt-4 text-sm leading-6 text-slate-700">
+            การเข้าสู่ระบบนี้สิ้นสุดแล้ว กรุณาเข้าสู่ระบบอีกครั้ง หรือติดต่อผู้ดูแลหมู่บ้านหากยังพบปัญหา
+          </p>
+          <DuplicateAccountActions unavailable />
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-10 sm:py-16">

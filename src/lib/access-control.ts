@@ -33,6 +33,14 @@ export type DuplicateNoticeSession = {
   accountStatus: AccountStatus;
 };
 
+export type DuplicateAccountRoutingState =
+  | { kind: "NO_SESSION" }
+  | { kind: "STALE_SESSION" }
+  | { kind: "ACTIVE_SESSION"; session: SessionContext }
+  | { kind: "DUPLICATE_NOTICE_PENDING"; id: string }
+  | { kind: "DUPLICATE_NOTICE_SEEN"; id: string }
+  | { kind: "RESTRICTED_SESSION" };
+
 /**
  * Better Auth signs session tokens with HMAC-SHA256.
  * Signed format: rawToken.signature
@@ -154,17 +162,65 @@ export async function getSessionContextFromRequest(
   return getSessionContextByToken(readSessionCookieFromRequest(request));
 }
 
-export async function getDuplicateNoticeSessionByToken(token: string | null): Promise<DuplicateNoticeSession | null> {
-  if (!token) return null;
+/**
+ * The single routing decision for a session that may belong to a duplicate-ID
+ * account.  Keep "duplicate account", "notice pending", and "notice seen"
+ * separate so the proxy, pages, and API flows cannot disagree about redirects.
+ */
+export async function getDuplicateAccountRoutingStateByToken(
+  token: string | null
+): Promise<DuplicateAccountRoutingState> {
+  if (!token) return { kind: "NO_SESSION" };
+
   const session = await loadAuthSession(unsignSessionToken(token)).catch(() => null);
-  if (
-    !session ||
-    session.user.accountStatus !== AccountStatus.DUPLICATE_ID ||
-    session.user.duplicateNoticeSeenAt
-  ) {
-    return null;
+  if (!session) return { kind: "STALE_SESSION" };
+
+  if (session.user.accountStatus === AccountStatus.DUPLICATE_ID) {
+    return session.user.duplicateNoticeSeenAt
+      ? { kind: "DUPLICATE_NOTICE_SEEN", id: session.user.id }
+      : { kind: "DUPLICATE_NOTICE_PENDING", id: session.user.id };
   }
-  return { id: session.user.id, accountStatus: AccountStatus.DUPLICATE_ID };
+
+  if (session.user.accountStatus !== AccountStatus.ACTIVE) {
+    return { kind: "RESTRICTED_SESSION" };
+  }
+
+  return {
+    kind: "ACTIVE_SESSION",
+    session: {
+      id: session.user.id,
+      phoneNumber: session.user.phoneNumber,
+      name: session.user.name,
+      accountStatus: session.user.accountStatus,
+      systemRole: session.user.systemRole,
+      citizenVerifiedAt: session.user.citizenVerifiedAt,
+      activeVillageId: session.activeVillageId ?? null,
+      memberships: session.user.memberships.map((membership) => ({
+        villageId: membership.villageId,
+        villageSlug: membership.village?.slug ?? null,
+        houseId: membership.houseId,
+        role: membership.role,
+        status: membership.status,
+      })),
+    },
+  };
+}
+
+export async function getDuplicateAccountRoutingStateFromServerCookies(): Promise<DuplicateAccountRoutingState> {
+  return getDuplicateAccountRoutingStateByToken(await readSessionCookieFromServer());
+}
+
+export async function getDuplicateAccountRoutingStateFromRequest(
+  request: NextRequest | Request
+): Promise<DuplicateAccountRoutingState> {
+  return getDuplicateAccountRoutingStateByToken(readSessionCookieFromRequest(request));
+}
+
+export async function getDuplicateNoticeSessionByToken(token: string | null): Promise<DuplicateNoticeSession | null> {
+  const state = await getDuplicateAccountRoutingStateByToken(token);
+  return state.kind === "DUPLICATE_NOTICE_PENDING"
+    ? { id: state.id, accountStatus: AccountStatus.DUPLICATE_ID }
+    : null;
 }
 
 export async function getDuplicateNoticeSessionFromServerCookies(): Promise<DuplicateNoticeSession | null> {

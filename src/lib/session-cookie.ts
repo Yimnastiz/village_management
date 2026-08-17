@@ -19,6 +19,21 @@ export const SESSION_COOKIE_NAMES = [
 
 export const SESSION_COOKIE = SESSION_COOKIE_NAMES[0];
 
+/**
+ * Expire every session cookie name that this application has issued.  This is
+ * deliberately shared by the proxy and explicit sign-out flows: deleting a
+ * server-side AuthSession alone leaves the browser presenting a stale token.
+ */
+export function expireSessionCookies(response: Response) {
+  for (const name of SESSION_COOKIE_NAMES) {
+    const secure = name.startsWith("__Secure-") ? "; Secure" : "";
+    response.headers.append(
+      "Set-Cookie",
+      `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${secure}`
+    );
+  }
+}
+
 type CookieReader = {
   get(name: string): { value: string } | undefined;
 };
