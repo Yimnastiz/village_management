@@ -8,6 +8,7 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { areSafeImageSources, hasSafeTotalImageDataSize } from "@/lib/image-input";
@@ -117,6 +118,7 @@ export async function adminCreateNewsAction(
       publishedAt: normalized.value.stage === "PUBLISHED" ? new Date() : null,
     },
   });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "CREATE", resource: "News", resourceId: news.id, metadata: { actionName: "NEWS_CREATED", title: news.title, newValue: { title: news.title, stage: news.stage, visibility: news.visibility } } });
 
   return { success: true, newsId: news.id };
 }
@@ -133,7 +135,7 @@ export async function adminUpdateNewsAction(
 
   const existing = await prisma.news.findFirst({
     where: { id: newsId, villageId: ctx.villageId },
-    select: { id: true, stage: true, publishedAt: true },
+    select: { id: true, title: true, stage: true, visibility: true, publishedAt: true },
   });
   if (!existing) {
     return { success: false, error: "ไม่พบข่าวนี้หรือไม่มีสิทธิ์แก้ไข" };
@@ -157,6 +159,7 @@ export async function adminUpdateNewsAction(
       publishedAt: shouldSetPublishedAt ? new Date() : existing.publishedAt,
     },
   });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "UPDATE", resource: "News", resourceId: newsId, metadata: { actionName: "NEWS_UPDATED", title: normalized.value.title, oldValue: { title: existing.title, stage: existing.stage, visibility: existing.visibility }, newValue: { title: normalized.value.title, stage: normalized.value.stage, visibility: normalized.value.visibility } } });
 
   return { success: true };
 }
@@ -169,13 +172,14 @@ export async function adminDeleteNewsAction(
 
   const existing = await prisma.news.findFirst({
     where: { id: newsId, villageId: ctx.villageId },
-    select: { id: true },
+    select: { id: true, title: true },
   });
   if (!existing) {
     return { success: false, error: "ไม่พบข่าวนี้หรือไม่มีสิทธิ์ลบ" };
   }
 
   await prisma.news.delete({ where: { id: newsId } });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "News", resourceId: newsId, metadata: { actionName: "NEWS_DELETED", title: existing.title } });
   return { success: true };
 }
 
@@ -253,6 +257,7 @@ export async function adminApproveNewsSubmissionAction(
           },
         },
       });
+      await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
     });
 
     revalidateAdminSidebar();
@@ -303,6 +308,7 @@ export async function adminApproveNewsSubmissionAction(
           },
         },
       });
+      await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
 
       return news;
     });
@@ -366,6 +372,7 @@ export async function adminApproveNewsSubmissionAction(
         },
       },
     });
+    await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
   });
 
   revalidateAdminSidebar();
@@ -410,6 +417,7 @@ export async function adminRejectNewsSubmissionAction(
       },
     },
   });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "REJECT", resource: "NewsSubmission", resourceId: submissionId, metadata: { actionName: "NEWS_SUBMISSION_REJECTED" } });
 
   revalidateAdminSidebar();
   return { success: true };

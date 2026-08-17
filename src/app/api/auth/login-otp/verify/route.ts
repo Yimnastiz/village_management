@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
 import {
   LOGIN_OTP_COOKIE,
@@ -153,6 +154,13 @@ export async function POST(request: NextRequest) {
       });
       await tx.authVerification.deleteMany({ where: { identifier: reservation.challenge.otpIdentifier } });
     });
+    // Only record a successful sign-in for an administrator's active village.
+    // Failed OTP attempts remain intentionally out of the village activity feed.
+    const adminMembership = await prisma.villageMembership.findFirst({
+      where: { userId: payload.user!.id!, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } },
+      select: { villageId: true },
+    });
+    if (adminMembership) await writeVillageAuditLog(prisma, { villageId: adminMembership.villageId, userId: payload.user!.id!, action: "LOGIN", resource: "AuthSession", resourceId: session!.id });
     developmentDiagnostic({ challengeFound: true, otpMatched: true, userFound: true, sessionCreated: true, cookieAttached: true });
     return response;
   } catch (error) {

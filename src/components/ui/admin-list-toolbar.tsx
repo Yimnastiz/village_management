@@ -22,12 +22,14 @@ interface AdminListToolbarProps {
   sticky?: boolean;
   searchLabel?: string;
   filterLabel?: string;
+  /** Route-specific controls rendered inside the shared filter panel. */
+  extraFilters?: ReactNode;
 }
 
 /** Backward-compatible list adapter rendered through the shared admin toolbar. */
 export function AdminListToolbar({
   title, description, clearHref, keyword, searchPlaceholder, suggestionTitles = [], groups = [], actions,
-  sticky = false, searchLabel = "ค้นหา",
+  sticky = false, searchLabel = "ค้นหา", extraFilters,
 }: AdminListToolbarProps) {
   const activeFilterCount = groups.reduce(
     (count, group) => count + Number(group.options.some((option, index) => option.active && !(option.isDefault ?? index === 0))),
@@ -39,7 +41,8 @@ export function AdminListToolbar({
       {group.options.map((option) => <Link key={`${group.label}-${option.label}`} href={option.href} className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors", option.active ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>{option.label}</Link>)}
     </div>)}
     {activeFilterCount > 0 && clearHref ? <Link href={clearHref} className="ml-1 rounded-full px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">ล้างตัวกรอง</Link> : null}
-  </> : undefined;
+    {extraFilters}
+  </> : extraFilters;
 
   return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} />;
 }

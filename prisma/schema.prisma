@@ -1317,6 +1317,7 @@ model AuditLog {
 
   @@index([userId])
   @@index([villageId])
+  @@index([villageId, createdAt])
   @@index([action])
   @@index([createdAt])
 }
