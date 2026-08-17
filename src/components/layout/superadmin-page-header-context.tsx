@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, useState } from "react";
 
 export type SuperAdminHeaderAction = {
   label: string;
@@ -10,6 +10,11 @@ export type SuperAdminHeaderAction = {
 export type SuperAdminHeaderContext = {
   title: string;
   description?: string;
+  workspace?: {
+    villageId: string;
+    location: string;
+    isActive: boolean;
+  };
 };
 
 const SuperAdminPageHeaderContext = createContext<{
@@ -28,7 +33,7 @@ export function SuperAdminPageHeaderProvider({ children }: { children: React.Rea
 
 export function SuperAdminPageHeaderRegistration({ context }: { context: SuperAdminHeaderContext }) {
   const { setContext } = useSuperAdminPageHeader();
-  useEffect(() => { setContext(context); return () => setContext(null); }, [context, setContext]);
+  useLayoutEffect(() => { setContext(context); return () => setContext(null); }, [context, setContext]);
   return null;
 }
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   LayoutDashboard,
   Building2,
@@ -41,8 +41,39 @@ export const superAdminMenuItems: SuperAdminMenuItem[] = [
 export function SuperAdminSidebar() {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => { const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-superadmin-sidebar-collapsed") === "true")); return () => cancelAnimationFrame(frame); }, []);
-  const toggle = () => setCollapsed((value) => { localStorage.setItem("village-superadmin-sidebar-collapsed", String(!value)); return !value; });
+  const previousWorkspace = useRef<boolean | null>(null);
+  const isWorkspace = /^\/superadmin\/villages\/[^/]+(?:\/|$)/.test(pathname);
+
+  useLayoutEffect(() => {
+    const overrideKey = "village-superadmin-workspace-sidebar-override";
+    const storedCollapsed = localStorage.getItem("village-superadmin-sidebar-collapsed") === "true";
+
+    if (previousWorkspace.current === null) {
+      if (!isWorkspace) {
+        sessionStorage.removeItem(overrideKey);
+        setCollapsed(storedCollapsed);
+      } else if (sessionStorage.getItem(overrideKey) === "true") {
+        setCollapsed(storedCollapsed);
+      } else {
+        setCollapsed(true);
+        localStorage.setItem("village-superadmin-sidebar-collapsed", "true");
+      }
+    } else if (!previousWorkspace.current && isWorkspace) {
+      setCollapsed(true);
+      localStorage.setItem("village-superadmin-sidebar-collapsed", "true");
+    } else if (previousWorkspace.current && !isWorkspace) {
+      sessionStorage.removeItem(overrideKey);
+    }
+
+    previousWorkspace.current = isWorkspace;
+  }, [isWorkspace]);
+
+  const toggle = () => setCollapsed((value) => {
+    const nextValue = !value;
+    localStorage.setItem("village-superadmin-sidebar-collapsed", String(nextValue));
+    if (isWorkspace) sessionStorage.setItem("village-superadmin-workspace-sidebar-override", "true");
+    return nextValue;
+  });
 
   return (
     <aside className={cn("sticky top-0 hidden h-screen overflow-hidden border-r border-slate-800 bg-slate-950 text-slate-200 transition-[width] duration-200 md:flex md:flex-col", collapsed ? "w-[72px]" : "w-60")}>
