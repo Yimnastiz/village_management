@@ -84,11 +84,6 @@ export default async function SuperAdminFeedbackPage({ searchParams }: PageProps
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Feedback จากผู้ใช้งาน</h1>
-        <p className="mt-1 text-sm text-slate-600">ค้นหา กรอง จัดเรียง และจัดสถานะ feedback ที่ส่งมาจากหน้า public</p>
-      </div>
-
       <form method="GET" className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-5">
         <input
           name="q"

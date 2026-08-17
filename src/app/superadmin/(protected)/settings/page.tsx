@@ -15,11 +15,6 @@ export default async function SuperAdminSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">ตั้งค่ากลางระบบ</h1>
-        <p className="mt-1 text-sm text-slate-600">กำหนดค่าระดับ global สำหรับทุกหมู่บ้าน</p>
-      </div>
-
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">เพิ่ม/อัปเดตการตั้งค่า</h2>
         <form action={upsertGlobalSettingAction} className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">

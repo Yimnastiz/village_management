@@ -87,11 +87,6 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">จัดการผู้ใช้ทุกหมู่บ้าน</h1>
-        <p className="mt-1 text-sm text-slate-600">ปรับสิทธิ์ระดับระบบ กำหนด/ถอดบทบาท Headman และ Assistant Headman ได้จากหน้านี้</p>
-      </div>
-
       <form method="GET" className="grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-4">
         <input name="q" defaultValue={keyword} placeholder="ค้นหาชื่อ เบอร์โทร หรืออีเมล" className="rounded-md border border-slate-300 px-3 py-2 text-sm md:col-span-2" />
         <select name="systemRole" defaultValue={systemRole} className="rounded-md border border-slate-300 px-3 py-2 text-sm">

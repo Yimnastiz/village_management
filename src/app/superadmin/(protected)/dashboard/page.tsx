@@ -45,12 +45,6 @@ export default async function SuperAdminDashboardPage() {
 
   return (
     <div className="space-y-5">
-      <div className="border-b border-slate-200 pb-4">
-        <p className="text-sm font-medium text-cyan-700">Super Admin</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900">ภาพรวมระบบ</h1>
-        <p className="mt-1 text-sm text-slate-600">ติดตามสถานะหมู่บ้าน ผู้ใช้ และงานที่ต้องดำเนินการจากศูนย์กลาง</p>
-      </div>
-
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <StatCard label="หมู่บ้านทั้งหมด" value={villageCount} hint={`เปิดใช้งาน ${activeVillageCount} หมู่บ้าน`} />
         <StatCard label="ผู้ใช้ทั้งหมด" value={userCount} hint={`Super Admin ${superAdminCount} บัญชี`} />

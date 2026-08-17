@@ -5,6 +5,7 @@ import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { getWorkspaceVillage } from "@/features/village-workspace/server/queries";
 import { WorkspaceNav } from "./workspace-nav";
 import { WorkspaceToast } from "./workspace-toast";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 
 export default async function VillageWorkspaceLayout({ children, params }: { children: React.ReactNode; params: Promise<{ villageId: string }> }) {
   await requireSuperAdminPageSession();
@@ -12,6 +13,7 @@ export default async function VillageWorkspaceLayout({ children, params }: { chi
   const village = await getWorkspaceVillage(villageId);
   const displayName = `${village.moo ? `หมู่ ${village.moo} ` : ""}${village.name}`;
   return <div className="space-y-5">
+    <SuperAdminPageHeaderRegistration context={{ title: displayName, description: "พื้นที่ทำงานหมู่บ้าน" }} />
     <WorkspaceToast />
     <header className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

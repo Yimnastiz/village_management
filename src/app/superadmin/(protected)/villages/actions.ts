@@ -39,8 +39,8 @@ function areaCandidates(value: string, prefixes: string[]) {
   return Array.from(new Set([value, ...prefixes.flatMap((prefix) => [`${prefix}${value}`, `${prefix} ${value}`])]));
 }
 
-async function readVillagePayload(formData: FormData) {
-  const mode: "catalog" | "manual" = readString(formData, "mode") === "manual" ? "manual" : "catalog";
+async function readVillagePayload(formData: FormData, forcedMode?: "catalog" | "manual") {
+  const mode: "catalog" | "manual" = forcedMode ?? (readString(formData, "mode") === "manual" ? "manual" : "catalog");
   const catalogSource = readString(formData, "catalogSource") === "BUILT_IN_DEMO" ? "BUILT_IN_DEMO" : "DATABASE";
   const catalogVillageId = optionalString(formData, "catalogVillageId");
   const builtInCatalogId = optionalString(formData, "builtInCatalogId");
@@ -68,7 +68,7 @@ async function readVillagePayload(formData: FormData) {
     }
   } else {
     if (!typedName) throw new Error("กรุณากรอกชื่อหมู่บ้าน");
-    if (!sourceNote) throw new Error("กรุณาระบุเหตุผลหรือที่มาสำหรับการเพิ่มแบบ Manual");
+    if (!sourceNote && !optionalString(formData, "id")) throw new Error("กรุณาระบุเหตุผลหรือที่มาสำหรับการเพิ่มแบบ Manual");
     if (!optionalString(formData, "moo")) throw new Error("กรุณาระบุหมู่ที่สำหรับการเพิ่มแบบ Manual");
     const location = validateThaiLocation({ province: readString(formData, "province"), district: readString(formData, "district"), subdistrict: readString(formData, "subdistrict") });
     if (!location.ok) throw new Error(location.error);
@@ -101,6 +101,19 @@ async function readVillagePayload(formData: FormData) {
   };
 }
 
+function validateMetadata(formData: FormData) {
+  const email = optionalString(formData, "email");
+  const website = optionalString(formData, "website");
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/u.test(email)) throw new Error("รูปแบบอีเมลไม่ถูกต้อง");
+  if (website) {
+    try { new URL(website); } catch { throw new Error("รูปแบบเว็บไซต์ไม่ถูกต้อง"); }
+  }
+}
+
+function changedFields<T extends Record<string, unknown>>(before: T, after: T, fields: (keyof T)[]) {
+  return fields.flatMap((field) => before[field] === after[field] ? [] : [{ field, oldValue: before[field], newValue: after[field] }]);
+}
+
 async function assertVillageIsNotDuplicated(data: { catalogVillageId: string | null; slug: string; province: string; district: string; subdistrict: string; moo: string | null }, mode: "catalog" | "manual", currentVillageId?: string) {
   const excludeCurrent = currentVillageId ? { id: { not: currentVillageId } } : {};
   const duplicateArea = await prisma.village.findFirst({
@@ -120,6 +133,7 @@ async function assertVillageIsNotDuplicated(data: { catalogVillageId: string | n
 
 export async function createVillageAction(formData: FormData) {
   const session = await requireSuperAdminActionSession();
+  validateMetadata(formData);
   const payload = await readVillagePayload(formData);
   const { mode, catalogSource, builtInCatalogId, ...data } = payload;
   await assertVillageIsNotDuplicated(data, mode);
@@ -136,25 +150,31 @@ export async function createVillageAction(formData: FormData) {
 }
 
 export async function updateVillageAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
   const id = readString(formData, "id");
   if (!id) throw new Error("ไม่พบรหัสหมู่บ้าน");
-  const payload = await readVillagePayload(formData);
-  const { mode, catalogSource, builtInCatalogId, ...data } = payload;
-  // Keep published legacy URLs stable. New catalog activations always receive
-  // the officialCode-based slug; an existing catalog village is not renamed
-  // merely because somebody edits its metadata.
-  const existingVillage = await prisma.village.findUnique({ where: { id }, select: { slug: true, catalogVillageId: true } });
+  const existingVillage = await prisma.village.findUnique({ where: { id }, select: { name: true, moo: true, slug: true, province: true, district: true, subdistrict: true, catalogVillageId: true, address: true, phone: true, email: true, website: true, description: true, sourceNote: true } });
   if (!existingVillage) throw new Error("ไม่พบหมู่บ้าน");
-  await assertVillageIsNotDuplicated(data, existingVillage.catalogVillageId ? "catalog" : mode, id);
-  let updated;
-  try {
-    updated = await prisma.village.update({ where: { id }, data: { ...data, slug: existingVillage.catalogVillageId || mode === "catalog" ? existingVillage.slug : data.slug } });
-  } catch (error) {
-    if (isUniqueConstraintError(error)) throw new Error(mode === "catalog" ? "หมู่บ้านจากฐานข้อมูลอ้างอิงนี้ถูกเปิดใช้งานแล้ว หรือ slug จากรหัสหมู่บ้านซ้ำกับข้อมูลเดิม" : "Slug นี้ถูกใช้แล้ว กรุณาใช้ slug อื่น");
-    throw error;
+  validateMetadata(formData);
+  const metadata = { address: optionalString(formData, "address"), phone: optionalString(formData, "phone"), email: optionalString(formData, "email"), website: optionalString(formData, "website"), description: optionalString(formData, "description") };
+
+  if (existingVillage.catalogVillageId) {
+    const changed = changedFields(existingVillage, { ...existingVillage, ...metadata }, ["address", "phone", "email", "website", "description"]);
+    await prisma.village.update({ where: { id }, data: metadata });
+    await writeSuperAdminAuditLog({ action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { message: `แก้ไขข้อมูลหมู่บ้าน ${existingVillage.name}`, changed } });
+  } else {
+    const payload = await readVillagePayload(formData, "manual");
+    const { mode: _mode, catalogSource: _catalogSource, builtInCatalogId: _builtInCatalogId, ...data } = payload;
+    const identityFields = ["name", "moo", "province", "district", "subdistrict"] as const;
+    const identityChanged = changedFields(existingVillage, data, [...identityFields]);
+    const correctionReason = optionalString(formData, "correctionReason");
+    if (identityChanged.length > 0 && !correctionReason) throw new Error("กรุณาระบุเหตุผลสำหรับการแก้ไขข้อมูลอ้างอิงของหมู่บ้านแบบ Manual");
+    const updateData = { ...data, catalogVillageId: null, slug: existingVillage.slug };
+    await assertVillageIsNotDuplicated(updateData, "manual", id);
+    await prisma.village.update({ where: { id }, data: updateData });
+    const metadataChanged = changedFields(existingVillage, updateData, ["address", "phone", "email", "website", "description", "sourceNote"]);
+    await writeSuperAdminAuditLog({ action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: identityChanged.length > 0 ? { message: "แก้ไขข้อมูลอ้างอิงของหมู่บ้านแบบ Manual", oldValue: identityChanged.map(({ field, oldValue }) => ({ field, value: oldValue })), newValue: identityChanged.map(({ field, newValue }) => ({ field, value: newValue })), reason: correctionReason } : { message: `แก้ไขข้อมูลหมู่บ้าน ${existingVillage.name}`, changed: metadataChanged } });
   }
-  await writeSuperAdminAuditLog({ action: AuditAction.UPDATE, resource: "Village", resourceId: id, villageId: id, metadata: { name: updated.name, slug: updated.slug, mode, sourceNote: updated.sourceNote, catalogVillageId: updated.catalogVillageId, catalogSource, builtInCatalogId } });
   revalidatePath("/superadmin/villages");
   revalidatePath("/superadmin/dashboard");
 }

@@ -79,11 +79,6 @@ export default async function SuperAdminBroadcastsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">ประกาศไปทุกหมู่บ้าน</h1>
-        <p className="mt-1 text-sm text-slate-600">ส่งประกาศส่วนกลางให้ผู้ใช้ในหมู่บ้านทั้งหมด, ตั้งเวลาหมดอายุ, และแก้ไข/ลบประกาศย้อนหลังได้</p>
-      </div>
-
       <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">จัดการประกาศส่วนกลาง</h2>
         <BroadcastForm broadcasts={broadcasts} />

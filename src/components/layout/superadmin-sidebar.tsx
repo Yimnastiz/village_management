@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
+import { SuperAdminLogoutButton } from "@/components/layout/superadmin-logout-button";
 
 export type SuperAdminMenuItem = {
   href: string;
@@ -80,6 +81,9 @@ export function SuperAdminSidebar() {
           );
         })}
       </nav>
+      <div className="mt-auto border-t border-slate-800 p-3">
+        <SidebarTooltip label="ออกจากระบบ" disabled={!collapsed}><SuperAdminLogoutButton collapsed={collapsed} /></SidebarTooltip>
+      </div>
     </aside>
   );
 }
