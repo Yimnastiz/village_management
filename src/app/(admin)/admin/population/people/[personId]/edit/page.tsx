@@ -3,6 +3,8 @@ import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } f
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PersonForm } from "../../person-form";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { normalizePersonGender } from "@/lib/person-validation";
 
 interface PageProps {
   params: Promise<{ personId: string }>;
@@ -35,6 +37,7 @@ export default async function EditPersonPage({ params }: PageProps) {
   const [person, houses] = await Promise.all([
     prisma.person.findFirst({
       where: { id: personId, villageId: membership.villageId },
+      include: { user: { select: { phoneNumber: true, email: true } } },
     }),
     prisma.house.findMany({
       where: { villageId: membership.villageId },
@@ -46,11 +49,8 @@ export default async function EditPersonPage({ params }: PageProps) {
   if (!person) notFound();
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แก้ไขข้อมูลบุคคล</h1>
-        <p className="mt-1 text-sm text-gray-500">ปรับปรุงข้อมูลทะเบียนประชากร</p>
-      </div>
+    <div data-admin-compact-top className="space-y-3">
+      <AdminPageToolbar variant="form" backHref={`/admin/population/people/${person.id}`} backLabel="กลับรายละเอียดบุคคล" backPlacement="header-end" title="แก้ไขข้อมูลบุคคล" description="ปรับปรุงข้อมูลทะเบียน โดยแยกจากข้อมูลเข้าสู่ระบบของบัญชีผู้ใช้" />
       <PersonForm
         mode="edit"
         personId={person.id}
@@ -60,13 +60,14 @@ export default async function EditPersonPage({ params }: PageProps) {
           lastName: person.lastName,
           nationalId: person.nationalId ?? "",
           dateOfBirth: toInputDate(person.dateOfBirth),
-          gender: person.gender ?? "",
+          gender: normalizePersonGender(person.gender) ?? "ไม่ระบุ",
           phone: person.phone ?? "",
           email: person.email ?? "",
           houseId: person.houseId ?? "",
         }}
-        identityLocked={Boolean(person.userId)}
+        linkedAccount={person.user ? { phoneNumber: person.user.phoneNumber, email: person.user.email?.endsWith("@local.invalid") ? null : person.user.email } : null}
         movedOut={person.status === "MOVED_OUT"}
+        deceased={person.status === "DECEASED"}
       />
     </div>
   );

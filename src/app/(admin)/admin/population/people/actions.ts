@@ -3,7 +3,7 @@
 import { MembershipStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { canManagePopulation, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
-import { createVillagePerson, moveOutVillagePerson, PopulationValidationError, updateVillagePerson, type VillagePersonInput } from "@/features/population/server/village-population-service";
+import { createVillagePerson, markVillagePersonDeceased, moveOutVillagePerson, PopulationValidationError, updateVillagePerson, type VillagePersonInput } from "@/features/population/server/village-population-service";
 
 type PersonActionResult = { success: true; id?: string } | { success: false; error: string };
 
@@ -51,6 +51,20 @@ export async function moveOutPersonAction(personId: string, reason: string): Pro
     revalidatePath("/admin/population/houses");
     revalidatePath("/resident", "layout");
     revalidatePath("/resident/binding");
+    return { success: true };
+  } catch (error) { return { success: false, error: toActionError(error) }; }
+}
+
+export async function markPersonDeceasedAction(personId: string, date: string, reason: string): Promise<PersonActionResult> {
+  const current = await context();
+  if (!current) return { success: false, error: "คุณไม่มีสิทธิ์บันทึกการเสียชีวิต" };
+  try {
+    await markVillagePersonDeceased(current.villageId, personId, date, reason, current.actor);
+    revalidatePath("/admin/population");
+    revalidatePath("/admin/population/people");
+    revalidatePath(`/admin/population/people/${personId}`);
+    revalidatePath("/admin/population/houses");
+    revalidatePath("/resident", "layout");
     return { success: true };
   } catch (error) { return { success: false, error: toActionError(error) }; }
 }

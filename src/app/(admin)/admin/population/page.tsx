@@ -453,14 +453,14 @@ export default async function Page({ searchParams }: PageProps) {
   const overviewWhere = session.systemRole === SystemRole.SUPERADMIN ? {} : { villageId: { in: manageableVillageIds } };
   const [overviewHouses, overviewPeople, overviewBoundMembers, overviewPendingBindings] = await Promise.all([
     prisma.house.count({ where: overviewWhere }),
-    prisma.person.count({ where: overviewWhere }),
+    prisma.person.count({ where: { ...overviewWhere, status: PersonStatus.ACTIVE } }),
     prisma.villageMembership.count({ where: { ...overviewWhere, status: MembershipStatus.ACTIVE, houseId: { not: null } } }),
     prisma.bindingRequest.count({ where: { ...overviewWhere, status: BindingRequestStatus.PENDING } }),
   ]);
 
   const stats = [
     ["บ้านทั้งหมด", overviewHouses],
-    ["ประชากรทั้งหมด", overviewPeople],
+    ["ประชากรในทะเบียน", overviewPeople],
     ["สมาชิกที่ผูกบ้านแล้ว", overviewBoundMembers],
     ["คำขอผูกบ้านรอพิจารณา", overviewPendingBindings],
   ] as const;

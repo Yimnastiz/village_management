@@ -2,11 +2,14 @@ import Link from "next/link";
 import { MembershipStatus, MovementType, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
+import { normalizePersonGender } from "@/lib/person-validation";
 import { MoveOutPersonButton } from "../move-out-person-button";
+import { MarkDeceasedPersonButton } from "../mark-deceased-person-button";
 
 interface PageProps { params: Promise<{ personId: string }> }
 
@@ -21,6 +24,11 @@ const MOVEMENT_LABELS: Record<MovementType, string> = {
 function toThaiDate(value: Date | null): string {
   if (!value) return "-";
   return value.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
+}
+
+function maskLoginPhone(value: string) {
+  if (value.length < 7) return value;
+  return `${value.slice(0, 3)}-${"x".repeat(Math.max(3, value.length - 7))}-${value.slice(-4)}`;
 }
 
 export default async function Page({ params }: PageProps) {
@@ -40,30 +48,32 @@ export default async function Page({ params }: PageProps) {
     include: {
       house: { select: { id: true, houseNumber: true } },
       movements: { include: { house: { select: { houseNumber: true } } }, orderBy: { date: "desc" }, take: 10 },
+      user: {
+        select: {
+          id: true, name: true, phoneNumber: true, email: true, accountStatus: true,
+          memberships: { where: { villageId: adminMembership.villageId }, select: { role: true, status: true }, take: 1 },
+        },
+      },
     },
   });
   if (!person) redirect("/admin/population/people");
 
-  const linkedMemberships = person.userId ? await prisma.villageMembership.findMany({
-    where: { userId: person.userId, villageId: adminMembership.villageId },
-    include: { user: { select: { name: true, phoneNumber: true } } },
-    orderBy: { updatedAt: "desc" },
-  }) : [];
+  const linkedMembership = person.user?.memberships[0] ?? null;
+  const canRecordLifecycle = person.status === "ACTIVE" || person.status === "UNKNOWN";
 
-  return <div className="space-y-5 sm:space-y-6">
+  return <div data-admin-compact-top className="space-y-3 sm:space-y-4">
     <header className="space-y-3">
-      <Link href="/admin/population/people" className="inline-flex text-sm font-medium text-gray-600 hover:text-gray-900 hover:underline">← ทะเบียนประชากร</Link>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">รายละเอียดประชากร</h1>
-          <p className="mt-1 text-sm text-gray-500">ข้อมูลทะเบียน ประวัติการอยู่อาศัย และบัญชีผู้ใช้ที่เชื่อมโยง</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/admin/population/people/${person.id}/edit`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">แก้ไขข้อมูล</Link>
-          {person.status !== "MOVED_OUT" ? <MoveOutPersonButton personId={person.id} /> : null}
-        </div>
-      </div>
+      <AdminPageToolbar
+        variant="detail"
+        backHref="/admin/population/people"
+        backLabel="กลับทะเบียนประชากร"
+        backPlacement="header-end"
+        title={`${person.firstName} ${person.lastName}`}
+        description="ข้อมูลทะเบียน ประวัติการอยู่อาศัย และบัญชีผู้ใช้ที่เชื่อมโยง"
+        actions={<div className="flex flex-wrap gap-2"><Link href={`/admin/population/people/${person.id}/edit`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">แก้ไขข้อมูล</Link>{canRecordLifecycle ? <><MoveOutPersonButton personId={person.id} /><MarkDeceasedPersonButton personId={person.id} /></> : null}</div>}
+      />
       {person.status === "MOVED_OUT" ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">บุคคลนี้ถูกย้ายออกจากทะเบียนแล้ว หากกลับมาอยู่ใหม่ ให้ดำเนินการผ่านการผูกเลขบ้านใหม่</p> : null}
+      {person.status === "DECEASED" ? <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">บุคคลนี้ถูกบันทึกว่าเสียชีวิต ประวัติและบ้านที่บันทึกล่าสุดยังคงเก็บไว้ และไม่มีปุ่มเปลี่ยนกลับเป็นอยู่ในทะเบียนจากหน้านี้</p> : null}
     </header>
 
     <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
@@ -74,16 +84,26 @@ export default async function Page({ params }: PageProps) {
       <dl className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <Detail label="เลขบัตรประชาชน" value={person.nationalId ? maskNationalId(person.nationalId) : "-"} />
         <Detail label="วันเกิด" value={toThaiDate(person.dateOfBirth)} />
-        <Detail label="เพศ" value={person.gender ?? "-"} />
-        <Detail label="เบอร์โทร" value={person.phone ?? "-"} />
-        <Detail label="อีเมล" value={person.email ?? "-"} className="break-all" />
-        <div><dt className="text-gray-500">บ้านปัจจุบัน</dt><dd className="mt-1 font-medium text-gray-900">{person.house ? <Link href={`/admin/population/houses/${person.house.id}`} className="text-blue-600 hover:text-blue-700 hover:underline">{person.house.houseNumber}</Link> : "-"}</dd></div>
+        <Detail label="เพศ" value={normalizePersonGender(person.gender) ?? "ไม่ระบุ"} />
+        <Detail label="เบอร์โทรสำหรับติดต่อ" value={person.phone ?? "-"} />
+        <Detail label="อีเมลสำหรับติดต่อ" value={person.email ?? "-"} className="break-all" />
+        <div><dt className="text-gray-500">{person.status === "DECEASED" ? "บ้านที่บันทึกล่าสุด" : "บ้านปัจจุบัน"}</dt><dd className="mt-1 font-medium text-gray-900">{person.house ? <Link href={`/admin/population/houses/${person.house.id}`} className="text-blue-600 hover:text-blue-700 hover:underline">{person.house.houseNumber}</Link> : "-"}</dd></div>
       </dl>
     </section>
 
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="border-b border-gray-200 px-4 py-3"><h2 className="font-semibold text-gray-900">บัญชีผู้ใช้ที่เชื่อมโยง</h2></div>
-      {!person.userId ? <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีบัญชีผู้ใช้เชื่อมกับข้อมูลบุคคลนี้</p> : linkedMemberships.length === 0 ? <p className="px-4 py-8 text-sm text-gray-500">ไม่พบสถานะสมาชิกของบัญชีผู้ใช้นี้ในหมู่บ้าน</p> : <div className="overflow-x-auto"><table className="min-w-[620px] w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th scope="col" className="px-4 py-3">ชื่อบัญชี</th><th scope="col" className="px-4 py-3">เบอร์ที่ใช้เข้าสู่ระบบ</th><th scope="col" className="px-4 py-3">บทบาท</th><th scope="col" className="px-4 py-3">สถานะสมาชิก</th></tr></thead><tbody>{linkedMemberships.map((membership) => <tr key={membership.id} className="border-t border-gray-100"><td className="px-4 py-3 font-medium text-gray-900">{membership.user.name}</td><td className="px-4 py-3 text-gray-700">{membership.user.phoneNumber}</td><td className="px-4 py-3 text-gray-700">{MEMBERSHIP_ROLE_LABELS[membership.role] ?? membership.role}</td><td className="px-4 py-3"><Badge variant={membership.status === "ACTIVE" ? "success" : membership.status === "SUSPENDED" ? "warning" : "default"}>{MEMBERSHIP_STATUS_LABELS[membership.status] ?? membership.status}</Badge></td></tr>)}</tbody></table></div>}
+      <div className="border-b border-gray-200 px-4 py-3"><h2 className="font-semibold text-gray-900">บัญชีผู้ใช้</h2></div>
+      {!person.user ? <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีบัญชีผู้ใช้เชื่อมกับข้อมูลบุคคลนี้</p> : <div className="flex min-w-0 items-start gap-3 p-4 sm:items-center">
+        <div aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">{person.user.name.trim().slice(0, 1) || "ผ"}</div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-gray-900">{person.user.name}</p>
+          <p className="mt-0.5 break-all text-sm text-gray-600">เบอร์เข้าสู่ระบบ {maskLoginPhone(person.user.phoneNumber)}</p>
+          {person.user.email && !person.user.email.endsWith("@local.invalid") ? <p className="mt-0.5 break-all text-sm text-gray-600">อีเมลบัญชี {person.user.email}</p> : null}
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+            {linkedMembership ? <><span>{MEMBERSHIP_ROLE_LABELS[linkedMembership.role] ?? linkedMembership.role}</span><span aria-hidden="true">·</span><Badge variant={linkedMembership.status === "ACTIVE" ? "success" : linkedMembership.status === "SUSPENDED" ? "warning" : "default"}>{MEMBERSHIP_STATUS_LABELS[linkedMembership.status] ?? linkedMembership.status}</Badge></> : <span>ไม่มี membership ของหมู่บ้านนี้ · สถานะบัญชี {person.user.accountStatus === "ACTIVE" ? "ใช้งานอยู่" : "ไม่พร้อมใช้งาน"}</span>}
+          </div>
+        </div>
+      </div>}
     </section>
 
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">

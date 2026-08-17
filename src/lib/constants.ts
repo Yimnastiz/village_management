@@ -131,10 +131,10 @@ export const EMERGENCY_TYPE_LABELS: Record<string, string> = {
 };
 
 export const PERSON_STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "มีชีวิตอยู่",
+  ACTIVE: "อยู่ในทะเบียน",
   DECEASED: "เสียชีวิต",
   MOVED_OUT: "ย้ายออก",
-  UNKNOWN: "ไม่ทราบ",
+  UNKNOWN: "ไม่ทราบสถานะ",
 };
 
 export const OCCUPANCY_STATUS_LABELS: Record<string, string> = {

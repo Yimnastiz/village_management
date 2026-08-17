@@ -13,6 +13,8 @@ import {
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
+import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
+import { isValidPersonName, normalizePersonGender, normalizePersonName } from "@/lib/person-validation";
 import { getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
@@ -349,8 +351,10 @@ function ensureRequiredHeaders(rows: SpreadsheetRow[]) {
 function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): NormalizedImportRow {
   const rawHouseNumber = toTrimmedString(row.house_number);
   const houseNumber = normalizeHouseNumber(rawHouseNumber ?? "");
-  const firstName = toTrimmedString(row.first_name);
-  const lastName = toTrimmedString(row.last_name);
+  const rawFirstName = toTrimmedString(row.first_name);
+  const rawLastName = toTrimmedString(row.last_name);
+  const firstName = rawFirstName ? normalizePersonName(rawFirstName) : null;
+  const lastName = rawLastName ? normalizePersonName(rawLastName) : null;
 
   if (!rawHouseNumber || !isValidHouseNumber(houseNumber)) {
     throw new Error("ต้องมี house_number ที่ถูกต้อง");
@@ -358,6 +362,8 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
   if (Boolean(firstName) !== Boolean(lastName)) {
     throw new Error("หากนำเข้าบุคคล ต้องระบุทั้ง first_name และ last_name");
   }
+  if (firstName && !isValidPersonName(firstName)) throw new Error("ชื่อใช้ได้เฉพาะตัวอักษร เว้นวรรค เครื่องหมาย - ' และ .");
+  if (lastName && !isValidPersonName(lastName)) throw new Error("นามสกุลใช้ได้เฉพาะตัวอักษร เว้นวรรค เครื่องหมาย - ' และ .");
 
   const phoneNumberRaw = toTrimmedString(row.phone_number);
   const phoneNumber = phoneNumberRaw ? normalizePhoneNumber(phoneNumberRaw) : null;
@@ -365,15 +371,20 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     throw new Error("เบอร์โทรศัพท์ไม่ถูกต้อง");
   }
 
-  const nationalId = toTrimmedString(row.national_id);
-  if (nationalId && !/^\d{13}$/.test(nationalId)) {
-    throw new Error("เลขบัตรประชาชนต้องมี 13 หลัก");
+  const rawNationalId = toTrimmedString(row.national_id);
+  const nationalId = rawNationalId ? normalizeNationalId(rawNationalId) : null;
+  if (rawNationalId && !isValidStrictThaiNationalId(rawNationalId)) {
+    throw new Error("เลขบัตรประชาชนไม่ถูกต้อง");
   }
 
   const dateOfBirth = parseSpreadsheetDate(row.date_of_birth);
   if (row.date_of_birth && !dateOfBirth) {
     throw new Error("วันเกิดไม่ถูกต้อง");
   }
+  if (dateOfBirth && dateOfBirth.getTime() > Date.now()) throw new Error("วันเกิดต้องไม่เป็นวันในอนาคต");
+
+  const gender = normalizePersonGender(toTrimmedString(row.gender));
+  if (!gender) throw new Error("ข้อมูลเพศไม่ถูกต้อง");
 
   const email = toTrimmedString(row.email);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -395,7 +406,7 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     phoneNumber,
     nationalId,
     dateOfBirth,
-    gender: toTrimmedString(row.gender),
+    gender,
     email,
     houseAddress: toTrimmedString(row.house_address),
     zoneName: toTrimmedString(row.zone_name),
@@ -630,7 +641,6 @@ async function importRowIntoVillage(
             where: { phoneNumber: row.phoneNumber },
             data: {
               name: fullName,
-              ...(row.email ? { email: row.email } : {}),
               registrationProvince: ctx.province,
               registrationDistrict: ctx.district,
               registrationSubdistrict: ctx.subdistrict,
@@ -642,7 +652,7 @@ async function importRowIntoVillage(
             data: {
               phoneNumber: row.phoneNumber,
               name: fullName,
-              email: row.email,
+              email: null,
               registrationProvince: ctx.province,
               registrationDistrict: ctx.district,
               registrationSubdistrict: ctx.subdistrict,
@@ -806,7 +816,15 @@ export async function applyStoredImportRow(
 
   const dateOfBirth = row.dateOfBirth ? new Date(row.dateOfBirth) : null;
   if (!row.firstName || !row.lastName) return { personId: null, houseId: house.id };
-  const personData = { villageId: ctx.villageId, houseId: house.id, nationalId: row.nationalId, firstName: row.firstName, lastName: row.lastName, dateOfBirth, gender: row.gender, phone: row.phoneNumber, email: row.email, status: row.personStatus ?? PersonStatus.ACTIVE };
+  const firstName = normalizePersonName(row.firstName);
+  const lastName = normalizePersonName(row.lastName);
+  if (!isValidPersonName(firstName) || !isValidPersonName(lastName)) throw new Error("ชื่อหรือนามสกุลไม่ถูกต้อง");
+  if (dateOfBirth && (Number.isNaN(dateOfBirth.getTime()) || dateOfBirth.getTime() > Date.now())) throw new Error("วันเกิดไม่ถูกต้อง");
+  const gender = normalizePersonGender(row.gender);
+  if (!gender) throw new Error("ข้อมูลเพศไม่ถูกต้อง");
+  const nationalId = row.nationalId ? normalizeNationalId(row.nationalId) : null;
+  if (row.nationalId && !isValidStrictThaiNationalId(row.nationalId)) throw new Error("เลขบัตรประชาชนไม่ถูกต้อง");
+  const personData = { villageId: ctx.villageId, houseId: house.id, nationalId, firstName, lastName, dateOfBirth, gender, phone: row.phoneNumber, email: row.email, status: row.personStatus ?? PersonStatus.ACTIVE };
   const person = row.matchedPersonId
     ? await tx.person.update({ where: { id: row.matchedPersonId }, data: personData, select: { id: true } })
     : await tx.person.create({ data: personData, select: { id: true } });

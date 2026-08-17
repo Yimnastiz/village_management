@@ -3,6 +3,7 @@ import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } f
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PersonForm } from "../person-form";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 
 export default async function NewPersonPage() {
   const session = await getSessionContextFromServerCookies();
@@ -26,11 +27,8 @@ export default async function NewPersonPage() {
   });
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">เพิ่มข้อมูลบุคคล</h1>
-        <p className="mt-1 text-sm text-gray-500">สร้างข้อมูลบุคคลใหม่ในทะเบียนประชากร</p>
-      </div>
+    <div data-admin-compact-top className="space-y-3">
+      <AdminPageToolbar variant="form" backHref="/admin/population/people" backLabel="กลับทะเบียนประชากร" backPlacement="header-end" title="เพิ่มข้อมูลบุคคล" description="สร้างข้อมูลบุคคลใหม่ในทะเบียนประชากร" />
       <PersonForm
         mode="create"
         houseOptions={houses.map((house) => ({ value: house.id, label: house.houseNumber }))}

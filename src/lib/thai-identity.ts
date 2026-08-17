@@ -13,6 +13,11 @@ export function isValidThaiNationalId(value: string): boolean {
   return (11 - (checksum % 11)) % 10 === Number(digits[12]);
 }
 
+export function isValidStrictThaiNationalId(value: string): boolean {
+  const normalized = value.trim();
+  return /^[0-9๐-๙]{13}$/.test(normalized) && isValidThaiNationalId(normalized);
+}
+
 export function normalizeThaiName(value: string): string {
   return value
     .replace(/[0-9๐-๙]/g, "")

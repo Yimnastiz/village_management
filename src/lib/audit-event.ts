@@ -68,6 +68,7 @@ const actionNameLabels: Record<string, string> = {
   PERSON_UPDATED: "แก้ไขข้อมูลบุคคล",
   PERSON_MOVED_HOUSE: "ย้ายบุคคลไปบ้านใหม่",
   PERSON_MOVED_OUT: "บันทึกการย้ายออก",
+  PERSON_MARKED_DECEASED: "บันทึกสถานะเป็นเสียชีวิต",
   BINDING_APPROVED_TO_EXISTING_HOUSE: "อนุมัติคำขอผูกเลขบ้าน",
   BINDING_REJECTED: "ไม่อนุมัติคำขอผูกเลขบ้าน",
   GALLERY_ALBUM_EDIT_SAVED: "แก้ไขอัลบั้มรูปภาพ",
@@ -94,6 +95,22 @@ const fieldLabels: Record<string, string> = {
   isPublic: "การเผยแพร่สู่สาธารณะ",
   isFeatured: "การแนะนำ",
   category: "หมวดหมู่",
+  firstName: "ชื่อ",
+  lastName: "นามสกุล",
+  gender: "เพศ",
+  dateOfBirth: "วันเกิด",
+  dateOfDeath: "วันที่เสียชีวิต",
+  phone: "เบอร์โทรสำหรับติดต่อ",
+  email: "อีเมลสำหรับติดต่อ",
+};
+
+const valueLabels: Record<string, string> = {
+  ACTIVE: "อยู่ในทะเบียน",
+  MOVED_OUT: "ย้ายออก",
+  DECEASED: "เสียชีวิต",
+  UNKNOWN: "ไม่ทราบสถานะ",
+  MALE: "ชาย",
+  FEMALE: "หญิง",
 };
 
 function asObject(value: Prisma.JsonValue | null | undefined): Record<string, Prisma.JsonValue> {
@@ -104,6 +121,11 @@ function text(value: Prisma.JsonValue | undefined): string | null {
   if (typeof value === "string" || typeof value === "number") return String(value);
   if (typeof value === "boolean") return value ? "ใช่" : "ไม่ใช่";
   return null;
+}
+
+function displayValue(value: Prisma.JsonValue | undefined): string | null {
+  const raw = text(value);
+  return raw === null ? null : valueLabels[raw] ?? raw;
 }
 
 function classify(action: AuditAction, resource: string): Pick<FormattedAuditEvent, "category" | "tone" | "icon"> {
@@ -140,8 +162,8 @@ function usefulChanges(metadata: Record<string, Prisma.JsonValue>) {
   const before = asObject(metadata.oldValue);
   const after = asObject(metadata.newValue);
   return Object.keys(fieldLabels).flatMap((key) => {
-    const previous = text(before[key]);
-    const next = text(after[key]);
+    const previous = displayValue(before[key]);
+    const next = displayValue(after[key]);
     return previous === null && next === null ? [] : [{ label: fieldLabels[key], before: previous, after: next }];
   });
 }

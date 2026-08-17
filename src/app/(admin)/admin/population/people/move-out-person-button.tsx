@@ -52,7 +52,8 @@ export function MoveOutPersonButton({ personId }: { personId: string }) {
     >
       <Textarea
         autoFocus
-        label="เหตุผลการย้ายออก *"
+        label="เหตุผลการย้ายออก"
+        required
         value={reason}
         onChange={(event) => { setReason(event.target.value); setError(""); }}
         error={error || undefined}
