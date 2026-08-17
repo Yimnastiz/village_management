@@ -90,7 +90,7 @@ export async function createVillageHouse(villageId: string, input: VillageHouseI
   }
 }
 
-export async function createVillageHouses(villageId: string, inputs: VillageHouseInput[], actor: PopulationActor) {
+export async function createVillageHouses(villageId: string, inputs: VillageHouseInput[], actor: PopulationActor, options?: { reason?: string }) {
   await assertTargetVillage(villageId);
   const errors: VillageHouseBatchError[] = [];
   if (!Array.isArray(inputs) || !inputs.length) errors.push({ index: 0, field: "houseNumber", message: "กรุณาระบุบ้านเลขที่" });
@@ -133,6 +133,7 @@ export async function createVillageHouses(villageId: string, inputs: VillageHous
             houseIds: houses.map((house) => house.id),
             houseNumbers: houses.map((house) => house.houseNumber),
             newValue: { houseNumbers: houses.map((house) => house.houseNumber).join(", ") },
+            reason: options?.reason?.trim() || null,
           },
         },
       });

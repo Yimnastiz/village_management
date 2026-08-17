@@ -13,7 +13,7 @@ export default async function VillageWorkspaceLayout({ children, params }: { chi
 
   return (
     <div className="-m-4 flex min-w-0 sm:-m-6">
-      <SuperAdminPageHeaderRegistration context={{ title: displayName, workspace: { villageId, location, isActive: village.isActive } }} />
+      <SuperAdminPageHeaderRegistration context={{ title: displayName, workspace: { villageId, villageName: displayName, location, isActive: village.isActive } }} />
       <SuperAdminVillageSidebar villageId={villageId} />
       <div className="min-w-0 flex-1 p-4 sm:p-6">
         <WorkspaceToast />

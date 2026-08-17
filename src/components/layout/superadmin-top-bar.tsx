@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, HelpCircle, Info, Menu, Plus, X } from "lucide-react";
+import { ArrowLeft, Info, Menu, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SuperAdminLogoutButton } from "@/components/layout/superadmin-logout-button";
@@ -89,25 +89,32 @@ export function SuperAdminTopBar() {
     <header onFocusCapture={() => setFocusWithin(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusWithin(false); }} className={cn("sticky top-0 z-40 flex min-h-16 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 shadow-sm transition-transform md:gap-3 md:px-6 md:translate-y-0", topBarHidden ? "-translate-y-full" : "translate-y-0")}>
       <button type="button" className="inline-flex shrink-0 rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden" onClick={() => setMobileMenuOpen(true)} aria-label="เปิดเมนู"><Menu className="h-5 w-5" /></button>
       {workspace ? <>
-        <Link href="/superadmin/villages" aria-label="กลับรายการหมู่บ้าน" title="กลับรายการหมู่บ้าน" className="inline-flex shrink-0 items-center gap-2 rounded-md p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-950">
-          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-          <span className="hidden lg:inline text-sm font-medium">กลับรายการหมู่บ้าน</span>
-        </Link>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold text-slate-900 sm:text-lg">{header.title}</h1>
-          <p className="hidden truncate text-sm text-slate-500 sm:block">{workspace.location}</p>
+          <p className="truncate text-base font-semibold text-slate-900 sm:text-lg">{workspace.villageName}</p>
+          <p className="truncate text-xs text-slate-500 sm:text-sm">{workspace.location}</p>
+          <div className="mt-0.5 min-w-0 lg:hidden">
+            <h1 className="truncate text-sm font-medium text-slate-700">{header.title}</h1>
+            {header.description ? <p className="truncate text-xs text-slate-500">{header.description}</p> : null}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="hidden min-w-0 flex-1 border-l border-slate-100 pl-3 lg:block">
+          <h1 className="truncate text-sm font-semibold text-slate-900">{header.title}</h1>
+          {header.description ? <p className="truncate text-xs text-slate-500">{header.description}</p> : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <span title="การแก้ไขสำคัญจะถูกบันทึกในบันทึกการใช้งานของหมู่บ้านนี้" className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600">
-            <HelpCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            <Info className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden lg:inline">โหมดช่วยเหลือ</span>
-            <Info className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
           </span>
           <span className={cn("hidden items-center gap-1.5 text-xs font-medium sm:inline-flex", workspace.isActive ? "text-emerald-700" : "text-slate-500")}>
             <span className={cn("h-1.5 w-1.5 rounded-full", workspace.isActive ? "bg-emerald-500" : "bg-slate-400")} />
             {workspace.isActive ? "หมู่บ้านเปิดใช้งาน" : "หมู่บ้านปิดใช้งาน"}
           </span>
           {actionButton}
+          <Link href="/superadmin/villages" aria-label="กลับรายการหมู่บ้าน" title="กลับรายการหมู่บ้าน" className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md px-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden xl:inline text-sm font-medium">กลับรายการหมู่บ้าน</span>
+          </Link>
         </div>
       </> : <>
         <div className="min-w-0 flex-1"><h1 className="truncate text-base font-semibold text-slate-900 sm:text-lg">{header.title}</h1>{header.description ? <p className="hidden truncate text-sm text-slate-500 sm:block">{header.description}</p> : null}</div>

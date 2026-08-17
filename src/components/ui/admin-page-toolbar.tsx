@@ -32,6 +32,8 @@ type AdminPageToolbarProps = {
   };
   filters?: ReactNode;
   activeFilterCount?: number;
+  /** Lets workspace pages keep the shared tools without repeating the page header. */
+  hideHeading?: boolean;
   className?: string;
 };
 
@@ -55,6 +57,7 @@ export function AdminPageToolbar({
   search,
   filters,
   activeFilterCount = 0,
+  hideHeading = false,
   className,
 }: AdminPageToolbarProps) {
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(search?.keyword ? "search" : null);
@@ -137,13 +140,13 @@ export function AdminPageToolbar({
     >
       {backPlacement === "top" && backLink ? <div className="mb-2">{backLink}</div> : null}
 
-      <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+      {!hideHeading ? <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
           {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", backPlacement === "header-end" ? "block" : "hidden sm:block")}>{description}</p> : null}
         </div>
         {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
-      </header>
+      </header> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 

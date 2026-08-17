@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useLayoutEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo, useState } from "react";
 
 export type SuperAdminHeaderAction = {
   label: string;
@@ -12,28 +12,49 @@ export type SuperAdminHeaderContext = {
   description?: string;
   workspace?: {
     villageId: string;
+    villageName: string;
     location: string;
     isActive: boolean;
   };
 };
 
+type HeaderRegistration = { context: SuperAdminHeaderContext; priority: number };
+
 const SuperAdminPageHeaderContext = createContext<{
   action: SuperAdminHeaderAction | null;
   setAction: (action: SuperAdminHeaderAction | null) => void;
   context: SuperAdminHeaderContext | null;
-  setContext: (context: SuperAdminHeaderContext | null) => void;
+  registerContext: (id: string, context: SuperAdminHeaderContext, priority: number) => void;
+  unregisterContext: (id: string) => void;
 } | null>(null);
 
 export function SuperAdminPageHeaderProvider({ children }: { children: React.ReactNode }) {
   const [action, setAction] = useState<SuperAdminHeaderAction | null>(null);
-  const [context, setContext] = useState<SuperAdminHeaderContext | null>(null);
-  const value = useMemo(() => ({ action, setAction, context, setContext }), [action, context]);
+  const [registrations, setRegistrations] = useState<Record<string, HeaderRegistration>>({});
+  const registerContext = useCallback((id: string, context: SuperAdminHeaderContext, priority: number) => {
+    setRegistrations((current) => ({ ...current, [id]: { context, priority } }));
+  }, []);
+  const unregisterContext = useCallback((id: string) => {
+    setRegistrations((current) => {
+      if (!current[id]) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }, []);
+  const context = useMemo(() => {
+    const entries = Object.values(registrations).sort((left, right) => left.priority - right.priority);
+    if (!entries.length) return null;
+    return entries.reduce<SuperAdminHeaderContext>((merged, entry) => ({ ...merged, ...entry.context, workspace: entry.context.workspace ?? merged.workspace }), { title: "" });
+  }, [registrations]);
+  const value = useMemo(() => ({ action, setAction, context, registerContext, unregisterContext }), [action, context, registerContext, unregisterContext]);
   return <SuperAdminPageHeaderContext.Provider value={value}>{children}</SuperAdminPageHeaderContext.Provider>;
 }
 
-export function SuperAdminPageHeaderRegistration({ context }: { context: SuperAdminHeaderContext }) {
-  const { setContext } = useSuperAdminPageHeader();
-  useLayoutEffect(() => { setContext(context); return () => setContext(null); }, [context, setContext]);
+export function SuperAdminPageHeaderRegistration({ context, priority = 0 }: { context: SuperAdminHeaderContext; priority?: number }) {
+  const id = useId();
+  const { registerContext, unregisterContext } = useSuperAdminPageHeader();
+  useLayoutEffect(() => { registerContext(id, context, priority); return () => unregisterContext(id); }, [context, id, priority, registerContext, unregisterContext]);
   return null;
 }
 

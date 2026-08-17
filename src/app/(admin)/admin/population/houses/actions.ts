@@ -38,7 +38,7 @@ export async function createHouseAction(formData: FormData): Promise<HouseAction
   }
 }
 
-export async function createHousesAction(items: Array<{ houseNumber: string; address?: string }>): Promise<HouseBatchActionResult> {
+export async function createHousesAction(items: Array<{ houseNumber: string; address?: string }>, _reason?: string): Promise<HouseBatchActionResult> {
   const context = await getPopulationContext();
   if (!context) return { success: false, error: "คุณไม่มีสิทธิ์เพิ่มบ้าน" };
   try {
