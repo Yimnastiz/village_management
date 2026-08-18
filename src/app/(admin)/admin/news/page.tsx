@@ -2,9 +2,8 @@ import Link from "next/link";
 import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
 import { NewsCard } from "@/components/news/news-card";
-import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { NewsMetadata } from "@/components/news/news-metadata";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatNewsAuthor } from "@/lib/news-author";
@@ -13,12 +12,6 @@ import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
-};
-
-const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  DRAFT: "warning",
-  PUBLISHED: "success",
-  ARCHIVED: "default",
 };
 
 export default async function AdminNewsPage({ searchParams }: PageProps) {
@@ -150,7 +143,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
-              badge={<><Badge variant={stageVariant[news.stage] ?? "default"}>{NEWS_STAGE_LABELS[news.stage]}</Badge><Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge></>}
+              metadata={<NewsMetadata stage={news.stage} visibility={news.visibility} isPinned={news.isPinned} showPinned={false} />}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
             />
           ))}

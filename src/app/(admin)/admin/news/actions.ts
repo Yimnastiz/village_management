@@ -39,6 +39,7 @@ type NewsInput = {
 
 const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
 const VALID_STAGE: NewsStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
+const newsApprovalOverridesSchema = z.object({ visibility: z.enum(["PUBLIC", "RESIDENT_ONLY"]), isPinned: z.boolean() });
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
@@ -204,7 +205,7 @@ export async function adminDeleteNewsAction(
 
 export async function adminApproveNewsSubmissionAction(
   submissionId: string,
-  reviewNote?: string
+  overrides?: { visibility?: string; isPinned?: boolean }
 ): Promise<{ success: true; newsId: string } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
@@ -236,10 +237,14 @@ export async function adminApproveNewsSubmissionAction(
   if (!parsed.ok) {
     return { success: false, error: `ข้อมูลคำขอไม่ถูกต้อง: ${parsed.error}` };
   }
+  const approvedSettings = newsApprovalOverridesSchema.safeParse({ visibility: overrides?.visibility ?? parsed.value.visibility, isPinned: overrides?.isPinned ?? parsed.value.isPinned });
+  if (!approvedSettings.success) return { success: false, error: "การตั้งค่าก่อนอนุมัติไม่ถูกต้อง" };
 
   const now = new Date();
   const reviewedBy = ctx.session.id;
-  const reviewNoteValue = reviewNote?.trim() || null;
+  const reviewNoteValue = null;
+  const finalVisibility = approvedSettings.data.visibility;
+  const finalIsPinned = approvedSettings.data.isPinned;
 
   const isDeleteRequest = Boolean(payload.isDeleteRequest);
 
@@ -293,9 +298,9 @@ export async function adminApproveNewsSubmissionAction(
           content: parsed.value.content,
           imageUrls: parsed.value.images.map((image) => image.url),
           coverUrl: parsed.value.coverUrl,
-          visibility: parsed.value.visibility,
+          visibility: finalVisibility,
           stage: parsed.value.stage,
-          isPinned: parsed.value.isPinned,
+          isPinned: finalIsPinned,
           authorId: submission.requesterId,
           publishedAt: parsed.value.stage === "PUBLISHED" ? now : null,
         },
@@ -327,7 +332,7 @@ export async function adminApproveNewsSubmissionAction(
           },
         },
       });
-      await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
+      await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title, newValue: { visibility: finalVisibility, isPinned: finalIsPinned } } });
 
       return news;
     });
@@ -360,9 +365,9 @@ export async function adminApproveNewsSubmissionAction(
         content: parsed.value.content,
         imageUrls: parsed.value.images.map((image) => image.url),
         coverUrl: parsed.value.coverUrl,
-        visibility: parsed.value.visibility,
+        visibility: finalVisibility,
         stage: parsed.value.stage,
-        isPinned: parsed.value.isPinned,
+        isPinned: finalIsPinned,
         publishedAt: shouldSetPublishedAt ? now : target.publishedAt,
       },
     });
@@ -391,7 +396,7 @@ export async function adminApproveNewsSubmissionAction(
         },
       },
     });
-    await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
+    await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title, newValue: { visibility: finalVisibility, isPinned: finalIsPinned } } });
   });
 
   revalidateAdminSidebar();
@@ -404,6 +409,9 @@ export async function adminRejectNewsSubmissionAction(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+
+  const normalizedReviewNote = reviewNote?.trim() ?? "";
+  if (normalizedReviewNote.length < 5 || normalizedReviewNote.length > 500) return { success: false, error: "กรุณาระบุเหตุผล 5–500 ตัวอักษร" };
 
   const existing = await prisma.newsSubmission.findFirst({
     where: { id: submissionId, villageId: ctx.villageId, status: "PENDING" },
@@ -419,7 +427,7 @@ export async function adminRejectNewsSubmissionAction(
       status: "REJECTED",
       reviewedBy: ctx.session.id,
       reviewedAt: new Date(),
-      reviewNote: reviewNote?.trim() || null,
+      reviewNote: normalizedReviewNote,
     },
   });
 
@@ -429,14 +437,14 @@ export async function adminRejectNewsSubmissionAction(
       userId: existing.requesterId,
       type: NotificationType.NEWS,
       title: "คำขอข่าวของคุณไม่ได้รับการอนุมัติ",
-      body: reviewNote?.trim() || "โปรดตรวจสอบหมายเหตุจากผู้ดูแล",
+      body: normalizedReviewNote,
       metadata: {
         submissionId,
         status: "REJECTED",
       },
     },
   });
-  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "REJECT", resource: "NewsSubmission", resourceId: submissionId, metadata: { actionName: "NEWS_SUBMISSION_REJECTED" } });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "REJECT", resource: "NewsSubmission", resourceId: submissionId, metadata: { actionName: "NEWS_SUBMISSION_REJECTED", reviewNote: normalizedReviewNote } });
 
   revalidateAdminSidebar();
   return { success: true };
