@@ -202,10 +202,11 @@ export async function updateVillagePerson(villageId: string, personId: string, d
   return prisma.$transaction(async (tx) => {
     const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true, firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true, phone: true, email: true, house: { select: { houseNumber: true } } } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");
+    if (person.status === PersonStatus.MOVED_OUT || person.status === PersonStatus.DECEASED) {
+      throw new PopulationValidationError("ข้อมูลผู้ย้ายออกหรือผู้เสียชีวิตเป็นข้อมูลประวัติ ไม่สามารถแก้ไขข้อมูลทั่วไปได้");
+    }
     if (person.userId && person.nationalId !== value.nationalId) throw new PopulationValidationError("เลขบัตรประชาชนเชื่อมกับบัญชีผู้ใช้แล้วและแก้ไขจากทะเบียนประชากรไม่ได้");
     if (person.userId && person.phone !== value.phone) throw new PopulationValidationError("เบอร์นี้ใช้สำหรับเข้าสู่ระบบและต้องเปลี่ยนผ่านขั้นตอนบัญชีผู้ใช้");
-    if (person.status === PersonStatus.MOVED_OUT && person.houseId !== value.houseId) throw new PopulationValidationError("บุคคลนี้ย้ายออกจากทะเบียนแล้ว หากกลับมาอยู่ใหม่ให้ส่งคำขอผูกเลขบ้านใหม่");
-    if (person.status === PersonStatus.DECEASED && person.houseId !== value.houseId) throw new PopulationValidationError("ไม่สามารถเปลี่ยนบ้านของผู้เสียชีวิตจากแบบฟอร์มแก้ไขทั่วไปได้");
     await assertHouseInVillage(tx, villageId, value.houseId);
     if (value.nationalId && await tx.person.findFirst({ where: { villageId, nationalId: value.nationalId, id: { not: personId } }, select: { id: true } })) throw new PopulationValidationError("เลขบัตรประชาชนนี้มีอยู่ในทะเบียนแล้ว");
     const houseChanged = person.houseId !== value.houseId;

@@ -1,9 +1,8 @@
-import { AuditAction, RegistrationOtpChallengeStatus, RegistrationTempStatus } from "@prisma/client";
+import { RegistrationOtpChallengeStatus, RegistrationTempStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { clearRegistrationCookie, getRegistrationFromRequest, normalizePhone10, toPhoneCandidates } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
-import { maskNationalId } from "@/lib/utils";
 import { DUPLICATE_NATIONAL_ID_REASON, findBoundIdentityByNationalId } from "@/lib/identity";
 
 const schema = z.object({ code: z.string().trim().regex(/^\d{6}$/), registrationId: z.string().min(1), challengeId: z.string().min(1) });
@@ -69,29 +68,8 @@ export async function POST(request: NextRequest) {
       },
       select: { id: true },
     });
-    // A pending applicant owns a profile row by userId, never by national ID.
-    // Multiple applicants can legitimately submit the same ID until approval.
-    if (currentDraft.villageId && currentDraft.firstName && currentDraft.lastName) {
-      await tx.person.create({
-        data: {
-          userId: user.id,
-          villageId: currentDraft.villageId,
-          nationalId: currentDraft.nationalId,
-          firstName: currentDraft.firstName,
-          lastName: currentDraft.lastName,
-          phone: phoneNumber,
-        },
-      });
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          villageId: currentDraft.villageId,
-          action: AuditAction.CREATE,
-          resource: "Person",
-          metadata: { source: "REGISTRATION", maskedNationalId: maskNationalId(currentDraft.nationalId) },
-        },
-      });
-    }
+    // Registration establishes an account identity only.  Population entry is
+    // deliberately deferred until a house-binding request is approved.
     await tx.registrationTemp.update({
       where: { id: currentDraft.id },
       data: { status: RegistrationTempStatus.VERIFIED, userId: user.id },

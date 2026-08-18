@@ -71,7 +71,7 @@ export default async function Page({ params }: PageProps) {
         backPlacement="header-end"
         title={`${person.firstName} ${person.lastName}`}
         description="ข้อมูลทะเบียน ประวัติการอยู่อาศัย และบัญชีผู้ใช้ที่เชื่อมโยง"
-        actions={<div className="flex flex-wrap gap-2"><Link href={`/admin/population/people/${person.id}/edit`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">แก้ไขข้อมูล</Link>{canRecordLifecycle ? <><MoveOutPersonButton personId={person.id} /><MarkDeceasedPersonButton personId={person.id} /></> : null}</div>}
+        actions={<div className="flex flex-wrap gap-2">{canRecordLifecycle ? <><Link href={`/admin/population/people/${person.id}/edit`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">แก้ไขข้อมูล</Link><MoveOutPersonButton personId={person.id} /><MarkDeceasedPersonButton personId={person.id} /></> : null}</div>}
       />
       {person.status === "MOVED_OUT" ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">บุคคลนี้ถูกย้ายออกจากทะเบียนแล้ว หากกลับมาอยู่ใหม่ ให้ดำเนินการผ่านการผูกเลขบ้านใหม่</p> : null}
       {person.status === "DECEASED" ? <p className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">บุคคลนี้ถูกบันทึกว่าเสียชีวิต ประวัติและบ้านที่บันทึกล่าสุดยังคงเก็บไว้ และไม่มีปุ่มเปลี่ยนกลับเป็นอยู่ในทะเบียนจากหน้านี้</p> : null}

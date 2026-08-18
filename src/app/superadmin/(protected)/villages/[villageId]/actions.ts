@@ -14,6 +14,11 @@ function value(formData: FormData, key: string) {
   return typeof entry === "string" ? entry.trim() : "";
 }
 
+function splitDisplayName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return { firstName: parts[0] ?? "ไม่ระบุชื่อ", lastName: parts.slice(1).join(" ") || "ไม่ระบุนามสกุล" };
+}
+
 async function requireVillage(targetVillageId: string) {
   if (!targetVillageId) throw new Error("ต้องระบุหมู่บ้านเป้าหมาย");
   const village = await prisma.village.findUnique({ where: { id: targetVillageId }, select: { id: true, name: true } });
@@ -79,12 +84,19 @@ export async function reviewBindingSupportAction(
         await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
         const linkedPerson = await tx.person.findUnique({ where: { userId: request.userId }, select: { id: true, houseId: true, villageId: true } });
         if (linkedPerson && linkedPerson.villageId !== targetVillageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้เชื่อมกับหมู่บ้านอื่น");
+        const registration = await tx.registrationTemp.findFirst({ where: { userId: request.userId, villageId: targetVillageId, status: "VERIFIED" }, orderBy: { updatedAt: "desc" }, select: { firstName: true, lastName: true, nationalId: true } });
         if (linkedPerson) {
           await tx.person.update({ where: { id: linkedPerson.id }, data: { houseId: house.id, status: PersonStatus.ACTIVE, phone: request.user.phoneNumber } });
           if (linkedPerson.houseId !== house.id) {
             if (linkedPerson.houseId) await tx.personMovement.create({ data: { personId: linkedPerson.id, houseId: linkedPerson.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: "ผูกเลขบ้านใหม่" } });
             await tx.personMovement.create({ data: { personId: linkedPerson.id, houseId: house.id, movementType: MovementType.MOVE_IN, date: new Date(), note: "ผูกเลขบ้านใหม่" } });
           }
+          await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.UPDATE, resource: "Person", resourceId: linkedPerson.id, metadata: { actionName: "PERSON_ACTIVATED_BY_BINDING", bindingRequestId: request.id, houseId: house.id, actorRole: "SUPERADMIN" } } });
+        } else {
+          const names = splitDisplayName(request.user.name);
+          const person = await tx.person.create({ data: { userId: request.userId, villageId: targetVillageId, houseId: house.id, firstName: registration?.firstName ?? names.firstName, lastName: registration?.lastName ?? names.lastName, nationalId: registration?.nationalId ?? nationalId ?? null, phone: request.user.phoneNumber, status: PersonStatus.ACTIVE } });
+          await tx.personMovement.create({ data: { personId: person.id, houseId: house.id, movementType: MovementType.MOVE_IN, date: new Date(), note: "อนุมัติการผูกเลขบ้าน" } });
+          await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actionName: "PERSON_CREATED_BY_BINDING", bindingRequestId: request.id, houseId: house.id, actorRole: "SUPERADMIN" } } });
         }
         await tx.user.update({ where: { id: request.userId }, data: { citizenVerifiedAt: new Date(), registrationVillageId: targetVillageId } });
         await tx.authSession.updateMany({ where: { userId: request.userId, expiresAt: { gt: new Date() } }, data: { activeVillageId: targetVillageId } });

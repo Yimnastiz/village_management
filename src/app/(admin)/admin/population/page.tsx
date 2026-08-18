@@ -284,11 +284,11 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
         if (residentUser) {
           const names = splitDisplayName(residentUser.name);
-          const registration = residentUser.phoneNumber ? await tx.registrationTemp.findFirst({
-            where: { phoneNumber: residentUser.phoneNumber, villageId: binding.villageId!, status: RegistrationTempStatus.VERIFIED },
+          const registration = await tx.registrationTemp.findFirst({
+            where: { userId: binding.userId, villageId: binding.villageId!, status: RegistrationTempStatus.VERIFIED },
             orderBy: { updatedAt: "desc" },
-            select: { nationalId: true },
-          }) : null;
+            select: { nationalId: true, firstName: true, lastName: true },
+          });
           const linkedPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true } });
           if (linkedPerson && linkedPerson.villageId !== binding.villageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้อยู่คนละหมู่บ้านกับคำขอ");
           // A duplicate national ID must never select another applicant's Person row.
@@ -312,19 +312,21 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
               if (existingPerson.houseId) await tx.personMovement.create({ data: { personId: existingPerson.id, houseId: existingPerson.houseId, movementType: MovementType.MOVE_OUT, date: new Date() } });
               await tx.personMovement.create({ data: { personId: existingPerson.id, houseId: resolvedHouseId, movementType: MovementType.MOVE_IN, date: new Date() } });
             }
+            await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: existingPerson.id, metadata: { actionName: "PERSON_ACTIVATED_BY_BINDING", bindingRequestId: requestId, houseId: resolvedHouseId } } });
           } else {
             const person = await tx.person.create({
               data: {
                 villageId: binding.villageId,
                 houseId: resolvedHouseId,
-                firstName: names.firstName,
-                lastName: names.lastName,
+                firstName: registration?.firstName ?? names.firstName,
+                lastName: registration?.lastName ?? names.lastName,
                 phone: residentUser.phoneNumber,
                 userId: binding.userId,
                 nationalId: registration?.nationalId ?? null,
               },
             });
             await tx.personMovement.create({ data: { personId: person.id, houseId: resolvedHouseId, movementType: MovementType.MOVE_IN, date: new Date() } });
+            await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actionName: "PERSON_CREATED_BY_BINDING", bindingRequestId: requestId, houseId: resolvedHouseId } } });
           }
         }
       }

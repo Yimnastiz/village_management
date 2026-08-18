@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { MembershipStatus, PersonStatus, Prisma, VillageMembershipRole } from "@prisma/client";
 
 type PageProps = {
-  searchParams?: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams?: Promise<{ q?: string; status?: string; history?: string; page?: string }>;
 };
 
 function personStatusBadgeVariant(status: PersonStatus): "success" | "warning" | "default" {
@@ -36,12 +36,13 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
   const keywordTerms = keyword.split(/\s+/).filter(Boolean);
+  const historyEnabled = params.history === "1";
   const status = (params.status ?? "ALL").trim();
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 25;
-  const normalizedStatus = status !== "ALL" && Object.values(PersonStatus).includes(status as PersonStatus)
+  const normalizedStatus = historyEnabled && status !== "ALL" && Object.values(PersonStatus).includes(status as PersonStatus)
     ? status as PersonStatus
-    : null;
+    : PersonStatus.ACTIVE;
 
   const where: Prisma.PersonWhereInput = {
     villageId: membership.villageId,
@@ -79,14 +80,16 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
     prisma.person.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const hasActiveCriteria = Boolean(keyword || normalizedStatus);
+  const hasActiveCriteria = Boolean(keyword || historyEnabled || normalizedStatus !== PersonStatus.ACTIVE);
 
-  function buildHref(next: { q?: string; status?: string }) {
+  function buildHref(next: { q?: string; status?: string; history?: boolean }) {
     const query = new URLSearchParams();
     const q = (next.q ?? "").trim();
     const nextStatus = (next.status ?? "ALL").trim();
+    const nextHistory = next.history ?? historyEnabled;
     if (q) query.set("q", q);
-    if (nextStatus !== "ALL") query.set("status", nextStatus);
+    if (nextHistory) query.set("history", "1");
+    if (nextHistory && nextStatus !== "ALL") query.set("status", nextStatus);
     const queryString = query.toString();
     return queryString ? `/admin/population/people?${queryString}` : "/admin/population/people";
   }
@@ -98,20 +101,27 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
         title="ทะเบียนประชากร"
         description="ค้นหา ตรวจสอบ และจัดการข้อมูลประชากรในหมู่บ้าน"
         searchAction="/admin/population/people"
-        clearHref={buildHref({ q: keyword, status: "ALL" })}
+        clearHref={buildHref({ q: keyword, status: historyEnabled ? "ALL" : PersonStatus.ACTIVE })}
         keyword={keyword}
         searchLabel="ค้นหาประชากร"
         searchPlaceholder="ค้นหาชื่อ นามสกุล หรือเบอร์โทร"
         groups={[
           {
+            label: "มุมมอง",
+            options: [
+              { label: "แสดงประวัติทั้งหมด", href: buildHref({ q: keyword, status: "ALL", history: !historyEnabled }), active: historyEnabled, isDefault: true },
+            ],
+          },
+          ...(historyEnabled ? [{
             label: "สถานะ",
             options: [
-              { label: "ทั้งหมด", href: buildHref({ q: keyword, status: "ALL" }), active: !normalizedStatus, isDefault: true },
+              { label: "ทั้งหมด", href: buildHref({ q: keyword, status: "ALL" }), active: status === "ALL", isDefault: true },
               { label: "อยู่ในทะเบียน", href: buildHref({ q: keyword, status: PersonStatus.ACTIVE }), active: normalizedStatus === PersonStatus.ACTIVE },
               { label: "ย้ายออก", href: buildHref({ q: keyword, status: PersonStatus.MOVED_OUT }), active: normalizedStatus === PersonStatus.MOVED_OUT },
               { label: "เสียชีวิต", href: buildHref({ q: keyword, status: PersonStatus.DECEASED }), active: normalizedStatus === PersonStatus.DECEASED },
+              { label: "ไม่ทราบสถานะ", href: buildHref({ q: keyword, status: PersonStatus.UNKNOWN }), active: normalizedStatus === PersonStatus.UNKNOWN },
             ],
-          },
+          }] : []),
         ]}
         actions={<Link href="/admin/population/people/new" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มบุคคล</Link>}
       />
@@ -141,7 +151,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
             </table>
           </div>
           <footer className="shrink-0 border-t border-gray-200 px-3 py-2 [&>div]:mt-0 sm:px-4">
-            <QueryPagination pathname="/admin/population/people" page={page} totalPages={totalPages} params={{ q: keyword || undefined, status: normalizedStatus ?? undefined }} />
+            <QueryPagination pathname="/admin/population/people" page={page} totalPages={totalPages} params={{ q: keyword || undefined, history: historyEnabled ? "1" : undefined, status: historyEnabled && status !== "ALL" ? normalizedStatus : undefined }} />
           </footer>
         </> : (
           <div className="px-4 py-10 text-center text-sm text-gray-500">

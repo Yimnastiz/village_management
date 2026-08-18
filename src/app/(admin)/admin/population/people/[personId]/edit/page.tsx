@@ -47,6 +47,9 @@ export default async function EditPersonPage({ params }: PageProps) {
   ]);
 
   if (!person) notFound();
+  if (person.status === "MOVED_OUT" || person.status === "DECEASED") {
+    redirect(`/admin/population/people/${person.id}`);
+  }
 
   return (
     <div data-admin-compact-top className="space-y-3">
@@ -66,8 +69,8 @@ export default async function EditPersonPage({ params }: PageProps) {
           houseId: person.houseId ?? "",
         }}
         linkedAccount={person.user ? { phoneNumber: person.user.phoneNumber, email: person.user.email?.endsWith("@local.invalid") ? null : person.user.email } : null}
-        movedOut={person.status === "MOVED_OUT"}
-        deceased={person.status === "DECEASED"}
+        movedOut={false}
+        deceased={false}
       />
     </div>
   );
