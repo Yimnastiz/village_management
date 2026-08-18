@@ -1,189 +1,30 @@
 "use client";
 
+import { useRef, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { z } from "zod";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { NEWS_STAGE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { useToast } from "@/components/ui/toast";
+import { NewsImageManager, type NewsImageItem } from "@/components/news/news-image-manager";
 import { adminCreateNewsAction, adminUpdateNewsAction } from "./actions";
-import { NewsImageManager } from "@/components/news/news-image-manager";
-import { MAX_TOTAL_IMAGE_DATA_URL_BYTES } from "@/lib/image-constraints";
 
-const schema = z.object({
-  title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
-  summary: z.string().optional(),
-  content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  imageUrls: z.array(z.object({ url: z.string().optional() })).optional(),
-  visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
-  stage: z.string().min(1, "กรุณาเลือกสถานะ"),
-  isPinned: z.boolean().optional(),
-});
-
+const schema = z.object({ title: z.string().trim().min(3, "กรุณาระบุหัวข้อข่าว"), summary: z.string().optional(), content: z.string().trim().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"), isPublic: z.boolean(), isPinned: z.boolean() });
 type FormData = z.infer<typeof schema>;
+type Props = { mode: "create" | "edit"; newsId?: string; stage?: "DRAFT" | "PUBLISHED" | "ARCHIVED"; defaultValues?: { title: string; summary: string; content: string; images: NewsImageItem[]; visibility: string; isPinned: boolean } };
 
-type NewsFormProps = {
-  mode: "create" | "edit";
-  newsId?: string;
-  defaultValues?: {
-    title: string;
-    summary: string;
-    content: string;
-    imageUrls: string[];
-    visibility: string;
-    stage: string;
-    isPinned: boolean;
-    coverUrl?: string | null;
-  };
-};
+function SettingSwitch({ label, helper, registration }: { label: string; helper: string; registration: UseFormRegisterReturn }) {
+  return <label className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 px-4 py-3 transition hover:border-gray-300"><span><span className="block text-sm font-medium text-gray-900">{label}</span><span className="mt-1 block text-xs leading-5 text-gray-500">{helper}</span></span><span className="relative mt-0.5 inline-flex shrink-0"><input type="checkbox" className="peer sr-only" {...registration} /><span aria-hidden className="h-6 w-11 rounded-full bg-gray-200 transition peer-checked:bg-green-700 peer-focus-visible:ring-2 peer-focus-visible:ring-green-500 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5" /></span></label>;
+}
 
-export function NewsForm({ mode, newsId, defaultValues }: NewsFormProps) {
-  const router = useRouter();
-  const [coverUrl, setCoverUrl] = useState<string | null>(defaultValues?.coverUrl ?? defaultValues?.imageUrls[0] ?? null);
-  const resolvedDefaults: FormData = defaultValues
-    ? {
-        ...defaultValues,
-        imageUrls:
-          defaultValues.imageUrls.length > 0
-            ? defaultValues.imageUrls.map((url) => ({ url }))
-            : [{ url: "" }],
-      }
-    : {
-        title: "",
-        summary: "",
-        content: "",
-        imageUrls: [{ url: "" }],
-        visibility: "PUBLIC",
-        stage: "DRAFT",
-        isPinned: false,
-      };
-
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors, isSubmitting },
-    watch,
-    setValue,
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: resolvedDefaults,
-  });
-
-  const imageUrls = (watch("imageUrls") ?? []).map((item) => item.url?.trim() || "").filter(Boolean);
-
-  const visibilityOptions = Object.entries(NEWS_VISIBILITY_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
-  const stageOptions = Object.entries(NEWS_STAGE_LABELS).map(([value, label]) => ({
-    value,
-    label,
-  }));
-
-  const onSubmit = async (data: FormData) => {
-    const payload = {
-      title: data.title,
-      summary: data.summary,
-      content: data.content,
-      imageUrls: (data.imageUrls ?? [])
-        .map((item) => item.url?.trim() || "")
-        .filter((url) => url.length > 0),
-      coverUrl,
-      visibility: data.visibility,
-      stage: data.stage,
-      isPinned: Boolean(data.isPinned),
-    };
-
-    if (payload.imageUrls.reduce((total, url) => total + new TextEncoder().encode(url).length, 0) > MAX_TOTAL_IMAGE_DATA_URL_BYTES) {
-      setError("root", { message: "ขนาดรวมของรูปภาพเกินขีดจำกัดสำหรับการบันทึก กรุณาลดจำนวนหรือเลือกไฟล์ขนาดเล็กลง" });
-      return;
-    }
-
-    if (mode === "create") {
-      const result = await adminCreateNewsAction(payload);
-      if (!result.success) {
-        setError("root", { message: result.error });
-        return;
-      }
-      router.replace(`/admin/news/${result.newsId}`);
-      return;
-    } else {
-      const result = await adminUpdateNewsAction(newsId ?? "", payload);
-      if (!result.success) {
-        setError("root", { message: result.error });
-        return;
-      }
-      router.replace(`/admin/news/${newsId}`);
-      return;
-    }
-  };
-
-  return (
-    <form
-      onSubmit={handleSubmit(onSubmit)}
-      className="bg-white rounded-xl border border-gray-200 p-6 space-y-4"
-    >
-      <Input
-        label="หัวข้อข่าว"
-        {...register("title")}
-        error={errors.title?.message}
-        placeholder="หัวข้อข่าว..."
-      />
-      <Input
-        label="สรุปข่าว (ไม่บังคับ)"
-        {...register("summary")}
-        error={errors.summary?.message}
-        placeholder="สรุปสั้นๆ สำหรับหน้า list"
-      />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Select
-          label="การแสดงผล"
-          {...register("visibility")}
-          options={visibilityOptions}
-          error={errors.visibility?.message}
-        />
-        <Select
-          label="สถานะ"
-          {...register("stage")}
-          options={stageOptions}
-          error={errors.stage?.message}
-        />
-      </div>
-
-      <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
-        <input type="checkbox" {...register("isPinned")} />
-        ปักหมุดข่าว
-      </label>
-
-      <Textarea
-        label="เนื้อหา"
-        {...register("content")}
-        error={errors.content?.message}
-        placeholder="เนื้อหาข่าว..."
-        rows={10}
-      />
-
-      <NewsImageManager imageUrls={imageUrls} coverUrl={coverUrl} onCoverChange={setCoverUrl} onChange={(urls) => setValue("imageUrls", urls.map((url) => ({ url })), { shouldDirty: true })} />
-
-      {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
-
-      <div className="flex flex-wrap gap-3">
-        <Button type="submit" isLoading={isSubmitting}>
-          {mode === "create" ? "บันทึกข่าว" : "บันทึกการแก้ไข"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-        >
-          ย้อนกลับ
-        </Button>
-      </div>
-    </form>
-  );
+export function NewsForm({ mode, newsId, stage, defaultValues }: Props) {
+  const router = useRouter(); const toast = useToast(); const submitting = useRef(false);
+  const [images, setImages] = useState<NewsImageItem[]>(defaultValues?.images ?? []); const [uploadsBusy, setUploadsBusy] = useState(false);
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { title: defaultValues?.title ?? "", summary: defaultValues?.summary ?? "", content: defaultValues?.content ?? "", isPublic: defaultValues?.visibility !== "RESIDENT_ONLY", isPinned: defaultValues?.isPinned ?? false } });
+  const save = async (data: FormData, desiredStage: "DRAFT" | "PUBLISHED") => { if (submitting.current || uploadsBusy) return; submitting.current = true; try { const payload = { title: data.title, summary: data.summary, content: data.content, images, visibility: data.isPublic ? "PUBLIC" : "RESIDENT_ONLY", isPinned: data.isPinned, stage: desiredStage }; if (mode === "create") { const result = await adminCreateNewsAction(payload); if (!result.success) { toast.error(result.error); return; } toast.success(desiredStage === "PUBLISHED" ? "เผยแพร่ข่าวเรียบร้อย" : "บันทึกร่างเรียบร้อย"); router.replace(`/admin/news/${result.newsId}`); return; } const result = await adminUpdateNewsAction(newsId ?? "", payload); if (!result.success) { toast.error(result.error); return; } toast.success("บันทึกการแก้ไขเรียบร้อย"); router.replace(`/admin/news/${newsId}`); } catch (error) { console.error("save news", error); toast.error("ไม่สามารถบันทึกข่าวได้ กรุณาลองใหม่อีกครั้ง"); } finally { submitting.current = false; } };
+  const submitFor = (desiredStage: "DRAFT" | "PUBLISHED") => (event: MouseEvent<HTMLButtonElement>) => { event.preventDefault(); void handleSubmit((data) => save(data, desiredStage))(); };
+  return <form onSubmit={handleSubmit((data) => save(data, stage === "ARCHIVED" ? "ARCHIVED" as never : stage === "PUBLISHED" ? "PUBLISHED" : "DRAFT"))} className="space-y-6 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"><section className="space-y-4"><Input label="หัวข้อข่าว" {...register("title")} error={errors.title?.message} placeholder="หัวข้อข่าว..." /><Input label="สรุปข่าว (ไม่บังคับ)" {...register("summary")} error={errors.summary?.message} placeholder="สรุปสั้น ๆ สำหรับหน้า list" /><Textarea label="เนื้อหา" {...register("content")} error={errors.content?.message} placeholder="เนื้อหาข่าว..." rows={10} /></section><section className="space-y-3 border-t border-gray-100 pt-6"><h2 className="font-semibold text-gray-900">การแสดงผล</h2><SettingSwitch label="เผยแพร่สาธารณะ" helper="เปิดเพื่อให้บุคคลทั่วไปสามารถเห็นข่าวนี้ได้" registration={register("isPublic")} /><SettingSwitch label="ปักหมุดข่าว" helper="แสดงข่าวนี้เด่นกว่าข่าวทั่วไป" registration={register("isPinned")} /></section><NewsImageManager value={images} onChange={setImages} onBusyChange={setUploadsBusy} disabled={isSubmitting} />{errors.root ? <p className="text-sm text-red-600">{errors.root.message}</p> : null}<div className="flex flex-col-reverse gap-3 border-t border-gray-100 pt-5 sm:flex-row sm:items-center"><Button type="button" variant="outline" onClick={() => router.push(mode === "create" ? "/admin/news" : `/admin/news/${newsId}`)}>ยกเลิก</Button>{mode === "create" ? <><Button type="button" variant="outline" disabled={uploadsBusy || isSubmitting} onClick={submitFor("DRAFT")}>บันทึกร่าง</Button><Button type="button" disabled={uploadsBusy || isSubmitting} isLoading={isSubmitting} onClick={submitFor("PUBLISHED")}>เผยแพร่</Button></> : <Button type="submit" disabled={uploadsBusy || isSubmitting} isLoading={isSubmitting}>บันทึกการแก้ไข</Button>}</div></form>;
 }

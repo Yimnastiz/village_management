@@ -6,6 +6,7 @@ export { MAX_IMAGE_BYTES, MAX_IMAGES_PER_REQUEST, MAX_TOTAL_IMAGE_DATA_URL_BYTES
 export function isSafeImageSource(value: string): boolean {
   const source = value.trim();
   if (/^https?:\/\//i.test(source)) return true;
+  if (/^\/api\/places\/images\?key=places%2F[a-zA-Z0-9_-]+%2F[a-f0-9-]{36}\.(?:jpg|png|webp)$/.test(source)) return true;
   const match = DATA_URL_PATTERN.exec(source);
   if (!match) return false;
   const payload = match[2];

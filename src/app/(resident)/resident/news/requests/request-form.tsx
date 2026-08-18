@@ -108,7 +108,7 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
       <Input label="สรุปข่าว" {...register("summary")} error={errors.summary?.message} />
       <Textarea label="เนื้อหา" {...register("content")} error={errors.content?.message} rows={10} />
 
-      <NewsImageManager imageUrls={imageUrls} coverUrl={coverUrl} onChange={setImageUrls} onCoverChange={setCoverUrl} />
+      <NewsImageManager value={imageUrls.map((url, sortOrder) => ({ url, sortOrder, isCover: coverUrl ? url === coverUrl : sortOrder === 0 }))} onChange={(items) => { const urls = items.map((item) => item.url); setImageUrls(urls); setCoverUrl(items.find((item) => item.isCover)?.url ?? urls[0] ?? null); }} />
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 

@@ -11,13 +11,16 @@ import { prisma } from "@/lib/prisma";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { areSafeImageSources, hasSafeTotalImageDataSize } from "@/lib/image-input";
+import { areSafeImageSources } from "@/lib/image-input";
+import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
+import { revalidatePath } from "next/cache";
 
 const newsInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
   summary: z.string().optional(),
   content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).optional(),
+  images: z.array(z.object({ url: z.string().min(1), fileKey: z.string().optional(), uploadToken: z.string().optional(), fileName: z.string().optional(), sizeBytes: z.number().nonnegative().optional(), sortOrder: z.number().int().nonnegative(), isCover: z.boolean() })).max(10).optional(),
+  imageUrls: z.array(z.string().min(1)).optional(),
   visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
   stage: z.string().min(1, "กรุณาเลือกสถานะ"),
   isPinned: z.boolean().optional(),
@@ -27,6 +30,7 @@ type NewsInput = {
   title: string;
   summary?: string;
   content: string;
+  images?: { url: string; fileKey?: string; uploadToken?: string; fileName?: string; sizeBytes?: number; sortOrder: number; isCover: boolean }[];
   imageUrls?: string[];
   visibility: string;
   stage: string;
@@ -75,9 +79,7 @@ function normalizeNewsInput(data: NewsInput) {
     return { ok: false as const, error: "สถานะข่าวไม่ถูกต้อง" };
   }
 
-  const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter(Boolean);
-  if (!hasSafeTotalImageDataSize(imageUrls)) return { ok: false as const, error: "ขนาดรวมของรูปภาพเกินขีดจำกัดสำหรับการบันทึก กรุณาลดจำนวนหรือเลือกไฟล์ขนาดเล็กลง" };
-  if (!areSafeImageSources(imageUrls)) return { ok: false as const, error: "รูปภาพต้องเป็น JPG, PNG หรือ WebP ขนาดไม่เกิน 5 MB และไม่เกิน 10 รูป" };
+  const images = [...(parsed.data.images ?? parsed.data.imageUrls?.map((url, sortOrder) => ({ url, sortOrder, isCover: sortOrder === 0 })) ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
 
   return {
     ok: true as const,
@@ -85,13 +87,26 @@ function normalizeNewsInput(data: NewsInput) {
       title: parsed.data.title.trim(),
       summary: parsed.data.summary?.trim() || null,
       content: parsed.data.content.trim(),
-      imageUrls,
+      images,
       visibility,
       stage,
       isPinned: Boolean(parsed.data.isPinned),
-      coverUrl: imageUrls.includes((data as NewsInput).coverUrl ?? "") ? (data as NewsInput).coverUrl ?? null : imageUrls[0] ?? null,
+      coverUrl: images.find((image) => image.isCover)?.url ?? images[0]?.url ?? null,
     },
   };
+}
+
+function expectedUploadUrl(fileKey: string) { return `/api/places/images?key=${encodeURIComponent(fileKey)}`; }
+function resolveNewsImages(images: { url: string; fileKey?: string; uploadToken?: string }[], villageId: string) {
+  const urls: string[] = [];
+  for (const image of images) {
+    const url = image.url.trim();
+    if (image.fileKey) {
+      if (url !== expectedUploadUrl(image.fileKey) || !verifyPlaceUploadToken(image.uploadToken, image.fileKey, villageId)) return null;
+    } else if (!areSafeImageSources([url]) || url.startsWith("data:")) return null;
+    urls.push(url);
+  }
+  return urls;
 }
 
 export async function adminCreateNewsAction(
@@ -102,6 +117,9 @@ export async function adminCreateNewsAction(
 
   const normalized = normalizeNewsInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  if (normalized.value.stage === "ARCHIVED") return { success: false, error: "ไม่สามารถสร้างข่าวเป็นเก็บถาวรได้" };
+  const imageUrls = resolveNewsImages(normalized.value.images, ctx.villageId);
+  if (!imageUrls) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
 
   const news = await prisma.news.create({
     data: {
@@ -109,8 +127,8 @@ export async function adminCreateNewsAction(
       title: normalized.value.title,
       summary: normalized.value.summary,
       content: normalized.value.content,
-      imageUrls: normalized.value.imageUrls,
-      coverUrl: normalized.value.coverUrl,
+      imageUrls,
+      coverUrl: imageUrls.includes(normalized.value.coverUrl ?? "") ? normalized.value.coverUrl : imageUrls[0] ?? null,
       visibility: normalized.value.visibility,
       stage: normalized.value.stage,
       isPinned: normalized.value.isPinned,
@@ -119,7 +137,7 @@ export async function adminCreateNewsAction(
     },
   });
   await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "CREATE", resource: "News", resourceId: news.id, metadata: { actionName: "NEWS_CREATED", title: news.title, newValue: { title: news.title, stage: news.stage, visibility: news.visibility } } });
-
+  revalidateNewsPaths(news.id);
   return { success: true, newsId: news.id };
 }
 
@@ -132,6 +150,8 @@ export async function adminUpdateNewsAction(
 
   const normalized = normalizeNewsInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  const imageUrls = resolveNewsImages(normalized.value.images, ctx.villageId);
+  if (!imageUrls) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
 
   const existing = await prisma.news.findFirst({
     where: { id: newsId, villageId: ctx.villageId },
@@ -141,26 +161,22 @@ export async function adminUpdateNewsAction(
     return { success: false, error: "ไม่พบข่าวนี้หรือไม่มีสิทธิ์แก้ไข" };
   }
 
-  const shouldSetPublishedAt =
-    normalized.value.stage === "PUBLISHED" &&
-    (existing.stage !== "PUBLISHED" || !existing.publishedAt);
-
   await prisma.news.update({
     where: { id: newsId },
     data: {
       title: normalized.value.title,
       summary: normalized.value.summary,
       content: normalized.value.content,
-      imageUrls: normalized.value.imageUrls,
-      coverUrl: normalized.value.coverUrl,
+      imageUrls,
+      coverUrl: imageUrls.includes(normalized.value.coverUrl ?? "") ? normalized.value.coverUrl : imageUrls[0] ?? null,
       visibility: normalized.value.visibility,
-      stage: normalized.value.stage,
+      stage: existing.stage,
       isPinned: normalized.value.isPinned,
-      publishedAt: shouldSetPublishedAt ? new Date() : existing.publishedAt,
+      publishedAt: existing.publishedAt,
     },
   });
   await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "UPDATE", resource: "News", resourceId: newsId, metadata: { actionName: "NEWS_UPDATED", title: normalized.value.title, oldValue: { title: existing.title, stage: existing.stage, visibility: existing.visibility }, newValue: { title: normalized.value.title, stage: normalized.value.stage, visibility: normalized.value.visibility } } });
-
+  revalidateNewsPaths(newsId);
   return { success: true };
 }
 
@@ -180,6 +196,7 @@ export async function adminDeleteNewsAction(
 
   await prisma.news.delete({ where: { id: newsId } });
   await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "News", resourceId: newsId, metadata: { actionName: "NEWS_DELETED", title: existing.title } });
+  revalidateNewsPaths(newsId);
   return { success: true };
 }
 
@@ -272,7 +289,7 @@ export async function adminApproveNewsSubmissionAction(
           title: parsed.value.title,
           summary: parsed.value.summary,
           content: parsed.value.content,
-          imageUrls: parsed.value.imageUrls,
+          imageUrls: parsed.value.images.map((image) => image.url),
           coverUrl: parsed.value.coverUrl,
           visibility: parsed.value.visibility,
           stage: parsed.value.stage,
@@ -339,7 +356,7 @@ export async function adminApproveNewsSubmissionAction(
         title: parsed.value.title,
         summary: parsed.value.summary,
         content: parsed.value.content,
-        imageUrls: parsed.value.imageUrls,
+        imageUrls: parsed.value.images.map((image) => image.url),
         coverUrl: parsed.value.coverUrl,
         visibility: parsed.value.visibility,
         stage: parsed.value.stage,
@@ -420,5 +437,23 @@ export async function adminRejectNewsSubmissionAction(
   await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "REJECT", resource: "NewsSubmission", resourceId: submissionId, metadata: { actionName: "NEWS_SUBMISSION_REJECTED" } });
 
   revalidateAdminSidebar();
+  return { success: true };
+}
+
+function revalidateNewsPaths(newsId?: string) {
+  ["/admin/news", "/resident/news", ...(newsId ? [`/admin/news/${newsId}`, `/resident/news/${newsId}`] : [])].forEach((path) => revalidatePath(path));
+  revalidateAdminSidebar();
+}
+
+export async function adminChangeNewsStageAction(newsId: string, nextStage: "PUBLISHED" | "ARCHIVED"): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+  const existing = await prisma.news.findFirst({ where: { id: newsId, villageId: ctx.villageId }, select: { id: true, title: true, stage: true, publishedAt: true, visibility: true } });
+  if (!existing) return { success: false, error: "ไม่พบข่าวนี้" };
+  const allowed = (existing.stage === "DRAFT" && nextStage === "PUBLISHED") || (existing.stage === "PUBLISHED" && nextStage === "ARCHIVED") || (existing.stage === "ARCHIVED" && nextStage === "PUBLISHED");
+  if (!allowed) return { success: false, error: "ไม่สามารถเปลี่ยนสถานะข่าวนี้ได้" };
+  const updated = await prisma.news.update({ where: { id: newsId }, data: { stage: nextStage, ...(nextStage === "PUBLISHED" && !existing.publishedAt ? { publishedAt: new Date() } : {}) }, select: { stage: true, publishedAt: true } });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "UPDATE", resource: "News", resourceId: newsId, metadata: { actionName: nextStage === "ARCHIVED" ? "NEWS_ARCHIVED" : existing.stage === "ARCHIVED" ? "NEWS_REPUBLISHED" : "NEWS_PUBLISHED", title: existing.title, oldValue: { stage: existing.stage }, newValue: { stage: updated.stage, publishedAt: updated.publishedAt, visibility: existing.visibility } } });
+  revalidateNewsPaths(newsId);
   return { success: true };
 }

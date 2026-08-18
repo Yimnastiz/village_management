@@ -27,9 +27,7 @@ export default async function EditNewsPage({ params }: PageProps) {
   });
   if (!news) notFound();
 
-  const imageUrls = Array.isArray(news.imageUrls)
-    ? news.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-    : [];
+  const images = (Array.isArray(news.imageUrls) ? news.imageUrls.map((value) => String(value)).filter(Boolean) : []).map((url, sortOrder) => ({ url, sortOrder, isCover: news.coverUrl ? url === news.coverUrl : sortOrder === 0 }));
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -42,13 +40,13 @@ export default async function EditNewsPage({ params }: PageProps) {
       <NewsForm
         mode="edit"
         newsId={newsId}
+        stage={news.stage}
         defaultValues={{
           title: news.title,
           summary: news.summary ?? "",
           content: news.content,
-          imageUrls,
+          images,
           visibility: news.visibility,
-          stage: news.stage,
           isPinned: news.isPinned,
         }}
       />
