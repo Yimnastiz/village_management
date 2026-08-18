@@ -25,12 +25,15 @@ interface AdminListToolbarProps {
   /** Route-specific controls rendered inside the shared filter panel. */
   extraFilters?: ReactNode;
   hideHeading?: boolean;
+  /** Keeps search visible for this list without changing the shared default. */
+  searchAlwaysVisible?: boolean;
 }
 
 /** Backward-compatible list adapter rendered through the shared admin toolbar. */
 export function AdminListToolbar({
   title, description, clearHref, keyword, searchPlaceholder, suggestionTitles = [], groups = [], actions,
   sticky = false, searchLabel = "ค้นหา", extraFilters, hideHeading = false,
+  searchAlwaysVisible = false,
 }: AdminListToolbarProps) {
   const activeFilterCount = groups.reduce(
     (count, group) => count + Number(group.options.some((option, index) => option.active && !(option.isDefault ?? index === 0))),
@@ -45,5 +48,5 @@ export function AdminListToolbar({
     {extraFilters}
   </> : extraFilters;
 
-  return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} hideHeading={hideHeading} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} />;
+  return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} hideHeading={hideHeading} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} searchAlwaysVisible={searchAlwaysVisible} />;
 }

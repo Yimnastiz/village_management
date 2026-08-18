@@ -42,11 +42,11 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
   const pageSize = 25;
   const normalizedStatus = historyEnabled && status !== "ALL" && Object.values(PersonStatus).includes(status as PersonStatus)
     ? status as PersonStatus
-    : PersonStatus.ACTIVE;
+    : null;
 
   const where: Prisma.PersonWhereInput = {
     villageId: membership.villageId,
-    ...(normalizedStatus ? { status: normalizedStatus } : {}),
+    ...(!historyEnabled ? { status: PersonStatus.ACTIVE } : normalizedStatus ? { status: normalizedStatus } : {}),
     ...(keyword ? {
       OR: [
         { phone: { contains: keyword, mode: "insensitive" } },
@@ -80,7 +80,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
     prisma.person.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const hasActiveCriteria = Boolean(keyword || historyEnabled || normalizedStatus !== PersonStatus.ACTIVE);
+  const hasActiveCriteria = Boolean(keyword || historyEnabled || normalizedStatus);
 
   function buildHref(next: { q?: string; status?: string; history?: boolean }) {
     const query = new URLSearchParams();
@@ -94,6 +94,14 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
     return queryString ? `/admin/population/people?${queryString}` : "/admin/population/people";
   }
 
+  const toolbarActions = <div className="flex flex-wrap items-center gap-2">
+    <Link href={buildHref({ q: keyword, status: "ALL", history: !historyEnabled })} aria-label={`${historyEnabled ? "ปิด" : "เปิด"}การแสดงทั้งหมด`} aria-pressed={historyEnabled} className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+      <span>ทั้งหมด</span>
+      <span className={`relative h-4 w-7 rounded-full transition-colors ${historyEnabled ? "bg-green-600" : "bg-gray-300"}`} aria-hidden="true"><span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${historyEnabled ? "translate-x-3.5" : "translate-x-0.5"}`} /></span>
+    </Link>
+    <Link href="/admin/population/people/new" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มบุคคล</Link>
+  </div>;
+
   return (
     <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
       <AdminListToolbar
@@ -101,17 +109,12 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
         title="ทะเบียนประชากร"
         description="ค้นหา ตรวจสอบ และจัดการข้อมูลประชากรในหมู่บ้าน"
         searchAction="/admin/population/people"
-        clearHref={buildHref({ q: keyword, status: historyEnabled ? "ALL" : PersonStatus.ACTIVE })}
+        clearHref={buildHref({ q: keyword, status: "ALL", history: true })}
         keyword={keyword}
         searchLabel="ค้นหาประชากร"
         searchPlaceholder="ค้นหาชื่อ นามสกุล หรือเบอร์โทร"
+        searchAlwaysVisible
         groups={[
-          {
-            label: "มุมมอง",
-            options: [
-              { label: "แสดงประวัติทั้งหมด", href: buildHref({ q: keyword, status: "ALL", history: !historyEnabled }), active: historyEnabled, isDefault: true },
-            ],
-          },
           ...(historyEnabled ? [{
             label: "สถานะ",
             options: [
@@ -123,7 +126,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
             ],
           }] : []),
         ]}
-        actions={<Link href="/admin/population/people/new" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มบุคคล</Link>}
+        actions={toolbarActions}
       />
 
       <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${people.length ? "" : "items-center justify-center"}`}>
@@ -151,7 +154,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
             </table>
           </div>
           <footer className="shrink-0 border-t border-gray-200 px-3 py-2 [&>div]:mt-0 sm:px-4">
-            <QueryPagination pathname="/admin/population/people" page={page} totalPages={totalPages} params={{ q: keyword || undefined, history: historyEnabled ? "1" : undefined, status: historyEnabled && status !== "ALL" ? normalizedStatus : undefined }} />
+            <QueryPagination pathname="/admin/population/people" page={page} totalPages={totalPages} params={{ q: keyword || undefined, history: historyEnabled ? "1" : undefined, status: historyEnabled && status !== "ALL" ? normalizedStatus ?? undefined : undefined }} />
           </footer>
         </> : (
           <div className="px-4 py-10 text-center text-sm text-gray-500">
