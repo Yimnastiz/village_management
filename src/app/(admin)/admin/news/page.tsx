@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatNewsAuthor } from "@/lib/news-author";
 import { AdminNewsToolbar } from "./admin-news-toolbar";
+import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
@@ -57,7 +58,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       ? [{ isPinned: "desc" as const }, { createdAt: "asc" as const }]
       : [{ isPinned: "desc" as const }, { createdAt: "desc" as const }];
 
-  const newsList = await prisma.news.findMany({
+  const [newsList, pendingNewsRequestCount] = await Promise.all([prisma.news.findMany({
     where,
     orderBy,
     select: {
@@ -76,7 +77,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
         select: { name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
       },
     },
-  });
+  }), getPendingNewsSubmissionCount(membership.villageId)]);
 
   const now = new Date();
   const superAdminAnnouncements = await prisma.notification.findMany({
@@ -113,7 +114,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
-      <AdminNewsToolbar key={`${keyword}|${activeStage}|${activeVisibility}|${activeSort}`} keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} />
+      <AdminNewsToolbar key={`${keyword}|${activeStage}|${activeVisibility}|${activeSort}`} keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} pendingCount={pendingNewsRequestCount} />
 
       {visibleSuperAdminAnnouncements.length > 0 ? (
         <section className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 sm:p-5">

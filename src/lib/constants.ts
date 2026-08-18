@@ -33,12 +33,12 @@ export const NEWS_VISIBILITY_LABELS: Record<string, string> = {
 };
 
 export const NEWS_SUBMISSION_TYPE_LABELS: Record<string, string> = {
-  CREATE: "ขอเพิ่มข่าวใหม่",
+  CREATE: "ขอเพิ่มข่าว",
   UPDATE: "ขอแก้ไขข่าว",
 };
 
 export const NEWS_SUBMISSION_STATUS_LABELS: Record<string, string> = {
-  PENDING: "รออนุมัติ",
+  PENDING: "รอพิจารณา",
   APPROVED: "อนุมัติแล้ว",
   REJECTED: "ไม่อนุมัติ",
 };

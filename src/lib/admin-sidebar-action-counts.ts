@@ -5,11 +5,11 @@ import {
   BindingRequestStatus,
   GalleryItemSubmissionStatus,
   IssueStage,
-  NewsSubmissionStatus,
   VillageEventSubmissionStatus,
   VillagePlaceSubmissionStatus,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 
 export type AdminSidebarActionCounts = {
   population: {
@@ -35,9 +35,7 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
     prisma.bindingRequest.count({
       where: { villageId, status: BindingRequestStatus.PENDING },
     }),
-    prisma.newsSubmission.count({
-      where: { villageId, status: NewsSubmissionStatus.PENDING },
-    }),
+    getPendingNewsSubmissionCount(villageId),
     prisma.galleryItemSubmission.count({
       where: {
         status: GalleryItemSubmissionStatus.PENDING,
