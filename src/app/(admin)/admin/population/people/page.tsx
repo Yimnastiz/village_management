@@ -114,6 +114,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
         searchLabel="ค้นหาประชากร"
         searchPlaceholder="ค้นหาชื่อ นามสกุล หรือเบอร์โทร"
         searchAlwaysVisible
+        filtersInlineWithSearch
         groups={[
           ...(historyEnabled ? [{
             label: "สถานะ",
@@ -122,7 +123,6 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
               { label: "อยู่ในทะเบียน", href: buildHref({ q: keyword, status: PersonStatus.ACTIVE }), active: normalizedStatus === PersonStatus.ACTIVE },
               { label: "ย้ายออก", href: buildHref({ q: keyword, status: PersonStatus.MOVED_OUT }), active: normalizedStatus === PersonStatus.MOVED_OUT },
               { label: "เสียชีวิต", href: buildHref({ q: keyword, status: PersonStatus.DECEASED }), active: normalizedStatus === PersonStatus.DECEASED },
-              { label: "ไม่ทราบสถานะ", href: buildHref({ q: keyword, status: PersonStatus.UNKNOWN }), active: normalizedStatus === PersonStatus.UNKNOWN },
             ],
           }] : []),
         ]}

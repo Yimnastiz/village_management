@@ -34,6 +34,8 @@ type AdminPageToolbarProps = {
   activeFilterCount?: number;
   /** Keeps the search field open for list pages that need persistent searching. */
   searchAlwaysVisible?: boolean;
+  /** Keeps expanded filters beside an always-visible search when horizontal space allows. */
+  filtersInlineWithSearch?: boolean;
   /** Lets workspace pages keep the shared tools without repeating the page header. */
   hideHeading?: boolean;
   className?: string;
@@ -60,6 +62,7 @@ export function AdminPageToolbar({
   filters,
   activeFilterCount = 0,
   searchAlwaysVisible = false,
+  filtersInlineWithSearch = false,
   hideHeading = false,
   className,
 }: AdminPageToolbarProps) {
@@ -178,7 +181,7 @@ export function AdminPageToolbar({
             <span className="hidden md:inline">ตัวกรอง</span>
             {activeFilterCount > 0 ? <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-xs font-semibold text-white">{activeFilterCount}</span> : null}
           </button>
-          {filterExpanded ? <div id={filterPanelId} className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", searchAlwaysVisible && "basis-full order-3")}><div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div></div> : <div id={filterPanelId} hidden />}
+          {filterExpanded ? <div id={filterPanelId} className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", searchAlwaysVisible && !filtersInlineWithSearch && "basis-full order-3")}><div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div></div> : <div id={filterPanelId} hidden />}
         </> : null}
         {hideHeading && actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
       </div> : null}
