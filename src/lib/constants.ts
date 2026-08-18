@@ -24,7 +24,7 @@ export const APPOINTMENT_STAGE_LABELS: Record<string, string> = {
 export const NEWS_STAGE_LABELS: Record<string, string> = {
   DRAFT: "ร่าง",
   PUBLISHED: "เผยแพร่แล้ว",
-  ARCHIVED: "เก็บถาวร",
+  ARCHIVED: "จัดเก็บแล้ว",
 };
 
 export const NEWS_VISIBILITY_LABELS: Record<string, string> = {

@@ -11,7 +11,6 @@ import { prisma } from "@/lib/prisma";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { areSafeImageSources } from "@/lib/image-input";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { revalidatePath } from "next/cache";
 
@@ -97,13 +96,16 @@ function normalizeNewsInput(data: NewsInput) {
 }
 
 function expectedUploadUrl(fileKey: string) { return `/api/places/images?key=${encodeURIComponent(fileKey)}`; }
-function resolveNewsImages(images: { url: string; fileKey?: string; uploadToken?: string }[], villageId: string) {
+function resolveNewsImages(images: { url: string; fileKey?: string; uploadToken?: string }[], villageId: string, existingImageUrls: readonly string[] = []) {
+  const trustedExistingUrls = new Set(existingImageUrls);
   const urls: string[] = [];
   for (const image of images) {
     const url = image.url.trim();
-    if (image.fileKey) {
-      if (url !== expectedUploadUrl(image.fileKey) || !verifyPlaceUploadToken(image.uploadToken, image.fileKey, villageId)) return null;
-    } else if (!areSafeImageSources([url]) || url.startsWith("data:")) return null;
+    if (trustedExistingUrls.has(url)) {
+      urls.push(url);
+      continue;
+    }
+    if (!image.fileKey || url !== expectedUploadUrl(image.fileKey) || !verifyPlaceUploadToken(image.uploadToken, image.fileKey, villageId)) return null;
     urls.push(url);
   }
   return urls;
@@ -117,7 +119,7 @@ export async function adminCreateNewsAction(
 
   const normalized = normalizeNewsInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
-  if (normalized.value.stage === "ARCHIVED") return { success: false, error: "ไม่สามารถสร้างข่าวเป็นเก็บถาวรได้" };
+  if (normalized.value.stage === "ARCHIVED") return { success: false, error: "ไม่สามารถสร้างข่าวในสถานะจัดเก็บได้" };
   const imageUrls = resolveNewsImages(normalized.value.images, ctx.villageId);
   if (!imageUrls) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
 
@@ -150,16 +152,16 @@ export async function adminUpdateNewsAction(
 
   const normalized = normalizeNewsInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
-  const imageUrls = resolveNewsImages(normalized.value.images, ctx.villageId);
-  if (!imageUrls) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
-
   const existing = await prisma.news.findFirst({
     where: { id: newsId, villageId: ctx.villageId },
-    select: { id: true, title: true, stage: true, visibility: true, publishedAt: true },
+    select: { id: true, title: true, stage: true, visibility: true, publishedAt: true, imageUrls: true },
   });
   if (!existing) {
     return { success: false, error: "ไม่พบข่าวนี้หรือไม่มีสิทธิ์แก้ไข" };
   }
+  const existingImageUrls = Array.isArray(existing.imageUrls) ? existing.imageUrls.map((url) => String(url)) : [];
+  const imageUrls = resolveNewsImages(normalized.value.images, ctx.villageId, existingImageUrls);
+  if (!imageUrls) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
 
   await prisma.news.update({
     where: { id: newsId },

@@ -30,7 +30,7 @@ export default async function EditNewsPage({ params }: PageProps) {
   const images = (Array.isArray(news.imageUrls) ? news.imageUrls.map((value) => String(value)).filter(Boolean) : []).map((url, sortOrder) => ({ url, sortOrder, isCover: news.coverUrl ? url === news.coverUrl : sortOrder === 0 }));
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">
       <div className="flex items-center gap-3">
         <Link href={`/admin/news/${newsId}`} className="text-gray-400 hover:text-gray-600">
           <ArrowLeft className="h-5 w-5" />
