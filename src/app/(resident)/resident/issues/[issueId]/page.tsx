@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { ArrowLeft, Edit, Clock } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Timeline } from "@/components/ui/timeline";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { SaveButton } from "@/components/ui/save-button";
-import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
+import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
@@ -18,13 +17,6 @@ import { getIssueUserStatus } from "@/lib/issues/status";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
 
 interface PageProps { params: Promise<{ issueId: string }> }
-
-const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  LOW: "default",
-  MEDIUM: "info",
-  HIGH: "warning",
-  URGENT: "danger",
-};
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("th-TH", {
@@ -83,7 +75,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   const priorityMeta = getIssuePriorityMeta(issue.priority);
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/resident/issues" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
           <ArrowLeft className="h-4 w-4" /> กลับรายการปัญหา
@@ -100,16 +92,16 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-2">
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
         <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
             <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <IssueStatusIndicator stage={issue.stage} />
+          <div className="flex flex-wrap items-center gap-2">
             <SaveButton
               itemId={issue.id}
               initialSaved={Boolean(saved)}
@@ -125,9 +117,9 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-500">ความสำคัญ: </span>
-            <Badge variant={priorityVariant[issue.priority] ?? "default"}>
-              {ISSUE_PRIORITY_LABELS[issue.priority]}
-            </Badge>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${priorityMeta.badgeClass}`}>
+              {priorityMeta.label}
+            </span>
           </div>
           <div>
             <span className="text-gray-500">วันที่แจ้ง: </span>
@@ -139,19 +131,13 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
               <span className="font-medium">{issue.location}</span>
             </div>
           )}
-          {issue.resolvedAt && (
-            <div className="col-span-2">
-              <span className="text-gray-500">แก้ไขเมื่อ: </span>
-              <span className="font-medium">{formatDate(issue.resolvedAt)}</span>
-            </div>
-          )}
           <div className="col-span-2">
             <span className="text-gray-500">การมองเห็น: </span>
             <span className="font-medium">
               {issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}
             </span>
           </div>
-          <div className="col-span-2 rounded-lg border bg-gray-50 p-3">
+          <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <p className="text-gray-500">ผู้แจ้งปัญหา</p>
             <p className="mt-1 font-medium text-gray-800">{isOwner ? "คุณเป็นผู้แจ้งปัญหานี้" : `แจ้งโดย ${getUserDisplayName(reporter)}`}</p>
             <p className="text-xs text-gray-500">{reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"} · {formatThaiDateTime(issue.createdAt)}</p>
@@ -164,16 +150,31 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             </div>
           )}
         </div>
-        <div className="border-t pt-4">
+        <div className="border-t border-gray-200 pt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
           <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
         </div>
         {imageUrls.length > 0 && (
-          <div className="border-t pt-4 mt-4">
+          <div className="mt-4 border-t border-gray-200 pt-4">
             <p className="text-sm font-medium text-gray-700 mb-2">รูปภาพประกอบ</p>
             <ImageCarousel images={imageUrls} altPrefix={issue.title} />
           </div>
         )}
+        </div>
+
+        <aside className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-1 lg:self-start">
+          <p className="text-sm font-semibold text-gray-900">สถานะการดำเนินการ</p>
+          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <IssueStatusIndicator stage={issue.stage} />
+            <p className="mt-2 text-sm text-gray-600">ติดตามความคืบหน้าและประวัติการดำเนินการได้ด้านล่าง</p>
+          </div>
+          {issue.resolvedAt && (
+            <div className="mt-4 border-t border-gray-200 pt-4 text-sm">
+              <p className="text-gray-500">แก้ไขเมื่อ</p>
+              <p className="mt-1 font-medium text-gray-800">{formatDate(issue.resolvedAt)}</p>
+            </div>
+          )}
+        </aside>
       </div>
 
       {issue.timeline.length > 0 && (

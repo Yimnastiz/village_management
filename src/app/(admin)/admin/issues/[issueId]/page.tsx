@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Clock, Lock } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { Timeline } from "@/components/ui/timeline";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
@@ -11,6 +10,7 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
+import { getIssuePriorityMeta } from "@/lib/issues/priority";
 import {
   AdminEditForm,
   AdminStageForm,
@@ -19,13 +19,6 @@ import {
 } from "./admin-issue-client";
 
 interface PageProps { params: Promise<{ issueId: string }> }
-
-const priorityVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
-  LOW: "default",
-  MEDIUM: "info",
-  HIGH: "warning",
-  URGENT: "danger",
-};
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString("th-TH", {
@@ -76,6 +69,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   const categoryOptions = Object.entries(ISSUE_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }));
   const priorityOptions = Object.entries(ISSUE_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }));
   const currentStatus = getIssueUserStatus(issue.stage);
+  const priorityMeta = getIssuePriorityMeta(issue.priority);
   const stageOptions = ISSUE_ALLOWED_TRANSITIONS[currentStatus].map((value) => ({ value, label: ISSUE_STATUS_META[value].label }));
 
   const publicMessages = issue.messages.filter((m) => !m.isInternal);
@@ -96,7 +90,9 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Issue details + edit */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+          <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+            <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
+            <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
@@ -111,9 +107,9 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-gray-500">ความสำคัญ: </span>
-                <Badge variant={priorityVariant[issue.priority] ?? "default"}>
-                  {ISSUE_PRIORITY_LABELS[issue.priority]}
-                </Badge>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${priorityMeta.badgeClass}`}>
+                  {priorityMeta.label}
+                </span>
               </div>
               <div>
                 <span className="text-gray-500">วันที่แจ้ง: </span>
@@ -126,11 +122,11 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
                 </div>
               )}
             </div>
-            <div className="border-t pt-4 mb-4">
+            <div className="mb-4 border-t border-gray-200 pt-4">
               <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
               <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
             </div>
-            <div className="mb-4 rounded-lg border bg-gray-50 p-4 text-sm">
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
               <p className="mb-2 font-medium text-gray-800">ข้อมูลผู้แจ้ง</p>
               <dl className="grid gap-2 sm:grid-cols-2">
                 <div><dt className="text-gray-500">ชื่อ</dt><dd className="break-words font-medium">{getUserDisplayName(reporter)}</dd></div>
@@ -139,7 +135,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
                 <div><dt className="text-gray-500">แจ้งเมื่อ</dt><dd>{formatThaiDateTime(issue.createdAt)}</dd></div>
               </dl>
             </div>
-            {imageUrls.length > 0 && <div className="mb-4 border-t pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} /></div>}
+            {imageUrls.length > 0 && <div className="mb-4 border-t border-gray-200 pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} /></div>}
             <AdminEditForm
               issueId={issueId}
               defaultValues={{
@@ -166,7 +162,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
             )}
             {internalMessages.length > 0 && (
               <>
-                <div className="flex items-center gap-2 mb-2 border-t pt-4">
+                <div className="mb-2 flex items-center gap-2 border-t border-gray-200 pt-4">
                   <Lock className="h-3.5 w-3.5 text-amber-500" />
                   <p className="text-xs font-medium text-amber-700">บันทึกภายใน (ลูกบ้านไม่เห็น)</p>
                 </div>
@@ -183,6 +179,10 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <h2 className="font-semibold text-gray-900 mb-4">เปลี่ยนสถานะ</h2>
+            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-medium text-gray-500">สถานะปัจจุบัน</p>
+              <IssueStatusIndicator stage={issue.stage} className="mt-2" />
+            </div>
             <AdminStageForm
               issueId={issueId}
               stageOptions={stageOptions}
