@@ -171,9 +171,9 @@ export function AdminPageToolbar({
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
           {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", backPlacement === "header-end" ? "block" : "hidden sm:block")}>{description}</p> : null}
         </div>
-        {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
+        {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
       </header> : null}
-      {(hideHeading || adminPageHeaderRegistry) && actions && !hasTools ? <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div> : null}
+      {(hideHeading || adminPageHeaderRegistry) && actions && !hasTools ? <div className="flex min-w-0 flex-wrap justify-end gap-2 sm:gap-3">{actions}</div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 
@@ -203,7 +203,7 @@ export function AdminPageToolbar({
           </button>
           {filterExpanded ? <AdminFilterDropdownContext.Provider value={{ openDropdown, setOpenDropdown, keepFiltersOpen }}><div id={filterPanelId} className="relative z-30 flex min-w-0 flex-wrap items-center gap-2 overflow-visible rounded-lg border border-gray-200 bg-white px-2 py-1.5">{filters}</div></AdminFilterDropdownContext.Provider> : <div id={filterPanelId} hidden />}
         </> : null}
-        {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+        {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div> : null}
       </div> : null}
       {search?.suggestions?.length ? <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist> : null}
     </section>

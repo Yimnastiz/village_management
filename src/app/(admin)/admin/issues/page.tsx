@@ -133,8 +133,9 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div data-admin-compact-top className="space-y-3">
       <AdminListToolbar
+        sticky
         title="จัดการปัญหา/คำร้อง"
         description={`รอดำเนินการ ${pendingCount} • กำลังดำเนินการ ${counts["IN_PROGRESS"] ?? 0} • แก้ไขแล้ว ${resolvedCount}`}
         searchAction="/admin/issues"

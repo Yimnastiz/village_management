@@ -106,7 +106,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
   const suggestionTitles = Array.from(new Set(newsList.map((news) => news.title))).slice(0, 12);
 
   return (
-    <div className="space-y-6">
+    <div data-admin-compact-top className="space-y-3">
       <AdminNewsToolbar key={`${keyword}|${activeStage}|${activeVisibility}|${activeSort}`} keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} pendingCount={pendingNewsRequestCount} />
 
       {visibleSuperAdminAnnouncements.length > 0 ? (

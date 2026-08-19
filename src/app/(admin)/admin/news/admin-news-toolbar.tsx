@@ -20,6 +20,7 @@ function href(keyword: string, stage: string, visibility: string, sort: string) 
 export function AdminNewsToolbar({ keyword, stage, visibility, sort, suggestionTitles, pendingCount }: Props) {
   return (
     <AdminListToolbar
+      sticky
       title="จัดการข่าว"
       description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น"
       searchAction="/admin/news"

@@ -100,6 +100,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
   return (
     <div data-admin-compact-top className="space-y-3">
       <AdminListToolbar
+        sticky
         compact
         title="รายชื่อผู้ติดต่อ"
         description="เพิ่ม แก้ไข และลบข้อมูลติดต่อหมู่บ้าน"

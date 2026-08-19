@@ -124,8 +124,9 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
   }
 
   return (
-    <div className="space-y-6">
+    <div data-admin-compact-top className="space-y-3">
       <AdminListToolbar
+        sticky
         title="จัดการนัดหมาย"
         description="ตรวจสอบคำขอนัดหมาย กรองตามสถานะ และค้นหาจากชื่อเรื่องหรือผู้ขอ"
         searchAction="/admin/appointments"
