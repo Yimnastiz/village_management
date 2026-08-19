@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { NewsFilterChip } from "@/components/news/news-toolbar";
+import type { ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
@@ -132,6 +133,15 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
     return queryString ? `/admin/calendar?${queryString}` : "/admin/calendar";
   }
 
+  const filterGroups: ToolbarGroup[] = [{
+    label: "การมองเห็น",
+    options: [
+      { label: "ทั้งหมด", href: buildCalendarHref({ q: keyword, visibility: "ALL", month: toMonthKey(monthStart) }), active: activeVisibility === "ALL", isDefault: true },
+      { label: "สาธารณะ", href: buildCalendarHref({ q: keyword, visibility: "PUBLIC", month: toMonthKey(monthStart) }), active: activeVisibility === "PUBLIC" },
+      { label: "ลูกบ้าน", href: buildCalendarHref({ q: keyword, visibility: "RESIDENT_ONLY", month: toMonthKey(monthStart) }), active: activeVisibility === "RESIDENT_ONLY" },
+    ],
+  }];
+
   return (
     <div data-admin-compact-top className="space-y-6">
       <CalendarToolbar
@@ -170,6 +180,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
             <NewsFilterChip href={buildCalendarHref({ month: toMonthKey(monthStart) })} active={false}>ล้างตัวกรอง</NewsFilterChip>
           </>
         }
+        adminFilterGroups={filterGroups}
       />
 
       {daysInMonth === 0 ? (

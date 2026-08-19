@@ -11,6 +11,7 @@ import {
 } from "@/lib/calendar-month";
 import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
+import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 
 type CalendarToolbarProps = {
   namespace: string;
@@ -30,6 +31,7 @@ type CalendarToolbarProps = {
     suggestions?: string[];
   };
   filters?: ReactNode;
+  adminFilterGroups?: ToolbarGroup[];
 };
 
 export function CalendarToolbar({
@@ -45,6 +47,7 @@ export function CalendarToolbar({
   residentCompact = false,
   search,
   filters,
+  adminFilterGroups = [],
 }: CalendarToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   const pathname = usePathname();
@@ -65,6 +68,7 @@ export function CalendarToolbar({
   const monthLabel = formatThaiMonthYear(currentYear, monthIndex, "long");
   const compactMonthLabel = formatThaiMonthYear(currentYear, monthIndex, "short");
   const filtersVisible = !isAdminToolbar || isFilterOpen;
+  const filterPersistenceKey = `calendar-toolbar:${pathname}:filters-open`;
   const years = Array.from({ length: yearEnd - yearStart + 1 }, (_, index) => yearStart + index);
 
   useEffect(() => {
@@ -87,6 +91,12 @@ export function CalendarToolbar({
   useEffect(() => {
     if (!isMonthPickerOpen) setPickerYear(currentYear);
   }, [currentYear, isMonthPickerOpen]);
+
+  useEffect(() => {
+    if (!isAdminToolbar || !sessionStorage.getItem(filterPersistenceKey)) return;
+    sessionStorage.removeItem(filterPersistenceKey);
+    setIsFilterOpen(true);
+  }, [filterPersistenceKey, isAdminToolbar]);
 
   const buildHref = (year: number, month: number) => {
     const params = new URLSearchParams(currentSearchParams.toString());
@@ -259,9 +269,10 @@ export function CalendarToolbar({
                     if (debounceRef.current) clearTimeout(debounceRef.current);
                     applySearch(searchValue);
                   }}
-                  className="flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto"
+                  className={cn("relative flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto", isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]")}
                 >
                   <label htmlFor={`${namespace}-search-input`} className="sr-only">ค้นหากิจกรรม</label>
+                  {isAdminToolbar ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
                   <input
                     ref={searchInputRef}
                     id={`${namespace}-search-input`}
@@ -271,8 +282,9 @@ export function CalendarToolbar({
                     onChange={(event) => setSearchValue(event.target.value)}
                     list={search.suggestions?.length ? suggestionsId : undefined}
                     placeholder={search.placeholder}
-                    className="h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500"
+                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", isAdminToolbar && "w-full pl-9 pr-10")}
                   />
+                  {isAdminToolbar && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
                   <button
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
@@ -289,8 +301,8 @@ export function CalendarToolbar({
 
           {filters ? <>
             {isAdminToolbar ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
-            {filtersVisible ? <div className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar ? "hidden md:block" : "")}>
-              <div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div>
+            {filtersVisible ? <div className={cn(isAdminToolbar ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar ? "hidden md:block" : "")} onClickCapture={() => { if (isAdminToolbar) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
+              <div className={cn("flex items-center gap-2", isAdminToolbar ? "flex-wrap" : "w-max whitespace-nowrap")}>{isAdminToolbar && adminFilterGroups.length ? adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />) : filters}</div>
             </div> : null}
           </> : null}
         </div>
