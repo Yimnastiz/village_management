@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-badge";
 import type { AdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
 import { useAutoHideTopBar } from "./use-auto-hide-top-bar";
+import { useOptionalAdminPageHeader } from "./admin-page-header-context";
 
 interface TopBarProps {
   userArea: "resident" | "admin";
@@ -38,6 +39,7 @@ export function TopBar({
   residentNavigationState,
   adminActionCounts,
 }: TopBarProps) {
+  const adminPageHeader = useOptionalAdminPageHeader();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobilePopulationOpen, setMobilePopulationOpen] = useState(false);
@@ -135,8 +137,14 @@ export function TopBar({
             )}
           </div>
         ) : null}
+        {isAdminArea && adminPageHeader?.context ? <div className="min-w-0"><p className="truncate text-sm font-semibold text-white md:text-base">{adminPageHeader.context.title}</p>{adminPageHeader.context.description ? <p className="hidden truncate text-xs text-gray-400 lg:block">{adminPageHeader.context.description}</p> : null}</div> : null}
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
+        {isAdminArea ? (
+          <span title={adminVillageLabel} className="max-w-[7.5rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem] xl:max-w-[36rem]">
+            {adminVillageLabel}
+          </span>
+        ) : null}
         <Link
           href={notificationsHref}
           className={cn(
@@ -153,11 +161,6 @@ export function TopBar({
             </span>
           )}
         </Link>
-        {isAdminArea ? (
-          <span title={adminVillageLabel} className="max-w-[7.5rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem] xl:max-w-[36rem]">
-            {adminVillageLabel}
-          </span>
-        ) : null}
         <div className="relative" ref={profileMenuRef}>
           <button
             type="button"

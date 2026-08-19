@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Filter, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { AdminPageHeaderRegistration, useOptionalAdminPageHeader } from "@/components/layout/admin-page-header-context";
 
 type ExpandedPanel = "search" | "filter" | null;
 
@@ -66,6 +67,7 @@ export function AdminPageToolbar({
   hideHeading = false,
   className,
 }: AdminPageToolbarProps) {
+  const adminPageHeader = useOptionalAdminPageHeader();
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(searchAlwaysVisible ? null : search?.keyword ? "search" : null);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [, startTransition] = useTransition();
@@ -144,16 +146,17 @@ export function AdminPageToolbar({
       aria-label={`เครื่องมือ${title}`}
       data-admin-page-toolbar={variant}
     >
+      {adminPageHeader ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {backPlacement === "top" && backLink ? <div className="mb-2">{backLink}</div> : null}
 
-      {!hideHeading ? <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+      {!hideHeading && !adminPageHeader ? <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
         <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
           {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", backPlacement === "header-end" ? "block" : "hidden sm:block")}>{description}</p> : null}
         </div>
         {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
       </header> : null}
-      {hideHeading && actions && !hasTools ? <div className="flex min-w-0 justify-end">{actions}</div> : null}
+      {(hideHeading || adminPageHeader) && actions && !hasTools ? <div className="flex min-w-0 justify-end">{actions}</div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 
@@ -183,7 +186,7 @@ export function AdminPageToolbar({
           </button>
           {filterExpanded ? <div id={filterPanelId} className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", searchAlwaysVisible && !filtersInlineWithSearch && "basis-full order-3")}><div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div></div> : <div id={filterPanelId} hidden />}
         </> : null}
-        {hideHeading && actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
+        {(hideHeading || adminPageHeader) && actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
       </div> : null}
       {search?.suggestions?.length ? <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist> : null}
     </section>

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
+import { AdminPageHeaderProvider } from "@/components/layout/admin-page-header-context";
 import { prisma } from "@/lib/prisma";
 import {
   getAuthenticatedAccessRedirectPath,
@@ -45,6 +46,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="flex min-h-screen bg-gray-100 [--app-sticky-top:var(--app-topbar-visible-offset,4rem)]">
       <AdminSidebar actionCounts={sidebarActionCounts} />
+      <AdminPageHeaderProvider>
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           userArea="admin"
@@ -58,6 +60,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         />
         <main className="flex-1 p-4 has-[>div[data-admin-compact-top]]:min-h-0 has-[>div[data-admin-compact-top]]:pt-2 sm:p-6 sm:has-[>div[data-admin-compact-top]]:pt-2">{children}</main>
       </div>
+      </AdminPageHeaderProvider>
     </div>
   );
 }
