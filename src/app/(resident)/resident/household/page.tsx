@@ -3,6 +3,7 @@ import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { HouseholdPageShell } from "./household-page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -144,10 +145,10 @@ export default async function HouseholdPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <HouseholdPageShell>
       <h1 className="text-2xl font-bold text-gray-900">ข้อมูลครัวเรือน</h1>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="shrink-0 rounded-xl border border-gray-200 bg-white p-6">
         <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
           <div>
             <span className="text-gray-500">บ้านเลขที่:</span>{" "}
@@ -160,33 +161,33 @@ export default async function HouseholdPage() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900">สมาชิกในบ้านเดียวกัน</h2>
         <p className="mt-1 text-sm text-gray-500">แสดงข้อมูลจากทะเบียนบุคคลและผู้ใช้งานระบบที่ผูกบ้านเดียวกัน</p>
 
         {mergedMembers.length === 0 ? (
           <p className="mt-4 text-sm text-gray-500">ยังไม่พบข้อมูลสมาชิกในบ้านนี้</p>
         ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <div className="mt-4 min-h-0 flex-1 overflow-auto overscroll-contain rounded-xl border border-slate-200 bg-white shadow-inner shadow-slate-100/70">
+            <table className="min-w-[640px] w-full border-separate border-spacing-0 text-sm">
               <thead>
-                <tr className="border-b bg-gray-50 text-left text-gray-600">
-                  <th className="px-3 py-2">ชื่อ</th>
-                  <th className="px-3 py-2">เบอร์โทร</th>
-                  <th className="px-3 py-2">แหล่งข้อมูล</th>
-                  <th className="px-3 py-2"></th>
+                <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  <th className="border-b border-slate-200 bg-slate-50 px-4 py-3">ชื่อ</th>
+                  <th className="border-b border-slate-200 bg-slate-50 px-4 py-3">เบอร์โทร</th>
+                  <th className="border-b border-slate-200 bg-slate-50 px-4 py-3">แหล่งข้อมูล</th>
+                  <th className="border-b border-slate-200 bg-slate-50 px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {mergedMembers.map((member) => (
-                  <tr key={member.key} className="border-b">
-                    <td className="px-3 py-2 text-gray-900">{member.name || "-"}</td>
-                    <td className="px-3 py-2 text-gray-700">{member.phone || "-"}</td>
-                    <td className="px-3 py-2 text-gray-600">{member.source}</td>
-                    <td className="px-3 py-2">
+                  <tr key={member.key} className="group transition-colors hover:bg-emerald-50/60">
+                    <td className="border-b border-slate-100 px-4 py-3 text-gray-900">{member.name || "-"}</td>
+                    <td className="border-b border-slate-100 px-4 py-3 text-gray-700">{member.phone || "-"}</td>
+                    <td className="border-b border-slate-100 px-4 py-3 text-gray-600">{member.source}</td>
+                    <td className="border-b border-slate-100 px-4 py-3 text-right">
                       <Link
                         href={`/resident/household/members/${member.key}`}
-                        className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+                        className="inline-flex whitespace-nowrap rounded-md px-2.5 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 hover:text-emerald-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                       >
                         ดูรายละเอียด →
                       </Link>
@@ -198,6 +199,6 @@ export default async function HouseholdPage() {
           </div>
         )}
       </div>
-    </div>
+    </HouseholdPageShell>
   );
 }
