@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
+import { normalizePersonGender } from "@/lib/person-validation";
 import { ProfileDetails } from "./profile-details";
 
 function fallback(value: string | null | undefined): string {
@@ -19,6 +20,11 @@ function formatDate(value: Date | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatBirthDate(value: Date | null | undefined): string {
+  if (!value) return "ยังไม่มีข้อมูล";
+  return new Date(value).toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
 }
 
 export const dynamic = "force-dynamic";
@@ -71,7 +77,7 @@ export default async function ProfilePage() {
         ...(user.registrationVillageId ? { villageId: user.registrationVillageId } : {}),
       },
       orderBy: { updatedAt: "desc" },
-      select: { firstName: true, lastName: true, nationalId: true },
+      select: { firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true },
     }),
   ]);
 
@@ -108,6 +114,8 @@ export default async function ProfilePage() {
           lastName: registeredLastName,
           hasNationalId: Boolean(person?.nationalId ?? registration?.nationalId),
           maskedNationalId: person?.nationalId || registration?.nationalId ? maskNationalId(person?.nationalId ?? registration?.nationalId ?? "") : "-",
+          dateOfBirth: formatBirthDate(person?.dateOfBirth ?? registration?.dateOfBirth),
+          gender: person?.gender || registration?.gender ? normalizePersonGender(person?.gender ?? registration?.gender) ?? "ยังไม่มีข้อมูล" : "ยังไม่มีข้อมูล",
         }}
         village={{
           province: fallback(user.registrationProvince),

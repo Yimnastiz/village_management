@@ -85,7 +85,7 @@ export default async function Page({ params }: PageProps) {
       <dl className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <Detail label="เลขบัตรประชาชน" value={person.nationalId ? maskNationalId(person.nationalId) : "-"} />
         <Detail label="วันเกิด" value={toThaiDate(person.dateOfBirth)} />
-        <Detail label="เพศ" value={normalizePersonGender(person.gender) ?? "ไม่ระบุ"} />
+        <Detail label="เพศ" value={person.gender ? normalizePersonGender(person.gender) ?? "-" : "-"} />
         <Detail label="เบอร์โทรสำหรับติดต่อ" value={person.phone ?? "-"} />
         <Detail label="อีเมลสำหรับติดต่อ" value={person.email ?? "-"} className="break-all" />
         <div><dt className="text-gray-500">{person.status === "DECEASED" ? "บ้านที่บันทึกล่าสุด" : "บ้านปัจจุบัน"}</dt><dd className="mt-1 font-medium text-gray-900">{person.house ? <Link href={`/admin/population/houses/${person.house.id}`} className="text-blue-600 hover:text-blue-700 hover:underline">{person.house.houseNumber}</Link> : "-"}</dd></div>

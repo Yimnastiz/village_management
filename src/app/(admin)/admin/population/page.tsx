@@ -287,9 +287,9 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
           const registration = await tx.registrationTemp.findFirst({
             where: { userId: binding.userId, villageId: binding.villageId!, status: RegistrationTempStatus.VERIFIED },
             orderBy: { updatedAt: "desc" },
-            select: { nationalId: true, firstName: true, lastName: true },
+            select: { nationalId: true, firstName: true, lastName: true, dateOfBirth: true, gender: true },
           });
-          const linkedPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true } });
+          const linkedPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true, dateOfBirth: true, gender: true } });
           if (linkedPerson && linkedPerson.villageId !== binding.villageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้อยู่คนละหมู่บ้านกับคำขอ");
           // A duplicate national ID must never select another applicant's Person row.
           // The account-owned record is the sole profile record eligible for approval.
@@ -306,6 +306,8 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
                 userId: binding.userId,
                 status: PersonStatus.ACTIVE,
                 phone: residentUser.phoneNumber,
+                ...(existingPerson.dateOfBirth || !registration?.dateOfBirth ? {} : { dateOfBirth: registration.dateOfBirth }),
+                ...(existingPerson.gender || !registration?.gender ? {} : { gender: registration.gender }),
               },
             });
             if (existingPerson.houseId !== resolvedHouseId) {
@@ -323,6 +325,8 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
                 phone: residentUser.phoneNumber,
                 userId: binding.userId,
                 nationalId: registration?.nationalId ?? null,
+                dateOfBirth: registration?.dateOfBirth ?? null,
+                gender: registration?.gender ?? null,
               },
             });
             await tx.personMovement.create({ data: { personId: person.id, houseId: resolvedHouseId, movementType: MovementType.MOVE_IN, date: new Date() } });

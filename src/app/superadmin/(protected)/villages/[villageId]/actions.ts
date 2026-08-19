@@ -82,11 +82,11 @@ export async function reviewBindingSupportAction(
           throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
         }
         await tx.villageMembership.upsert({ where: { userId_villageId: { userId: request.userId, villageId: targetVillageId } }, update: { status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() }, create: { userId: request.userId, villageId: targetVillageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: house.id, joinedAt: new Date() } });
-        const linkedPerson = await tx.person.findUnique({ where: { userId: request.userId }, select: { id: true, houseId: true, villageId: true } });
+        const linkedPerson = await tx.person.findUnique({ where: { userId: request.userId }, select: { id: true, houseId: true, villageId: true, dateOfBirth: true, gender: true } });
         if (linkedPerson && linkedPerson.villageId !== targetVillageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้เชื่อมกับหมู่บ้านอื่น");
-        const registration = await tx.registrationTemp.findFirst({ where: { userId: request.userId, villageId: targetVillageId, status: "VERIFIED" }, orderBy: { updatedAt: "desc" }, select: { firstName: true, lastName: true, nationalId: true } });
+        const registration = await tx.registrationTemp.findFirst({ where: { userId: request.userId, villageId: targetVillageId, status: "VERIFIED" }, orderBy: { updatedAt: "desc" }, select: { firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true } });
         if (linkedPerson) {
-          await tx.person.update({ where: { id: linkedPerson.id }, data: { houseId: house.id, status: PersonStatus.ACTIVE, phone: request.user.phoneNumber } });
+          await tx.person.update({ where: { id: linkedPerson.id }, data: { houseId: house.id, status: PersonStatus.ACTIVE, phone: request.user.phoneNumber, ...(linkedPerson.dateOfBirth || !registration?.dateOfBirth ? {} : { dateOfBirth: registration.dateOfBirth }), ...(linkedPerson.gender || !registration?.gender ? {} : { gender: registration.gender }) } });
           if (linkedPerson.houseId !== house.id) {
             if (linkedPerson.houseId) await tx.personMovement.create({ data: { personId: linkedPerson.id, houseId: linkedPerson.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: "ผูกเลขบ้านใหม่" } });
             await tx.personMovement.create({ data: { personId: linkedPerson.id, houseId: house.id, movementType: MovementType.MOVE_IN, date: new Date(), note: "ผูกเลขบ้านใหม่" } });
@@ -94,7 +94,7 @@ export async function reviewBindingSupportAction(
           await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.UPDATE, resource: "Person", resourceId: linkedPerson.id, metadata: { actionName: "PERSON_ACTIVATED_BY_BINDING", bindingRequestId: request.id, houseId: house.id, actorRole: "SUPERADMIN" } } });
         } else {
           const names = splitDisplayName(request.user.name);
-          const person = await tx.person.create({ data: { userId: request.userId, villageId: targetVillageId, houseId: house.id, firstName: registration?.firstName ?? names.firstName, lastName: registration?.lastName ?? names.lastName, nationalId: registration?.nationalId ?? nationalId ?? null, phone: request.user.phoneNumber, status: PersonStatus.ACTIVE } });
+          const person = await tx.person.create({ data: { userId: request.userId, villageId: targetVillageId, houseId: house.id, firstName: registration?.firstName ?? names.firstName, lastName: registration?.lastName ?? names.lastName, nationalId: registration?.nationalId ?? nationalId ?? null, dateOfBirth: registration?.dateOfBirth ?? null, gender: registration?.gender ?? null, phone: request.user.phoneNumber, status: PersonStatus.ACTIVE } });
           await tx.personMovement.create({ data: { personId: person.id, houseId: house.id, movementType: MovementType.MOVE_IN, date: new Date(), note: "อนุมัติการผูกเลขบ้าน" } });
           await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actionName: "PERSON_CREATED_BY_BINDING", bindingRequestId: request.id, houseId: house.id, actorRole: "SUPERADMIN" } } });
         }

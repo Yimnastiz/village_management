@@ -10,11 +10,12 @@ import { finalizeAccountDeletion } from "@/lib/account-deletion";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 import { findBoundIdentityByNationalId } from "@/lib/identity";
 import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
+import { normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
   name: z.string().trim().min(1).optional(), firstName: z.string().trim().min(1), lastName: z.string().trim().min(1),
-  nationalId: z.string().trim().min(1), province: z.string().trim().min(1), district: z.string().trim().min(1),
+  nationalId: z.string().trim().min(1), dateOfBirth: z.string().trim().min(1), gender: z.string().trim().min(1), province: z.string().trim().min(1), district: z.string().trim().min(1),
   subdistrict: z.string().trim().min(1), villageId: z.string().trim().min(1), callbackUrl: z.string().trim().nullable().optional(),
 });
 
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
   const lastName = normalizeThaiName(parsed.data.lastName).trim();
   const nationalId = normalizeNationalId(parsed.data.nationalId);
   if (!/^\d{13}$/.test(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก" }, { status: 400 });
+  const dateOfBirth = validateOptionalPersonDate(parsed.data.dateOfBirth);
+  if (!dateOfBirth.valid) {
+    return NextResponse.json({ error: dateOfBirth.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง" }, { status: 400 });
+  }
+  if (!dateOfBirth.value) return NextResponse.json({ error: "วันเกิดไม่ถูกต้อง" }, { status: 400 });
+  const gender = normalizePersonGender(parsed.data.gender);
+  if (!gender) return NextResponse.json({ error: "เพศไม่ถูกต้อง" }, { status: 400 });
   const dueAccount = await prisma.user.findFirst({ where: { phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] }, accountStatus: "DELETION_PENDING", scheduledDeletionAt: { lte: new Date() } }, select: { id: true } });
   if (dueAccount) await finalizeAccountDeletion(dueAccount.id);
   if (await hasExistingUserWithPhone(phoneNumber)) return NextResponse.json({ error: "หมายเลขนี้ถูกใช้งานแล้ว กรุณาเข้าสู่ระบบ" }, { status: 409 });
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
       && Boolean(challenge.otpExpiresAt ? challenge.otpExpiresAt > now : now.getTime() - challenge.updatedAt.getTime() < 30_000);
     const draft = await tx.registrationTemp.create({
       data: {
-        phoneNumber, registrationMode: "RESIDENT", name, firstName, lastName, nationalId,
+        phoneNumber, registrationMode: "RESIDENT", name, firstName, lastName, nationalId, dateOfBirth: dateOfBirth.value, gender,
         province: parsed.data.province, district: parsed.data.district, subdistrict: parsed.data.subdistrict,
         villageId: parsed.data.villageId, callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
         expiresAt: challenge?.otpExpiresAt && challenge.otpExpiresAt > now ? challenge.otpExpiresAt : new Date(now.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000),

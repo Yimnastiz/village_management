@@ -11,6 +11,7 @@ import { formatVillageLabel, formatVillageLocation, villageSearchText } from "@/
 import { useToast } from "@/components/ui/toast";
 import type { ThaiProvince } from "@/lib/thai-geography";
 import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
+import { PERSON_GENDER_VALUES, normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
 
 function normalizePhone10(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 10);
@@ -40,6 +41,8 @@ type RegistrationDraft = {
   registrationMode: RegistrationMode;
   firstName: string;
   lastName: string;
+  dateOfBirth: string;
+  gender: string;
   phone: string;
   nationalId: string;
   province: string;
@@ -53,6 +56,8 @@ type RegistrationDraft = {
 type FormErrors = Partial<Record<
   | "firstName"
   | "lastName"
+  | "dateOfBirth"
+  | "gender"
   | "phone"
   | "nationalId"
   | "province"
@@ -71,6 +76,9 @@ function serverErrorToFieldErrors(message: string): FormErrors {
   if (message.includes("บัตรประชาชน")) {
     return { nationalId: message };
   }
+
+  if (message.includes("วันเกิด")) return { dateOfBirth: message };
+  if (message.includes("เพศ")) return { gender: message };
 
   if (message.includes("หมู่บ้าน")) {
     return { villageId: message };
@@ -126,6 +134,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
   const [province, setProvince] = useState("");
@@ -152,6 +162,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         setRegistrationMode(storedDraft.registrationMode);
         setFirstName(storedDraft.firstName);
         setLastName(storedDraft.lastName);
+        setDateOfBirth(storedDraft.dateOfBirth ?? "");
+        setGender(storedDraft.gender ?? "");
         setPhone(storedDraft.phone);
         setNationalId(storedDraft.nationalId);
         setProvince(storedDraft.province);
@@ -172,6 +184,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       registrationMode,
       firstName,
       lastName,
+      dateOfBirth,
+      gender,
       phone,
       nationalId,
       province,
@@ -180,7 +194,7 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       villageId,
       callbackUrl,
     });
-  }, [callbackUrl, draftLoaded, district, firstName, lastName, nationalId, phone, province, registrationMode, subdistrict, villageId]);
+  }, [callbackUrl, dateOfBirth, draftLoaded, district, firstName, gender, lastName, nationalId, phone, province, registrationMode, subdistrict, villageId]);
 
   useEffect(() => {
     if (!isPrivacyModalOpen) {
@@ -305,6 +319,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
     const normalizedName = `${normalizedFirstName} ${normalizedLastName}`.trim();
     const normalizedPhone = normalizePhone10(phone);
     const normalizedNationalId = normalizeNationalId(nationalId).slice(0, 13);
+    const birthDateValidation = validateOptionalPersonDate(dateOfBirth);
+    const normalizedGender = normalizePersonGender(gender);
     const nextFieldErrors: FormErrors = {};
 
     if (!normalizedFirstName) {
@@ -329,6 +345,18 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       nextFieldErrors.nationalId = "กรุณากรอกเลขบัตรประชาชน";
     } else if (!/^\d{13}$/.test(normalizedNationalId)) {
       nextFieldErrors.nationalId = "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";
+    }
+
+    if (!dateOfBirth) {
+      nextFieldErrors.dateOfBirth = "กรุณาเลือกวันเกิด";
+    } else if (!birthDateValidation.valid) {
+      nextFieldErrors.dateOfBirth = birthDateValidation.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง";
+    } else if (!birthDateValidation.value) {
+      nextFieldErrors.dateOfBirth = "วันเกิดไม่ถูกต้อง";
+    }
+
+    if (!normalizedGender) {
+      nextFieldErrors.gender = "กรุณาเลือกเพศ";
     }
 
     if (!province) {
@@ -373,6 +401,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       registrationMode,
       firstName: normalizedFirstName,
       lastName: normalizedLastName,
+      dateOfBirth,
+      gender: normalizedGender ?? "",
       phone: normalizedPhone,
       nationalId: normalizedNationalId,
       province,
@@ -412,6 +442,8 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           firstName: normalizedFirstName,
           lastName: normalizedLastName,
           nationalId: normalizedNationalId,
+          dateOfBirth,
+          gender: normalizedGender,
           province,
           district,
           subdistrict,
@@ -505,6 +537,45 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
             helperText="กรอกนามสกุลจริงภาษาไทยตามบัตรประชาชน"
             error={fieldErrors.lastName}
           />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input
+            id="register-date-of-birth"
+            label="วันเกิด"
+            name="dateOfBirth"
+            type="date"
+            value={dateOfBirth}
+            max={new Date().toISOString().slice(0, 10)}
+            autoComplete="bday"
+            onChange={(event) => {
+              setDateOfBirth(event.target.value);
+              setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
+              setError(null);
+            }}
+            required
+            error={fieldErrors.dateOfBirth}
+          />
+          <div>
+            <label htmlFor="register-gender" className="mb-1 block text-sm font-medium text-gray-700">เพศ<span aria-hidden="true" className="ml-1 text-red-600">*</span></label>
+            <select
+              id="register-gender"
+              name="gender"
+              value={gender}
+              onChange={(event) => {
+                setGender(event.target.value);
+                setFieldErrors((currentErrors) => ({ ...currentErrors, gender: undefined }));
+                setError(null);
+              }}
+              required
+              aria-invalid={Boolean(fieldErrors.gender)}
+              className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${fieldErrors.gender ? "border-red-300 bg-red-50" : "border-gray-300"}`}
+            >
+              <option value="" disabled>เลือกเพศ</option>
+              {PERSON_GENDER_VALUES.map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+            {fieldErrors.gender ? <p className="mt-1 text-xs text-red-600">{fieldErrors.gender}</p> : null}
+          </div>
         </div>
 
         <Input

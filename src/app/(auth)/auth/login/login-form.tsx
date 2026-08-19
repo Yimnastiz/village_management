@@ -28,12 +28,6 @@ function LoginContent() {
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/register";
 
-  useEffect(() => {
-    if (registered) {
-      success("สมัครสมาชิกสำเร็จ", "คุณสามารถเข้าสู่ระบบด้วยเบอร์โทรศัพท์ได้แล้ว");
-    }
-  }, [registered, success]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 

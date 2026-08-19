@@ -1372,6 +1372,8 @@ model RegistrationTemp {
   firstName        String?
   lastName         String?
   nationalId       String
+  dateOfBirth      DateTime?
+  gender           String?
   province         String
   district         String
   subdistrict      String

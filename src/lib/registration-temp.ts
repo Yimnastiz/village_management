@@ -18,6 +18,8 @@ export type RegistrationTempRecord = {
   firstName: string | null;
   lastName: string | null;
   nationalId: string;
+  dateOfBirth: Date | null;
+  gender: string | null;
   province: string;
   district: string;
   subdistrict: string;
@@ -101,6 +103,8 @@ export async function getRegistrationFromRequest(
     firstName: registration.firstName,
     lastName: registration.lastName,
     nationalId: registration.nationalId,
+    dateOfBirth: registration.dateOfBirth,
+    gender: registration.gender,
     province: registration.province,
     district: registration.district,
     subdistrict: registration.subdistrict,
