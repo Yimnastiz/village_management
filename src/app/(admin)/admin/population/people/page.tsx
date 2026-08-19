@@ -103,7 +103,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
   </div>;
 
   return (
-    <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
+    <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-visible">
       <AdminListToolbar
         compact
         title="ทะเบียนประชากร"

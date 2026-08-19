@@ -49,7 +49,7 @@ export default async function Page({ searchParams }: PageProps) {
     return queryString ? `/admin/population/houses?${queryString}` : "/admin/population/houses";
   }
 
-  return <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-hidden">
+  return <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-visible">
     <AdminListToolbar
       compact
       title="ทะเบียนบ้าน"

@@ -81,12 +81,20 @@ export function AdminListToolbar({
     (count, group) => count + Number((group.countsAsFilter ?? !["เรียง", "เรียงลำดับ"].includes(group.label)) && group.options.some((option, index) => option.active && !(option.isDefault ?? index === 0))),
     0,
   );
+  const clearFiltersHref = (() => {
+    if (!clearHref) return undefined;
+    const [path, query = ""] = clearHref.split("?");
+    const params = new URLSearchParams(query);
+    if (keyword.trim() && !params.has("q")) params.set("q", keyword.trim());
+    const normalizedQuery = params.toString();
+    return normalizedQuery ? `${path}?${normalizedQuery}` : path;
+  })();
   const groupControls = hideHeading
     ? groups.map((group) => <div key={group.label} className="flex items-center gap-2"><span className="text-xs font-semibold text-gray-500">{group.label}</span>{group.options.map((option) => <Link key={`${group.label}-${option.label}`} href={option.href} className={cn("rounded-full px-3 py-1 text-xs font-medium transition-colors", option.active ? "bg-green-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200")}>{option.label}</Link>)}</div>)
     : groups.map((group) => <AdminFilterDropdown key={group.label} group={group} />);
   const filters = groups.length ? <>
     {groupControls}
-    {activeFilterCount > 0 && clearHref ? <Link href={clearHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}
+    {activeFilterCount > 0 && clearFiltersHref ? <Link href={clearFiltersHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}
     {extraFilters}
   </> : extraFilters;
 
