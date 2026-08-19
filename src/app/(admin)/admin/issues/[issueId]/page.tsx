@@ -130,7 +130,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
             </div>
             <p className="mb-4 text-sm text-gray-600">ผู้แจ้ง: <span className="font-medium text-gray-800">{getUserDisplayName(reporter)} ({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span>{reporter?.phoneNumber ? <> <span className="text-gray-400">·</span> <a className="font-medium text-blue-700 hover:underline" href={`tel:${reporter.phoneNumber}`}>{reporter.phoneNumber}</a></> : null}</p>
-            {imageUrls.length > 0 && <div className="mb-4 border-t border-gray-200 pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} /></div>}
+            {imageUrls.length > 0 && <div className="mb-4 border-t border-gray-200 pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} thumbnailBehavior="select" /></div>}
             {isAdminCreated && <AdminEditForm
               issueId={issueId}
               defaultValues={{

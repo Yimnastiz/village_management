@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Edit, Clock } from "lucide-react";
+import { ArrowLeft, Edit } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Timeline } from "@/components/ui/timeline";
@@ -146,7 +146,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         {imageUrls.length > 0 && (
           <div className="mt-4 border-t border-gray-200 pt-4">
             <p className="text-sm font-medium text-gray-700 mb-2">รูปภาพประกอบ</p>
-            <ImageCarousel images={imageUrls} altPrefix={issue.title} />
+            <ImageCarousel images={imageUrls} altPrefix={issue.title} thumbnailBehavior="select" />
           </div>
         )}
         </div>
@@ -160,17 +160,9 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
               <p className="mt-1 font-medium text-gray-800">{formatDate(issue.resolvedAt)}</p>
             </div>
           )}
+          <div className="mt-4 border-t border-gray-200 pt-4"><Timeline items={timelineItems} /></div>
         </aside>
       </div>
-
-      {issue.timeline.length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
-          <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <Clock className="h-4 w-4 text-gray-400" /> ความคืบหน้า
-          </h2>
-          <Timeline items={timelineItems} />
-        </div>
-      )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="font-semibold text-gray-900 mb-4">ข้อความ/ความคิดเห็น</h2>

@@ -209,6 +209,12 @@ export async function editIssueAction(
     data: {
       issueId,
       actorId: session.id,
+      metadata: {
+        eventType: "ISSUE_EDITED",
+        changes: issue.priority !== parsed.data.priority
+          ? [{ label: "ความสำคัญ", before: issue.priority === "LOW" ? "ต่ำ" : issue.priority === "MEDIUM" ? "ปานกลาง" : issue.priority === "HIGH" ? "สูง" : "เร่งด่วน", after: parsed.data.priority === "LOW" ? "ต่ำ" : parsed.data.priority === "MEDIUM" ? "ปานกลาง" : parsed.data.priority === "HIGH" ? "สูง" : "เร่งด่วน" }]
+          : [],
+      },
       action: "แก้ไขคำร้อง",
       description: changes.length > 0 ? `แก้ไข: ${changes.join(", ")}` : "ปรับปรุงข้อมูลคำร้อง",
     },
