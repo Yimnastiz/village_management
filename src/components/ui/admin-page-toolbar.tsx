@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Filter, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -9,6 +9,18 @@ import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
 
 type ExpandedPanel = "filter" | null;
+
+type AdminFilterDropdownContextValue = {
+  openDropdown: string | null;
+  setOpenDropdown: (dropdown: string | null) => void;
+  keepFiltersOpen: () => void;
+};
+
+const AdminFilterDropdownContext = createContext<AdminFilterDropdownContextValue | null>(null);
+
+export function useAdminFilterDropdowns() {
+  return useContext(AdminFilterDropdownContext);
+}
 
 export type AdminPageToolbarVariant = "list" | "detail" | "form" | "request";
 export type AdminPageToolbarBackPlacement = "top" | "header-end";
@@ -69,6 +81,7 @@ export function AdminPageToolbar({
 }: AdminPageToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -85,6 +98,7 @@ export function AdminPageToolbar({
   const suggestionsId = `${namespace}-search-suggestions`;
   const searchExpanded = true;
   const filterExpanded = expandedPanel === "filter";
+  const filterPersistenceKey = `admin-toolbar:${pathname}:filters-open`;
   const searchLabel = search?.label ?? "ค้นหา";
   const hasTools = Boolean(search || filters);
   const backLink = backHref ? (
@@ -95,6 +109,11 @@ export function AdminPageToolbar({
   ) : null;
 
   useEffect(() => setSearchValue(search?.keyword ?? ""), [search?.keyword]);
+  useEffect(() => {
+    if (!filters || !sessionStorage.getItem(filterPersistenceKey)) return;
+    sessionStorage.removeItem(filterPersistenceKey);
+    setExpandedPanel("filter");
+  }, [filterPersistenceKey, filters]);
   useEffect(() => () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
@@ -122,7 +141,12 @@ export function AdminPageToolbar({
 
   const closeFilter = () => {
     setExpandedPanel(null);
+    setOpenDropdown(null);
     requestAnimationFrame(() => filterButtonRef.current?.focus());
+  };
+  const keepFiltersOpen = () => {
+    sessionStorage.setItem(filterPersistenceKey, "true");
+    setExpandedPanel("filter");
   };
   const closeSearch = () => undefined;
   const closeExpandedPanel = () => {
@@ -132,7 +156,7 @@ export function AdminPageToolbar({
   return (
     <section
       className={cn(
-        "-mx-4 shrink-0 border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 sm:py-4",
+        "relative z-20 -mx-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 sm:py-4",
         sticky && "sticky top-[var(--app-sticky-top)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",
         className,
       )}
@@ -177,7 +201,7 @@ export function AdminPageToolbar({
             <span className="hidden md:inline">ตัวกรอง</span>
             {activeFilterCount > 0 ? <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-xs font-semibold text-white">{activeFilterCount}</span> : null}
           </button>
-          {filterExpanded ? <div id={filterPanelId} className="relative z-10 flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5">{filters}</div> : <div id={filterPanelId} hidden />}
+          {filterExpanded ? <AdminFilterDropdownContext.Provider value={{ openDropdown, setOpenDropdown, keepFiltersOpen }}><div id={filterPanelId} className="relative z-30 flex min-w-0 flex-wrap items-center gap-2 overflow-visible rounded-lg border border-gray-200 bg-white px-2 py-1.5">{filters}</div></AdminFilterDropdownContext.Provider> : <div id={filterPanelId} hidden />}
         </> : null}
         {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div> : null}
