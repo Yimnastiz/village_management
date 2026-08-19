@@ -15,6 +15,7 @@ import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { getIssueUserStatus } from "@/lib/issues/status";
+import { getIssuePriorityMeta } from "@/lib/issues/priority";
 
 interface PageProps { params: Promise<{ issueId: string }> }
 
@@ -79,6 +80,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   const canEdit = isOwner && getIssueUserStatus(issue.stage) === "PENDING";
   const canMessage =
     issue.stage !== "CLOSED" && issue.stage !== "REJECTED" && (isOwner || issue.isPublic);
+  const priorityMeta = getIssuePriorityMeta(issue.priority);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -98,7 +100,9 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+      <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+        <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
+        <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
