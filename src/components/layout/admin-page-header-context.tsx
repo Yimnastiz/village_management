@@ -5,11 +5,13 @@ import { createContext, useCallback, useContext, useId, useLayoutEffect, useMemo
 export type AdminPageHeader = { title: string; description?: string };
 type Registration = { context: AdminPageHeader; priority: number };
 
-const AdminPageHeaderContext = createContext<{
-  context: AdminPageHeader | null;
+type AdminPageHeaderRegistry = {
   register: (id: string, context: AdminPageHeader, priority: number) => void;
   unregister: (id: string) => void;
-} | null>(null);
+};
+
+const AdminPageHeaderContext = createContext<AdminPageHeader | null>(null);
+const AdminPageHeaderRegistryContext = createContext<AdminPageHeaderRegistry | null>(null);
 
 export function AdminPageHeaderProvider({ children }: { children: React.ReactNode }) {
   const [registrations, setRegistrations] = useState<Record<string, Registration>>({});
@@ -28,21 +30,29 @@ export function AdminPageHeaderProvider({ children }: { children: React.ReactNod
     const entries = Object.values(registrations).sort((left, right) => left.priority - right.priority);
     return entries.length ? entries[entries.length - 1].context : null;
   }, [registrations]);
-  const value = useMemo(() => ({ context, register, unregister }), [context, register, unregister]);
-  return <AdminPageHeaderContext.Provider value={value}>{children}</AdminPageHeaderContext.Provider>;
+  const registry = useMemo(() => ({ register, unregister }), [register, unregister]);
+  return (
+    <AdminPageHeaderRegistryContext.Provider value={registry}>
+      <AdminPageHeaderContext.Provider value={context}>{children}</AdminPageHeaderContext.Provider>
+    </AdminPageHeaderRegistryContext.Provider>
+  );
 }
 
 export function AdminPageHeaderRegistration({ context, priority = 0 }: { context: AdminPageHeader; priority?: number }) {
   const id = useId();
-  const pageHeader = useOptionalAdminPageHeader();
+  const pageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   useLayoutEffect(() => {
-    if (!pageHeader) return;
-    pageHeader.register(id, context, priority);
-    return () => pageHeader.unregister(id);
-  }, [context, id, pageHeader, priority]);
+    if (!pageHeaderRegistry) return;
+    pageHeaderRegistry.register(id, context, priority);
+    return () => pageHeaderRegistry.unregister(id);
+  }, [context, id, pageHeaderRegistry, priority]);
   return null;
 }
 
 export function useOptionalAdminPageHeader() {
   return useContext(AdminPageHeaderContext);
+}
+
+export function useOptionalAdminPageHeaderRegistry() {
+  return useContext(AdminPageHeaderRegistryContext);
 }

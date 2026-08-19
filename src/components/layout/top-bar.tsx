@@ -137,7 +137,7 @@ export function TopBar({
             )}
           </div>
         ) : null}
-        {isAdminArea && adminPageHeader?.context ? <div className="min-w-0"><p className="truncate text-sm font-semibold text-white md:text-base">{adminPageHeader.context.title}</p>{adminPageHeader.context.description ? <p className="hidden truncate text-xs text-gray-400 lg:block">{adminPageHeader.context.description}</p> : null}</div> : null}
+        {isAdminArea && adminPageHeader ? <div className="min-w-0"><p className="truncate text-sm font-semibold text-white md:text-base">{adminPageHeader.title}</p>{adminPageHeader.description ? <p className="hidden truncate text-xs text-gray-400 lg:block">{adminPageHeader.description}</p> : null}</div> : null}
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
         {isAdminArea ? (

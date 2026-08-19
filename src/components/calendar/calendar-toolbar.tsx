@@ -10,6 +10,7 @@ import {
   THAI_MONTH_NAMES,
 } from "@/lib/calendar-month";
 import { cn } from "@/lib/utils";
+import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
 
 type CalendarToolbarProps = {
   namespace: string;
@@ -45,6 +46,7 @@ export function CalendarToolbar({
   search,
   filters,
 }: CalendarToolbarProps) {
+  const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   const pathname = usePathname();
   const router = useRouter();
   const currentSearchParams = useSearchParams();
@@ -132,11 +134,12 @@ export function CalendarToolbar({
       className="sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-30 -mx-4 -mt-2 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4"
       aria-label={`เครื่องมือ${title}`}
     >
+      {adminPageHeaderRegistry ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       <div className="flex min-w-0 items-center justify-between gap-2">
-        <div className="min-w-0">
+        {!adminPageHeaderRegistry ? <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
           {description ? <p className="hidden truncate text-xs text-gray-500 sm:block lg:text-sm">{description}</p> : null}
-        </div>
+        </div> : null}
         {actions ? <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">{actions}</div> : null}
       </div>
 
