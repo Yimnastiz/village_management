@@ -157,6 +157,15 @@ export async function editIssueAction(
     return { success: false, error: "แก้ไขได้เฉพาะคำร้องที่ยังไม่ถูกรับไปดำเนินการ" };
   }
 
+  const changes: string[] = [];
+  if (issue.title !== parsed.data.title) changes.push("หัวข้อ");
+  if (issue.description !== parsed.data.description) changes.push("รายละเอียด");
+  if (issue.category !== parsed.data.category) changes.push("หมวดหมู่");
+  if (issue.priority !== parsed.data.priority) changes.push(`ความสำคัญ: ${issue.priority === "LOW" ? "ต่ำ" : issue.priority === "MEDIUM" ? "ปานกลาง" : issue.priority === "HIGH" ? "สูง" : "เร่งด่วน"} → ${parsed.data.priority === "LOW" ? "ต่ำ" : parsed.data.priority === "MEDIUM" ? "ปานกลาง" : parsed.data.priority === "HIGH" ? "สูง" : "เร่งด่วน"}`);
+  if ((issue.location ?? "") !== (parsed.data.location?.trim() || "")) changes.push("สถานที่");
+  if (JSON.stringify(issue.imageUrls) !== JSON.stringify(imageUrls)) changes.push("รูปภาพ");
+  if (issue.isPublic !== Boolean(parsed.data.isPublic)) changes.push("การมองเห็น");
+
   await prisma.issue.update({
     where: { id: issueId },
     data: {
@@ -175,7 +184,7 @@ export async function editIssueAction(
       issueId,
       actorId: session.id,
       action: "แก้ไขคำร้อง",
-      description: "ผู้แจ้งแก้ไขรายละเอียดคำร้อง",
+      description: changes.length > 0 ? `แก้ไข: ${changes.join(", ")}` : "ปรับปรุงข้อมูลคำร้อง",
     },
   });
 

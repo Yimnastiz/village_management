@@ -98,10 +98,10 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-xs text-gray-400 mb-1 font-mono">#{issue.id.slice(0, 8).toUpperCase()}</p>
             <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <IssueStatusIndicator stage={issue.stage} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" />
             <SaveButton
               itemId={issue.id}
               initialSaved={Boolean(saved)}
@@ -137,18 +137,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
               {issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}
             </span>
           </div>
-          <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <p className="text-gray-500">ผู้แจ้งปัญหา</p>
-            <p className="mt-1 font-medium text-gray-800">{isOwner ? "คุณเป็นผู้แจ้งปัญหานี้" : `แจ้งโดย ${getUserDisplayName(reporter)}`}</p>
-            <p className="text-xs text-gray-500">{reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"} · {formatThaiDateTime(issue.createdAt)}</p>
-          </div>
-          {!isOwner && (
-            <div className="col-span-2">
-              <span className="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
-                ปัญหาของลูกบ้านคนอื่น
-              </span>
-            </div>
-          )}
+          <p className="col-span-2 text-sm text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : getUserDisplayName(reporter)}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
         </div>
         <div className="border-t border-gray-200 pt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
@@ -162,12 +151,9 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
         </div>
 
-        <aside className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-1 lg:self-start">
-          <p className="text-sm font-semibold text-gray-900">สถานะการดำเนินการ</p>
-          <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <IssueStatusIndicator stage={issue.stage} />
-            <p className="mt-2 text-sm text-gray-600">ติดตามความคืบหน้าและประวัติการดำเนินการได้ด้านล่าง</p>
-          </div>
+        <aside className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 lg:col-span-1 lg:self-start">
+          <p className="text-sm font-semibold text-gray-900">ความคืบหน้า</p>
+          <p className="mt-1 text-sm text-gray-600">ติดตามประวัติการดำเนินการ</p>
           {issue.resolvedAt && (
             <div className="mt-4 border-t border-gray-200 pt-4 text-sm">
               <p className="text-gray-500">แก้ไขเมื่อ</p>
@@ -178,7 +164,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
       </div>
 
       {issue.timeline.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-6">
           <h2 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-400" /> ความคืบหน้า
           </h2>

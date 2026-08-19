@@ -5,33 +5,45 @@ import { useRouter } from "next/navigation";
 import { Trash2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { deleteIssueAction, addIssueMessageAction } from "../actions";
 
 export function DeleteIssueButton({ issueId }: { issueId: string }) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const { pushToast } = useToast();
 
   const handleDelete = async () => {
-    if (!confirm("ยืนยันการลบคำร้องนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้")) return;
     setIsDeleting(true);
-    setError(null);
     const result = await deleteIssueAction(issueId);
     if (!result.success) {
-      setError(result.error);
+      pushToast({ tone: "error", title: "ลบคำร้องไม่สำเร็จ", description: result.error });
       setIsDeleting(false);
       return;
     }
+    pushToast({ tone: "success", title: "ลบคำร้องเรียบร้อยแล้ว" });
     router.push("/resident/issues");
   };
 
   return (
     <div>
-      <Button variant="danger" size="sm" onClick={handleDelete} isLoading={isDeleting}>
+      <Button variant="danger" size="sm" onClick={() => setOpen(true)}>
         <Trash2 className="h-4 w-4 mr-1" />
         ลบคำร้อง
       </Button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <ConfirmDialog
+        open={open}
+        title="ลบคำร้อง"
+        description="ยืนยันการลบคำร้องนี้หรือไม่? การลบไม่สามารถย้อนกลับได้"
+        confirmLabel="ลบคำร้อง"
+        cancelLabel="ยกเลิก"
+        tone="danger"
+        pending={isDeleting}
+        onClose={() => !isDeleting && setOpen(false)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

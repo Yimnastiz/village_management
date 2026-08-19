@@ -152,8 +152,12 @@ export async function adminEditIssueAction(
 
   const issue = await prisma.issue.findFirst({
     where: { id: issueId, villageId: ctx.villageId },
+    include: { timeline: { orderBy: { createdAt: "asc" }, take: 1, select: { action: true, description: true } } },
   });
   if (!issue) return { success: false, error: "ไม่พบคำร้องหรือไม่ใช่คำร้องในหมู่บ้านของคุณ" };
+  const initialTimeline = issue.timeline[0];
+  const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
+  if (!wasCreatedByAdmin) return { success: false, error: "ไม่สามารถแก้ไขข้อมูลคำร้องที่ลูกบ้านส่งได้" };
 
   await prisma.issue.update({
     where: { id: issueId },

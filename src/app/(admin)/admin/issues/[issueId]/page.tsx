@@ -60,6 +60,9 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   });
   const userById = new Map(users.map((user) => [user.id, user]));
   const reporter = userById.get(issue.reporterId);
+  const initialTimeline = issue.timeline[0];
+  const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
+  const isAdminCreated = wasCreatedByAdmin;
   const imageUrls = Array.isArray(issue.imageUrls) ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0) : [];
   const timelineItems = issue.timeline.map((item) => {
     const actor = item.actorId ? userById.get(item.actorId) : undefined;
@@ -126,17 +129,9 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
               <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
             </div>
-            <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-              <p className="mb-2 font-medium text-gray-800">ข้อมูลผู้แจ้ง</p>
-              <dl className="grid gap-2 sm:grid-cols-2">
-                <div><dt className="text-gray-500">ชื่อ</dt><dd className="break-words font-medium">{getUserDisplayName(reporter)}</dd></div>
-                <div><dt className="text-gray-500">เบอร์โทร</dt><dd>{reporter?.phoneNumber ? <a className="font-medium text-blue-700 hover:underline" href={`tel:${reporter.phoneNumber}`}>{reporter.phoneNumber}</a> : "ไม่พบข้อมูลผู้แจ้ง"}</dd></div>
-                <div><dt className="text-gray-500">บทบาท</dt><dd>{reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"}</dd></div>
-                <div><dt className="text-gray-500">แจ้งเมื่อ</dt><dd>{formatThaiDateTime(issue.createdAt)}</dd></div>
-              </dl>
-            </div>
+            <p className="mb-4 text-sm text-gray-600">ผู้แจ้ง: <span className="font-medium text-gray-800">{getUserDisplayName(reporter)} ({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span>{reporter?.phoneNumber ? <> <span className="text-gray-400">·</span> <a className="font-medium text-blue-700 hover:underline" href={`tel:${reporter.phoneNumber}`}>{reporter.phoneNumber}</a></> : null}</p>
             {imageUrls.length > 0 && <div className="mb-4 border-t border-gray-200 pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} /></div>}
-            <AdminEditForm
+            {isAdminCreated && <AdminEditForm
               issueId={issueId}
               defaultValues={{
                 title: issue.title,
@@ -147,7 +142,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               }}
               categoryOptions={categoryOptions}
               priorityOptions={priorityOptions}
-            />
+            />}
           </div>
 
           {/* Messages */}
