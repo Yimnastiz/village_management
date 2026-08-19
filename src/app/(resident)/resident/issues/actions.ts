@@ -6,12 +6,20 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { areSafeImageSources } from "@/lib/image-input";
+import { MAX_IMAGES_PER_REQUEST } from "@/lib/image-constraints";
+import { issueImageUploadUrl, type IssueImageInput } from "@/lib/issue-images";
+import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
   description: z.string().min(10, "รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร"),
-  imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).optional(),
+  imageUrls: z.array(z.object({
+    url: z.string().min(1, "รูปภาพไม่ถูกต้อง"),
+    fileKey: z.string().optional(),
+    uploadToken: z.string().optional(),
+    fileName: z.string().optional(),
+    sizeBytes: z.number().int().positive().max(5 * 1024 * 1024).optional(),
+  }).strict()).max(MAX_IMAGES_PER_REQUEST).optional(),
   isPublic: z.boolean().optional(),
   category: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
   priority: z.string().min(1, "กรุณาเลือกระดับความสำคัญ"),
@@ -21,7 +29,7 @@ const issueInputSchema = z.object({
 type IssueInput = {
   title: string;
   description: string;
-  imageUrls?: string[];
+  imageUrls?: IssueImageInput[];
   isPublic?: boolean;
   category: string;
   priority: string;
@@ -33,6 +41,27 @@ const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.ASSISTANT_HEADMAN,
   VillageMembershipRole.COMMITTEE,
 ];
+
+async function resolveIssueImageUrls(
+  images: readonly IssueImageInput[],
+  villageId: string,
+  uploaderId: string,
+  existingUrls: readonly string[] = []
+) {
+  const resolved: string[] = [];
+  for (const image of images) {
+    const url = image.url.trim();
+    if (image.fileKey || image.uploadToken) {
+      if (!image.fileKey || !image.uploadToken || url !== issueImageUploadUrl(image.fileKey)) return null;
+      if (!verifyPlaceUploadToken(image.uploadToken, image.fileKey, villageId, uploaderId)) return null;
+      resolved.push(url);
+      continue;
+    }
+    if (!existingUrls.includes(url)) return null;
+    resolved.push(url);
+  }
+  return resolved;
+}
 
 async function notifyVillageAdmins(
   villageId: string,
@@ -78,13 +107,10 @@ export async function createIssueAction(
     };
   }
 
-  const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter((url) => url.length > 0);
-  if (!areSafeImageSources(imageUrls)) {
-    return { success: false, error: "รูปภาพต้องเป็นไฟล์อัปโหลดหรือ URL ที่ถูกต้อง" };
-  }
-
   const membership = getResidentMembership(session);
   if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
+  const imageUrls = await resolveIssueImageUrls(parsed.data.imageUrls ?? [], membership.villageId, session.id);
+  if (!imageUrls) return { success: false, error: "รูปภาพต้องอัปโหลดผ่านระบบก่อนส่งคำร้อง" };
 
   const issue = await prisma.issue.create({
     data: {
@@ -141,11 +167,6 @@ export async function editIssueAction(
     };
   }
 
-  const imageUrls = (parsed.data.imageUrls ?? []).map((url) => url.trim()).filter((url) => url.length > 0);
-  if (!areSafeImageSources(imageUrls)) {
-    return { success: false, error: "รูปภาพต้องเป็นไฟล์อัปโหลดหรือ URL ที่ถูกต้อง" };
-  }
-
   const issue = await prisma.issue.findUnique({ where: { id: issueId } });
   if (!issue) return { success: false, error: "ไม่พบคำร้อง" };
   const membership = getResidentMembership(session);
@@ -156,6 +177,11 @@ export async function editIssueAction(
   if (issue.stage !== "OPEN" && issue.stage !== "WAITING") {
     return { success: false, error: "แก้ไขได้เฉพาะคำร้องที่ยังไม่ถูกรับไปดำเนินการ" };
   }
+  const storedImageUrls = Array.isArray(issue.imageUrls)
+    ? issue.imageUrls.filter((value): value is string => typeof value === "string")
+    : [];
+  const imageUrls = await resolveIssueImageUrls(parsed.data.imageUrls ?? [], issue.villageId, session.id, storedImageUrls);
+  if (!imageUrls) return { success: false, error: "รูปภาพเดิมไม่ถูกต้องหรือรูปใหม่ยังอัปโหลดไม่เสร็จ" };
 
   const changes: string[] = [];
   if (issue.title !== parsed.data.title) changes.push("หัวข้อ");

@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FileUpload } from "@/components/ui/file-upload";
+import { IssueImageManager } from "@/components/issues/issue-image-manager";
+import type { IssueImageInput } from "@/lib/issue-images";
 import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { createIssueAction } from "../actions";
 
@@ -25,18 +26,10 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(new Error("ไม่สามารถอ่านไฟล์ได้"));
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function NewIssuePage() {
   const router = useRouter();
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [images, setImages] = useState<IssueImageInput[]>([]);
+  const [imagesBusy, setImagesBusy] = useState(false);
   const {
     register,
     handleSubmit,
@@ -45,15 +38,7 @@ export default function NewIssuePage() {
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
-    let uploadedImageDataUrls: string[] = [];
-    if (selectedFiles.length > 0) {
-      try {
-        uploadedImageDataUrls = await Promise.all(selectedFiles.map((file) => fileToDataUrl(file)));
-      } catch {
-        setError("root", { message: "ไม่สามารถอ่านไฟล์รูปที่อัปโหลดได้" });
-        return;
-      }
-    }
+    if (imagesBusy) { setError("root", { message: "กรุณารอให้การอัปโหลดรูปภาพเสร็จสิ้น" }); return; }
 
     const result = await createIssueAction({
       title: data.title,
@@ -61,7 +46,7 @@ export default function NewIssuePage() {
       category: data.category,
       priority: data.priority,
       location: data.location,
-      imageUrls: uploadedImageDataUrls,
+      imageUrls: images,
       isPublic: Boolean(data.isPublic),
     });
     if (!result.success) {
@@ -127,17 +112,7 @@ export default function NewIssuePage() {
           เปิดเผยปัญหานี้ให้ลูกบ้านคนอื่นในหมู่บ้านเห็นได้
         </label>
 
-        <div className="space-y-2 rounded-xl border border-gray-200 p-4">
-          <p className="text-sm font-medium text-gray-800">รูปภาพประกอบปัญหา</p>
-          <FileUpload
-            label="อัปโหลดรูปภาพ"
-            accept="image/*"
-            multiple
-            maxSize={5 * 1024 * 1024}
-            onFilesChange={(files) => setSelectedFiles(files)}
-          />
-          {selectedFiles.length === 0 && <p className="text-sm text-gray-500">ยังไม่ได้เลือกรูปภาพ</p>}
-        </div>
+        <IssueImageManager value={images} onChange={setImages} onBusyChange={setImagesBusy} disabled={isSubmitting} />
 
         {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
         <div className="flex gap-3 pt-2">
