@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Inbox, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NewsFilterChip, NewsToolbar } from "@/components/news/news-toolbar";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 
 type Props = { keyword: string; stage: string; visibility: string; sort: string; suggestionTitles: string[]; pendingCount: number };
 
@@ -18,6 +18,25 @@ function href(keyword: string, stage: string, visibility: string, sort: string) 
 }
 
 export function AdminNewsToolbar({ keyword, stage, visibility, sort, suggestionTitles, pendingCount }: Props) {
-  const count = Number(stage !== "ALL") + Number(visibility !== "ALL") + Number(sort !== "newest");
-  return <NewsToolbar namespace="admin-news" title="จัดการข่าว" description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น" searchAction="/admin/news" keyword={keyword} searchPlaceholder="ค้นหาชื่อหรือเนื้อหาข่าว" suggestionTitles={suggestionTitles} activeFilterCount={count} hiddenInputs={{ stage: stage === "ALL" ? "" : stage, visibility: visibility === "ALL" ? "" : visibility, sort: sort === "newest" ? "" : sort }} actions={<><Link href="/admin/news/requests" aria-label={pendingCount > 0 ? `คำขอข่าวจากลูกบ้าน ${pendingCount} รายการรอพิจารณา` : "คำขอข่าวจากลูกบ้าน"} className="relative"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><Inbox className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอข่าว</span></Button>{pendingCount > 0 ? <span className="absolute right-0 top-0 inline-flex h-5 min-w-5 -translate-y-1/2 translate-x-1/4 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold leading-none text-white ring-2 ring-white">{pendingCount}</span> : null}</Link><Link href="/admin/news/new"><Button size="sm" className="h-10 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="ml-1 hidden min-[360px]:inline">เพิ่มข่าว</span></Button></Link></>} filters={<><span className="text-xs font-semibold text-gray-500">สถานะ</span>{[["ALL", "ทั้งหมด"], ["DRAFT", "ร่าง"], ["PUBLISHED", "เผยแพร่"], ["ARCHIVED", "จัดเก็บแล้ว"]].map(([value, label]) => <NewsFilterChip key={value} href={href(keyword, value, visibility, sort)} active={stage === value}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">การมองเห็น</span>{[["ALL", "ทั้งหมด"], ["PUBLIC", "สาธารณะ"], ["RESIDENT_ONLY", "ลูกบ้าน"]].map(([value, label]) => <NewsFilterChip key={value} href={href(keyword, stage, value, sort)} active={visibility === value}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span>{[["newest", "ล่าสุด"], ["oldest", "เก่าสุด"]].map(([value, label]) => <NewsFilterChip key={value} href={href(keyword, stage, visibility, value)} active={sort === value}>{label}</NewsFilterChip>)}<NewsFilterChip href="/admin/news" active={false}>ล้างตัวกรอง</NewsFilterChip></>} />;
+  return (
+    <AdminListToolbar
+      title="จัดการข่าว"
+      description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น"
+      searchAction="/admin/news"
+      clearHref="/admin/news"
+      keyword={keyword}
+      searchPlaceholder="ค้นหาชื่อหรือเนื้อหาข่าว"
+      searchLabel="ค้นหาข่าว"
+      suggestionTitles={suggestionTitles}
+      groups={[
+        { label: "สถานะ", options: [["ALL", "ทั้งหมด"], ["DRAFT", "ร่าง"], ["PUBLISHED", "เผยแพร่"], ["ARCHIVED", "จัดเก็บแล้ว"]].map(([value, label], index) => ({ label, href: href(keyword, value, visibility, sort), active: stage === value, isDefault: index === 0 })) },
+        { label: "การมองเห็น", options: [["ALL", "ทั้งหมด"], ["PUBLIC", "สาธารณะ"], ["RESIDENT_ONLY", "ลูกบ้าน"]].map(([value, label], index) => ({ label, href: href(keyword, stage, value, sort), active: visibility === value, isDefault: index === 0 })) },
+        { label: "เรียง", options: [["newest", "ล่าสุด"], ["oldest", "เก่าสุด"]].map(([value, label], index) => ({ label, href: href(keyword, stage, visibility, value), active: sort === value, isDefault: index === 0 })) },
+      ]}
+      actions={<>
+        <Link href="/admin/news/requests" aria-label={pendingCount > 0 ? `คำขอข่าวจากลูกบ้าน ${pendingCount} รายการรอพิจารณา` : "คำขอข่าวจากลูกบ้าน"} className="relative"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><Inbox className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอข่าว</span></Button>{pendingCount > 0 ? <span className="absolute right-0 top-0 inline-flex h-5 min-w-5 -translate-y-1/2 translate-x-1/4 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold leading-none text-white ring-2 ring-white">{pendingCount}</span> : null}</Link>
+        <Link href="/admin/news/new"><Button size="sm" className="h-10 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="ml-1 hidden min-[360px]:inline">เพิ่มข่าว</span></Button></Link>
+      </>}
+    />
+  );
 }

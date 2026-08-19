@@ -35,7 +35,7 @@ type AdminPageToolbarProps = {
   activeFilterCount?: number;
   /** Keeps the search field open for list pages that need persistent searching. */
   searchAlwaysVisible?: boolean;
-  /** Keeps expanded filters beside an always-visible search when horizontal space allows. */
+  /** Retained for compatibility; expanded filters now share the toolbar row by default. */
   filtersInlineWithSearch?: boolean;
   /** Lets workspace pages keep the shared tools without repeating the page header. */
   hideHeading?: boolean;
@@ -63,7 +63,7 @@ export function AdminPageToolbar({
   filters,
   activeFilterCount = 0,
   searchAlwaysVisible = true,
-  filtersInlineWithSearch = false,
+  filtersInlineWithSearch: _filtersInlineWithSearch = false,
   hideHeading = false,
   className,
 }: AdminPageToolbarProps) {
@@ -161,7 +161,7 @@ export function AdminPageToolbar({
           <button ref={searchButtonRef} type="button" aria-label={searchLabel} aria-expanded={searchExpanded} aria-controls={searchPanelId} onClick={closeSearch} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1">
             <Search className="h-4 w-4" aria-hidden="true" />
           </button> : null}
-          {searchExpanded ? <form id={searchPanelId} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className={cn("relative flex min-w-0 items-center", searchAlwaysVisible ? "w-full sm:w-[min(28rem,42vw)]" : "flex-1 gap-1.5")}>
+          {searchExpanded ? <form id={searchPanelId} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className={cn("relative flex min-w-0 items-center", searchAlwaysVisible ? "w-full shrink-0 sm:w-[clamp(14rem,28vw,24rem)]" : "flex-1 gap-1.5")}>
             <label htmlFor={searchInputId} className="sr-only">{searchLabel}</label>
             {searchAlwaysVisible ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
             <input ref={searchInputRef} id={searchInputId} name="q" type="search" value={searchValue} onChange={(event) => setSearchValue(event.target.value)} list={search.suggestions?.length ? suggestionsId : undefined} placeholder={search.placeholder} className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500", searchAlwaysVisible ? "w-full pl-9 pr-10" : "px-3")} />
@@ -177,7 +177,7 @@ export function AdminPageToolbar({
             <span className="hidden md:inline">ตัวกรอง</span>
             {activeFilterCount > 0 ? <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-xs font-semibold text-white">{activeFilterCount}</span> : null}
           </button>
-          {filterExpanded ? <div id={filterPanelId} className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", searchAlwaysVisible && !filtersInlineWithSearch && "basis-full order-3")}><div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div></div> : <div id={filterPanelId} hidden />}
+          {filterExpanded ? <div id={filterPanelId} className="relative z-10 flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5">{filters}</div> : <div id={filterPanelId} hidden />}
         </> : null}
         {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div> : null}
