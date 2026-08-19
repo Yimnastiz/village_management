@@ -3,7 +3,6 @@ import { NotificationStatus } from "@prisma/client";
 import { ResidentSidebar } from "@/components/layout/resident-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { prisma } from "@/lib/prisma";
-import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import {
   getAuthenticatedAccessRedirectPath,
   getResidentMembership,
@@ -59,7 +58,6 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   const publicVillage = residentMembership
     ? villageProfile
     : userProfile?.registrationVillage ?? null;
-  const villageDisplayName = publicVillage ? await getVillageDisplayName(publicVillage) : null;
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
     bindingRequestHref: residentMembership
@@ -84,7 +82,8 @@ export default async function ResidentLayout({ children }: { children: React.Rea
           userName={userProfile?.name || session.name}
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
-          villageName={villageDisplayName}
+          villageName={publicVillage?.name ?? null}
+          villageMoo={publicVillage?.moo ?? null}
           residentNavigationState={residentNavigationState}
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>

@@ -62,7 +62,9 @@ export function TopBar({
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
   const villageMooLabel = villageMoo?.toString().trim();
-  const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
+  const residentVillageLabel = villageName?.trim()
+    ? `หมู่บ้าน ${villageName.trim()}${villageMooLabel ? ` หมู่ ${villageMooLabel}` : ""}`
+    : "หมู่บ้าน";
   const adminVillageLabel = villageName?.trim()
     ? `ผู้ใหญ่บ้าน · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
     : "ผู้ใหญ่บ้าน";
@@ -125,18 +127,6 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {!isAdminArea ? (
-          <div className="flex items-center gap-2">
-            <p title={residentVillageLabel} className="max-w-[14rem] truncate text-sm font-semibold text-gray-800 md:max-w-none">
-              {residentVillageLabel}
-            </p>
-            {isResidentGuest && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                ยังไม่ผูกเลขบ้าน
-              </span>
-            )}
-          </div>
-        ) : null}
         {isAdminArea && adminPageHeader ? <div className="min-w-0"><p className="truncate text-sm font-semibold text-white md:text-base">{adminPageHeader.title}</p>{adminPageHeader.description ? <p className="hidden truncate text-xs text-gray-400 lg:block">{adminPageHeader.description}</p> : null}</div> : null}
       </div>
       <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
@@ -144,7 +134,11 @@ export function TopBar({
           <span title={adminVillageLabel} className="max-w-[7.5rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem] xl:max-w-[36rem]">
             {adminVillageLabel}
           </span>
-        ) : null}
+        ) : (
+          <span title={residentVillageLabel} className="max-w-[8rem] truncate rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700 sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem]">
+            {residentVillageLabel}
+          </span>
+        )}
         <Link
           href={notificationsHref}
           className={cn(
