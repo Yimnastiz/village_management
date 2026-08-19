@@ -89,6 +89,17 @@ input[type="radio"]:disabled {
   display: none;
 }
 
+/* Calendar admin search also provides its own clear control. */
+#admin-calendar-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+#admin-calendar-search-input::-ms-clear {
+  display: none;
+}
+
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
