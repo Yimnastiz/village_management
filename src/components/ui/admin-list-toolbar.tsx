@@ -35,7 +35,7 @@ interface AdminListToolbarProps {
 export function AdminListToolbar({
   title, description, clearHref, keyword, searchPlaceholder, suggestionTitles = [], groups = [], actions,
   sticky = false, searchLabel = "ค้นหา", extraFilters, hideHeading = false,
-  searchAlwaysVisible = false, filtersInlineWithSearch = false,
+  searchAlwaysVisible = true, filtersInlineWithSearch = false,
 }: AdminListToolbarProps) {
   const activeFilterCount = groups.reduce(
     (count, group) => count + Number(group.options.some((option, index) => option.active && !(option.isDefault ?? index === 0))),

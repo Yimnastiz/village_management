@@ -58,7 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           villageMoo={villageProfile?.moo ?? null}
           adminRoleLabel={MEMBERSHIP_ROLE_LABELS[adminMembership.role] ?? "ผู้ใหญ่บ้าน"}
         />
-        <main className="flex-1 p-4 has-[>div[data-admin-compact-top]]:min-h-0 has-[>div[data-admin-compact-top]]:pt-2 sm:p-6 sm:has-[>div[data-admin-compact-top]]:pt-2">{children}</main>
+        <main className="flex-1 p-4 has-[>div[data-admin-compact-top]]:min-h-0 has-[>div[data-admin-compact-top]]:pt-0 sm:p-6 sm:has-[>div[data-admin-compact-top]]:pt-0">{children}</main>
       </div>
       </AdminPageHeaderProvider>
     </div>

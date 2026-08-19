@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, Search, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Filter, RotateCcw, Search, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -50,7 +50,9 @@ export function CalendarToolbar({
   const pathname = usePathname();
   const router = useRouter();
   const currentSearchParams = useSearchParams();
-  const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword));
+  const isAdminToolbar = Boolean(adminPageHeaderRegistry);
+  const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(currentYear);
@@ -62,6 +64,7 @@ export function CalendarToolbar({
   const monthIndex = currentMonth - 1;
   const monthLabel = formatThaiMonthYear(currentYear, monthIndex, "long");
   const compactMonthLabel = formatThaiMonthYear(currentYear, monthIndex, "short");
+  const filtersVisible = !isAdminToolbar || isFilterOpen;
   const years = Array.from({ length: yearEnd - yearStart + 1 }, (_, index) => yearStart + index);
 
   useEffect(() => {
@@ -131,7 +134,10 @@ export function CalendarToolbar({
 
   return (
     <section
-      className="sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-30 -mx-4 -mt-2 border-y border-gray-200 bg-gray-50/95 px-3 py-2 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4"
+      className={cn(
+        "sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-30 border-gray-200 bg-gray-50/95 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90",
+        isAdminToolbar ? "-mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : "-mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+      )}
       aria-label={`เครื่องมือ${title}`}
     >
       {adminPageHeaderRegistry ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
@@ -230,7 +236,7 @@ export function CalendarToolbar({
       </div>
 
       {(search || filters) ? (
-        <div className="mt-2 flex min-h-11 min-w-0 items-center gap-2">
+        <div className="mt-2 flex min-h-11 min-w-0 flex-wrap items-center gap-2">
           {search ? (
             <>
               <button
@@ -239,7 +245,7 @@ export function CalendarToolbar({
                 aria-expanded={isSearchOpen}
                 aria-controls={searchPanelId}
                 onClick={() => setIsSearchOpen((value) => !value)}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
+                className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", isAdminToolbar && "hidden")}
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -252,7 +258,7 @@ export function CalendarToolbar({
                     if (debounceRef.current) clearTimeout(debounceRef.current);
                     applySearch(searchValue);
                   }}
-                  className="flex min-w-0 flex-1 items-center gap-1.5"
+                  className="flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto"
                 >
                   <label htmlFor={`${namespace}-search-input`} className="sr-only">ค้นหากิจกรรม</label>
                   <input
@@ -270,7 +276,7 @@ export function CalendarToolbar({
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
                     aria-label="ปิดช่องค้นหากิจกรรม"
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", isAdminToolbar && "hidden")}
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -280,11 +286,12 @@ export function CalendarToolbar({
             </>
           ) : null}
 
-          {filters ? (
-            <div className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen ? "hidden md:block" : "")}>
+          {filters ? <>
+            {isAdminToolbar ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
+            {filtersVisible ? <div className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar ? "hidden md:block" : "")}>
               <div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div>
-            </div>
-          ) : null}
+            </div> : null}
+          </> : null}
         </div>
       ) : null}
 

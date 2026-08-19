@@ -8,7 +8,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
 
-type ExpandedPanel = "search" | "filter" | null;
+type ExpandedPanel = "filter" | null;
 
 export type AdminPageToolbarVariant = "list" | "detail" | "form" | "request";
 export type AdminPageToolbarBackPlacement = "top" | "header-end";
@@ -62,13 +62,13 @@ export function AdminPageToolbar({
   search,
   filters,
   activeFilterCount = 0,
-  searchAlwaysVisible = false,
+  searchAlwaysVisible = true,
   filtersInlineWithSearch = false,
   hideHeading = false,
   className,
 }: AdminPageToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
-  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(searchAlwaysVisible ? null : search?.keyword ? "search" : null);
+  const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(null);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -83,7 +83,7 @@ export function AdminPageToolbar({
   const filterPanelId = `${namespace}-filter-panel`;
   const searchInputId = `${namespace}-search-input`;
   const suggestionsId = `${namespace}-search-suggestions`;
-  const searchExpanded = searchAlwaysVisible || expandedPanel === "search";
+  const searchExpanded = true;
   const filterExpanded = expandedPanel === "filter";
   const searchLabel = search?.label ?? "ค้นหา";
   const hasTools = Boolean(search || filters);
@@ -95,9 +95,6 @@ export function AdminPageToolbar({
   ) : null;
 
   useEffect(() => setSearchValue(search?.keyword ?? ""), [search?.keyword]);
-  useEffect(() => {
-    if (searchExpanded) searchInputRef.current?.focus();
-  }, [searchExpanded]);
   useEffect(() => () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
   }, []);
@@ -123,23 +120,19 @@ export function AdminPageToolbar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, searchValue]);
 
-  const closeSearch = () => {
-    setExpandedPanel(null);
-    requestAnimationFrame(() => searchButtonRef.current?.focus());
-  };
   const closeFilter = () => {
     setExpandedPanel(null);
     requestAnimationFrame(() => filterButtonRef.current?.focus());
   };
+  const closeSearch = () => undefined;
   const closeExpandedPanel = () => {
-    if (searchExpanded) closeSearch();
-    else if (filterExpanded) closeFilter();
+    if (filterExpanded) closeFilter();
   };
 
   return (
     <section
       className={cn(
-        "shrink-0 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:p-4",
+        "-mx-4 shrink-0 border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 sm:py-4",
         sticky && "sticky top-[var(--app-sticky-top)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",
         className,
       )}
@@ -156,7 +149,7 @@ export function AdminPageToolbar({
         </div>
         {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
       </header> : null}
-      {(hideHeading || adminPageHeaderRegistry) && actions && !hasTools ? <div className="flex min-w-0 justify-end">{actions}</div> : null}
+      {(hideHeading || adminPageHeaderRegistry) && actions && !hasTools ? <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 
@@ -165,7 +158,7 @@ export function AdminPageToolbar({
       }}>
         {search ? <>
           {!searchAlwaysVisible ?
-          <button ref={searchButtonRef} type="button" aria-label={searchLabel} aria-expanded={searchExpanded} aria-controls={searchPanelId} onClick={() => searchExpanded ? closeSearch() : setExpandedPanel("search")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1">
+          <button ref={searchButtonRef} type="button" aria-label={searchLabel} aria-expanded={searchExpanded} aria-controls={searchPanelId} onClick={closeSearch} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1">
             <Search className="h-4 w-4" aria-hidden="true" />
           </button> : null}
           {searchExpanded ? <form id={searchPanelId} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className={cn("relative flex min-w-0 items-center", searchAlwaysVisible ? "w-full sm:w-[min(28rem,42vw)]" : "flex-1 gap-1.5")}>
@@ -186,7 +179,7 @@ export function AdminPageToolbar({
           </button>
           {filterExpanded ? <div id={filterPanelId} className={cn("min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", searchAlwaysVisible && !filtersInlineWithSearch && "basis-full order-3")}><div className="flex w-max items-center gap-2 whitespace-nowrap">{filters}</div></div> : <div id={filterPanelId} hidden />}
         </> : null}
-        {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 items-center">{actions}</div> : null}
+        {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
       </div> : null}
       {search?.suggestions?.length ? <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist> : null}
     </section>
