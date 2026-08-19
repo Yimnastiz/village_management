@@ -129,7 +129,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
         actions={toolbarActions}
       />
 
-      <section className={`flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${people.length ? "" : "items-center justify-center"}`}>
+      <section className={`-mx-4 flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white sm:-mx-6 ${people.length ? "" : "items-center justify-center"}`}>
         {people.length ? <>
           <div className="min-h-0 flex-1 overflow-auto">
             <table className="min-w-[720px] w-full text-sm">

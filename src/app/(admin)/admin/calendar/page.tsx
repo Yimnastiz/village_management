@@ -147,14 +147,14 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         actions={
           <>
             <Link href="/admin/calendar/requests" aria-label="คำขอกิจกรรม">
-              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3">
+              <Button size="sm" variant="outline" className="h-11 px-2 sm:px-3">
                 <Inbox className="h-4 w-4" />
                 <span className="hidden sm:ml-1.5 sm:inline">คำขอกิจกรรม</span>
                 {pendingRequestCount > 0 ? <span className="ml-1.5">({pendingRequestCount})</span> : null}
               </Button>
             </Link>
             <Link href="/admin/calendar/new">
-              <Button size="sm" className="h-10 px-2 sm:px-3">
+              <Button size="sm" className="h-11 px-2 sm:px-3">
                 <Plus className="h-4 w-4" />
                 <span className="ml-1 hidden min-[360px]:inline">เพิ่มกิจกรรม</span>
               </Button>

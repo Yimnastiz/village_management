@@ -146,10 +146,10 @@ export function CalendarToolbar({
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
           {description ? <p className="hidden truncate text-xs text-gray-500 sm:block lg:text-sm">{description}</p> : null}
         </div> : null}
-        {actions ? <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">{actions}</div> : null}
+        {!isAdminToolbar && actions ? <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">{actions}</div> : null}
       </div>
 
-      <div className="mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">
         <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
@@ -233,6 +233,7 @@ export function CalendarToolbar({
             <span className="hidden sm:inline">วันนี้</span>
           </Link>
         </div>
+        {isAdminToolbar && actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
       </div>
 
       {(search || filters) ? (
