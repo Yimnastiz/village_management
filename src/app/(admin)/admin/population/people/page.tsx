@@ -129,7 +129,7 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
         actions={toolbarActions}
       />
 
-      <section className={`-mx-4 flex min-h-[8rem] flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white sm:-mx-6 ${people.length ? "" : "items-center justify-center"}`}>
+      <section className={`-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white sm:-mx-6 ${people.length ? "" : "items-center justify-center"}`}>
         {people.length ? <>
           <div className="min-h-0 flex-1 overflow-auto">
             <table className="min-w-[720px] w-full text-sm">
@@ -153,9 +153,9 @@ export default async function PopulationPeoplePage({ searchParams }: PageProps) 
               </tbody>
             </table>
           </div>
-          <footer className="shrink-0 border-t border-gray-200 px-3 py-2 [&>div]:mt-0 sm:px-4">
+          {totalPages > 1 ? <footer className="shrink-0 border-t border-gray-200 px-3 py-2 [&>div]:mt-0 sm:px-4">
             <QueryPagination pathname="/admin/population/people" page={page} totalPages={totalPages} params={{ q: keyword || undefined, history: historyEnabled ? "1" : undefined, status: historyEnabled && status !== "ALL" ? normalizedStatus ?? undefined : undefined }} />
-          </footer>
+          </footer> : null}
         </> : (
           <div className="px-4 py-10 text-center text-sm text-gray-500">
             {hasActiveCriteria ? <>

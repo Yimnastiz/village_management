@@ -133,7 +133,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div data-admin-compact-top className="space-y-3">
+    <div data-admin-compact-top className="flex min-h-0 flex-col gap-3 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-visible">
       <AdminListToolbar
         sticky
         title="จัดการปัญหา/คำร้อง"
@@ -186,13 +186,14 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         }
       />
 
+      <section className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white sm:-mx-6">
       {issues.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 sm:p-12 text-center">
+        <div className="flex min-h-0 flex-1 items-center justify-center p-8 text-center sm:p-12">
           <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="font-medium text-gray-700">ไม่พบคำร้อง</p>
         </div>
       ) : (
-        <div className="max-h-[65vh] overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full min-w-[800px] table-fixed text-sm">
             <thead className="sticky top-0 z-10 shadow-[0_1px_0_rgb(229_231_235)]">
               <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -263,7 +264,10 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
           </table>
         </div>
       )}
-      <QueryPagination pathname="/admin/issues" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, category: activeCategory !== "ALL" ? activeCategory : undefined, sort: activeSort !== "newest" ? activeSort : undefined }} />
+      {totalPages > 1 ? <footer className="shrink-0 border-t border-gray-200 px-3 py-2 [&>div]:mt-0 sm:px-4">
+        <QueryPagination pathname="/admin/issues" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, category: activeCategory !== "ALL" ? activeCategory : undefined, sort: activeSort !== "newest" ? activeSort : undefined }} />
+      </footer> : null}
+      </section>
     </div>
   );
 }
