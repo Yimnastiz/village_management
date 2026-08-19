@@ -78,6 +78,17 @@ input[type="radio"]:disabled {
   opacity: 0.5;
 }
 
+/* The Admin toolbar provides its own clear control for search fields. */
+[data-admin-page-toolbar] input[type="search"]::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+[data-admin-page-toolbar] input[type="search"]::-ms-clear {
+  display: none;
+}
+
 .sidebar-scroll {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, currentColor 22%, transparent) transparent;
