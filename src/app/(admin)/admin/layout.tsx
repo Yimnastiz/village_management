@@ -10,7 +10,6 @@ import {
   isAdminUser,
 } from "@/lib/access-control";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
-import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import { getAdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -43,8 +42,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     getAdminSidebarActionCounts(adminMembership.villageId),
   ]);
 
-  const villageName = villageProfile ? await getVillageDisplayName(villageProfile) : null;
-
   return (
     <div className="flex min-h-screen bg-gray-100 [--app-sticky-top:var(--app-topbar-visible-offset,4rem)]">
       <AdminSidebar actionCounts={sidebarActionCounts} />
@@ -55,7 +52,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
           adminActionCounts={sidebarActionCounts}
-          villageName={villageName}
+          villageName={villageProfile?.name ?? null}
+          villageMoo={villageProfile?.moo ?? null}
           adminRoleLabel={MEMBERSHIP_ROLE_LABELS[adminMembership.role] ?? "ผู้ใหญ่บ้าน"}
         />
         <main className="flex-1 p-4 has-[>div[data-admin-compact-top]]:min-h-0 has-[>div[data-admin-compact-top]]:pt-2 sm:p-6 sm:has-[>div[data-admin-compact-top]]:pt-2">{children}</main>

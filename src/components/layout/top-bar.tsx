@@ -21,6 +21,7 @@ interface TopBarProps {
   userImageUrl?: string | null;
   unreadNotificationCount: number;
   villageName?: string | null;
+  villageMoo?: string | number | null;
   adminRoleLabel?: string;
   adminActionCounts?: AdminSidebarActionCounts;
   residentNavigationState?: ResidentNavigationState;
@@ -32,6 +33,7 @@ export function TopBar({
   userImageUrl,
   unreadNotificationCount,
   villageName,
+  villageMoo,
   adminRoleLabel = "ผู้ใหญ่บ้าน",
   residentNavigationState,
   adminActionCounts,
@@ -57,8 +59,11 @@ export function TopBar({
   }, [residentNavigationState, userArea]);
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
+  const villageMooLabel = villageMoo?.toString().trim();
   const residentVillageLabel = villageName?.trim() ? `หมู่บ้าน ${villageName.trim()}` : "หมู่บ้าน";
-  const adminVillageLabel = villageName?.trim() ? `ผู้ใหญ่บ้าน ${villageName.trim()}` : "ผู้ใหญ่บ้าน";
+  const adminVillageLabel = villageName?.trim()
+    ? `ผู้ใหญ่บ้าน · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
+    : "ผู้ใหญ่บ้าน";
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
   const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
@@ -104,7 +109,7 @@ export function TopBar({
           isScrolled ? "shadow-sm" : "shadow-none"
         )}
       >
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
           className={cn(
@@ -118,13 +123,7 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {isAdminArea ? (
-          <div className="flex items-center gap-2">
-            <span title={adminVillageLabel} className="max-w-[14rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-sm font-semibold text-white md:max-w-none">
-              {adminVillageLabel}
-            </span>
-          </div>
-        ) : (
+        {!isAdminArea ? (
           <div className="flex items-center gap-2">
             <p title={residentVillageLabel} className="max-w-[14rem] truncate text-sm font-semibold text-gray-800 md:max-w-none">
               {residentVillageLabel}
@@ -135,9 +134,9 @@ export function TopBar({
               </span>
             )}
           </div>
-        )}
+        ) : null}
       </div>
-      <div className="flex items-center gap-4">
+      <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
         <Link
           href={notificationsHref}
           className={cn(
@@ -154,6 +153,11 @@ export function TopBar({
             </span>
           )}
         </Link>
+        {isAdminArea ? (
+          <span title={adminVillageLabel} className="max-w-[7.5rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem] xl:max-w-[36rem]">
+            {adminVillageLabel}
+          </span>
+        ) : null}
         <div className="relative" ref={profileMenuRef}>
           <button
             type="button"
