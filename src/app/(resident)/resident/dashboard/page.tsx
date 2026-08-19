@@ -482,7 +482,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
                 <Link
                   key={appointment.id}
                   href={`/resident/appointments/${appointment.id}`}
-                  className="flex items-center justify-between gap-3 py-2 border-b last:border-0"
+                  className="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0"
                 >
                   <div className="min-w-0">
                     <span className="text-sm text-gray-700 line-clamp-1">{appointment.title}</span>
@@ -514,7 +514,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
                 <Link
                   key={event.id}
                   href={`/resident/calendar/${event.id}`}
-                  className="flex items-center justify-between gap-3 py-2 border-b last:border-0"
+                  className="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0"
                 >
                   <div className="min-w-0">
                     <span className="text-sm text-gray-700 line-clamp-1">{event.title}</span>
@@ -543,7 +543,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
               <p className="text-sm text-gray-500 py-2">ยังไม่พบข้อมูลสมาชิกในบ้านนี้</p>
             ) : (
               ownHouseMembers.map((householdMember) => (
-                <div key={householdMember.key} className="flex items-center justify-between gap-3 py-2 border-b last:border-0">
+                <div key={householdMember.key} className="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0">
                   <div className="min-w-0">
                     <span className="text-sm text-gray-700 line-clamp-1">{householdMember.name || "-"}</span>
                     <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">
@@ -579,7 +579,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
                 <Link
                   key={news.id}
                   href={`/resident/news/${news.id}`}
-                  className="flex items-center gap-3 py-2 border-b last:border-0"
+                  className="flex items-center gap-3 border-b border-gray-100 py-2 last:border-0"
                 >
                   <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
                   <div className="min-w-0">
@@ -607,7 +607,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
                 <Link
                   key={issue.id}
                   href={`/resident/issues/${issue.id}`}
-                  className="flex items-center justify-between gap-3 py-2 border-b last:border-0"
+                  className="flex items-center justify-between gap-3 border-b border-gray-100 py-2 last:border-0"
                 >
                   <span className="text-sm text-gray-700 line-clamp-1">{issue.title}</span>
                   <span className="text-xs px-2 py-1 rounded-full font-medium bg-gray-100 text-gray-700">
