@@ -24,7 +24,7 @@ function formatDate(value: Date | null | undefined): string {
 
 function formatBirthDate(value: Date | null | undefined): string {
   if (!value) return "ยังไม่มีข้อมูล";
-  return new Date(value).toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
+  return new Date(value).toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export const dynamic = "force-dynamic";

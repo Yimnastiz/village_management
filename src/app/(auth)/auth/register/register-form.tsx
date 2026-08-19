@@ -68,6 +68,43 @@ type FormErrors = Partial<Record<
   string
 >>;
 
+const THAI_MONTHS = [
+  "มกราคม",
+  "กุมภาพันธ์",
+  "มีนาคม",
+  "เมษายน",
+  "พฤษภาคม",
+  "มิถุนายน",
+  "กรกฎาคม",
+  "สิงหาคม",
+  "กันยายน",
+  "ตุลาคม",
+  "พฤศจิกายน",
+  "ธันวาคม",
+];
+
+function toBirthDateParts(value: string): { day: string; month: string; year: string } {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return { day: "", month: "", year: "" };
+
+  return { day: String(Number(match[3])), month: String(Number(match[2])), year: String(Number(match[1]) + 543) };
+}
+
+function toGregorianBirthDate(day: string, month: string, buddhistYear: string): string {
+  if (!day || !month || !buddhistYear) return "";
+  const gregorianYear = Number(buddhistYear) - 543;
+  if (!Number.isInteger(gregorianYear) || gregorianYear < 1) return "";
+  return `${String(gregorianYear).padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function daysInMonth(month: string, buddhistYear: string): number {
+  const monthNumber = Number(month);
+  const gregorianYear = Number(buddhistYear) - 543;
+  if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) return 31;
+  if (!Number.isInteger(gregorianYear) || gregorianYear < 1) return [4, 6, 9, 11].includes(monthNumber) ? 30 : monthNumber === 2 ? 29 : 31;
+  return new Date(Date.UTC(gregorianYear, monthNumber, 0)).getUTCDate();
+}
+
 function serverErrorToFieldErrors(message: string): FormErrors {
   if (message.includes("เบอร์") || message.includes("หมายเลข") || message.includes("Phone number")) {
     return { phone: message };
@@ -134,7 +171,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
   const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [birthDay, setBirthDay] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthYear, setBirthYear] = useState("");
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
@@ -162,7 +201,10 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         setRegistrationMode(storedDraft.registrationMode);
         setFirstName(storedDraft.firstName);
         setLastName(storedDraft.lastName);
-        setDateOfBirth(storedDraft.dateOfBirth ?? "");
+        const birthDateParts = toBirthDateParts(storedDraft.dateOfBirth ?? "");
+        setBirthDay(birthDateParts.day);
+        setBirthMonth(birthDateParts.month);
+        setBirthYear(birthDateParts.year);
         setGender(storedDraft.gender ?? "");
         setPhone(storedDraft.phone);
         setNationalId(storedDraft.nationalId);
@@ -174,6 +216,24 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       setDraftLoaded(true);
     }
   }, [draftLoaded]);
+
+  const dateOfBirth = useMemo(
+    () => toGregorianBirthDate(birthDay, birthMonth, birthYear),
+    [birthDay, birthMonth, birthYear]
+  );
+  const birthDayOptions = useMemo(
+    () => Array.from({ length: daysInMonth(birthMonth, birthYear) }, (_, index) => String(index + 1)),
+    [birthMonth, birthYear]
+  );
+  const birthYearOptions = useMemo(() => {
+    const currentBuddhistYear = new Date().getFullYear() + 543;
+    return Array.from({ length: 126 }, (_, index) => String(currentBuddhistYear - index));
+  }, []);
+
+  useEffect(() => {
+    const maximumDay = daysInMonth(birthMonth, birthYear);
+    if (birthDay && Number(birthDay) > maximumDay) setBirthDay(String(maximumDay));
+  }, [birthDay, birthMonth, birthYear]);
 
   useEffect(() => {
     if (!draftLoaded) {
@@ -539,23 +599,65 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            id="register-date-of-birth"
-            label="วันเกิด"
-            name="dateOfBirth"
-            type="date"
-            value={dateOfBirth}
-            max={new Date().toISOString().slice(0, 10)}
-            autoComplete="bday"
-            onChange={(event) => {
-              setDateOfBirth(event.target.value);
-              setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
-              setError(null);
-            }}
-            required
-            error={fieldErrors.dateOfBirth}
-          />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <span id="register-date-of-birth-label" className="mb-1 block text-sm font-medium text-gray-700">วันเกิด<span aria-hidden="true" className="ml-1 text-red-600">*</span></span>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-[0.75fr_1.5fr_1fr]">
+              <select
+                id="register-birth-day"
+                name="birthDay"
+                value={birthDay}
+                onChange={(event) => {
+                  setBirthDay(event.target.value);
+                  setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
+                  setError(null);
+                }}
+                required
+                aria-label="วันเกิด"
+                aria-invalid={Boolean(fieldErrors.dateOfBirth)}
+                className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : "border-gray-300"}`}
+              >
+                <option value="" disabled>วัน</option>
+                {birthDayOptions.map((day) => <option key={day} value={day}>{day}</option>)}
+              </select>
+              <select
+                id="register-birth-month"
+                name="birthMonth"
+                value={birthMonth}
+                onChange={(event) => {
+                  setBirthMonth(event.target.value);
+                  setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
+                  setError(null);
+                }}
+                required
+                aria-label="เดือนเกิด"
+                aria-invalid={Boolean(fieldErrors.dateOfBirth)}
+                className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : "border-gray-300"}`}
+              >
+                <option value="" disabled>เดือน</option>
+                {THAI_MONTHS.map((month, index) => <option key={month} value={String(index + 1)}>{month}</option>)}
+              </select>
+              <div className="col-span-2 sm:col-span-1">
+                <SuggestCombobox
+                  id="register-birth-year"
+                  name="birthYear"
+                  label="ปี พ.ศ."
+                  labelClassName="sr-only"
+                  value={birthYear}
+                  options={birthYearOptions.map((year) => ({ value: year, label: `${year} พ.ศ.` }))}
+                  placeholder="ปี พ.ศ."
+                  autoComplete="bday-year"
+                  inputClassName={fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : undefined}
+                  onChange={(value) => {
+                    setBirthYear(value);
+                    setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
+                    setError(null);
+                  }}
+                />
+              </div>
+            </div>
+            {fieldErrors.dateOfBirth ? <p className="mt-1 text-xs text-red-600">{fieldErrors.dateOfBirth}</p> : null}
+          </div>
           <div>
             <label htmlFor="register-gender" className="mb-1 block text-sm font-medium text-gray-700">เพศ<span aria-hidden="true" className="ml-1 text-red-600">*</span></label>
             <select
