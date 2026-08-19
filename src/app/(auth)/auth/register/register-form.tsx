@@ -641,11 +641,11 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
                 <SuggestCombobox
                   id="register-birth-year"
                   name="birthYear"
-                  label="ปี พ.ศ."
+                  label="ปี"
                   labelClassName="sr-only"
                   value={birthYear}
-                  options={birthYearOptions.map((year) => ({ value: year, label: `${year} พ.ศ.` }))}
-                  placeholder="ปี พ.ศ."
+                  options={birthYearOptions.map((year) => ({ value: year, label: year }))}
+                  placeholder="ปี"
                   autoComplete="bday-year"
                   inputClassName={fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : undefined}
                   onChange={(value) => {
