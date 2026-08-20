@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
-import { formatThaiDate } from "@/lib/utils";
+import { formatThaiDateTime } from "@/lib/utils";
 import { AlertCircle } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { CreateAppointmentButton } from "./create-appointment-button";
@@ -104,6 +104,25 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   COMPLETED: "info",
 };
 
+function getConfirmedAppointmentDateTime(appointment: {
+  stage: string;
+  scheduledAt: Date | null;
+  slot: { date: Date; startTime: string } | null;
+}) {
+  if (!["APPROVED", "COMPLETED"].includes(appointment.stage) || !appointment.scheduledAt || !appointment.slot) return null;
+
+  const [hours, minutes] = appointment.slot.startTime.split(":").map(Number);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+
+  return new Date(Date.UTC(
+    appointment.slot.date.getUTCFullYear(),
+    appointment.slot.date.getUTCMonth(),
+    appointment.slot.date.getUTCDate(),
+    hours,
+    minutes,
+  ) - 7 * 60 * 60 * 1000);
+}
+
 export default async function AdminAppointmentsPage({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = params.q?.trim() ?? "";
@@ -197,20 +216,18 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                       <p className="text-xs text-gray-400">ผู้ขอ</p>
                       <p className="break-words">{apt.user?.name || apt.user?.email}</p>
                     </div>
-                    {(apt.slot || apt.scheduledAt) && (
-                      <div>
-                        <p className="text-xs text-gray-400">
-                          {apt.slot ? "วันที่" : "วันที่ที่ลูกบ้านต้องการ"}
-                        </p>
-                        <p>{formatThaiDate(apt.slot?.date ?? apt.scheduledAt!)}</p>
-                      </div>
-                    )}
-                    {apt.slot && (
-                      <div>
-                        <p className="text-xs text-gray-400">เวลา</p>
-                        <p>{apt.slot.startTime} - {apt.slot.endTime}</p>
-                      </div>
-                    )}
+                    <div className="sm:col-span-2">
+                      {(() => {
+                        const scheduledDateTime = getConfirmedAppointmentDateTime(apt);
+                        const pendingScheduleLabel = apt.stage === "TIME_SUGGESTED" ? "รอลูกบ้านยืนยันเวลา" : "ยังไม่กำหนดเวลา";
+                        return scheduledDateTime ? (
+                          <p className="font-medium text-gray-900">นัดหมาย: {formatThaiDateTime(scheduledDateTime)}</p>
+                        ) : (
+                          <p className="font-medium text-gray-700">นัดหมาย: {pendingScheduleLabel}</p>
+                        );
+                      })()}
+                      <p className="mt-1 text-xs text-gray-400">สร้างเมื่อ {formatThaiDateTime(apt.createdAt)}</p>
+                    </div>
                   </div>
                 </div>
                 <div className="text-left lg:text-right">
