@@ -85,18 +85,18 @@ export function AppointmentStatusActions({ appointmentId, canReject, canCancel }
   };
 
   return <>
-    {canReject ? <Button type="button" variant="dangerOutline" size="sm" onClick={() => setRejectOpen(true)}>ปฏิเสธคำขอ</Button> : null}
-    {canCancel ? <Button type="button" variant="dangerOutline" size="sm" onClick={() => setCancelOpen(true)}>ยกเลิกนัดหมาย</Button> : null}
+    {canReject ? <Button type="button" variant="danger" size="sm" onClick={() => setRejectOpen(true)}>ปฏิเสธคำขอ</Button> : null}
+    {canCancel ? <Button type="button" variant="danger" size="sm" onClick={() => setCancelOpen(true)}>ยกเลิกนัดหมาย</Button> : null}
 
-    <Dialog open={rejectOpen} onClose={() => { if (!rejectPending) setRejectOpen(false); }} closeOnBackdrop={false} title="ปฏิเสธคำขอนัดหมาย" description="กรุณาระบุเหตุผลเพื่อแจ้งให้ลูกบ้านทราบ" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={rejectPending} onClick={() => setRejectOpen(false)}>ยกเลิก</Button><Button type="submit" form="reject-appointment-form" variant="danger" isLoading={rejectPending}>ยืนยันปฏิเสธ</Button></div>}>
+    <Dialog open={rejectOpen} onClose={() => { if (!rejectPending) setRejectOpen(false); }} closeOnBackdrop={false} title="ปฏิเสธคำขอนัดหมาย" description="กรุณาระบุเหตุผลเพื่อแจ้งให้ลูกบ้านทราบ" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={rejectPending} onClick={() => setRejectOpen(false)}>ยกเลิก</Button><Button type="submit" form="reject-appointment-form" variant="danger" isLoading={rejectPending} disabled={rejectReason.trim().length < 5}>ยืนยันปฏิเสธ</Button></div>}>
       <form id="reject-appointment-form" noValidate onSubmit={submitReject}>
-        <Textarea label="เหตุผล" value={rejectReason} onChange={(event) => { setRejectReason(event.target.value); setRejectError(null); }} error={rejectError ?? undefined} required rows={4} maxLength={500} />
+        <Textarea label="เหตุผล" value={rejectReason} onChange={(event) => { setRejectReason(event.target.value); setRejectError(null); }} error={rejectError ?? undefined} helperText="อย่างน้อย 5 ตัวอักษร" required rows={4} maxLength={500} />
       </form>
     </Dialog>
 
-    <Dialog open={cancelOpen} onClose={() => { if (!cancelPending) setCancelOpen(false); }} closeOnBackdrop={false} title="ยกเลิกนัดหมาย" description="กรุณาระบุเหตุผลในการยกเลิกนัดหมาย" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={cancelPending} onClick={() => setCancelOpen(false)}>ยกเลิก</Button><Button type="submit" form="cancel-appointment-form" variant="danger" isLoading={cancelPending}>ยืนยันยกเลิกนัดหมาย</Button></div>}>
+    <Dialog open={cancelOpen} onClose={() => { if (!cancelPending) setCancelOpen(false); }} closeOnBackdrop={false} title="ยกเลิกนัดหมาย" description="กรุณาระบุเหตุผลในการยกเลิกนัดหมาย" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={cancelPending} onClick={() => setCancelOpen(false)}>ยกเลิก</Button><Button type="submit" form="cancel-appointment-form" variant="danger" isLoading={cancelPending} disabled={cancelReason.trim().length < 5}>ยืนยันยกเลิกนัดหมาย</Button></div>}>
       <form id="cancel-appointment-form" noValidate onSubmit={submitCancel}>
-        <Textarea label="เหตุผล" value={cancelReason} onChange={(event) => { setCancelReason(event.target.value); setCancelError(null); }} error={cancelError ?? undefined} required rows={4} maxLength={500} />
+        <Textarea label="เหตุผล" value={cancelReason} onChange={(event) => { setCancelReason(event.target.value); setCancelError(null); }} error={cancelError ?? undefined} helperText="อย่างน้อย 5 ตัวอักษร" required rows={4} maxLength={500} />
       </form>
     </Dialog>
   </>;
