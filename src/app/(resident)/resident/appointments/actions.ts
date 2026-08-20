@@ -204,7 +204,7 @@ export async function requestAppointmentAction(input: z.input<typeof simpleReque
     description: [parsed.data.description?.trim(), parsed.data.preferredTime?.trim() ? `ช่วงเวลาที่สะดวก: ${parsed.data.preferredTime.trim()}` : null].filter(Boolean).join("\n") || null,
     stage: "PENDING_APPROVAL",
   } });
-  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "CREATED", description: "ลูกบ้านส่งคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } });
+  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "CREATED", description: "ลูกบ้านส่งคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, targetAdminRole: target?.role ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } });
   const text = `เรื่อง: ${appointment.title}${parsed.data.preferredTime?.trim() ? ` | ช่วงที่สะดวก: ${parsed.data.preferredTime.trim()}` : ""}`;
   if (target) await notifyUser(target.userId, membership.villageId, "คำขอนัดหมายใหม่", text, { appointmentId: appointment.id });
   else await notifyVillageAdmins(membership.villageId, "คำขอนัดหมายใหม่", text, { appointmentId: appointment.id });
@@ -223,7 +223,7 @@ export async function updateAppointmentRequestAction(appointmentId: string, inpu
   if (parsed.data.targetAdminUserId && !target) return { success: false, error: "ผู้รับนัดหมายไม่ถูกต้อง" };
   await prisma.$transaction([
     prisma.appointment.update({ where: { id: appointment.id }, data: { title: parsed.data.title.trim(), description: [parsed.data.description?.trim(), parsed.data.preferredTime?.trim() ? `ช่วงเวลาที่สะดวก: ${parsed.data.preferredTime.trim()}` : null].filter(Boolean).join("\n") || null } }),
-    prisma.appointmentTimeline.create({ data: { appointmentId, actorId: session.id, action: "UPDATED", description: "ลูกบ้านแก้ไขคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } }),
+    prisma.appointmentTimeline.create({ data: { appointmentId, actorId: session.id, action: "UPDATED", description: "ลูกบ้านแก้ไขคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, targetAdminRole: target?.role ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } }),
   ]);
   revalidateAppointmentViews(appointmentId);
   return { success: true };

@@ -14,11 +14,13 @@ type DialogProps = {
   onClose: () => void;
   /** Keep the default backdrop-close behavior unless a focused workflow opts out. */
   closeOnBackdrop?: boolean;
+  /** Keep the default Escape-close behavior unless a focused workflow opts out. */
+  closeOnEscape?: boolean;
   className?: string;
 };
 
 /** Shared accessible modal shell for operational forms. */
-export function Dialog({ open, title, description, children, footer, onClose, closeOnBackdrop = true, className }: DialogProps) {
+export function Dialog({ open, title, description, children, footer, onClose, closeOnBackdrop = true, closeOnEscape = true, className }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -32,7 +34,7 @@ export function Dialog({ open, title, description, children, footer, onClose, cl
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); onCloseRef.current(); return; }
+      if (event.key === "Escape" && closeOnEscape) { event.preventDefault(); onCloseRef.current(); return; }
       if (event.key !== "Tab" || !dialogRef.current) return;
       const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"));
       if (!focusable.length) return;
@@ -42,7 +44,7 @@ export function Dialog({ open, title, description, children, footer, onClose, cl
     };
     window.addEventListener("keydown", onKeyDown);
     return () => { window.removeEventListener("keydown", onKeyDown); returnFocusRef.current?.focus(); };
-  }, [open]);
+  }, [open, closeOnEscape]);
 
   if (!open || typeof document === "undefined") return null;
   return createPortal(

@@ -1,125 +1,35 @@
-"use client";
-
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { cancelAppointmentAction } from "./actions";
+import { formatThaiDateTime } from "@/lib/utils";
 
 interface ResidentAppointmentCardProps {
   id: string;
   title: string;
-  stage: string;
   stageLabel: string;
   stageVariant: "default" | "info" | "success" | "warning" | "danger";
-  slotDate: string | null;
-  slotStartTime: string | null;
-  slotEndTime: string | null;
+  source: string;
+  scheduledAt: Date | null;
+  isConfirmed: boolean;
+  preferredTime: string | null;
+  createdAt: Date;
 }
 
-function formatThaiDateFromDateStr(dateStr: string): string {
-  const date = new Date(`${dateStr}T00:00:00`);
-  return date.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-export function ResidentAppointmentCard(props: ResidentAppointmentCardProps) {
-  const router = useRouter();
-  const [showCancelForm, setShowCancelForm] = useState(false);
-  const [reason, setReason] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const canCancel = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"].includes(props.stage);
-
-  const onSubmitCancel = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-    setIsSubmitting(true);
-
-    const result = await cancelAppointmentAction(props.id, reason);
-    if (!result.success) {
-      setError(result.error);
-      setIsSubmitting(false);
-      return;
-    }
-
-    setReason("");
-    setShowCancelForm(false);
-    setIsSubmitting(false);
-    router.refresh();
-  };
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <div className="min-w-0">
-          <Link href={`/resident/appointments/${props.id}`} className="font-medium text-gray-900 hover:underline">
-            {props.title}
-          </Link>
-          {props.slotDate ? (
-            <p className="text-xs text-gray-500 mt-0.5">
-              วันที่: {formatThaiDateFromDateStr(props.slotDate)} เวลา {props.slotStartTime} - {props.slotEndTime}
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500 mt-0.5">รอการเลือกเวลา</p>
-          )}
+export function ResidentAppointmentCard({ id, title, stageLabel, stageVariant, source, scheduledAt, isConfirmed, preferredTime, createdAt }: ResidentAppointmentCardProps) {
+  return <article className="relative rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md">
+    <Link href={`/resident/appointments/${id}`} aria-label={`ดูรายละเอียดนัดหมาย ${title}`} className="absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2" />
+    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="min-w-0 text-base font-semibold text-gray-900 sm:text-lg">{title}</h2>
+          <Badge variant={stageVariant}>{stageLabel}</Badge>
         </div>
-        <Badge className="self-start" variant={props.stageVariant}>{props.stageLabel}</Badge>
+        <p className="mt-1 text-sm text-gray-500">{source}</p>
       </div>
-
-      <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-        <Link href={`/resident/appointments/${props.id}`}>
-          <Button size="sm" variant="outline" className="w-full sm:w-auto">ดูรายละเอียด</Button>
-        </Link>
-        {props.stage === "PENDING_APPROVAL" ? <Link href={`/resident/appointments/${props.id}/edit`}><Button size="sm" variant="outline" className="w-full sm:w-auto">แก้ไข</Button></Link> : null}
-        {canCancel && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="w-full border-red-200 text-red-700 hover:bg-red-50 sm:w-auto"
-            onClick={() => setShowCancelForm((v) => !v)}
-          >
-            ยกเลิกนัดหมาย
-          </Button>
-        )}
+      <div className="min-w-0 space-y-1.5 text-sm text-gray-600 sm:text-right">
+        {scheduledAt ? <p className="flex items-start gap-1.5 font-medium text-gray-700 sm:justify-end"><Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" /><span>{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDateTime(scheduledAt)}</span></p> : preferredTime ? <p>ช่วงเวลาที่สะดวก: {preferredTime}</p> : null}
+        <p className="text-xs text-gray-400">ส่งเมื่อ {formatThaiDateTime(createdAt)}</p>
       </div>
-
-      {showCancelForm && canCancel && (
-        <form onSubmit={onSubmitCancel} className="space-y-2 border border-red-100 bg-red-50 rounded-lg p-3">
-          <Textarea
-            label="เหตุผลการยกเลิก"
-            placeholder="กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            required
-          />
-          {error && <p className="text-xs text-red-700">{error}</p>}
-          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-            <Button size="sm" variant="danger" isLoading={isSubmitting} type="submit" className="w-full sm:w-auto">
-              ยืนยันยกเลิก
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              type="button"
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setShowCancelForm(false);
-                setError(null);
-              }}
-            >
-              ปิด
-            </Button>
-          </div>
-        </form>
-      )}
     </div>
-  );
+  </article>;
 }
