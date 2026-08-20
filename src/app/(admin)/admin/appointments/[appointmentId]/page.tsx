@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate, formatThaiDateTime } from "@/lib/utils";
 import { ProposeTimeForm } from "./propose-time-form";
+import { AppointmentStatusActions } from "./appointment-status-actions";
 
 const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการหมู่บ้าน", RESIDENT: "ลูกบ้าน" };
 
@@ -33,6 +34,8 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const source = getAppointmentSource(appointment.timeline);
   const canProposeTime = !source.isAdminCreated && appointment.stage === "PENDING_APPROVAL";
   const canEditAdminCreated = source.isAdminCreated && source.creatorId === session.id && appointment.stage === "TIME_SUGGESTED";
+  const canReject = !source.isAdminCreated && appointment.stage === "PENDING_APPROVAL";
+  const canCancel = ["TIME_SUGGESTED", "APPROVED"].includes(appointment.stage);
   const initialDate = appointment.slot?.date.toISOString().slice(0, 10) ?? "";
   const initialStartTime = appointment.slot?.startTime ?? "";
   return <div className="mx-auto max-w-3xl space-y-5">
@@ -48,6 +51,6 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
         {appointment.reviewNote ? <p className="sm:col-span-2"><span className="text-gray-500">ข้อความ/เหตุผลล่าสุด: </span>{appointment.reviewNote}</p> : null}
       </div>
     </section>
-    {canProposeTime || canEditAdminCreated ? <div className="flex justify-end"><ProposeTimeForm appointmentId={appointment.id} mode={canProposeTime ? "PROPOSE_TIME" : "EDIT_ADMIN_CREATED"} initialTitle={appointment.title} initialDescription={appointment.description ?? ""} initialDate={initialDate} initialStartTime={initialStartTime} /></div> : null}
+    {canProposeTime || canEditAdminCreated || canReject || canCancel ? <div className="flex flex-wrap justify-end gap-2">{canProposeTime || canEditAdminCreated ? <ProposeTimeForm appointmentId={appointment.id} mode={canProposeTime ? "PROPOSE_TIME" : "EDIT_ADMIN_CREATED"} initialTitle={appointment.title} initialDescription={appointment.description ?? ""} initialDate={initialDate} initialStartTime={initialStartTime} /> : null}<AppointmentStatusActions appointmentId={appointment.id} canReject={canReject} canCancel={canCancel} /></div> : null}
   </div>;
 }

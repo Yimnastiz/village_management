@@ -602,6 +602,11 @@ export async function rejectAppointmentAction(
     return { success: false, error: "ไม่มีสิทธิ์ปฏิเสธนัดหมายนี้" };
   }
 
+  const source = await getAppointmentCreationSource(appointment.id);
+  if (source.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") {
+    return { success: false, error: "ปฏิเสธได้เฉพาะคำขอนัดหมายของลูกบ้านที่รอการพิจารณา" };
+  }
+
   const responder = await getAdminResponderSummary(appointment.villageId, session.id);
 
   await prisma.appointment.update({
@@ -619,8 +624,9 @@ export async function rejectAppointmentAction(
       appointmentId: appointment.id,
       actorId: session.id,
       action: "REJECTED",
-      description: `ผู้บริหารปฏิเสธนัดหมาย - ${parsed.data.reviewNote}`,
+      description: `ปฏิเสธคำขอนัดหมาย | เหตุผล: ${parsed.data.reviewNote}`,
       metadata: {
+        reason: parsed.data.reviewNote,
         responderName: responder?.name ?? null,
         responderPhone: responder?.phoneNumber ?? null,
         responderRole: responder?.role ?? null,
@@ -631,8 +637,8 @@ export async function rejectAppointmentAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "อัปเดตนัดหมาย: ไม่อนุมัติ",
-    `เรื่อง: ${appointment.title} | เหตุผล: ${parsed.data.reviewNote}${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    "ปฏิเสธคำขอนัดหมาย",
+    `คำขอนัดหมายถูกปฏิเสธ | เรื่อง: ${appointment.title} | เหตุผล: ${parsed.data.reviewNote}${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
     {
       appointmentId: appointment.id,
       responderName: responder?.name ?? null,
@@ -890,7 +896,7 @@ export async function adminCancelAppointmentAction(
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์ยกเลิกนัดหมายนี้" };
 
-  const cancellableStages = new Set(["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"]);
+  const cancellableStages = new Set(["TIME_SUGGESTED", "APPROVED"]);
   if (!cancellableStages.has(appointment.stage)) {
     return { success: false, error: "ไม่สามารถยกเลิกนัดหมายในสถานะนี้ได้" };
   }
@@ -905,7 +911,7 @@ export async function adminCancelAppointmentAction(
       appointmentId,
       actorId: session.id,
       action: "CANCELLED",
-      description: `ผู้บริหารยกเลิกนัดหมาย - ${reason.trim()}`,
+      description: `ยกเลิกนัดหมาย | เหตุผล: ${reason.trim()}`,
       metadata: { reason: reason.trim() },
     },
   });
@@ -914,8 +920,8 @@ export async function adminCancelAppointmentAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "อัปเดตนัดหมาย: ถูกยกเลิก",
-    `เรื่อง: ${appointment.title}${reason ? ` | เหตุผล: ${reason}` : " | ผู้บริหารยกเลิกรายการนี้"}`,
+    "ยกเลิกนัดหมาย",
+    `นัดหมายถูกยกเลิก | เรื่อง: ${appointment.title} | เหตุผล: ${reason.trim()}`,
     { appointmentId }
   );
 
