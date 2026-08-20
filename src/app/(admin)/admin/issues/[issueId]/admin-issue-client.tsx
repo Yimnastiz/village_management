@@ -200,7 +200,7 @@ export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
         onConfirm={() => submitStage(finalNote)}
       >
         <Textarea
-          label={stage === "RESOLVED" ? "สรุปการดำเนินการ *" : "เหตุผล *"}
+          label={stage === "RESOLVED" ? "สรุปการดำเนินการ" : "เหตุผล"}
           required
           minLength={5}
           maxLength={500}
@@ -258,7 +258,7 @@ export function AdminDeleteButton({ issueId }: { issueId: string }) {
         onConfirm={handleDelete}
       >
         <Textarea
-          label="เหตุผลในการลบ *"
+          label="เหตุผลในการลบ"
           required
           minLength={5}
           maxLength={500}

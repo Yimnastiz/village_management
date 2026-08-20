@@ -1,6 +1,6 @@
 "use server";
 
-import { IssueCategory, IssuePriority, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, IssueCategory, IssuePriority, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +11,7 @@ import { issueImageUploadUrl, type IssueImageInput } from "@/lib/issue-images";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -265,8 +266,14 @@ export async function editIssueAction(
 }
 
 export async function deleteIssueAction(
-  issueId: string
+  issueId: string,
+  reason: string
 ): Promise<{ success: true } | { success: false; error: string }> {
+  const trimmedReason = reason.trim();
+  if (trimmedReason.length < 5 || trimmedReason.length > 500) {
+    return { success: false, error: "เหตุผลในการลบต้องมี 5–500 ตัวอักษร" };
+  }
+
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบอีกครั้ง" };
 
@@ -281,9 +288,46 @@ export async function deleteIssueAction(
     return { success: false, error: "ลบได้เฉพาะคำร้องที่สถานะ 'เปิด' เท่านั้น" };
   }
 
-  await prisma.issue.delete({ where: { id: issueId } });
+  // The notification and audit record are independent of Issue, so create them
+  // in the same transaction before the Issue's dependent records cascade away.
+  await prisma.$transaction(async (tx) => {
+    const admins = await tx.villageMembership.findMany({
+      where: {
+        villageId: issue.villageId,
+        status: "ACTIVE",
+        role: { in: ADMIN_MEMBERSHIP_ROLES },
+      },
+      select: { userId: true },
+    });
+    const adminIds = Array.from(new Set(admins.map((admin) => admin.userId)));
+    if (adminIds.length > 0) {
+      await tx.notification.createMany({
+        data: adminIds.map((userId) => ({
+          villageId: issue.villageId,
+          userId,
+          type: NotificationType.ISSUE_UPDATE,
+          title: "ลูกบ้านลบคำร้องปัญหา",
+          body: `หัวข้อ: ${issue.title}\nผู้ลบ: ${session.name}\nเหตุผล: ${trimmedReason}`,
+          metadata: { action: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, deletedBy: session.name, deletionReason: trimmedReason },
+        })),
+      });
+    }
+    await writeVillageAuditLog(tx, {
+      villageId: issue.villageId,
+      userId: session.id,
+      action: AuditAction.DELETE,
+      resource: "Issue",
+      resourceId: issue.id,
+      metadata: { actionName: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, reason: trimmedReason },
+    });
+    await tx.savedItem.deleteMany({ where: { issueId } });
+    await tx.issue.delete({ where: { id: issueId } });
+  });
   revalidatePath("/resident/issues");
   revalidatePath("/admin/issues");
+  revalidatePath("/resident/notifications");
+  revalidatePath("/admin/notifications");
+  revalidateAdminSidebar();
   return { success: true };
 }
 

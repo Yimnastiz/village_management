@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { IssueImageManager } from "@/components/issues/issue-image-manager";
 import type { IssueImageInput } from "@/lib/issue-images";
 import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
@@ -28,39 +29,44 @@ type FormData = z.infer<typeof schema>;
 
 export default function NewIssuePage() {
   const router = useRouter();
+  const toast = useToast();
   const [images, setImages] = useState<IssueImageInput[]>([]);
   const [imagesBusy, setImagesBusy] = useState(false);
   const {
     register,
     handleSubmit,
-    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
-    if (imagesBusy) { setError("root", { message: "กรุณารอให้การอัปโหลดรูปภาพเสร็จสิ้น" }); return; }
+    if (imagesBusy) { toast.error("ส่งคำร้องไม่สำเร็จ", "กรุณารอให้การอัปโหลดรูปภาพเสร็จสิ้น"); return; }
 
-    const result = await createIssueAction({
-      title: data.title,
-      description: data.description,
-      category: data.category,
-      priority: data.priority,
-      location: data.location,
-      imageUrls: images,
-      isPublic: Boolean(data.isPublic),
-    });
-    if (!result.success) {
-      setError("root", { message: result.error });
-      return;
+    try {
+      const result = await createIssueAction({
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        priority: data.priority,
+        location: data.location,
+        imageUrls: images,
+        isPublic: Boolean(data.isPublic),
+      });
+      if (!result.success) {
+        toast.error("ส่งคำร้องไม่สำเร็จ", result.error);
+        return;
+      }
+      toast.success("ส่งคำร้องเรียบร้อยแล้ว");
+      router.push("/resident/issues");
+    } catch {
+      toast.error("ส่งคำร้องไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     }
-    router.push("/resident/issues");
   };
 
   const categoryOptions = Object.entries(ISSUE_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }));
   const priorityOptions = Object.entries(ISSUE_PRIORITY_LABELS).map(([v, l]) => ({ value: v, label: l }));
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="mx-auto w-full max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/resident/issues" className="text-gray-400 hover:text-gray-600 transition-colors">
           <ArrowLeft className="h-5 w-5" />
@@ -114,7 +120,6 @@ export default function NewIssuePage() {
 
         <IssueImageManager value={images} onChange={setImages} onBusyChange={setImagesBusy} disabled={isSubmitting} />
 
-        {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
         <div className="flex gap-3 pt-2">
           <Button type="submit" isLoading={isSubmitting}>ส่งคำร้อง</Button>
           <Link href="/resident/issues">

@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { IssueImageManager } from "@/components/issues/issue-image-manager";
 import type { IssueImageInput } from "@/lib/issue-images";
 import { editIssueAction } from "../../actions";
@@ -39,12 +40,12 @@ export function EditIssueForm({
   priorityOptions,
 }: EditIssueFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [images, setImages] = useState<IssueImageInput[]>(() => defaultValues.imageUrls.map((url) => ({ url })));
   const [imagesBusy, setImagesBusy] = useState(false);
   const {
     register,
     handleSubmit,
-    setError,
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -52,23 +53,28 @@ export function EditIssueForm({
   });
 
   const onSubmit = async (data: FormData) => {
-    if (imagesBusy) { setError("root", { message: "กรุณารอให้การอัปโหลดรูปภาพเสร็จสิ้น" }); return; }
+    if (imagesBusy) { toast.error("บันทึกการแก้ไขไม่สำเร็จ", "กรุณารอให้การอัปโหลดรูปภาพเสร็จสิ้น"); return; }
 
-    const result = await editIssueAction(issueId, {
-      title: data.title,
-      description: data.description,
-      category: data.category,
-      priority: data.priority,
-      location: data.location,
-      isPublic: Boolean(data.isPublic),
-      imageUrls: images,
-    });
-    if (!result.success) {
-      setError("root", { message: result.error });
-      return;
+    try {
+      const result = await editIssueAction(issueId, {
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        priority: data.priority,
+        location: data.location,
+        isPublic: Boolean(data.isPublic),
+        imageUrls: images,
+      });
+      if (!result.success) {
+        toast.error("บันทึกการแก้ไขไม่สำเร็จ", result.error);
+        return;
+      }
+      toast.success("บันทึกการแก้ไขเรียบร้อยแล้ว");
+      router.push(`/resident/issues/${issueId}`);
+      router.refresh();
+    } catch {
+      toast.error("บันทึกการแก้ไขไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     }
-    router.push(`/resident/issues/${issueId}`);
-    router.refresh();
   };
 
   return (
@@ -118,7 +124,6 @@ export function EditIssueForm({
 
       <IssueImageManager value={images} onChange={setImages} onBusyChange={setImagesBusy} disabled={isSubmitting} />
 
-      {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
       <div className="flex gap-3 pt-2">
         <Button type="submit" isLoading={isSubmitting}>
           บันทึกการแก้ไข

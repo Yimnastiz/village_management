@@ -13,18 +13,24 @@ export function DeleteIssueButton({ issueId }: { issueId: string }) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const { pushToast } = useToast();
 
   const handleDelete = async () => {
     setIsDeleting(true);
-    const result = await deleteIssueAction(issueId);
-    if (!result.success) {
-      pushToast({ tone: "error", title: "ลบคำร้องไม่สำเร็จ", description: result.error });
+    try {
+      const result = await deleteIssueAction(issueId, reason);
+      if (!result.success) {
+        pushToast({ tone: "error", title: "ลบคำร้องไม่สำเร็จ", description: result.error });
+        setIsDeleting(false);
+        return;
+      }
+      pushToast({ tone: "success", title: "ลบคำร้องเรียบร้อยแล้ว" });
+      router.push("/resident/issues");
+    } catch {
+      pushToast({ tone: "error", title: "ลบคำร้องไม่สำเร็จ", description: "กรุณาลองใหม่อีกครั้ง" });
       setIsDeleting(false);
-      return;
     }
-    pushToast({ tone: "success", title: "ลบคำร้องเรียบร้อยแล้ว" });
-    router.push("/resident/issues");
   };
 
   return (
@@ -36,14 +42,28 @@ export function DeleteIssueButton({ issueId }: { issueId: string }) {
       <ConfirmDialog
         open={open}
         title="ลบคำร้อง"
-        description="ยืนยันการลบคำร้องนี้หรือไม่? การลบไม่สามารถย้อนกลับได้"
+        description="กรุณาระบุเหตุผลก่อนลบคำร้อง การดำเนินการนี้ไม่สามารถย้อนกลับได้"
         confirmLabel="ลบคำร้อง"
         cancelLabel="ยกเลิก"
         tone="danger"
         pending={isDeleting}
-        onClose={() => !isDeleting && setOpen(false)}
+        confirmDisabled={reason.trim().length < 5 || reason.trim().length > 500}
+        onClose={() => { if (!isDeleting) { setOpen(false); setReason(""); } }}
         onConfirm={handleDelete}
-      />
+      >
+        <Textarea
+          label="เหตุผลในการลบ"
+          required
+          minLength={5}
+          maxLength={500}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          error={reason.length > 0 && (reason.trim().length < 5 || reason.trim().length > 500) ? "กรุณาระบุ 5–500 ตัวอักษร" : undefined}
+          helperText={`${reason.trim().length}/500 ตัวอักษร`}
+          rows={4}
+          autoFocus
+        />
+      </ConfirmDialog>
     </div>
   );
 }
