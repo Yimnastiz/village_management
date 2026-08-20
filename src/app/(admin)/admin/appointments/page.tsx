@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDateTime } from "@/lib/utils";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Clock } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { CreateAppointmentButton } from "./create-appointment-button";
 
@@ -104,12 +104,11 @@ const stageVariant: Record<string, "default" | "info" | "success" | "warning" | 
   COMPLETED: "info",
 };
 
-function getConfirmedAppointmentDateTime(appointment: {
-  stage: string;
+function getAppointmentSlotDateTime(appointment: {
   scheduledAt: Date | null;
   slot: { date: Date; startTime: string } | null;
 }) {
-  if (!["APPROVED", "COMPLETED"].includes(appointment.stage) || !appointment.scheduledAt || !appointment.slot) return null;
+  if (!appointment.scheduledAt || !appointment.slot) return null;
 
   const [hours, minutes] = appointment.slot.startTime.split(":").map(Number);
   if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
@@ -165,7 +164,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
             options: [
               { label: "ทั้งหมด", href: buildAppointmentsHref({ q: keyword, stage: "ALL", sort: activeSort }), active: activeStage === "ALL" },
               { label: "รออนุมัติ", href: buildAppointmentsHref({ q: keyword, stage: "PENDING_APPROVAL", sort: activeSort }), active: activeStage === "PENDING_APPROVAL" },
-              { label: "รอยืนยันเวลา", href: buildAppointmentsHref({ q: keyword, stage: "TIME_SUGGESTED", sort: activeSort }), active: activeStage === "TIME_SUGGESTED" },
+              { label: "รอลูกบ้านยืนยันเวลา", href: buildAppointmentsHref({ q: keyword, stage: "TIME_SUGGESTED", sort: activeSort }), active: activeStage === "TIME_SUGGESTED" },
               { label: "อนุมัติแล้ว", href: buildAppointmentsHref({ q: keyword, stage: "APPROVED", sort: activeSort }), active: activeStage === "APPROVED" },
               { label: "เสร็จสิ้น", href: buildAppointmentsHref({ q: keyword, stage: "COMPLETED", sort: activeSort }), active: activeStage === "COMPLETED" },
             ],
@@ -196,19 +195,25 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
         </div>
       ) : (
         <div className="space-y-3">
-          {appointments.map((apt) => (
+          {appointments.map((apt) => {
+            const slotDateTime = getAppointmentSlotDateTime(apt);
+            const isTimeSuggested = apt.stage === "TIME_SUGGESTED";
+            const isConfirmed = ["APPROVED", "COMPLETED"].includes(apt.stage);
+
+            return (
             <div
               key={apt.id}
-              className="bg-white rounded-xl border border-gray-200 p-4 hover:shadow-md transition-shadow"
+              className="relative bg-white rounded-xl border border-gray-200 p-4 transition-shadow hover:shadow-md"
             >
+              <Link href={`/admin/appointments/${apt.id}`} aria-label={`ดูรายละเอียดนัดหมาย ${apt.title}`} className="absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2" />
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <Link href={`/admin/appointments/${apt.id}`} className="font-medium text-gray-900 hover:underline">
+                    <p className="font-medium text-gray-900">
                       {apt.title}
-                    </Link>
+                    </p>
                     <Badge variant={stageVariant[apt.stage] ?? "default"}>
-                      {APPOINTMENT_STAGE_LABELS[apt.stage]}
+                      {isTimeSuggested ? "รอลูกบ้านยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[apt.stage]}
                     </Badge>
                   </div>
                   <div className="grid grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-2 sm:gap-4">
@@ -217,20 +222,18 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                       <p className="break-words">{apt.user?.name || apt.user?.email}</p>
                     </div>
                     <div className="sm:col-span-2">
-                      {(() => {
-                        const scheduledDateTime = getConfirmedAppointmentDateTime(apt);
-                        const pendingScheduleLabel = apt.stage === "TIME_SUGGESTED" ? "รอลูกบ้านยืนยันเวลา" : "ยังไม่กำหนดเวลา";
-                        return scheduledDateTime ? (
-                          <p className="font-medium text-gray-900">นัดหมาย: {formatThaiDateTime(scheduledDateTime)}</p>
-                        ) : (
-                          <p className="font-medium text-gray-700">นัดหมาย: {pendingScheduleLabel}</p>
-                        );
-                      })()}
+                      {isTimeSuggested && slotDateTime ? (
+                        <p className="flex items-center gap-1.5 font-medium text-gray-900"><Clock aria-hidden className="h-4 w-4 shrink-0 text-gray-500" />เสนอเวลา: {formatThaiDateTime(slotDateTime)}</p>
+                      ) : isConfirmed && slotDateTime ? (
+                        <p className="font-medium text-gray-900">นัดหมาย: {formatThaiDateTime(slotDateTime)}</p>
+                      ) : (
+                        <p className="font-medium text-gray-700">นัดหมาย: ยังไม่กำหนดเวลา</p>
+                      )}
                       <p className="mt-1 text-xs text-gray-400">สร้างเมื่อ {formatThaiDateTime(apt.createdAt)}</p>
                     </div>
                   </div>
                 </div>
-                <div className="text-left lg:text-right">
+                <div className="relative z-10 text-left lg:text-right">
                   {apt.stage === "PENDING_APPROVAL" && (
                     <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link href={`/admin/appointments/${apt.id}`}><Button size="sm" variant="secondary"><AlertCircle className="h-4 w-4" /> เสนอวันเวลา</Button></Link>
@@ -239,14 +242,15 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                   {apt.stage === "TIME_SUGGESTED" && (
                     <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link href={`/admin/appointments/${apt.id}`}>
-                        <Button size="sm" variant="secondary"><AlertCircle className="h-4 w-4" /> รอลูกบ้านยืนยัน</Button>
+                        <Button size="sm" variant="secondary">ดูรายละเอียด</Button>
                       </Link>
                     </div>
                   )}
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
       <QueryPagination pathname="/admin/appointments" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, sort: activeSort !== "newest" ? activeSort : undefined }} />
