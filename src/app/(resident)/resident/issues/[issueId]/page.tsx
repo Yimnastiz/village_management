@@ -91,7 +91,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
         <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-2">
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
         <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
@@ -109,34 +109,17 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             />
           </div>
         </div>
-        <div className="mb-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 sm:[&>p]:col-start-2">
-          <div>
-            <span className="text-gray-500">หมวดหมู่: </span>
-            <span className="font-medium">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
+        <div className="mb-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+          <div className="space-y-3">
+            <p><span className="text-gray-500">หมวดหมู่: </span><span className="font-medium">{ISSUE_CATEGORY_LABELS[issue.category]}</span></p>
+            <p><span className="text-gray-500">วันที่แจ้ง: </span><span className="font-medium">{formatDate(issue.createdAt)}</span></p>
+            <p className="text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : getUserDisplayName(reporter)}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-gray-500">ความสำคัญ: </span>
-            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${priorityMeta.badgeClass}`}>
-              {priorityMeta.label}
-            </span>
+          <div className="space-y-3">
+            <p className="flex items-center gap-2"><span className="text-gray-500">ความสำคัญ: </span><span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${priorityMeta.badgeClass}`}>{priorityMeta.label}</span></p>
+            <p><span className="text-gray-500">การมองเห็น: </span><span className="font-medium">{issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}</span></p>
+            {issue.location && <p><span className="text-gray-500">สถานที่: </span><span className="font-medium">{issue.location}</span></p>}
           </div>
-          <div>
-            <span className="text-gray-500">วันที่แจ้ง: </span>
-            <span className="font-medium">{formatDate(issue.createdAt)}</span>
-          </div>
-          {issue.location && (
-            <div>
-              <span className="text-gray-500">สถานที่: </span>
-              <span className="font-medium">{issue.location}</span>
-            </div>
-          )}
-          <div>
-            <span className="text-gray-500">การมองเห็น: </span>
-            <span className="font-medium">
-              {issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : getUserDisplayName(reporter)}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
         </div>
         <div className="border-t border-gray-200 pt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
@@ -179,17 +162,6 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
           </div>
         )}
         {canMessage && <MessageForm issueId={issueId} />}
-        {issue.stage === "RESOLVED" && isOwner && (
-          <div className="mt-4 rounded-lg bg-green-50 p-4 border border-green-200">
-            <p className="text-sm font-medium text-green-800">ปัญหาได้รับการแก้ไขแล้ว</p>
-            <p className="text-xs text-green-700 mt-1">หากพอใจกับการแก้ไข กรุณาให้คะแนนบริการ</p>
-            <Link href={`/resident/issues/${issueId}/feedback`} className="mt-2 inline-block">
-              <Button size="sm" variant="outline" className="border-green-300 text-green-700 hover:bg-green-100">
-                ให้คะแนนบริการ
-              </Button>
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );
