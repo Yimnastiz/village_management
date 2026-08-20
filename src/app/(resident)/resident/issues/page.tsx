@@ -9,6 +9,7 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { ResidentIssuesToolbar } from "./resident-issues-toolbar";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
+import { normalizeIssueImageUrls } from "@/lib/issues/images";
 
 interface PageProps {
   searchParams: Promise<{
@@ -98,6 +99,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
       location: true,
       reporterId: true,
       isPublic: true,
+      imageUrls: true,
     },
   });
 
@@ -152,6 +154,9 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
         <div className="space-y-3">
           {sortedIssues.map((issue) => {
             const priorityMeta = getIssuePriorityMeta(issue.priority);
+            const imageUrls = normalizeIssueImageUrls(issue.imageUrls);
+            const firstImage = imageUrls[0];
+            const extraImageCount = imageUrls.length - 1;
 
             return (
             <Link
@@ -161,8 +166,14 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
             >
               <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
               <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-                <div className="min-w-0">
+              <div className="flex items-start gap-3 sm:gap-4">
+                {firstImage && (
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                    <img src={firstImage} alt="" loading="lazy" className="h-full w-full object-cover" />
+                    {extraImageCount > 0 && <span className="absolute bottom-0 right-0 rounded-tl-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">+{extraImageCount}</span>}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 truncate">{issue.title}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
@@ -174,7 +185,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap sm:justify-end">
+                <div className="flex shrink-0 items-center gap-2">
                   {issue.reporterId !== session.id && (
                     <Badge variant="outline" className="hidden md:inline-flex">ชุมชน</Badge>
                   )}

@@ -15,6 +15,7 @@ import { DeleteIssueButton, MessageForm } from "./issue-client";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { getIssueUserStatus } from "@/lib/issues/status";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
+import { normalizeIssueImageUrls } from "@/lib/issues/images";
 
 interface PageProps { params: Promise<{ issueId: string }> }
 
@@ -66,9 +67,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
     return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
-  const imageUrls = Array.isArray(issue.imageUrls)
-    ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
-    : [];
+  const imageUrls = normalizeIssueImageUrls(issue.imageUrls);
   const canEdit = isOwner && getIssueUserStatus(issue.stage) === "PENDING";
   const canMessage =
     issue.stage !== "CLOSED" && issue.stage !== "REJECTED" && (isOwner || issue.isPublic);
@@ -96,12 +95,12 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-2">
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
         <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <IssueStatusIndicator stage={issue.stage} className="mb-2 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" />
             <h1 className="text-xl font-bold text-gray-900">{issue.title}</h1>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <IssueStatusIndicator stage={issue.stage} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1" />
+          <div className="shrink-0">
             <SaveButton
               itemId={issue.id}
               initialSaved={Boolean(saved)}
@@ -110,7 +109,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             />
           </div>
         </div>
-        <div className="mb-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+        <div className="mb-4 grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2 sm:[&>p]:col-start-2">
           <div>
             <span className="text-gray-500">หมวดหมู่: </span>
             <span className="font-medium">{ISSUE_CATEGORY_LABELS[issue.category]}</span>
@@ -131,13 +130,13 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
               <span className="font-medium">{issue.location}</span>
             </div>
           )}
-          <div className="col-span-2">
+          <div>
             <span className="text-gray-500">การมองเห็น: </span>
             <span className="font-medium">
               {issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล"}
             </span>
           </div>
-          <p className="col-span-2 text-sm text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : getUserDisplayName(reporter)}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
+          <p className="text-sm text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : getUserDisplayName(reporter)}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
         </div>
         <div className="border-t border-gray-200 pt-4">
           <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
@@ -153,7 +152,6 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
 
         <aside className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 lg:col-span-1 lg:self-start">
           <p className="text-sm font-semibold text-gray-900">ความคืบหน้า</p>
-          <p className="mt-1 text-sm text-gray-600">ติดตามประวัติการดำเนินการ</p>
           {issue.resolvedAt && (
             <div className="mt-4 border-t border-gray-200 pt-4 text-sm">
               <p className="text-gray-500">แก้ไขเมื่อ</p>

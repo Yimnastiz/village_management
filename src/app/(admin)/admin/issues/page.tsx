@@ -216,7 +216,7 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                 return (
                 <tr key={issue.id} className="border-b border-gray-100 last:border-b-0 transition-colors hover:bg-gray-50/80">
                   <td className="relative px-4 py-3">
-                    <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
+                    <span aria-hidden="true" className={`absolute bottom-2 left-2 top-2 w-1.5 rounded-full ${priorityMeta.stripeClass}`} />
                     <div className="flex min-w-0 items-center gap-3">
                       {firstImage && (
                         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-100">
