@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDateTime } from "@/lib/utils";
-import { AlertCircle, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { CreateAppointmentButton } from "./create-appointment-button";
 
@@ -226,10 +226,10 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
               className="relative bg-white rounded-xl border border-gray-200 p-4 transition-shadow hover:shadow-md"
             >
               <Link href={`/admin/appointments/${apt.id}`} aria-label={`ดูรายละเอียดนัดหมาย ${apt.title}`} className="absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2" />
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                 <div className="min-w-0">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <p className="font-medium text-gray-900">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <p className="text-base font-semibold text-gray-900 sm:text-lg">
                       {apt.title}
                     </p>
                     <Badge variant={stageVariant[apt.stage] ?? "default"}>
@@ -241,15 +241,15 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                     {source ? <p className="break-words text-gray-500">{source}</p> : null}
                   </div>
                 </div>
-                <div className="min-w-0 space-y-2 lg:text-right">
+                <div className="min-w-0 space-y-1.5 lg:text-right">
                   {slotDateTime ? (
-                    <p className="flex items-center gap-1.5 font-medium text-gray-900 lg:justify-end"><Clock aria-hidden className="h-4 w-4 shrink-0 text-gray-500" />{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDateTime(slotDateTime)}</p>
-                  ) : <p className="font-medium text-gray-700">นัดหมาย: ยังไม่กำหนดเวลา</p>}
+                    <p className="flex items-center gap-1.5 text-sm font-medium text-gray-700 lg:justify-end"><Clock aria-hidden className="h-4 w-4 shrink-0 text-gray-500" />{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDateTime(slotDateTime)}</p>
+                  ) : <p className="text-sm font-medium text-gray-600">นัดหมาย: ยังไม่กำหนดเวลา</p>}
                   <p className="text-xs text-gray-400">สร้างเมื่อ {formatThaiDateTime(apt.createdAt)}</p>
                   <div className="relative z-10">
                   {apt.stage === "PENDING_APPROVAL" && (
                     <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <Link href={`/admin/appointments/${apt.id}`}><Button size="sm" variant="secondary"><AlertCircle className="h-4 w-4" /> เสนอวันเวลา</Button></Link>
+                      <Link href={`/admin/appointments/${apt.id}`}><Button size="sm" variant="secondary">เสนอวันเวลา</Button></Link>
                     </div>
                   )}
                   </div>
