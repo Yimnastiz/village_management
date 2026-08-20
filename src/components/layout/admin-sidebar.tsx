@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
-  AlertCircle, Bell, Calendar, ChevronLeft, ChevronRight, Download, Eye,
-  FileUp, House, Image, LayoutDashboard, Link2, MapPin, Newspaper, Phone,
-  Settings, Shield, Users, UsersRound,
+  Bell, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, CircleAlert,
+  ClipboardCheck, FileDown, FileSearch, FileUp, House, Images, LayoutDashboard,
+  MapPin, Newspaper, Phone, Settings, ShieldCheck, Users, UsersRound,
 } from "lucide-react";
 import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-badge";
 import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
@@ -21,22 +21,22 @@ export type AdminMenuItem = {
 
 export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
-  { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
-  { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
+  { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: CircleAlert },
+  { href: "/admin/appointments", label: "นัดหมาย", icon: CalendarClock },
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
-  { href: "/admin/calendar", label: "ปฏิทิน", icon: Calendar },
-  { href: "/admin/gallery", label: "แกลเลอรี", icon: Image },
+  { href: "/admin/calendar", label: "ปฏิทิน", icon: CalendarDays },
+  { href: "/admin/gallery", label: "แกลเลอรี", icon: Images },
   { href: "/admin/places", label: "สถานที่", icon: MapPin },
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
-  { href: "/admin/transparency", label: "ความโปร่งใส", icon: Eye },
-  { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: Download },
+  { href: "/admin/transparency", label: "ความโปร่งใส", icon: FileSearch },
+  { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown },
   { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound },
-  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: Link2 },
+  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardCheck },
   { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House },
   { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users },
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp },
   { href: "/admin/notifications", label: "การแจ้งเตือน", icon: Bell },
-  { href: "/admin/security", label: "ความปลอดภัย", icon: Shield },
+  { href: "/admin/security", label: "ความปลอดภัย", icon: ShieldCheck },
   { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
 ];
 
@@ -74,7 +74,7 @@ function NavigationIcon({
   return (
     <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center">
       <Icon className="h-4 w-4" />
-      {collapsed && badge ? <SidebarNotificationBadge count={badge.count} label={badge.label} className="absolute left-2 top-3 z-10 text-[9px]" /> : null}
+      {collapsed && badge ? <SidebarNotificationBadge count={badge.count} label={badge.label} className="pointer-events-none absolute left-3 -top-2 z-10 text-[9px]" /> : null}
     </span>
   );
 }
