@@ -92,7 +92,8 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
       </div>
 
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-        <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:col-span-2 lg:order-1">
+        <div className="space-y-6 lg:col-span-2 lg:order-1">
+        <div className="relative overflow-hidden rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1.5 ${priorityMeta.stripeClass}`} />
         <span className="sr-only">ระดับความสำคัญ: {priorityMeta.label}</span>
           <div className="mb-4 flex items-start justify-between gap-3">
@@ -133,19 +134,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
         </div>
 
-        <aside className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 lg:col-span-1 lg:order-2 lg:self-start">
-          <p className="text-sm font-semibold text-gray-900">ความคืบหน้า</p>
-          {issue.resolvedAt && (
-            <div className="mt-4 border-t border-gray-200 pt-4 text-sm">
-              <p className="text-gray-500">แก้ไขเมื่อ</p>
-              <p className="mt-1 font-medium text-gray-800">{formatDate(issue.resolvedAt)}</p>
-            </div>
-          )}
-          <div className="mt-4 border-t border-gray-200 pt-4"><Timeline items={timelineItems} /></div>
-        </aside>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6 lg:col-span-2 lg:order-3">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
         <h2 className="font-semibold text-gray-900 mb-4">ข้อความ/ความคิดเห็น</h2>
         {issue.messages.length === 0 ? (
           <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความ</p>
@@ -163,6 +152,22 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         )}
         {canMessage && <MessageForm issueId={issueId} />}
       </div>
+
+        </div>
+
+        <aside className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 lg:col-span-1 lg:order-2 lg:self-start">
+          <p className="text-sm font-semibold text-gray-900">ความคืบหน้า</p>
+          {issue.resolvedAt && (
+            <div className="mt-4 border-t border-gray-200 pt-4 text-sm">
+              <p className="text-gray-500">แก้ไขเมื่อ</p>
+              <p className="mt-1 font-medium text-gray-800">{formatDate(issue.resolvedAt)}</p>
+            </div>
+          )}
+          <div className="mt-4 border-t border-gray-200 pt-4"><Timeline items={timelineItems} /></div>
+        </aside>
+      </div>
+
+
     </div>
   );
 }
