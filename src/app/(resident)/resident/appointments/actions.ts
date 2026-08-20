@@ -194,20 +194,23 @@ export async function updateAppointmentRequestAction(appointmentId: string, inpu
   return { success: true };
 }
 
-const manualSuggestionSchema = z.object({ appointmentId: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/), endTime: z.string().regex(/^\d{2}:\d{2}$/), message: z.string().max(500).optional() });
+const manualSuggestionSchema = z.object({ appointmentId: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/), message: z.string().max(500).optional() });
 
 /** Admin proposes a one-off time; this creates no reusable availability. */
 export async function proposeAppointmentTimeAction(input: z.input<typeof manualSuggestionSchema>): Promise<{ success: true } | { success: false; error: string }> {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
   const parsed = manualSuggestionSchema.safeParse(input);
-  if (!parsed.success || (parsed.success && parsed.data.endTime <= parsed.data.startTime)) return { success: false, error: "กรุณาระบุวันและเวลาที่ถูกต้อง" };
+  if (!parsed.success) return { success: false, error: "กรุณาระบุวันและเวลาที่ถูกต้อง" };
   const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } });
   if (!appointment) return { success: false, error: "ไม่พบคำขอนัดหมาย" };
   const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, villageId: appointment.villageId, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } });
-  if (!membership || !["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"].includes(appointment.stage)) return { success: false, error: "ไม่สามารถเสนอเวลาในสถานะนี้ได้" };
+  const source = await getAppointmentCreationSource(appointment.id);
+  if (!membership || source.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") return { success: false, error: "ไม่สามารถเสนอเวลาในสถานะนี้ได้" };
+  const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime);
+  if (!endTime) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
   const date = new Date(`${parsed.data.date}T00:00:00.000Z`);
-  const slot = await prisma.appointmentSlot.create({ data: { villageId: appointment.villageId, date, startTime: parsed.data.startTime, endTime: parsed.data.endTime, maxCapacity: 1, note: `เวลาที่เสนอสำหรับคำขอนัด ${appointment.id}` } });
+  const slot = await prisma.appointmentSlot.create({ data: { villageId: appointment.villageId, date, startTime: parsed.data.startTime, endTime, maxCapacity: 1, note: `เวลาที่เสนอสำหรับคำขอนัด ${appointment.id}` } });
   const responder = await getAdminResponderSummary(appointment.villageId, session.id);
   await prisma.$transaction([
     prisma.appointment.update({ where: { id: appointment.id }, data: { stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date(), reviewNote: parsed.data.message?.trim() || null } }),
@@ -227,6 +230,27 @@ function getAdminCreatedAppointmentEndTime(startTime: string) {
   return `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
 }
 
+/**
+ * `Appointment.userId` is always the resident the appointment is with.  The
+ * creation source is recorded by the first timeline item instead: resident
+ * requests start with CREATED, while appointments made by an admin start with
+ * TIME_SUGGESTED and `adminCreated: true`.  Treat missing/legacy metadata as a
+ * resident request so it can never grant admin-content edit permission.
+ */
+async function getAppointmentCreationSource(appointmentId: string) {
+  const firstEntry = await prisma.appointmentTimeline.findFirst({
+    where: { appointmentId },
+    orderBy: { createdAt: "asc" },
+    select: { actorId: true, metadata: true },
+  });
+  const metadata = firstEntry?.metadata;
+  const isAdminCreated = Boolean(
+    metadata && typeof metadata === "object" && !Array.isArray(metadata) && metadata.adminCreated === true
+  );
+
+  return { isAdminCreated, creatorId: isAdminCreated ? firstEntry?.actorId ?? null : null };
+}
+
 const adminCreatedSchema = z.object({ residentUserId: z.string(), title: z.string().min(3), description: z.string().optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/) });
 export async function adminCreateAppointmentAction(input: z.input<typeof adminCreatedSchema>): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
@@ -241,17 +265,35 @@ export async function adminCreateAppointmentAction(input: z.input<typeof adminCr
   await notifyUser(resident.userId, admin.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}${appointment.description ? ` | ${appointment.description}` : ""}`, { appointmentId: appointment.id }); revalidateAppointmentViews(appointment.id); return { success: true, appointmentId: appointment.id };
 }
 
-const adminUpdateSchema = z.object({ appointmentId: z.string(), title: z.string().min(3), description: z.string().optional(), date: z.string().optional(), startTime: z.string().optional(), endTime: z.string().optional(), message: z.string().max(500).optional() });
-export async function adminUpdateAppointmentAction(input: z.input<typeof adminUpdateSchema>): Promise<{ success: true; rescheduled: boolean } | { success: false; error: string }> {
+const adminUpdateSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("PROPOSE_TIME"), appointmentId: z.string(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/) }),
+  z.object({ mode: z.literal("EDIT_ADMIN_CREATED"), appointmentId: z.string(), title: z.string().min(3), description: z.string().optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/) }),
+]);
+export async function adminUpdateAppointmentAction(input: z.input<typeof adminUpdateSchema>): Promise<{ success: true } | { success: false; error: string }> {
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
   const parsed = adminUpdateSchema.safeParse(input); if (!parsed.success) return { success: false, error: "ข้อมูลนัดหมายไม่ถูกต้อง" };
-  const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } }); if (!appointment || ["CANCELLED", "REJECTED", "COMPLETED"].includes(appointment.stage)) return { success: false, error: "แก้ไขนัดหมายนี้ไม่ได้" };
+  const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } }); if (!appointment) return { success: false, error: "ไม่พบนัดหมาย" };
   const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, villageId: appointment.villageId, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } }); if (!membership) return { success: false, error: "ไม่มีสิทธิ์จัดการนัดหมายนี้" };
-  const hasTime = Boolean(parsed.data.date || parsed.data.startTime || parsed.data.endTime); if (hasTime && (!parsed.data.date || !parsed.data.startTime || !parsed.data.endTime || parsed.data.endTime <= parsed.data.startTime)) return { success: false, error: "กรุณาระบุวันและเวลาให้ครบถ้วน" };
-  let slotId = appointment.slotId; let scheduledAt = appointment.scheduledAt; let stage = appointment.stage; let rescheduled = false;
-  if (hasTime) { const date = new Date(`${parsed.data.date}T00:00:00.000Z`); const slot = await prisma.appointmentSlot.create({ data: { villageId: appointment.villageId, date, startTime: parsed.data.startTime!, endTime: parsed.data.endTime!, maxCapacity: 1, note: `เวลาแก้ไขสำหรับนัด ${appointment.id}` } }); slotId = slot.id; scheduledAt = date; stage = "TIME_SUGGESTED"; rescheduled = true; }
-  await prisma.$transaction([prisma.appointment.update({ where: { id: appointment.id }, data: { title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, slotId, scheduledAt, stage, reviewNote: parsed.data.message?.trim() || appointment.reviewNote, reviewedBy: session.id, reviewedAt: new Date() } }), prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: rescheduled ? "TIME_SUGGESTED" : "UPDATED", description: rescheduled ? "ผู้ใหญ่บ้านเสนอเวลาใหม่ให้ลูกบ้านยืนยัน" : "ผู้ใหญ่บ้านแก้ไขรายละเอียดนัดหมาย", metadata: { adminMessage: parsed.data.message?.trim() || null } } })]);
-  await notifyUser(appointment.userId, appointment.villageId, rescheduled ? "รอคุณยืนยันวันเวลา" : "มีการแก้ไขนัดหมาย", `เรื่อง: ${parsed.data.title}${rescheduled ? " | ผู้ใหญ่บ้านเสนอเวลาใหม่" : ""}`, { appointmentId: appointment.id }); revalidateAppointmentViews(appointment.id); return { success: true, rescheduled };
+  const source = await getAppointmentCreationSource(appointment.id);
+  const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime); if (!endTime) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
+
+  if (parsed.data.mode === "PROPOSE_TIME") {
+    if (source.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") return { success: false, error: "นัดหมายนี้เสนอวันเวลาไม่ได้" };
+  } else if (!source.isAdminCreated || source.creatorId !== session.id || appointment.stage !== "TIME_SUGGESTED") {
+    return { success: false, error: "แก้ไขได้เฉพาะนัดหมายที่คุณสร้างและยังรอลูกบ้านยืนยัน" };
+  }
+
+  const date = new Date(`${parsed.data.date}T00:00:00.000Z`);
+  const slot = await prisma.appointmentSlot.create({ data: { villageId: appointment.villageId, date, startTime: parsed.data.startTime, endTime, maxCapacity: 1, note: `เวลาแก้ไขสำหรับนัด ${appointment.id}` } });
+  const isProposal = parsed.data.mode === "PROPOSE_TIME";
+  const title = parsed.data.mode === "PROPOSE_TIME" ? appointment.title : parsed.data.title.trim();
+  const description = parsed.data.mode === "PROPOSE_TIME" ? appointment.description : parsed.data.description?.trim() || null;
+  await prisma.$transaction([
+    prisma.appointment.update({ where: { id: appointment.id }, data: { title, description, slotId: slot.id, scheduledAt: date, stage: "TIME_SUGGESTED", reviewedBy: session.id, reviewedAt: new Date() } }),
+    prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: isProposal ? "TIME_SUGGESTED" : "UPDATED", description: isProposal ? "ผู้ใหญ่บ้านเสนอวันเวลาให้ลูกบ้านยืนยัน" : "ผู้ใหญ่บ้านแก้ไขนัดหมายที่ยังรอลูกบ้านยืนยัน", metadata: { slotDate: date, slotTime: slot.startTime } } }),
+  ]);
+  await notifyUser(appointment.userId, appointment.villageId, isProposal ? "รอคุณยืนยันวันเวลา" : "อัปเดตวันเวลานัดหมาย", `เรื่อง: ${title} | ${formatThaiShortDate(date)} เวลา ${slot.startTime}`, { appointmentId: appointment.id });
+  revalidateAppointmentViews(appointment.id); return { success: true };
 }
 
 export async function createAppointmentAction(formData: FormData): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
@@ -643,6 +685,11 @@ export async function suggestTimeAction(
     return { success: false, error: "ไม่มีสิทธิ์แนะนำเวลาสำหรับนัดหมายนี้" };
   }
 
+  const source = await getAppointmentCreationSource(appointment.id);
+  if (source.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") {
+    return { success: false, error: "ไม่สามารถเสนอเวลาในสถานะนี้ได้" };
+  }
+
   const responder = await getAdminResponderSummary(appointment.villageId, session.id);
 
   const slot = await prisma.appointmentSlot.findUnique({
@@ -912,9 +959,9 @@ export async function adminEditAppointmentAction(
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์แก้ไขนัดหมายนี้" };
 
-  const editableStages = new Set(["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"]);
-  if (!editableStages.has(appointment.stage)) {
-    return { success: false, error: "ไม่สามารถแก้ไขนัดหมายในสถานะนี้ได้" };
+  const source = await getAppointmentCreationSource(appointment.id);
+  if (!source.isAdminCreated || source.creatorId !== session.id || appointment.stage !== "TIME_SUGGESTED") {
+    return { success: false, error: "แก้ไขได้เฉพาะนัดหมายที่คุณสร้างและยังรอลูกบ้านยืนยัน" };
   }
 
   let slotDate: Date | undefined;

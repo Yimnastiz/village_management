@@ -1,16 +1,75 @@
 "use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { adminUpdateAppointmentAction, rejectAppointmentAction, adminCancelAppointmentAction } from "@/app/(resident)/resident/appointments/actions";
+import { adminUpdateAppointmentAction } from "@/app/(resident)/resident/appointments/actions";
 
-export function ProposeTimeForm({ appointmentId, title: initialTitle, description: initialDescription, canReject = false, canCancel = false }: { appointmentId: string; title: string; description: string; canReject?: boolean; canCancel?: boolean }) {
-  const router = useRouter(); const toast = useToast(); const [title, setTitle] = useState(initialTitle); const [description, setDescription] = useState(initialDescription); const [date, setDate] = useState(""); const [startTime, setStart] = useState(""); const [endTime, setEnd] = useState(""); const [message, setMessage] = useState(""); const [pending, setPending] = useState(false);
-  return <form className="space-y-3 rounded-xl border border-blue-200 bg-blue-50/40 p-4" onSubmit={async (event) => { event.preventDefault(); setPending(true); try { const result = await adminUpdateAppointmentAction({ appointmentId, title, description, date, startTime, endTime, message }); if (!result.success) { toast.error("บันทึกนัดหมายไม่สำเร็จ", result.error); return; } toast.success(result.rescheduled ? "เสนอวันเวลาเรียบร้อยแล้ว" : "บันทึกนัดหมายเรียบร้อยแล้ว"); router.refresh(); } catch { toast.error("บันทึกนัดหมายไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง"); } finally { setPending(false); } }}>
-    <h2 className="font-semibold text-gray-900">แก้ไขนัดหมาย / เสนอเวลาใหม่</h2><Input label="เรื่องนัดหมาย" value={title} onChange={(e) => setTitle(e.target.value)} required minLength={3} /><Textarea label="รายละเอียด" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /><div className="grid gap-3 sm:grid-cols-3"><Input label="วันที่" type="date" value={date} onChange={(e) => setDate(e.target.value)} required /><Input label="เริ่มเวลา" type="time" value={startTime} onChange={(e) => setStart(e.target.value)} required /><Input label="สิ้นสุด" type="time" value={endTime} onChange={(e) => setEnd(e.target.value)} required /></div><Textarea label="ข้อความถึงลูกบ้าน" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="เช่น รบกวนยืนยันเวลานี้" /><Button type="submit" isLoading={pending}>บันทึกและเสนอวันเวลา</Button>
-    {(canReject || canCancel) ? <div className="border-t border-blue-200 pt-3"><Textarea label={canReject ? "เหตุผลที่ปฏิเสธคำขอ / ยกเลิกนัดหมาย" : "เหตุผลการยกเลิกนัดหมาย"} value={message} onChange={(e) => setMessage(e.target.value)} rows={2} /><div className="mt-2 flex flex-col gap-2 sm:flex-row">{canReject ? <Button type="button" variant="danger" disabled={pending || message.trim().length < 5} onClick={async () => { setPending(true); try { const form = new FormData(); form.set("appointmentId", appointmentId); form.set("reviewNote", message); const result = await rejectAppointmentAction(form); if (!result.success) toast.error("ปฏิเสธคำขอไม่สำเร็จ", result.error); else { toast.success("ปฏิเสธคำขอเรียบร้อยแล้ว"); router.refresh(); } } catch { toast.error("ปฏิเสธคำขอไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง"); } finally { setPending(false); } }}>ปฏิเสธคำขอ</Button> : null}{canCancel ? <Button type="button" variant="danger" disabled={pending || message.trim().length < 10} onClick={async () => { setPending(true); try { const form = new FormData(); form.set("appointmentId", appointmentId); form.set("reason", message); const result = await adminCancelAppointmentAction(form); if (!result.success) toast.error("ยกเลิกนัดหมายไม่สำเร็จ", result.error); else { toast.success("ยกเลิกนัดหมายเรียบร้อยแล้ว"); router.push("/admin/appointments"); } } catch { toast.error("ยกเลิกนัดหมายไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง"); } finally { setPending(false); } }}>ยกเลิกนัดหมาย</Button> : null}</div></div> : null}
-  </form>;
+type Props = {
+  appointmentId: string;
+  mode: "PROPOSE_TIME" | "EDIT_ADMIN_CREATED";
+  initialTitle: string;
+  initialDescription: string;
+  initialDate: string;
+  initialStartTime: string;
+};
+
+export function ProposeTimeForm({ appointmentId, mode, initialTitle, initialDescription, initialDate, initialStartTime }: Props) {
+  const router = useRouter();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(initialTitle);
+  const [description, setDescription] = useState(initialDescription);
+  const [date, setDate] = useState(initialDate);
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const isProposal = mode === "PROPOSE_TIME";
+
+  const close = () => {
+    if (!pending) {
+      setOpen(false);
+      setError(null);
+    }
+  };
+
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setPending(true);
+    try {
+      const result = isProposal
+        ? await adminUpdateAppointmentAction({ mode, appointmentId, date, startTime })
+        : await adminUpdateAppointmentAction({ mode, appointmentId, title, description, date, startTime });
+      if (!result.success) {
+        setError(result.error);
+        toast.error(isProposal ? "เสนอวันเวลาไม่สำเร็จ" : "บันทึกการแก้ไขไม่สำเร็จ", result.error);
+        return;
+      }
+      toast.success(isProposal ? "เสนอวันเวลาเรียบร้อยแล้ว" : "บันทึกการแก้ไขเรียบร้อยแล้ว");
+      setOpen(false);
+      router.refresh();
+    } catch {
+      const message = "กรุณาลองใหม่อีกครั้ง";
+      setError(message);
+      toast.error(isProposal ? "เสนอวันเวลาไม่สำเร็จ" : "บันทึกการแก้ไขไม่สำเร็จ", message);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return <>
+    <Button type="button" onClick={() => setOpen(true)}>{isProposal ? "เสนอวันเวลา" : "แก้ไขนัดหมาย"}</Button>
+    <Dialog open={open} onClose={close} title={isProposal ? "เสนอวันเวลา" : "แก้ไขนัดหมาย"} description={isProposal ? "ส่งวันและเวลาที่ต้องการให้ลูกบ้านยืนยัน" : undefined} footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={pending} onClick={close}>ยกเลิก</Button><Button type="submit" form="appointment-edit-form" isLoading={pending}>{isProposal ? "ส่งเวลาให้ลูกบ้าน" : "บันทึกการแก้ไข"}</Button></div>}>
+      <form id="appointment-edit-form" className="space-y-4" onSubmit={submit}>
+        {isProposal ? null : <><Input label="เรื่องนัดหมาย" value={title} onChange={(event) => setTitle(event.target.value)} required minLength={3} /><Textarea label="รายละเอียด" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></>}
+        <div className="grid gap-4 sm:grid-cols-2"><Input label="วันที่ *" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /><Input label="เวลา *" type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} required max="23:00" /></div>
+        {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
+      </form>
+    </Dialog>
+  </>;
 }
