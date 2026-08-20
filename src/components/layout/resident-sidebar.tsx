@@ -15,7 +15,7 @@ import {
   ClipboardCheck,
   FileDown,
   FileSearch,
-  House,
+  UsersRound,
   Bell,
   User,
   BookmarkCheck,
@@ -49,7 +49,7 @@ export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown, desktopPriority: 10, mobilePriority: 10 },
   { href: "/resident/transparency", label: "ความโปร่งใส", icon: FileSearch, desktopPriority: 11, mobilePriority: 11 },
   { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone, desktopPriority: 12, mobilePriority: 12 },
-  { href: "/resident/household", label: "ข้อมูลครัวเรือน", icon: House, desktopPriority: 13, mobilePriority: 13 },
+  { href: "/resident/household", label: "ข้อมูลครัวเรือน", icon: UsersRound, desktopPriority: 13, mobilePriority: 13 },
   { href: "/resident/saved", label: "รายการที่บันทึก", icon: BookmarkCheck, desktopPriority: 14, mobilePriority: 14 },
   { href: "/resident/profile", label: "โปรไฟล์", icon: User, desktopPriority: 15, mobilePriority: 15 },
 ];
