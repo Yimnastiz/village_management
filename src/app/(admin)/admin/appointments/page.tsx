@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Prisma } from "@prisma/client";
+import { Prisma, type VillageMembershipRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
@@ -59,6 +59,10 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
     id: true, title: true, stage: true, slotId: true, scheduledAt: true, createdAt: true,
     user: { select: { email: true, name: true } },
     slot: { select: { date: true, startTime: true, endTime: true } },
+    timeline: {
+      orderBy: { createdAt: "asc" }, take: 1,
+      select: { action: true, metadata: true, actor: { select: { name: true, email: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } },
+    },
   } satisfies Prisma.AppointmentSelect;
 
   const toAppointmentTime = (appointment: { scheduledAt: Date | null; slot: { date: Date; startTime: string } | null }) => {
@@ -93,6 +97,21 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   const totalCount = activeSort === "upcoming" ? upcomingAppointments.length : databaseTotalCount;
 
   return { appointments, totalCount };
+}
+
+const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการหมู่บ้าน", RESIDENT: "ลูกบ้าน" };
+
+function getAppointmentSource(appointment: { timeline: Array<{ action: string; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }> }) {
+  const entry = appointment.timeline[0];
+  const actor = entry?.actor;
+  if (!entry || !actor) return null;
+  const metadata = entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata) ? entry.metadata : null;
+  const name = typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
+  if (!name) return null;
+  const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
+  if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${ROLE_LABELS[role as VillageMembershipRole] ?? "เจ้าหน้าที่"})`;
+  if (entry.action === "CREATED") return `ส่งคำขอโดย ${name} (${ROLE_LABELS[role as VillageMembershipRole] ?? "ลูกบ้าน"})`;
+  return null;
 }
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
@@ -151,10 +170,10 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
       <AdminListToolbar
         sticky
         title="จัดการนัดหมาย"
-        description="ตรวจสอบคำขอนัดหมาย กรองตามสถานะ และค้นหาจากชื่อเรื่องหรือผู้ขอ"
+        description="ตรวจสอบคำขอนัดหมาย กรองตามสถานะ และค้นหาจากชื่อเรื่องหรือผู้นัดหมาย"
         searchAction="/admin/appointments"
         keyword={keyword}
-        searchPlaceholder="ค้นหาจากหัวข้อหรือชื่อผู้ขอ"
+        searchPlaceholder="ค้นหาจากหัวข้อหรือชื่อผู้นัดหมาย"
         hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, sort: activeSort === "newest" ? "" : activeSort }}
         clearHref={buildAppointmentsHref({ q: keyword })}
         suggestionTitles={suggestionTitles}
@@ -199,6 +218,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
             const slotDateTime = getAppointmentSlotDateTime(apt);
             const isTimeSuggested = apt.stage === "TIME_SUGGESTED";
             const isConfirmed = ["APPROVED", "COMPLETED"].includes(apt.stage);
+            const source = getAppointmentSource(apt);
 
             return (
             <div
@@ -206,8 +226,8 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
               className="relative bg-white rounded-xl border border-gray-200 p-4 transition-shadow hover:shadow-md"
             >
               <Link href={`/admin/appointments/${apt.id}`} aria-label={`ดูรายละเอียดนัดหมาย ${apt.title}`} className="absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2" />
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="min-w-0 flex-1">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                <div className="min-w-0">
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <p className="font-medium text-gray-900">
                       {apt.title}
@@ -216,36 +236,23 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                       {isTimeSuggested ? "รอลูกบ้านยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[apt.stage]}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 text-sm text-gray-600 sm:grid-cols-2 sm:gap-4">
-                    <div>
-                      <p className="text-xs text-gray-400">ผู้ขอ</p>
-                      <p className="break-words">{apt.user?.name || apt.user?.email}</p>
-                    </div>
-                    <div className="sm:col-span-2">
-                      {isTimeSuggested && slotDateTime ? (
-                        <p className="flex items-center gap-1.5 font-medium text-gray-900"><Clock aria-hidden className="h-4 w-4 shrink-0 text-gray-500" />เสนอเวลา: {formatThaiDateTime(slotDateTime)}</p>
-                      ) : isConfirmed && slotDateTime ? (
-                        <p className="font-medium text-gray-900">นัดหมาย: {formatThaiDateTime(slotDateTime)}</p>
-                      ) : (
-                        <p className="font-medium text-gray-700">นัดหมาย: ยังไม่กำหนดเวลา</p>
-                      )}
-                      <p className="mt-1 text-xs text-gray-400">สร้างเมื่อ {formatThaiDateTime(apt.createdAt)}</p>
-                    </div>
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <p><span className="text-gray-500">นัดหมายกับ: </span><span className="break-words text-gray-900">{apt.user?.name || apt.user?.email}</span></p>
+                    {source ? <p className="break-words text-gray-500">{source}</p> : null}
                   </div>
                 </div>
-                <div className="relative z-10 text-left lg:text-right">
+                <div className="min-w-0 space-y-2 lg:text-right">
+                  {slotDateTime ? (
+                    <p className="flex items-center gap-1.5 font-medium text-gray-900 lg:justify-end"><Clock aria-hidden className="h-4 w-4 shrink-0 text-gray-500" />{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDateTime(slotDateTime)}</p>
+                  ) : <p className="font-medium text-gray-700">นัดหมาย: ยังไม่กำหนดเวลา</p>}
+                  <p className="text-xs text-gray-400">สร้างเมื่อ {formatThaiDateTime(apt.createdAt)}</p>
+                  <div className="relative z-10">
                   {apt.stage === "PENDING_APPROVAL" && (
                     <div className="flex flex-wrap gap-2 lg:justify-end">
                       <Link href={`/admin/appointments/${apt.id}`}><Button size="sm" variant="secondary"><AlertCircle className="h-4 w-4" /> เสนอวันเวลา</Button></Link>
                     </div>
                   )}
-                  {apt.stage === "TIME_SUGGESTED" && (
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
-                      <Link href={`/admin/appointments/${apt.id}`}>
-                        <Button size="sm" variant="secondary">ดูรายละเอียด</Button>
-                      </Link>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
