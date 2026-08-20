@@ -5,6 +5,9 @@ import { ToastProvider } from "@/components/ui/toast";
 export const metadata: Metadata = {
   title: "ระบบบริหารจัดการหมู่บ้านอัจฉริยะ",
   description: "Smart Village Management System - ระบบบริหารจัดการหมู่บ้านสำหรับชุมชนไทย",
+  icons: {
+    icon: [{ url: "/brand/logo.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({
