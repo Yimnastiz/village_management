@@ -64,11 +64,14 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   const toAppointmentTime = (appointment: { scheduledAt: Date | null; slot: { date: Date; startTime: string } | null }) => {
     if (!appointment.scheduledAt || !appointment.slot) return null;
     const [hours, minutes] = appointment.slot.startTime.split(":").map(Number);
-    return new Date(Date.UTC(appointment.slot.date.getUTCFullYear(), appointment.slot.date.getUTCMonth(), appointment.slot.date.getUTCDate(), hours || 0, minutes || 0));
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+    // Slot dates are stored as a calendar date. Combine it with the selected
+    // start time in the project's Asia/Bangkok timezone before comparing it.
+    return new Date(Date.UTC(appointment.slot.date.getUTCFullYear(), appointment.slot.date.getUTCMonth(), appointment.slot.date.getUTCDate(), hours, minutes) - 7 * 60 * 60 * 1000);
   };
 
   // Fetch only the active village's appointments; the Topbar supplies this context.
-  const [rows, totalCount] = await Promise.all([
+  const [rows, databaseTotalCount] = await Promise.all([
     prisma.appointment.findMany({
       where,
       ...(activeSort === "upcoming" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
@@ -78,17 +81,16 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
     prisma.appointment.count({ where }),
   ]);
   const now = new Date();
+  const upcomingAppointments = activeSort === "upcoming"
+    ? rows.map((appointment) => ({ appointment, scheduledTime: toAppointmentTime(appointment) }))
+      .filter((item): item is { appointment: typeof rows[number]; scheduledTime: Date } => item.appointment.stage === "APPROVED" && item.scheduledTime !== null && item.scheduledTime >= now)
+      .sort((left, right) => left.scheduledTime.getTime() - right.scheduledTime.getTime())
+      .map((item) => item.appointment)
+    : [];
   const appointments = activeSort === "upcoming"
-    ? rows.sort((left, right) => {
-      const leftTime = toAppointmentTime(left);
-      const rightTime = toAppointmentTime(right);
-      const rank = (appointment: typeof left, time: Date | null) => appointment.stage === "APPROVED" && time && time >= now ? 0 : time && time >= now ? 1 : time ? 2 : 3;
-      const rankDifference = rank(left, leftTime) - rank(right, rightTime);
-      if (rankDifference) return rankDifference;
-      if (leftTime && rightTime) return leftTime.getTime() - rightTime.getTime();
-      return right.createdAt.getTime() - left.createdAt.getTime();
-    }).slice((page - 1) * pageSize, page * pageSize)
+    ? upcomingAppointments.slice((page - 1) * pageSize, page * pageSize)
     : rows;
+  const totalCount = activeSort === "upcoming" ? upcomingAppointments.length : databaseTotalCount;
 
   return { appointments, totalCount };
 }
