@@ -262,15 +262,17 @@ function parseHouseholdOccupancyStatus(value: unknown): HouseholdOccupancyStatus
   }
 
   const mapped: Record<string, HouseholdOccupancyStatus> = {
+    // English values
     OCCUPIED: HouseholdOccupancyStatus.OCCUPIED,
     VACANT: HouseholdOccupancyStatus.VACANT,
     UNDERCONSTRUCTION: HouseholdOccupancyStatus.UNDER_CONSTRUCTION,
     UNDER_CONSTRUCTION: HouseholdOccupancyStatus.UNDER_CONSTRUCTION,
     DEMOLISHED: HouseholdOccupancyStatus.DEMOLISHED,
-    อยู่จริง: HouseholdOccupancyStatus.OCCUPIED,
-    ว่าง: HouseholdOccupancyStatus.VACANT,
-    ก่อสร้าง: HouseholdOccupancyStatus.UNDER_CONSTRUCTION,
-    รื้อถอน: HouseholdOccupancyStatus.DEMOLISHED,
+    // Thai values (normalized)
+    "มีผู้อยู่อาศัย": HouseholdOccupancyStatus.OCCUPIED,
+    "ว่าง": HouseholdOccupancyStatus.VACANT,
+    "กำลังก่อสร้าง": HouseholdOccupancyStatus.UNDER_CONSTRUCTION,
+    "รื้อถอนแล้ว": HouseholdOccupancyStatus.DEMOLISHED,
   };
 
   const matched = mapped[normalized] ?? mapped[toTrimmedString(value) ?? ""];
@@ -288,15 +290,17 @@ function parsePersonStatus(value: unknown): PersonStatus | null {
   }
 
   const mapped: Record<string, PersonStatus> = {
+    // English values
     ACTIVE: PersonStatus.ACTIVE,
     DECEASED: PersonStatus.DECEASED,
     MOVEDOUT: PersonStatus.MOVED_OUT,
     MOVED_OUT: PersonStatus.MOVED_OUT,
     UNKNOWN: PersonStatus.UNKNOWN,
-    ปกติ: PersonStatus.ACTIVE,
-    เสียชีวิต: PersonStatus.DECEASED,
-    ย้ายออก: PersonStatus.MOVED_OUT,
-    ไม่ทราบ: PersonStatus.UNKNOWN,
+    // Thai values (normalized)
+    "อยู่ในทะเบียน": PersonStatus.ACTIVE,
+    "ย้ายออก": PersonStatus.MOVED_OUT,
+    "เสียชีวิต": PersonStatus.DECEASED,
+    "ไม่ทราบสถานะ": PersonStatus.UNKNOWN,
   };
 
   const matched = mapped[normalized] ?? mapped[toTrimmedString(value) ?? ""];

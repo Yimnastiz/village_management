@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
-import { buildPopulationImportTemplateCsv } from "@/features/population/server/import-template";
+import { buildPopulationImportTemplateXlsx } from "@/features/population/server/import-template";
 
 export async function GET(request: Request) {
   const session = await getSessionContextFromRequest(request);
@@ -9,11 +9,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return new NextResponse(buildPopulationImportTemplateCsv(), {
+  const xlsxBuffer = buildPopulationImportTemplateXlsx();
+
+  return new NextResponse(xlsxBuffer, {
     status: 200,
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": 'attachment; filename="population-import-template.csv"',
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet; charset=utf-8",
+      "Content-Disposition": 'attachment; filename="แบบฟอร์มนำเข้าข้อมูลประชากร.xlsx"',
       "Cache-Control": "no-store",
     },
   });

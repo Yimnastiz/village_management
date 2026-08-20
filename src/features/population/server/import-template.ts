@@ -6,9 +6,11 @@ export type PopulationImportColumn = {
   example: string;
   acceptedValues?: string;
   aliases?: string[];
+  adminOnly?: boolean;
 };
 
-export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
+// All columns including advanced/legacy fields
+const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   {
     key: "house_number",
     label: "เลขที่บ้าน",
@@ -121,8 +123,8 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     label: "สถานะบ้าน",
     required: false,
     description: "สถานะการอยู่อาศัยของบ้าน",
-    example: "OCCUPIED",
-    acceptedValues: "OCCUPIED, VACANT, UNDER_CONSTRUCTION, DEMOLISHED",
+    example: "มีผู้อยู่อาศัย",
+    acceptedValues: "มีผู้อยู่อาศัย, ว่าง, กำลังก่อสร้าง, รื้อถอนแล้ว หรือ OCCUPIED, VACANT, UNDER_CONSTRUCTION, DEMOLISHED",
     aliases: ["house_status", "occupancy", "สถานะบ้าน", "สถานะครัวเรือน"],
   },
   {
@@ -130,8 +132,8 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     label: "สถานะบุคคล",
     required: false,
     description: "สถานะล่าสุดของบุคคล",
-    example: "ACTIVE",
-    acceptedValues: "ACTIVE, DECEASED, MOVED_OUT, UNKNOWN",
+    example: "อยู่ในทะเบียน",
+    acceptedValues: "อยู่ในทะเบียน, ย้ายออก, เสียชีวิต, ไม่ทราบสถานะ หรือ ACTIVE, DECEASED, MOVED_OUT, UNKNOWN",
     aliases: ["resident_status", "status", "สถานะบุคคล", "สถานะประชากร"],
   },
   {
@@ -175,6 +177,7 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     example: "TRUE",
     acceptedValues: "TRUE/FALSE, YES/NO, 1/0, ใช่/ไม่ใช่",
     aliases: ["create_account", "user_account", "สร้างบัญชีผู้ใช้", "เปิดบัญชีใช้งาน"],
+    adminOnly: true,
   },
   {
     key: "is_citizen_verified",
@@ -184,6 +187,7 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     example: "TRUE",
     acceptedValues: "TRUE/FALSE, YES/NO, 1/0, ใช่/ไม่ใช่",
     aliases: ["verified", "citizen_verified", "ยืนยันตัวตนแล้ว", "ตรวจสอบตัวตนแล้ว"],
+    adminOnly: true,
   },
   {
     key: "note",
@@ -195,14 +199,28 @@ export const POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   },
 ];
 
-export const POPULATION_IMPORT_HEADER_ALIASES = POPULATION_IMPORT_COLUMNS.reduce<
+// Export all columns for reference and advanced/legacy use
+export const POPULATION_IMPORT_COLUMNS = ALL_POPULATION_IMPORT_COLUMNS;
+
+// Export only admin-friendly columns (without user account/verification fields)
+export const POPULATION_IMPORT_COLUMNS_ADMIN = ALL_POPULATION_IMPORT_COLUMNS.filter(
+  (col) => !col.adminOnly
+);
+
+export const POPULATION_IMPORT_HEADER_ALIASES = ALL_POPULATION_IMPORT_COLUMNS.reduce<
   Record<string, string[]>
 >((accumulator, column) => {
   accumulator[column.key] = [column.key, ...(column.aliases ?? [])];
   return accumulator;
 }, {});
 
-export const POPULATION_IMPORT_TEMPLATE_HEADERS = POPULATION_IMPORT_COLUMNS.map(
+// Headers for the admin-friendly template (excludes user account fields)
+export const POPULATION_IMPORT_TEMPLATE_HEADERS = POPULATION_IMPORT_COLUMNS_ADMIN.map(
+  (column) => column.key,
+);
+
+// All headers including legacy fields
+export const POPULATION_IMPORT_ALL_HEADERS = ALL_POPULATION_IMPORT_COLUMNS.map(
   (column) => column.key,
 );
 
@@ -217,12 +235,10 @@ export const POPULATION_IMPORT_SAMPLE_ROW: Record<string, string> = {
   email: "somchai@example.com",
   house_address: "99/12 หมู่ 4 ถนนกลางหมู่บ้าน",
   zone_name: "หมู่ 4",
-  occupancy_status: "OCCUPIED",
-  person_status: "ACTIVE",
+  occupancy_status: "มีผู้อยู่อาศัย",
+  person_status: "อยู่ในทะเบียน",
   latitude: "13.7563",
   longitude: "100.5018",
-  create_user_account: "TRUE",
-  is_citizen_verified: "TRUE",
   note: "หัวหน้าครัวเรือน",
 };
 
@@ -235,10 +251,110 @@ function escapeCsvValue(value: string) {
 }
 
 export function buildPopulationImportTemplateCsv() {
-  const headerLine = POPULATION_IMPORT_TEMPLATE_HEADERS.join(",");
+  // Add UTF-8 BOM for proper Thai support in Excel
+  const bom = "\ufeff";
+  const headerLine = POPULATION_IMPORT_TEMPLATE_HEADERS.map(
+    (header) => POPULATION_IMPORT_COLUMNS_ADMIN.find((col) => col.key === header)?.label ?? header
+  ).join(",");
   const sampleLine = POPULATION_IMPORT_TEMPLATE_HEADERS.map((header) =>
     escapeCsvValue(POPULATION_IMPORT_SAMPLE_ROW[header] ?? ""),
   ).join(",");
 
-  return `${headerLine}\n${sampleLine}\n`;
+  return `${bom}${headerLine}\n${sampleLine}\n`;
+}
+
+export function buildPopulationImportTemplateXlsx() {
+  // Import xlsx (this is a server-side function)
+  const XLSX = require("xlsx");
+
+  // Create workbook and worksheet
+  const ws_data: (string | null)[][] = [
+    // Header row with Thai labels
+    POPULATION_IMPORT_TEMPLATE_HEADERS.map(
+      (header) => POPULATION_IMPORT_COLUMNS_ADMIN.find((col) => col.key === header)?.label ?? header
+    ),
+    // Sample row
+    POPULATION_IMPORT_TEMPLATE_HEADERS.map((header) => POPULATION_IMPORT_SAMPLE_ROW[header] ?? ""),
+    // Empty row
+    [],
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+  // Set column widths for better readability
+  const columnWidths = POPULATION_IMPORT_TEMPLATE_HEADERS.map((header) => {
+    const col = POPULATION_IMPORT_COLUMNS_ADMIN.find((c) => c.key === header);
+    return { wch: Math.max(12, (col?.label ?? header).length + 2) };
+  });
+  ws["!cols"] = columnWidths;
+
+  // Freeze header row
+  ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+
+  // Format header row as bold and with background color
+  const headerCellStyle = {
+    font: { bold: true, color: { rgb: "FFFFFF" } },
+    fill: { fgColor: { rgb: "1F4E78" } }
+  };
+
+  for (let i = 0; i < POPULATION_IMPORT_TEMPLATE_HEADERS.length; i++) {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: i });
+    if (!ws[cellRef]) {
+      ws[cellRef] = { t: "s", v: "" };
+    }
+    ws[cellRef].s = headerCellStyle;
+  }
+
+  // Format text columns (house_number, phone_number, national_id, external_person_id) to prevent Excel from auto-converting
+  const textColumns = ["house_number", "phone_number", "national_id", "external_person_id"];
+  const textColumnIndices = POPULATION_IMPORT_TEMPLATE_HEADERS
+    .map((h, i) => (textColumns.includes(h) ? i : -1))
+    .filter((i) => i !== -1);
+
+  for (let rowIdx = 1; rowIdx < ws_data.length; rowIdx++) {
+    for (const colIdx of textColumnIndices) {
+      const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+      if (ws[cellRef]) {
+        ws[cellRef].z = "@"; // Format as text
+      }
+    }
+  }
+
+  // Create workbook
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลนำเข้า");
+
+  // Add instructions sheet
+  const instructions_data = [
+    ["คำแนะนำการนำเข้าข้อมูล"],
+    [],
+    ["ฟิลด์ที่จำเป็น:"],
+    ["• เลขที่บ้าน (บังคับมี)"],
+    [],
+    ["การนำเข้าบุคคล:"],
+    ["• หากต้องการนำเข้าบุคคล ต้องระบุ ชื่อ และ นามสกุล ให้ครบ"],
+    ["• สามารถนำเข้าเฉพาะบ้าน (โดยปล่อยให้ชื่อและนามสกุลว่าง) หรือ บ้าน + บุคคล พร้อมกัน"],
+    [],
+    ["ข้อมูลโทรศัพท์และเลขบัตรประชาชน:"],
+    ["• ตั้งค่าให้เป็น 'ข้อความ' (Text) ใน Excel เพื่อไม่ให้เลข 0 ด้านหน้าหาย"],
+    ["• เลขที่บ้าน เช่น 99/12 ต้องเป็น 'ข้อความ' เพื่อไม่ให้ถูกแปลงเป็นวันที่"],
+    [],
+    ["ค่าที่รับได้:"],
+    ["สถานะบ้าน: มีผู้อยู่อาศัย, ว่าง, กำลังก่อสร้าง, รื้อถอนแล้ว"],
+    ["สถานะบุคคล: อยู่ในทะเบียน, ย้ายออก, เสียชีวิต, ไม่ทราบสถานะ"],
+    ["เพศ: ชาย, หญิง, อื่นๆ"],
+    [],
+    ["หมายเหตุ:"],
+    ["• การนำเข้าข้อมูลไม่ใช่การยืนยันตัวตนของลูกบ้าน"],
+    ["• ระบบจะตรวจสอบข้อมูลเดิมก่อนสร้างรายการใหม่ เพื่อลดข้อมูลซ้ำ"],
+    ["• บ้านใหม่และรายการที่เปลี่ยนแปลงจะแสดง Preview ก่อนยืนยัน"],
+  ];
+
+  const ws_instructions = XLSX.utils.aoa_to_sheet(instructions_data);
+  ws_instructions["!cols"] = [{ wch: 80 }];
+
+  XLSX.utils.book_append_sheet(wb, ws_instructions, "คำแนะนำ");
+
+  // Generate and return Buffer
+  return XLSX.write(wb, { type: "buffer" });
 }
