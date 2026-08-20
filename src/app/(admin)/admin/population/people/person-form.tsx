@@ -9,6 +9,7 @@ import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { isValidPersonName, normalizePersonName, PERSON_GENDER_VALUES, validateOptionalPersonDate } from "@/lib/person-validation";
 import { isValidStrictThaiNationalId } from "@/lib/thai-identity";
+import { isSameNationalId } from "@/lib/person-national-id";
 import { createPersonAction, updatePersonAction } from "./actions";
 
 type HouseOption = { value: string; label: string };
@@ -59,7 +60,13 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, linked
       setFocus("reason");
       return;
     }
-    const result = mode === "create" ? await createPersonAction(data) : await updatePersonAction(personId ?? "", data);
+    // A disabled native field is not a trustworthy submission mechanism. Keep
+    // the visible field immutable and explicitly send its original value; the
+    // server independently preserves and protects the database value.
+    const actionData = mode === "edit" && linkedAccount
+      ? { ...data, nationalId: defaultValues?.nationalId ?? "" }
+      : data;
+    const result = mode === "create" ? await createPersonAction(actionData) : await updatePersonAction(personId ?? "", actionData);
     if (!result.success) {
       if (result.error.includes("เหตุผล")) { setError("reason", { message: result.error }); setFocus("reason"); }
       if (result.error.includes("เลขบัตรประชาชน")) setError("nationalId", { message: result.error });
@@ -81,7 +88,7 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, linked
 
     <fieldset className="space-y-4"><legend className="text-sm font-semibold text-gray-900">ข้อมูลระบุตัวตน</legend>
       <div className="grid gap-4 sm:grid-cols-2"><Input label="ชื่อ" maxLength={100} {...register("firstName", { required: "กรุณาระบุชื่อ", validate: (value) => isValidPersonName(value) || `ชื่อ${NAME_ERROR}` })} error={errors.firstName?.message} required /><Input label="นามสกุล" maxLength={100} {...register("lastName", { required: "กรุณาระบุนามสกุล", validate: (value) => isValidPersonName(value) || `นามสกุล${NAME_ERROR}` })} error={errors.lastName?.message} required /></div>
-      <div className="grid gap-4 sm:grid-cols-2"><Input label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} {...register("nationalId", { validate: (value) => !value || isValidStrictThaiNationalId(value) || "เลขบัตรประชาชนไม่ถูกต้อง" })} error={errors.nationalId?.message} disabled={Boolean(linkedAccount)} helperText={linkedAccount ? "เลขบัตรประชาชนเป็นข้อมูลยืนยันตัวตนและแก้ไขจากหน้านี้ไม่ได้" : "ถ้าระบุ ต้องเป็นเลขบัตรประชาชนไทยที่ถูกต้อง 13 หลัก"} /><Input label="วันเกิด" type="date" max={new Date().toISOString().slice(0, 10)} {...register("dateOfBirth", { validate: (value) => { const result = validateOptionalPersonDate(value); return result.valid || (result.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง"); } })} error={errors.dateOfBirth?.message} /></div>
+      <div className="grid gap-4 sm:grid-cols-2"><Input label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} {...register("nationalId", { validate: (value) => Boolean(linkedAccount) || (mode === "edit" && isSameNationalId(defaultValues?.nationalId ?? "", value)) || !value || isValidStrictThaiNationalId(value) || "เลขบัตรประชาชนไม่ถูกต้อง" })} error={errors.nationalId?.message} disabled={Boolean(linkedAccount)} helperText={linkedAccount ? "เลขบัตรประชาชนเป็นข้อมูลยืนยันตัวตนและแก้ไขจากหน้านี้ไม่ได้" : "ถ้าระบุ ต้องเป็นเลขบัตรประชาชนไทยที่ถูกต้อง 13 หลัก"} /><Input label="วันเกิด" type="date" max={new Date().toISOString().slice(0, 10)} {...register("dateOfBirth", { validate: (value) => { const result = validateOptionalPersonDate(value); return result.valid || (result.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง"); } })} error={errors.dateOfBirth?.message} /></div>
       <Select label="เพศ" {...register("gender", { validate: (value) => PERSON_GENDER_VALUES.includes(value as (typeof PERSON_GENDER_VALUES)[number]) || "ข้อมูลเพศไม่ถูกต้อง" })} error={errors.gender?.message} options={PERSON_GENDER_VALUES.map((value) => ({ value, label: value }))} required />
     </fieldset>
 

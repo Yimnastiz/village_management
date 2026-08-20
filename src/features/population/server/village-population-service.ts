@@ -10,7 +10,10 @@ import {
   VillageMembershipRole,
 } from "@prisma/client";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
-import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
+import {
+  normalizeNewNationalId,
+  resolveUpdatedNationalId,
+} from "@/lib/person-national-id";
 import {
   isValidPersonName,
   normalizePersonGender,
@@ -41,7 +44,7 @@ export async function assertTargetVillage(villageId: string) {
   return village;
 }
 
-export function normalizePersonInput(data: VillagePersonInput) {
+function normalizePersonInputWithoutNationalId(data: VillagePersonInput) {
   const firstName = normalizePersonName(typeof data.firstName === "string" ? data.firstName : "");
   const lastName = normalizePersonName(typeof data.lastName === "string" ? data.lastName : "");
   if (!firstName || !lastName) throw new PopulationValidationError("กรุณาระบุชื่อและนามสกุล");
@@ -51,14 +54,20 @@ export function normalizePersonInput(data: VillagePersonInput) {
   if (!parsedDate.valid) throw new PopulationValidationError(parsedDate.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง");
   const gender = normalizePersonGender(typeof data.gender === "string" ? data.gender : "");
   if (!gender) throw new PopulationValidationError("ข้อมูลเพศไม่ถูกต้อง");
-  const rawNationalId = typeof data.nationalId === "string" ? data.nationalId.trim() : "";
-  const nationalId = rawNationalId ? normalizeNationalId(rawNationalId) : null;
-  if (rawNationalId && !isValidStrictThaiNationalId(rawNationalId)) throw new PopulationValidationError("เลขบัตรประชาชนไม่ถูกต้อง");
   const phone = (typeof data.phone === "string" ? data.phone : "").trim().replace(/[\s-]/g, "") || null;
   if (phone && !/^\+?\d{9,15}$/.test(phone)) throw new PopulationValidationError("รูปแบบเบอร์โทรไม่ถูกต้อง");
   const email = (typeof data.email === "string" ? data.email : "").trim().toLocaleLowerCase("en-US") || null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PopulationValidationError("อีเมลสำหรับติดต่อไม่ถูกต้อง");
-  return { firstName, lastName, nationalId, dateOfBirth: parsedDate.value, gender, phone, email, houseId: (typeof data.houseId === "string" ? data.houseId : "").trim() || null };
+  return { firstName, lastName, dateOfBirth: parsedDate.value, gender, phone, email, houseId: (typeof data.houseId === "string" ? data.houseId : "").trim() || null };
+}
+
+export function normalizePersonInput(data: VillagePersonInput) {
+  const value = normalizePersonInputWithoutNationalId(data);
+  try {
+    return { ...value, nationalId: normalizeNewNationalId(data.nationalId) };
+  } catch {
+    throw new PopulationValidationError("เลขบัตรประชาชนไม่ถูกต้อง");
+  }
 }
 
 function comparableValue(value: unknown) {
@@ -198,40 +207,42 @@ export async function createVillagePerson(villageId: string, data: VillagePerson
 }
 
 export async function updateVillagePerson(villageId: string, personId: string, data: VillagePersonInput, actor: PopulationActor) {
-  const value = normalizePersonInput(data);
   return prisma.$transaction(async (tx) => {
     const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true, firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true, phone: true, email: true, house: { select: { houseNumber: true } } } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");
     if (person.status === PersonStatus.MOVED_OUT || person.status === PersonStatus.DECEASED) {
       throw new PopulationValidationError("ข้อมูลผู้ย้ายออกหรือผู้เสียชีวิตเป็นข้อมูลประวัติ ไม่สามารถแก้ไขข้อมูลทั่วไปได้");
     }
-    if (person.userId && person.nationalId !== value.nationalId) throw new PopulationValidationError("เลขบัตรประชาชนเชื่อมกับบัญชีผู้ใช้แล้วและแก้ไขจากทะเบียนประชากรไม่ได้");
-    if (person.userId && person.phone !== value.phone) throw new PopulationValidationError("เบอร์นี้ใช้สำหรับเข้าสู่ระบบและต้องเปลี่ยนผ่านขั้นตอนบัญชีผู้ใช้");
-    await assertHouseInVillage(tx, villageId, value.houseId);
-    if (value.nationalId && await tx.person.findFirst({ where: { villageId, nationalId: value.nationalId, id: { not: personId } }, select: { id: true } })) throw new PopulationValidationError("เลขบัตรประชาชนนี้มีอยู่ในทะเบียนแล้ว");
-    const houseChanged = person.houseId !== value.houseId;
+    const value = normalizePersonInputWithoutNationalId(data);
+    const nationalId = resolveUpdatedNationalId(person, data.nationalId);
+    if (!nationalId.ok) throw new PopulationValidationError(nationalId.message);
+    const resolvedValue = { ...value, nationalId: nationalId.nationalId };
+    if (person.userId && person.phone !== resolvedValue.phone) throw new PopulationValidationError("เบอร์นี้ใช้สำหรับเข้าสู่ระบบและต้องเปลี่ยนผ่านขั้นตอนบัญชีผู้ใช้");
+    await assertHouseInVillage(tx, villageId, resolvedValue.houseId);
+    if (nationalId.changed && resolvedValue.nationalId && await tx.person.findFirst({ where: { villageId, nationalId: resolvedValue.nationalId, id: { not: personId } }, select: { id: true } })) throw new PopulationValidationError("เลขบัตรประชาชนนี้มีอยู่ในทะเบียนแล้ว");
+    const houseChanged = person.houseId !== resolvedValue.houseId;
     const reason = typeof data.reason === "string" ? data.reason.trim() : "";
-    const nameChanged = person.firstName !== value.firstName || person.lastName !== value.lastName;
+    const nameChanged = person.firstName !== resolvedValue.firstName || person.lastName !== resolvedValue.lastName;
     const oldGender = normalizePersonGender(person.gender);
-    const genderChanged = oldGender !== value.gender;
-    const dateOfBirthChanged = comparableValue(person.dateOfBirth) !== comparableValue(value.dateOfBirth);
+    const genderChanged = oldGender !== resolvedValue.gender;
+    const dateOfBirthChanged = comparableValue(person.dateOfBirth) !== comparableValue(resolvedValue.dateOfBirth);
     const requiresReason = houseChanged || (Boolean(person.userId) && nameChanged) || (Boolean(person.gender) && genderChanged) || (Boolean(person.dateOfBirth) && dateOfBirthChanged);
     if (requiresReason && reason.length < 5) throw new PopulationValidationError("กรุณาระบุเหตุผลการแก้ไขข้อมูลสำคัญอย่างน้อย 5 ตัวอักษร");
-    const changedFields = (Object.keys(value) as Array<keyof typeof value>).filter((key) => comparableValue(person[key as keyof typeof person]) !== comparableValue(value[key]));
+    const changedFields = (Object.keys(resolvedValue) as Array<keyof typeof resolvedValue>).filter((key) => comparableValue(person[key as keyof typeof person]) !== comparableValue(resolvedValue[key]));
     const oldValue = Object.fromEntries(changedFields.map((key) => [key, comparableValue(person[key as keyof typeof person]) ?? null]));
-    const newValue = Object.fromEntries(changedFields.map((key) => [key, comparableValue(value[key]) ?? null]));
-    const newHouse = houseChanged && value.houseId ? await tx.house.findUnique({ where: { id: value.houseId }, select: { houseNumber: true } }) : null;
-    const result = await tx.person.updateMany({ where: { id: personId, villageId }, data: value });
+    const newValue = Object.fromEntries(changedFields.map((key) => [key, comparableValue(resolvedValue[key]) ?? null]));
+    const newHouse = houseChanged && resolvedValue.houseId ? await tx.house.findUnique({ where: { id: resolvedValue.houseId }, select: { houseNumber: true } }) : null;
+    const result = await tx.person.updateMany({ where: { id: personId, villageId }, data: resolvedValue });
     if (result.count !== 1) throw new PopulationValidationError("ไม่สามารถแก้ไขบุคคลข้ามหมู่บ้านได้");
     if (houseChanged) {
       if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: reason } });
-      if (value.houseId) await tx.personMovement.create({ data: { personId, houseId: value.houseId, movementType: MovementType.MOVE_IN, date: new Date(), note: reason } });
+      if (resolvedValue.houseId) await tx.personMovement.create({ data: { personId, houseId: resolvedValue.houseId, movementType: MovementType.MOVE_IN, date: new Date(), note: reason } });
       if (person.userId) {
-        await tx.villageMembership.updateMany({ where: { userId: person.userId, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE }, data: { houseId: value.houseId } });
+        await tx.villageMembership.updateMany({ where: { userId: person.userId, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE }, data: { houseId: resolvedValue.houseId } });
       }
     }
-    if (person.userId && nameChanged) await tx.user.update({ where: { id: person.userId }, data: { name: `${value.firstName} ${value.lastName}` } });
-    if (changedFields.length) await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: houseChanged ? "PERSON_MOVED_HOUSE" : "PERSON_UPDATED", subject: `${value.firstName} ${value.lastName}`, reason: reason || null, changedFields, oldValue: { ...oldValue, ...(houseChanged ? { houseNumber: person.house?.houseNumber ?? null } : {}) }, newValue: { ...newValue, ...(houseChanged ? { houseNumber: newHouse?.houseNumber ?? null } : {}) } } } });
+    if (person.userId && nameChanged) await tx.user.update({ where: { id: person.userId }, data: { name: `${resolvedValue.firstName} ${resolvedValue.lastName}` } });
+    if (changedFields.length) await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: houseChanged ? "PERSON_MOVED_HOUSE" : "PERSON_UPDATED", subject: `${resolvedValue.firstName} ${resolvedValue.lastName}`, reason: reason || null, changedFields, oldValue: { ...oldValue, ...(houseChanged ? { houseNumber: person.house?.houseNumber ?? null } : {}) }, newValue: { ...newValue, ...(houseChanged ? { houseNumber: newHouse?.houseNumber ?? null } : {}) } } } });
     return { moved: houseChanged };
   });
 }
