@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft, Clock } from "lucide-react";
-import { Prisma, type VillageMembershipRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { formatThaiDateTime } from "@/lib/utils";
+import { AppointmentTimeline } from "@/components/appointments/appointment-timeline";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { redirect } from "next/navigation";
@@ -13,10 +13,8 @@ interface PageProps { params: Promise<{ appointmentId: string }>; searchParams?:
 
 const stageVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING_APPROVAL: "warning", TIME_SUGGESTED: "info", APPROVED: "success", REJECTED: "danger", CANCELLED: "default", COMPLETED: "info" };
 const residentStageLabels: Record<string, string> = { PENDING_APPROVAL: "รอผู้ใหญ่บ้านตอบกลับ", TIME_SUGGESTED: "รอคุณยืนยันเวลา", APPROVED: "ยืนยันนัดหมายแล้ว", REJECTED: "ปฏิเสธ", CANCELLED: "ยกเลิก", COMPLETED: "เสร็จสิ้น" };
-const timelineLabels: Record<string, string> = { CREATED: "ส่งคำขอนัดหมาย", UPDATED: "แก้ไขคำขอนัดหมาย", TIME_SUGGESTED: "เสนอวันเวลา", APPROVED: "ยืนยันนัดหมาย", REJECTED: "ปฏิเสธคำขอนัดหมาย", CANCELLED: "ยกเลิกนัดหมาย", TIME_CHANGE_REQUESTED: "ขอเปลี่ยนเวลา" };
-
-function metadataOf(value: Prisma.JsonValue | null): Record<string, Prisma.JsonValue> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, Prisma.JsonValue> : {}; }
-function stringValue(metadata: Record<string, Prisma.JsonValue>, key: string) { const value = metadata[key]; return typeof value === "string" && value.trim() ? value.trim() : null; }
+function metadataOf(value: unknown): Record<string, unknown> { return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {}; }
+function stringValue(metadata: Record<string, unknown>, key: string) { const value = metadata[key]; return typeof value === "string" && value.trim() ? value.trim() : null; }
 function roleLabel(role: string | null | undefined) { return role ? MEMBERSHIP_ROLE_LABELS[role] ?? "ผู้ดูแลหมู่บ้าน" : "ผู้ดูแลหมู่บ้าน"; }
 function appointmentDateTime(appointment: { scheduledAt: Date | null; slot: { date: Date; startTime: string } | null }) {
   if (!appointment.scheduledAt || !appointment.slot) return null;
@@ -76,18 +74,7 @@ export default async function AppointmentDetailPage({ params, searchParams }: Pa
     </article>
     <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
       <h2 className="font-semibold text-gray-900">ประวัติการดำเนินการ</h2>
-      <ol className="mt-4 space-y-4">{appointment.timeline.map((entry, index) => {
-        const metadata = metadataOf(entry.metadata);
-        const actorRole = entry.actor?.memberships[0]?.role as VillageMembershipRole | undefined;
-        const actor = entry.actorId === session.id ? "คุณ" : entry.actor?.name ? `${entry.actor.name} (${roleLabel(actorRole)})` : "ผู้ดูแลหมู่บ้าน";
-        const preferred = stringValue(metadata, "preferredTime");
-        const reason = stringValue(metadata, "reason");
-        const changes = metadata.changes && typeof metadata.changes === "object" && !Array.isArray(metadata.changes) ? metadata.changes as Record<string, Prisma.JsonValue> : null;
-        const slotTime = stringValue(metadata, "slotTime");
-        const slotDateValue = metadata.slotDate;
-        const slotDate = typeof slotDateValue === "string" && !Number.isNaN(new Date(slotDateValue).getTime()) ? new Date(slotDateValue) : null;
-        return <li key={entry.id} className="relative flex gap-3"><div className="flex w-3 flex-col items-center"><span className="mt-1.5 h-2.5 w-2.5 rounded-full bg-green-600" />{index < appointment.timeline.length - 1 ? <span className="mt-1 w-px flex-1 bg-gray-200" /> : null}</div><div className="min-w-0 flex-1 pb-1"><div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><p className="font-medium text-gray-900">{timelineLabels[entry.action] ?? "อัปเดตนัดหมาย"}</p><time className="text-xs text-gray-400">{formatThaiDateTime(entry.createdAt)}</time></div><p className="mt-1 text-sm text-gray-500">{actor}</p>{(preferred || reason || slotTime) ? <div className="mt-2 text-sm text-gray-700">{preferred ? <p>ช่วงเวลาที่สะดวก: {preferred}</p> : null}{reason ? <p>เหตุผล: {reason}</p> : null}{slotTime ? <p>{slotDate ? `${formatThaiDateTime(slotDate).replace(/ เวลา .*$/, "")} เวลา ` : ""}{slotTime.split("-")[0]}</p> : null}</div> : null}{changes ? <details className="mt-2 text-sm text-gray-600"><summary className="cursor-pointer font-medium text-green-700">ดูรายละเอียดการเปลี่ยนแปลง</summary><div className="mt-2 space-y-1 pl-1">{changes.title && typeof changes.title === "object" && !Array.isArray(changes.title) ? <p>เรื่อง: {String((changes.title as Record<string, Prisma.JsonValue>).from ?? "")} → {String((changes.title as Record<string, Prisma.JsonValue>).to ?? "")}</p> : null}{changes.preferredTime && typeof changes.preferredTime === "object" && !Array.isArray(changes.preferredTime) ? <p>ช่วงเวลาที่สะดวก: {String((changes.preferredTime as Record<string, Prisma.JsonValue>).from ?? "-")} → {String((changes.preferredTime as Record<string, Prisma.JsonValue>).to ?? "-")}</p> : null}{changes.descriptionChanged === true ? <p>มีการแก้ไขรายละเอียด</p> : null}</div></details> : null}</div></li>;
-      })}</ol>
+      <AppointmentTimeline entries={appointment.timeline} villageId={membership.villageId} viewerId={session.id} />
     </section>
   </div>;
 }
