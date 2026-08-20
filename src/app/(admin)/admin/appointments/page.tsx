@@ -29,7 +29,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
 
   const keyword = params.q?.trim() ?? "";
   const activeStage = params.stage ?? "ALL";
-  const activeSort = params.sort ?? "pending";
+  const activeSort = params.sort === "oldest" || params.sort === "upcoming" ? params.sort : "newest";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 25;
 
@@ -53,7 +53,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
       ? [{ createdAt: "asc" as const }]
       : activeSort === "newest"
         ? [{ createdAt: "desc" as const }]
-        : [{ stage: "asc" as const }, { createdAt: "desc" as const }];
+        : [{ createdAt: "desc" as const }];
 
   const select = {
     id: true, title: true, stage: true, slotId: true, scheduledAt: true, createdAt: true,
@@ -106,7 +106,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = params.q?.trim() ?? "";
   const activeStage = params.stage ?? "ALL";
-  const activeSort = params.sort ?? "pending";
+  const activeSort = params.sort === "oldest" || params.sort === "upcoming" ? params.sort : "newest";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 25;
   const { appointments, totalCount } = await fetchPendingAppointments(params);
@@ -118,10 +118,10 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
     const query = new URLSearchParams();
     const q = next.q?.trim() ?? "";
     const stage = next.stage ?? "ALL";
-    const sort = next.sort ?? "pending";
+    const sort = next.sort ?? "newest";
     if (q) query.set("q", q);
     if (stage !== "ALL") query.set("stage", stage);
-    if (sort !== "pending") query.set("sort", sort);
+    if (sort !== "newest") query.set("sort", sort);
     const queryString = query.toString();
     return queryString ? `/admin/appointments?${queryString}` : "/admin/appointments";
   }
@@ -135,7 +135,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
         searchAction="/admin/appointments"
         keyword={keyword}
         searchPlaceholder="ค้นหาจากหัวข้อหรือชื่อผู้ขอ"
-        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, sort: activeSort === "pending" ? "" : activeSort }}
+        hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, sort: activeSort === "newest" ? "" : activeSort }}
         clearHref={buildAppointmentsHref({ q: keyword })}
         suggestionTitles={suggestionTitles}
         groups={[
@@ -153,9 +153,8 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
             label: "เรียง",
             countsAsFilter: false,
             options: [
-              { label: "รออนุมัติก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "pending" }), active: activeSort === "pending" },
-              { label: "ล่าสุดก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "newest" }), active: activeSort === "newest" },
-              { label: "เก่าก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "oldest" }), active: activeSort === "oldest" },
+              { label: "สร้างล่าสุดก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "newest" }), active: activeSort === "newest" },
+              { label: "สร้างเก่าสุดก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "oldest" }), active: activeSort === "oldest" },
               { label: "นัดหมายใกล้ถึงก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "upcoming" }), active: activeSort === "upcoming" },
             ],
           },
@@ -231,7 +230,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
           ))}
         </div>
       )}
-      <QueryPagination pathname="/admin/appointments" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, sort: activeSort !== "pending" ? activeSort : undefined }} />
+      <QueryPagination pathname="/admin/appointments" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, sort: activeSort !== "newest" ? activeSort : undefined }} />
     </div>
   );
 }
