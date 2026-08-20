@@ -9,6 +9,8 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { MAX_IMAGES_PER_REQUEST } from "@/lib/image-constraints";
 import { issueImageUploadUrl, type IssueImageInput } from "@/lib/issue-images";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
+import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
+import { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -131,9 +133,9 @@ export async function createIssueAction(
     data: {
       issueId: issue.id,
       actorId: session.id,
-      action: "แจ้งปัญหา",
+      action: "สร้างคำร้อง",
       description: "สร้างคำร้องใหม่",
-      metadata: { eventType: "STATUS_CHANGE", stage: "PENDING" },
+      metadata: { eventType: "ISSUE_CREATED", createdBy: "RESIDENT" },
     },
   });
 
@@ -184,13 +186,46 @@ export async function editIssueAction(
   if (!imageUrls) return { success: false, error: "รูปภาพเดิมไม่ถูกต้องหรือรูปใหม่ยังอัปโหลดไม่เสร็จ" };
 
   const changes: string[] = [];
+  const changeDetails: Prisma.InputJsonObject[] = [];
   if (issue.title !== parsed.data.title) changes.push("หัวข้อ");
-  if (issue.description !== parsed.data.description) changes.push("รายละเอียด");
-  if (issue.category !== parsed.data.category) changes.push("หมวดหมู่");
-  if (issue.priority !== parsed.data.priority) changes.push(`ความสำคัญ: ${issue.priority === "LOW" ? "ต่ำ" : issue.priority === "MEDIUM" ? "ปานกลาง" : issue.priority === "HIGH" ? "สูง" : "เร่งด่วน"} → ${parsed.data.priority === "LOW" ? "ต่ำ" : parsed.data.priority === "MEDIUM" ? "ปานกลาง" : parsed.data.priority === "HIGH" ? "สูง" : "เร่งด่วน"}`);
-  if ((issue.location ?? "") !== (parsed.data.location?.trim() || "")) changes.push("สถานที่");
-  if (JSON.stringify(issue.imageUrls) !== JSON.stringify(imageUrls)) changes.push("รูปภาพ");
-  if (issue.isPublic !== Boolean(parsed.data.isPublic)) changes.push("การมองเห็น");
+  if (issue.title !== parsed.data.title) changeDetails.push({
+    field: "title",
+    label: "หัวข้อ",
+    ...(issue.title.length <= 500 && parsed.data.title.length <= 500
+      ? { before: issue.title, after: parsed.data.title }
+      : { summary: "มีการแก้ไขหัวข้อคำร้อง" }),
+  });
+  if (issue.description !== parsed.data.description) {
+    changes.push("รายละเอียด");
+    changeDetails.push({ field: "description", label: "รายละเอียด", summary: "มีการแก้ไขรายละเอียดคำร้อง", ...(issue.description.length <= 500 && parsed.data.description.length <= 500 ? { beforeText: issue.description, afterText: parsed.data.description } : {}) });
+  }
+  if (issue.category !== parsed.data.category) {
+    changes.push("หมวดหมู่");
+    changeDetails.push({ field: "category", label: "หมวดหมู่", before: ISSUE_CATEGORY_LABELS[issue.category], after: ISSUE_CATEGORY_LABELS[parsed.data.category] });
+  }
+  if (issue.priority !== parsed.data.priority) {
+    const before = ISSUE_PRIORITY_LABELS[issue.priority];
+    const after = ISSUE_PRIORITY_LABELS[parsed.data.priority];
+    changes.push(`ความสำคัญ: ${before} → ${after}`);
+    changeDetails.push({ field: "priority", label: "ความสำคัญ", before, after });
+  }
+  const nextLocation = parsed.data.location?.trim() || "";
+  if ((issue.location ?? "") !== nextLocation) {
+    changes.push("สถานที่");
+    changeDetails.push({ field: "location", label: "สถานที่", before: issue.location ?? null, after: nextLocation || null });
+  }
+  const oldImageUrls = storedImageUrls;
+  const addedImageCount = imageUrls.filter((url) => !oldImageUrls.includes(url)).length;
+  const removedImageCount = oldImageUrls.filter((url) => !imageUrls.includes(url)).length;
+  const reorderedImages = oldImageUrls.length === imageUrls.length && oldImageUrls.some((url, index) => imageUrls[index] !== url);
+  if (addedImageCount || removedImageCount || reorderedImages) {
+    changes.push("รูปภาพ");
+    changeDetails.push({ field: "images", label: "รูปภาพ", addedCount: addedImageCount, removedCount: removedImageCount, reordered: reorderedImages });
+  }
+  if (issue.isPublic !== Boolean(parsed.data.isPublic)) {
+    changes.push("การมองเห็น");
+    changeDetails.push({ field: "visibility", label: "การมองเห็น", before: issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล", after: parsed.data.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล" });
+  }
 
   await prisma.issue.update({
     where: { id: issueId },
@@ -209,12 +244,7 @@ export async function editIssueAction(
     data: {
       issueId,
       actorId: session.id,
-      metadata: {
-        eventType: "ISSUE_EDITED",
-        changes: issue.priority !== parsed.data.priority
-          ? [{ label: "ความสำคัญ", before: issue.priority === "LOW" ? "ต่ำ" : issue.priority === "MEDIUM" ? "ปานกลาง" : issue.priority === "HIGH" ? "สูง" : "เร่งด่วน", after: parsed.data.priority === "LOW" ? "ต่ำ" : parsed.data.priority === "MEDIUM" ? "ปานกลาง" : parsed.data.priority === "HIGH" ? "สูง" : "เร่งด่วน" }]
-          : [],
-      },
+      metadata: { eventType: "ISSUE_EDITED", changes: changeDetails },
       action: "แก้ไขคำร้อง",
       description: changes.length > 0 ? `แก้ไข: ${changes.join(", ")}` : "ปรับปรุงข้อมูลคำร้อง",
     },
@@ -286,6 +316,9 @@ export async function addIssueMessageAction(
       content: trimmed,
       isInternal: false,
     },
+  });
+  await prisma.issueTimeline.create({
+    data: { issueId, actorId: session.id, action: "แสดงความคิดเห็น", description: trimmed, metadata: { eventType: "COMMENT" } },
   });
 
   await notifyVillageAdmins(

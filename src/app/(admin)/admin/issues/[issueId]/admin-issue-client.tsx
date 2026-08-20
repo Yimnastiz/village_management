@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import {
   adminEditIssueAction,
   adminUpdateStageAction,
@@ -123,18 +124,19 @@ type AdminStageFormProps = {
 
 export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
   const router = useRouter();
+  const { pushToast } = useToast();
   const [stage, setStage] = useState(stageOptions[0]?.value ?? "");
   const [note, setNote] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [finalNote, setFinalNote] = useState("");
+  const [finalDialogOpen, setFinalDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stage) return;
-    if (stage === "REJECTED") {
-      setRejectDialogOpen(true);
+    if (stage === "RESOLVED" || stage === "REJECTED") {
+      setFinalDialogOpen(true);
       return;
     }
     await submitStage(note);
@@ -146,13 +148,15 @@ export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
     const result = await adminUpdateStageAction(issueId, stage, submissionNote);
     if (!result.success) {
       setError(result.error);
+      pushToast({ tone: "error", title: "อัปเดตสถานะไม่สำเร็จ", description: result.error });
       setIsSubmitting(false);
       return;
     }
     setNote("");
-    setRejectReason("");
-    setRejectDialogOpen(false);
+    setFinalNote("");
+    setFinalDialogOpen(false);
     setIsSubmitting(false);
+    pushToast({ tone: "success", title: stage === "RESOLVED" ? "แก้ไขคำร้องเรียบร้อยแล้ว" : "อัปเดตสถานะคำร้องเรียบร้อยแล้ว" });
     router.refresh();
   };
 
@@ -165,16 +169,16 @@ export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
       <Select
         label="เปลี่ยนสถานะ"
         value={stage}
-        onChange={(e) => setStage(e.target.value)}
+        onChange={(e) => { setStage(e.target.value); setError(null); }}
         options={stageOptions}
       />
-      <Textarea
-        label={stage === "RESOLVED" ? "รายละเอียดการแก้ไข (ไม่บังคับ)" : "หมายเหตุ (ไม่บังคับ)"}
+      {stage !== "RESOLVED" && stage !== "REJECTED" ? <Textarea
+        label="หมายเหตุ (ไม่บังคับ)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
         placeholder="เช่น ช่างออกไปตรวจสอบแล้ว..."
         rows={2}
-      />
+      /> : null}
       {error && <p className="text-xs text-red-600">{error}</p>}
       <Button
         type="submit"
@@ -185,25 +189,25 @@ export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
         บันทึกสถานะ
       </Button>
       <ConfirmDialog
-        open={rejectDialogOpen}
-        title="ปฏิเสธคำร้อง"
-        description="โปรดระบุเหตุผลเพื่อแจ้งผู้แจ้งปัญหา"
-        confirmLabel="ยืนยันการปฏิเสธ"
-        tone="danger"
+        open={finalDialogOpen}
+        title={stage === "RESOLVED" ? "ยืนยันการแก้ไขคำร้อง" : "ปฏิเสธ/ไม่ดำเนินการคำร้อง"}
+        description={stage === "RESOLVED" ? "โปรดสรุปการดำเนินการก่อนยืนยันปิดงาน" : "โปรดระบุเหตุผลเพื่อแจ้งผู้แจ้งปัญหา"}
+        confirmLabel={stage === "RESOLVED" ? "ยืนยันว่าแก้ไขแล้ว" : "ยืนยันการปฏิเสธ"}
+        tone={stage === "REJECTED" ? "danger" : "default"}
         pending={isSubmitting}
-        confirmDisabled={rejectReason.trim().length < 5 || rejectReason.trim().length > 500}
-        onClose={() => !isSubmitting && setRejectDialogOpen(false)}
-        onConfirm={() => submitStage(rejectReason)}
+        confirmDisabled={finalNote.trim().length < 5 || finalNote.trim().length > 500}
+        onClose={() => !isSubmitting && setFinalDialogOpen(false)}
+        onConfirm={() => submitStage(finalNote)}
       >
         <Textarea
-          label="เหตุผลที่ปฏิเสธ"
+          label={stage === "RESOLVED" ? "สรุปการดำเนินการ *" : "เหตุผล *"}
           required
           minLength={5}
           maxLength={500}
-          value={rejectReason}
-          onChange={(event) => setRejectReason(event.target.value)}
-          error={rejectReason.length > 0 && (rejectReason.trim().length < 5 || rejectReason.trim().length > 500) ? "กรุณาระบุ 5–500 ตัวอักษร" : undefined}
-          helperText={`${rejectReason.trim().length}/500 ตัวอักษร`}
+          value={finalNote}
+          onChange={(event) => setFinalNote(event.target.value)}
+          error={finalNote.length > 0 && (finalNote.trim().length < 5 || finalNote.trim().length > 500) ? "กรุณาระบุ 5–500 ตัวอักษร" : undefined}
+          helperText={`${finalNote.trim().length}/500 ตัวอักษร`}
           rows={4}
           autoFocus
         />
@@ -214,29 +218,58 @@ export function AdminStageForm({ issueId, stageOptions }: AdminStageFormProps) {
 
 export function AdminDeleteButton({ issueId }: { issueId: string }) {
   const router = useRouter();
+  const { pushToast } = useToast();
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
 
   const handleDelete = async () => {
-    if (!confirm("ยืนยันการลบคำร้องนี้? การดำเนินการนี้ไม่สามารถย้อนกลับได้")) return;
     setIsDeleting(true);
     setError(null);
-    const result = await adminDeleteIssueAction(issueId);
+    const result = await adminDeleteIssueAction(issueId, reason);
     if (!result.success) {
       setError(result.error);
+      pushToast({ tone: "error", title: "ลบคำร้องไม่สำเร็จ", description: result.error });
       setIsDeleting(false);
       return;
     }
+    pushToast({ tone: "success", title: "ลบคำร้องเรียบร้อยแล้ว" });
     router.push("/admin/issues");
   };
 
   return (
     <div>
-      <Button variant="danger" size="sm" onClick={handleDelete} isLoading={isDeleting}>
+      <Button variant="danger" size="sm" onClick={() => setOpen(true)} isLoading={isDeleting}>
         <Trash2 className="h-4 w-4 mr-1" />
         ลบคำร้อง
       </Button>
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      <ConfirmDialog
+        open={open}
+        title="ลบคำร้อง"
+        description="โปรดระบุเหตุผลก่อนลบคำร้อง การดำเนินการนี้ไม่สามารถย้อนกลับได้"
+        confirmLabel="ลบคำร้อง"
+        cancelLabel="ยกเลิก"
+        tone="danger"
+        pending={isDeleting}
+        confirmDisabled={reason.trim().length < 5 || reason.trim().length > 500}
+        onClose={() => !isDeleting && setOpen(false)}
+        onConfirm={handleDelete}
+      >
+        <Textarea
+          label="เหตุผลในการลบ *"
+          required
+          minLength={5}
+          maxLength={500}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          error={reason.length > 0 && (reason.trim().length < 5 || reason.trim().length > 500) ? "กรุณาระบุ 5–500 ตัวอักษร" : undefined}
+          helperText={`${reason.trim().length}/500 ตัวอักษร`}
+          rows={4}
+          autoFocus
+        />
+      </ConfirmDialog>
     </div>
   );
 }
