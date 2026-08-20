@@ -218,12 +218,24 @@ export async function updateAppointmentRequestAction(appointmentId: string, inpu
   const parsed = simpleRequestSchema.safeParse(input);
   if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
   const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, userId: session.id } });
-  if (!appointment || !["PENDING_APPROVAL"].includes(appointment.stage)) return { success: false, error: "แก้ไขคำขอนัดหมายนี้ไม่ได้แล้ว" };
+  const source = appointment ? await getAppointmentCreationSource(appointment.id) : null;
+  if (!appointment || source?.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") return { success: false, error: "แก้ไขคำขอนัดหมายนี้ไม่ได้แล้ว" };
   const target = parsed.data.targetAdminUserId ? await getAdminResponderSummary(appointment.villageId, parsed.data.targetAdminUserId) : null;
   if (parsed.data.targetAdminUserId && !target) return { success: false, error: "ผู้รับนัดหมายไม่ถูกต้อง" };
+  const firstEntry = await prisma.appointmentTimeline.findFirst({ where: { appointmentId }, orderBy: { createdAt: "asc" }, select: { metadata: true } });
+  const firstMetadata = firstEntry?.metadata && typeof firstEntry.metadata === "object" && !Array.isArray(firstEntry.metadata) ? firstEntry.metadata : {};
+  const previousPreferredTime = typeof firstMetadata.preferredTime === "string" ? firstMetadata.preferredTime : null;
+  const nextTitle = parsed.data.title.trim();
+  const nextDescription = parsed.data.description?.trim() || null;
+  const nextPreferredTime = parsed.data.preferredTime?.trim() || null;
+  const changes = {
+    ...(nextTitle !== appointment.title ? { title: { from: appointment.title, to: nextTitle } } : {}),
+    ...(nextDescription !== appointment.description ? { descriptionChanged: true } : {}),
+    ...(nextPreferredTime !== previousPreferredTime ? { preferredTime: { from: previousPreferredTime, to: nextPreferredTime } } : {}),
+  };
   await prisma.$transaction([
-    prisma.appointment.update({ where: { id: appointment.id }, data: { title: parsed.data.title.trim(), description: [parsed.data.description?.trim(), parsed.data.preferredTime?.trim() ? `ช่วงเวลาที่สะดวก: ${parsed.data.preferredTime.trim()}` : null].filter(Boolean).join("\n") || null } }),
-    prisma.appointmentTimeline.create({ data: { appointmentId, actorId: session.id, action: "UPDATED", description: "ลูกบ้านแก้ไขคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, targetAdminRole: target?.role ?? null, preferredTime: parsed.data.preferredTime?.trim() || null } } }),
+    prisma.appointment.update({ where: { id: appointment.id }, data: { title: nextTitle, description: [nextDescription, nextPreferredTime ? `ช่วงเวลาที่สะดวก: ${nextPreferredTime}` : null].filter(Boolean).join("\n") || null } }),
+    prisma.appointmentTimeline.create({ data: { appointmentId, actorId: session.id, action: "UPDATED", description: "ลูกบ้านแก้ไขคำขอนัดหมาย", metadata: { targetAdminUserId: target?.userId ?? null, targetAdminName: target?.name ?? null, targetAdminRole: target?.role ?? null, preferredTime: nextPreferredTime, changes } } }),
   ]);
   revalidateAppointmentViews(appointmentId);
   return { success: true };
@@ -897,7 +909,8 @@ export async function rejectSuggestionAction(
       appointmentId,
       actorId: session.id,
       action: "TIME_CHANGE_REQUESTED",
-      description: `ลูกบ้านขอให้ผู้ใหญ่บ้านเสนอเวลาใหม่: ${cleanedReason}`,
+      description: "ลูกบ้านขอเปลี่ยนเวลานัดหมาย",
+      metadata: { preferredTime: cleanedReason },
     },
   });
 
@@ -1123,7 +1136,8 @@ export async function cancelAppointmentAction(
         appointmentId,
         actorId: session.id,
         action: "CANCELLED",
-        description: `ลูกบ้านยกเลิกนัดหมาย - ${cleanedReason}`,
+        description: "ลูกบ้านยกเลิกนัดหมาย",
+        metadata: { reason: cleanedReason },
       },
     });
 

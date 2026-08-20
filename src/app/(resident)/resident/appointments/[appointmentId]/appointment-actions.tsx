@@ -1,127 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { CheckCircle2, Pencil, RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, XCircle, Clock, AlertCircle, Info } from "lucide-react";
-import { confirmSuggestionAction, rejectSuggestionAction } from "../actions";
+import { useToast } from "@/components/ui/toast";
+import { cancelAppointmentAction, confirmSuggestionAction, rejectSuggestionAction, updateAppointmentRequestAction } from "../actions";
 
-interface Props {
-  appointmentId: string;
-  stage: string;
-  suggestionMessage: string | null;
-  wasRejectedSuggestion: boolean;
-}
+type Recipient = { id: string; name: string; role: string; roleLabel?: string };
+type Props = { appointmentId: string; stage: string; editable: boolean; title: string; description: string; preferredTime: string; targetAdminUserId: string };
 
-export function AppointmentActions({ appointmentId, stage, suggestionMessage, wasRejectedSuggestion }: Props) {
+export function AppointmentActions({ appointmentId, stage, editable, title: initialTitle, description: initialDescription, preferredTime: initialPreferredTime, targetAdminUserId: initialTargetAdminUserId }: Props) {
   const router = useRouter();
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reason, setReason] = useState("");
-  const [showReason, setShowReason] = useState(false);
+  const toast = useToast();
+  const [editOpen, setEditOpen] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const submittingRef = useRef(false);
+  const [recipients, setRecipients] = useState<Recipient[]>([]);
+  const [title, setTitle] = useState(initialTitle);
+  const [description, setDescription] = useState(initialDescription);
+  const [preferredTime, setPreferredTime] = useState(initialPreferredTime);
+  const [targetAdminUserId, setTargetAdminUserId] = useState(initialTargetAdminUserId);
+  const [alternativeTime, setAlternativeTime] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [fieldError, setFieldError] = useState("");
 
-  if (stage === "TIME_SUGGESTED") {
-    const handleConfirm = async () => {
-      setIsConfirming(true);
-      setError(null);
-      const result = await confirmSuggestionAction(appointmentId);
+  useEffect(() => {
+    if (!editOpen || recipients.length) return;
+    fetch("/api/appointments/admin-recipients").then((response) => response.ok ? response.json() : []).then((items: Recipient[]) => setRecipients(items)).catch(() => setRecipients([]));
+  }, [editOpen, recipients.length]);
+
+  const run = async (work: () => Promise<{ success: true } | { success: false; error: string }>, successTitle: string, close: () => void, failureTitle: string) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setPending(true);
+    try {
+      const result = await work();
       if (!result.success) {
-        setError(result.error);
-        setIsConfirming(false);
+        toast.error(failureTitle, result.error);
         return;
       }
+      close();
+      toast.success(successTitle);
       router.refresh();
-    };
+    } catch {
+      toast.error(failureTitle, "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      submittingRef.current = false;
+      setPending(false);
+    }
+  };
 
-    const handleReject = async () => {
-      setIsRejecting(true);
-      setError(null);
-      const result = await rejectSuggestionAction(appointmentId, reason);
-      if (!result.success) {
-        setError(result.error);
-        setIsRejecting(false);
-        return;
-      }
-      router.refresh();
-    };
+  const closeEdit = () => { if (!pending) { setEditOpen(false); setFieldError(""); } };
+  const closeChange = () => { if (!pending) { setChangeOpen(false); setFieldError(""); } };
+  const closeCancel = () => { if (!pending) { setCancelOpen(false); setFieldError(""); } };
+  const canCancel = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"].includes(stage);
 
-    return (
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
-        <div className="flex items-start gap-3">
-          <Clock className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-blue-900">ผู้บริหารแนะนำเวลาใหม่</p>
-            <p className="text-sm text-blue-700 mt-1">
-              กรุณายืนยันหรือปฏิเสธเวลานัดหมายที่ผู้บริหารแนะนำด้านบน
-            </p>
-            {suggestionMessage && (
-              <p className="text-sm text-blue-800 mt-2 italic">&quot;{suggestionMessage}&quot;</p>
-            )}
-          </div>
-        </div>
+  return <section className="flex flex-wrap gap-2">
+    {editable ? <Button type="button" variant="outline" onClick={() => setEditOpen(true)}><Pencil className="mr-1.5 h-4 w-4" />แก้ไขคำขอนัดหมาย</Button> : null}
+    {stage === "TIME_SUGGESTED" ? <><Button type="button" onClick={() => run(() => confirmSuggestionAction(appointmentId), "ยืนยันนัดหมายเรียบร้อยแล้ว", () => undefined, "ยืนยันนัดหมายไม่สำเร็จ")} disabled={pending}><CheckCircle2 className="mr-1.5 h-4 w-4" />ยืนยันนัดหมาย</Button><Button type="button" variant="outline" onClick={() => setChangeOpen(true)} disabled={pending}><RotateCcw className="mr-1.5 h-4 w-4" />ขอเปลี่ยนเวลา</Button></> : null}
+    {canCancel ? <Button type="button" variant="danger" onClick={() => setCancelOpen(true)} disabled={pending}><XCircle className="mr-1.5 h-4 w-4" />ยกเลิกนัดหมาย</Button> : null}
 
-        {error && (
-          <div className="flex items-center gap-2 text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 text-sm">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+    <Dialog open={editOpen} onClose={closeEdit} closeOnBackdrop={false} closeOnEscape={false} title="แก้ไขคำขอนัดหมาย" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={pending} onClick={closeEdit}>ยกเลิก</Button><Button type="submit" form="resident-edit-appointment" isLoading={pending}>บันทึก</Button></div>}>
+      <form id="resident-edit-appointment" className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (title.trim().length < 3) { setFieldError("กรุณาระบุเรื่องอย่างน้อย 3 ตัวอักษร"); return; } void run(() => updateAppointmentRequestAction(appointmentId, { title, description, preferredTime, targetAdminUserId: targetAdminUserId || undefined }), "บันทึกคำขอนัดหมายเรียบร้อยแล้ว", closeEdit, "บันทึกคำขอนัดหมายไม่สำเร็จ"); }}>
+        {recipients.length ? <Select label="ผู้ที่ต้องการนัด" value={targetAdminUserId} onChange={(event) => setTargetAdminUserId(event.target.value)} placeholder="เลือกผู้ดูแลหมู่บ้าน (ไม่บังคับ)" options={recipients.map((item) => ({ value: item.id, label: `${item.name} (${item.roleLabel ?? item.role})` }))} /> : null}
+        <Input label="เรื่อง" required minLength={3} value={title} error={fieldError} onChange={(event) => { setTitle(event.target.value); if (fieldError) setFieldError(""); }} />
+        <Textarea label="รายละเอียด" value={description} onChange={(event) => setDescription(event.target.value)} rows={4} />
+        <Input label="ช่วงเวลาที่สะดวก" value={preferredTime} onChange={(event) => setPreferredTime(event.target.value)} placeholder="เช่น วันธรรมดาช่วงเย็น" />
+      </form>
+    </Dialog>
 
-        <div className="flex gap-3">
-          <Button
-            onClick={handleConfirm}
-            isLoading={isConfirming}
-            disabled={isRejecting}
-            className="flex-1"
-          >
-            <CheckCircle className="h-4 w-4 mr-1" /> ยืนยันนัดหมาย
-          </Button>
-          <Button onClick={() => setShowReason(true)} disabled={isConfirming}
-            variant="outline"
-            className="flex-1"
-          >
-            <XCircle className="h-4 w-4 mr-1" /> ขอเปลี่ยนเวลา
-          </Button>
-        </div>
-        {showReason ? <div className="space-y-2 rounded-lg border border-blue-200 bg-white p-3"><Textarea label="เหตุผลที่ปฏิเสธหรือขอเปลี่ยนเวลา" value={reason} onChange={(event) => setReason(event.target.value)} rows={3} required helperText="กรุณาระบุ 10–500 ตัวอักษร" /><Button onClick={handleReject} isLoading={isRejecting} disabled={isConfirming || reason.trim().length < 10}>ส่งเหตุผลและขอเวลาใหม่</Button></div> : null}
-      </div>
-    );
-  }
+    <Dialog open={changeOpen} onClose={closeChange} closeOnBackdrop={false} closeOnEscape={false} title="ขอเปลี่ยนเวลานัดหมาย" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={pending} onClick={closeChange}>ยกเลิก</Button><Button type="submit" form="resident-change-appointment-time" isLoading={pending}>ส่งคำขอเปลี่ยนเวลา</Button></div>}>
+      <form id="resident-change-appointment-time" onSubmit={(event) => { event.preventDefault(); if (alternativeTime.trim().length < 10) { setFieldError("กรุณาระบุช่วงเวลาที่สะดวกอย่างน้อย 10 ตัวอักษร"); return; } void run(() => rejectSuggestionAction(appointmentId, alternativeTime), "ส่งคำขอเปลี่ยนเวลาเรียบร้อยแล้ว", closeChange, "ส่งคำขอเปลี่ยนเวลาไม่สำเร็จ"); }}>
+        <Textarea label="ช่วงเวลาที่คุณสะดวก" required value={alternativeTime} error={fieldError} helperText="อย่างน้อย 10 ตัวอักษร" onChange={(event) => { setAlternativeTime(event.target.value); if (fieldError) setFieldError(""); }} rows={4} />
+      </form>
+    </Dialog>
 
-  if (stage === "PENDING_APPROVAL") {
-    return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800">
-          รอผู้ใหญ่บ้านตอบกลับ ผู้ใหญ่บ้านจะเสนอวันเวลาที่เหมาะสมให้คุณยืนยัน
-        </p>
-      </div>
-    );
-  }
-
-  if (stage === "CANCELLED" && wasRejectedSuggestion) {
-    return (
-      <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 space-y-3">
-        <div className="flex items-start gap-3">
-          <Info className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-semibold text-orange-900">คุณปฏิเสธเวลาที่แนะนำแล้ว</p>
-            <p className="text-sm text-orange-700 mt-1">
-              หากต้องการนัดหมายใหม่ กรุณาสร้างคำขอนัดหมายใหม่
-            </p>
-          </div>
-        </div>
-        <Link
-          href="/resident/appointments/new"
-          className="inline-flex items-center gap-2 text-sm font-medium text-orange-800 underline hover:text-orange-600"
-        >
-          ขอจองนัดหมายใหม่
-        </Link>
-      </div>
-    );
-  }
-
-  return null;
+    <Dialog open={cancelOpen} onClose={closeCancel} closeOnBackdrop={false} closeOnEscape={false} title="ยกเลิกนัดหมาย" description="กรุณาระบุเหตุผลในการยกเลิกนัดหมาย" footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={pending} onClick={closeCancel}>ยกเลิก</Button><Button type="submit" variant="danger" form="resident-cancel-appointment" isLoading={pending} disabled={cancelReason.trim().length < 5}>ยืนยันยกเลิกนัดหมาย</Button></div>}>
+      <form id="resident-cancel-appointment" onSubmit={(event) => { event.preventDefault(); if (cancelReason.trim().length < 5) { setFieldError("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"); return; } void run(() => cancelAppointmentAction(appointmentId, cancelReason), "ยกเลิกนัดหมายเรียบร้อยแล้ว", closeCancel, "ยกเลิกนัดหมายไม่สำเร็จ"); }}>
+        <Textarea label="เหตุผล" required value={cancelReason} error={fieldError} helperText="อย่างน้อย 5 ตัวอักษร" onChange={(event) => { setCancelReason(event.target.value); if (fieldError) setFieldError(""); }} rows={4} />
+      </form>
+    </Dialog>
+  </section>;
 }
