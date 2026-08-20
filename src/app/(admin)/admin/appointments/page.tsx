@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
-import { isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Prisma } from "@prisma/client";
@@ -23,18 +22,8 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
     redirect("/auth/login?error=unauthorized");
   }
 
-  // Get admin's villages
-  const memberships = await prisma.villageMembership.findMany({
-    where: {
-      userId: session.id,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
-    },
-    select: { villageId: true },
-  });
-
-  const villageIds = memberships.map((m) => m.villageId);
-
-  if (villageIds.length === 0) {
+  const membership = getAdminMembership(session);
+  if (!membership) {
     return { appointments: [], totalCount: 0 };
   }
 
@@ -45,7 +34,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   const pageSize = 25;
 
   const where: Prisma.AppointmentWhereInput = {
-    villageId: { in: villageIds },
+    villageId: membership.villageId,
   };
   if (keyword) {
     where.OR = [
@@ -66,26 +55,40 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
         ? [{ createdAt: "desc" as const }]
         : [{ stage: "asc" as const }, { createdAt: "desc" as const }];
 
-  // Fetch appointments from admin's villages, prioritize pending
-  const [appointments, totalCount] = await Promise.all([prisma.appointment.findMany({
-    where,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: {
-      id: true, title: true, stage: true, slotId: true, scheduledAt: true,
-      user: {
-        select: {
-          email: true,
-          name: true,
-        },
-      },
-      slot: { select: { date: true, startTime: true, endTime: true } },
-      village: {
-        select: { name: true },
-      },
-    },
-    orderBy,
-  }), prisma.appointment.count({ where })]);
+  const select = {
+    id: true, title: true, stage: true, slotId: true, scheduledAt: true, createdAt: true,
+    user: { select: { email: true, name: true } },
+    slot: { select: { date: true, startTime: true, endTime: true } },
+  } satisfies Prisma.AppointmentSelect;
+
+  const toAppointmentTime = (appointment: { scheduledAt: Date | null; slot: { date: Date; startTime: string } | null }) => {
+    if (!appointment.scheduledAt || !appointment.slot) return null;
+    const [hours, minutes] = appointment.slot.startTime.split(":").map(Number);
+    return new Date(Date.UTC(appointment.slot.date.getUTCFullYear(), appointment.slot.date.getUTCMonth(), appointment.slot.date.getUTCDate(), hours || 0, minutes || 0));
+  };
+
+  // Fetch only the active village's appointments; the Topbar supplies this context.
+  const [rows, totalCount] = await Promise.all([
+    prisma.appointment.findMany({
+      where,
+      ...(activeSort === "upcoming" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
+      select,
+      orderBy: activeSort === "upcoming" ? [{ createdAt: "desc" }] : orderBy,
+    }),
+    prisma.appointment.count({ where }),
+  ]);
+  const now = new Date();
+  const appointments = activeSort === "upcoming"
+    ? rows.sort((left, right) => {
+      const leftTime = toAppointmentTime(left);
+      const rightTime = toAppointmentTime(right);
+      const rank = (appointment: typeof left, time: Date | null) => appointment.stage === "APPROVED" && time && time >= now ? 0 : time && time >= now ? 1 : time ? 2 : 3;
+      const rankDifference = rank(left, leftTime) - rank(right, rightTime);
+      if (rankDifference) return rankDifference;
+      if (leftTime && rightTime) return leftTime.getTime() - rightTime.getTime();
+      return right.createdAt.getTime() - left.createdAt.getTime();
+    }).slice((page - 1) * pageSize, page * pageSize)
+    : rows;
 
   return { appointments, totalCount };
 }
@@ -133,6 +136,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
         keyword={keyword}
         searchPlaceholder="ค้นหาจากหัวข้อหรือชื่อผู้ขอ"
         hiddenInputs={{ stage: activeStage === "ALL" ? "" : activeStage, sort: activeSort === "pending" ? "" : activeSort }}
+        clearHref={buildAppointmentsHref({ q: keyword })}
         suggestionTitles={suggestionTitles}
         groups={[
           {
@@ -147,10 +151,12 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
           },
           {
             label: "เรียง",
+            countsAsFilter: false,
             options: [
               { label: "รออนุมัติก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "pending" }), active: activeSort === "pending" },
               { label: "ล่าสุดก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "newest" }), active: activeSort === "newest" },
               { label: "เก่าก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "oldest" }), active: activeSort === "oldest" },
+              { label: "นัดหมายใกล้ถึงก่อน", href: buildAppointmentsHref({ q: keyword, stage: activeStage, sort: "upcoming" }), active: activeSort === "upcoming" },
             ],
           },
         ]}
@@ -189,10 +195,6 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                     <div>
                       <p className="text-xs text-gray-400">ผู้ขอ</p>
                       <p className="break-words">{apt.user?.name || apt.user?.email}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400">หมู่บ้าน</p>
-                      <p className="break-words">{apt.village?.name}</p>
                     </div>
                     {(apt.slot || apt.scheduledAt) && (
                       <div>

@@ -15,7 +15,7 @@ export function SidebarNotificationBadge({ count, label, className }: SidebarNot
       role="status"
       aria-label={`มี${label}รอดำเนินการ ${count} รายการ`}
       className={cn(
-        "inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white",
+        "inline-flex shrink-0 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white",
         className,
       )}
     >
