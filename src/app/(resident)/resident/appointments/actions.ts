@@ -218,17 +218,27 @@ export async function proposeAppointmentTimeAction(input: z.input<typeof manualS
   return { success: true };
 }
 
-const adminCreatedSchema = manualSuggestionSchema.omit({ appointmentId: true }).extend({ residentUserId: z.string(), title: z.string().min(3), description: z.string().optional() });
+const ADMIN_CREATED_APPOINTMENT_DURATION_MINUTES = 30;
+
+function getAdminCreatedAppointmentEndTime(startTime: string) {
+  const [hours, minutes] = startTime.split(":").map(Number);
+  const endMinutes = hours * 60 + minutes + ADMIN_CREATED_APPOINTMENT_DURATION_MINUTES;
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59 || endMinutes >= 24 * 60) return null;
+  return `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+}
+
+const adminCreatedSchema = z.object({ residentUserId: z.string(), title: z.string().min(3), description: z.string().optional(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), startTime: z.string().regex(/^\d{2}:\d{2}$/) });
 export async function adminCreateAppointmentAction(input: z.input<typeof adminCreatedSchema>): Promise<{ success: true; appointmentId: string } | { success: false; error: string }> {
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
-  const parsed = adminCreatedSchema.safeParse(input); if (!parsed.success || (parsed.success && parsed.data.endTime <= parsed.data.startTime)) return { success: false, error: "กรอกข้อมูลนัดหมายให้ครบถ้วน" };
+  const parsed = adminCreatedSchema.safeParse(input); if (!parsed.success) return { success: false, error: "กรอกข้อมูลนัดหมายให้ครบถ้วน" };
+  const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime); if (!endTime) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
   const admin = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } }); if (!admin) return { success: false, error: "ไม่พบหมู่บ้านที่คุณดูแล" };
   const resident = await prisma.villageMembership.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" } }); if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านของคุณ" };
-  const date = new Date(`${parsed.data.date}T00:00:00.000Z`); const slot = await prisma.appointmentSlot.create({ data: { villageId: admin.villageId, date, startTime: parsed.data.startTime, endTime: parsed.data.endTime, maxCapacity: 1, note: "นัดหมายที่ผู้ใหญ่บ้านสร้าง" } });
-  const appointment = await prisma.appointment.create({ data: { villageId: admin.villageId, userId: resident.userId, title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date(), reviewNote: parsed.data.message?.trim() || null } });
+  const date = new Date(`${parsed.data.date}T00:00:00.000Z`); const slot = await prisma.appointmentSlot.create({ data: { villageId: admin.villageId, date, startTime: parsed.data.startTime, endTime, maxCapacity: 1, note: "นัดหมายที่ผู้ใหญ่บ้านสร้าง" } });
+  const appointment = await prisma.appointment.create({ data: { villageId: admin.villageId, userId: resident.userId, title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date() } });
   const creator = await getAdminResponderSummary(admin.villageId, session.id);
-  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "TIME_SUGGESTED", description: "ผู้ใหญ่บ้านสร้างนัดหมายและเสนอวันเวลา", metadata: { adminCreated: true, adminMessage: parsed.data.message?.trim() || null, creatorName: creator?.name ?? null, creatorRole: creator?.role ?? null } } });
-  await notifyUser(resident.userId, admin.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}`, { appointmentId: appointment.id }); revalidateAppointmentViews(appointment.id); return { success: true, appointmentId: appointment.id };
+  await prisma.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: session.id, action: "TIME_SUGGESTED", description: "ผู้ใหญ่บ้านสร้างนัดหมายและเสนอวันเวลา", metadata: { adminCreated: true, creatorName: creator?.name ?? null, creatorRole: creator?.role ?? null } } });
+  await notifyUser(resident.userId, admin.villageId, "รอคุณยืนยันวันเวลา", `เรื่อง: ${appointment.title} | ${formatThaiShortDate(date)} ${slot.startTime}-${slot.endTime}${appointment.description ? ` | ${appointment.description}` : ""}`, { appointmentId: appointment.id }); revalidateAppointmentViews(appointment.id); return { success: true, appointmentId: appointment.id };
 }
 
 const adminUpdateSchema = z.object({ appointmentId: z.string(), title: z.string().min(3), description: z.string().optional(), date: z.string().optional(), startTime: z.string().optional(), endTime: z.string().optional(), message: z.string().max(500).optional() });
