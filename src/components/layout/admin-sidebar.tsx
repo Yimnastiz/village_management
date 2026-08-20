@@ -21,23 +21,23 @@ export type AdminMenuItem = {
 
 export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
+  { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
+  { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
   { href: "/admin/calendar", label: "ปฏิทิน", icon: Calendar },
   { href: "/admin/gallery", label: "แกลเลอรี", icon: Image },
   { href: "/admin/places", label: "สถานที่", icon: MapPin },
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
-  { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: AlertCircle },
-  { href: "/admin/appointments", label: "นัดหมาย", icon: Calendar },
-  { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound },
-  { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House },
-  { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users },
-  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: Link2 },
-  { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp },
   { href: "/admin/transparency", label: "ความโปร่งใส", icon: Eye },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: Download },
+  { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound },
+  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: Link2 },
+  { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House },
+  { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users },
+  { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp },
   { href: "/admin/notifications", label: "การแจ้งเตือน", icon: Bell },
-  { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
   { href: "/admin/security", label: "ความปลอดภัย", icon: Shield },
+  { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
 ];
 
 const populationMenuItems = adminMenuItems.filter((item) => item.href.startsWith("/admin/population/"));

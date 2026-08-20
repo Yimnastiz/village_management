@@ -35,7 +35,7 @@ export default async function EditIssuePage({ params }: PageProps) {
 
   if (!issue) notFound();
   if (issue.reporterId !== session.id) redirect(`/resident/issues/${issueId}`);
-  if (issue.stage !== "OPEN") redirect(`/resident/issues/${issueId}`);
+  if (issue.stage !== "OPEN" && issue.stage !== "WAITING") redirect(`/resident/issues/${issueId}`);
 
   const categoryOptions = Object.entries(ISSUE_CATEGORY_LABELS).map(([v, l]) => ({
     value: v,
