@@ -24,7 +24,7 @@ const approveAppointmentSchema = z.object({
 
 const rejectAppointmentSchema = z.object({
   appointmentId: z.string(),
-  reviewNote: z.string().min(5, "หมายเหตุการปฏิเสธต้องมีความยาวอย่างน้อย 5 ตัวอักษร"),
+  reviewNote: z.string().trim().min(5, "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"),
 });
 
 const suggestTimeSchema = z.object({
@@ -877,7 +877,7 @@ export async function adminCancelAppointmentAction(
   const reason = (formData.get("reason") as string) || "";
 
   if (!appointmentId) return { success: false, error: "ข้อมูลไม่ถูกต้อง" };
-  if (reason.trim().length < 10 || reason.trim().length > 500) return { success: false, error: "กรุณาระบุเหตุผลการยกเลิก 10–500 ตัวอักษร" };
+  if (reason.trim().length < 5 || reason.trim().length > 500) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },

@@ -12,11 +12,13 @@ type DialogProps = {
   children: React.ReactNode;
   footer?: React.ReactNode;
   onClose: () => void;
+  /** Keep the default backdrop-close behavior unless a focused workflow opts out. */
+  closeOnBackdrop?: boolean;
   className?: string;
 };
 
 /** Shared accessible modal shell for operational forms. */
-export function Dialog({ open, title, description, children, footer, onClose, className }: DialogProps) {
+export function Dialog({ open, title, description, children, footer, onClose, closeOnBackdrop = true, className }: DialogProps) {
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -44,7 +46,7 @@ export function Dialog({ open, title, description, children, footer, onClose, cl
 
   if (!open || typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-4" onMouseDown={onClose}>
+    <div className="fixed inset-0 z-[90] flex items-end bg-slate-950/50 sm:items-center sm:justify-center sm:p-4" onMouseDown={closeOnBackdrop ? onClose : undefined}>
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={cn("flex max-h-[100dvh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl sm:rounded-2xl", className)} onMouseDown={(event) => event.stopPropagation()}>
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-gray-100 px-4 py-4 sm:px-5">
           <div><h2 id={titleId} className="text-lg font-semibold text-gray-900">{title}</h2>{description ? <p id={descriptionId} className="mt-1 text-sm leading-5 text-gray-500">{description}</p> : null}</div>

@@ -24,6 +24,15 @@ function getAppointmentSource(timeline: Array<{ action: string; actorId: string 
   return { label: null, isAdminCreated: false, creatorId: null };
 }
 
+function splitAppointmentDescription(description: string | null) {
+  if (!description) return { description: null, preferredTime: null };
+  const lines = description.split(/\r?\n/);
+  const preferredTimeIndex = lines.findIndex((line) => line.trim().startsWith("ช่วงเวลาที่สะดวก:"));
+  if (preferredTimeIndex < 0) return { description, preferredTime: null };
+  const preferredTime = lines[preferredTimeIndex].replace(/^\s*ช่วงเวลาที่สะดวก:\s*/, "").trim() || null;
+  return { description: lines.filter((_, index) => index !== preferredTimeIndex).join("\n").trim() || null, preferredTime };
+}
+
 export default async function AdminAppointmentDetailPage({ params }: { params: Promise<{ appointmentId: string }> }) {
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) redirect("/auth/login");
   const { appointmentId } = await params;
@@ -38,17 +47,22 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const canCancel = ["TIME_SUGGESTED", "APPROVED"].includes(appointment.stage);
   const initialDate = appointment.slot?.date.toISOString().slice(0, 10) ?? "";
   const initialStartTime = appointment.slot?.startTime ?? "";
+  const appointmentContent = splitAppointmentDescription(appointment.description);
   return <div className="mx-auto max-w-3xl space-y-5">
-    <Link href="/admin/appointments" className="text-sm text-gray-500 hover:text-gray-800">← กลับรายการนัดหมาย</Link>
-    <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5">
-      <div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-xl font-bold text-gray-900">{appointment.title}</h1>{appointment.description ? <p className="mt-1 text-sm text-gray-600">{appointment.description}</p> : null}</div><Badge variant={appointment.stage === "APPROVED" ? "success" : appointment.stage === "TIME_SUGGESTED" ? "info" : "warning"}>{stageLabel}</Badge></div>
-      <div className="grid gap-3 border-t pt-4 text-sm sm:grid-cols-2">
-        <p><span className="text-gray-500">นัดหมายกับ: </span>{appointment.user.name || appointment.user.email}</p>
-        <p><span className="text-gray-500">ติดต่อ: </span>{appointment.user.phoneNumber || "-"}</p>
-        <p className="sm:col-span-2 text-gray-600"><span className="text-gray-500">ที่มา: </span>{source.label ?? "คำขอนัดหมายจากลูกบ้าน"}</p>
-        {appointment.slot ? <p className="flex items-center gap-1.5 font-medium text-gray-900 sm:col-span-2"><Clock aria-hidden className="h-4 w-4 shrink-0 text-gray-500" />{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDate(appointment.slot.date)} เวลา {appointment.slot.startTime}</p> : null}
-        <p className="text-xs text-gray-400 sm:col-span-2">สร้างเมื่อ {formatThaiDateTime(appointment.createdAt)}</p>
-        {appointment.reviewNote ? <p className="sm:col-span-2"><span className="text-gray-500">ข้อความ/เหตุผลล่าสุด: </span>{appointment.reviewNote}</p> : null}
+    <Link href="/admin/appointments" className="text-sm text-gray-500 hover:text-gray-800">← กลับไปรายการนัดหมาย</Link>
+    <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0"><h1 className="break-words text-xl font-bold text-gray-900">{appointment.title}</h1>{appointmentContent.description ? <p className="mt-1.5 whitespace-pre-line text-sm leading-6 text-gray-600">{appointmentContent.description}</p> : null}</div>
+        <Badge className="shrink-0" variant={appointment.stage === "APPROVED" ? "success" : appointment.stage === "TIME_SUGGESTED" ? "info" : "warning"}>{stageLabel}</Badge>
+      </div>
+      <div className="mt-5 grid gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
+        <div><p className="text-xs text-gray-500">นัดหมายกับ</p><p className="mt-1 text-gray-900">{appointment.user.name || appointment.user.email}</p></div>
+        <div><p className="text-xs text-gray-500">เบอร์ติดต่อ</p><p className="mt-1 text-gray-900">{appointment.user.phoneNumber || "-"}</p></div>
+        {appointment.slot ? <div className="flex items-start gap-2 sm:col-span-2"><Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" /><p className="text-gray-900">{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDate(appointment.slot.date)} เวลา {appointment.slot.startTime}</p></div> : null}
+        {appointmentContent.preferredTime ? <div className="sm:col-span-2"><p className="text-xs text-gray-500">ช่วงเวลาที่สะดวก</p><p className="mt-1 text-gray-700">{appointmentContent.preferredTime}</p></div> : null}
+        <p className="text-xs text-gray-500 sm:col-span-2">{source.label ?? "คำขอนัดหมายจากลูกบ้าน"}</p>
+        <p className="text-xs text-gray-400">สร้างเมื่อ {formatThaiDateTime(appointment.createdAt)}</p>
+        {appointment.reviewNote ? <p className="text-gray-700 sm:col-span-2"><span className="text-gray-500">ข้อความ/เหตุผลล่าสุด: </span>{appointment.reviewNote}</p> : null}
       </div>
     </section>
     {canProposeTime || canEditAdminCreated || canReject || canCancel ? <div className="flex flex-wrap justify-end gap-2">{canProposeTime || canEditAdminCreated ? <ProposeTimeForm appointmentId={appointment.id} mode={canProposeTime ? "PROPOSE_TIME" : "EDIT_ADMIN_CREATED"} initialTitle={appointment.title} initialDescription={appointment.description ?? ""} initialDate={initialDate} initialStartTime={initialStartTime} /> : null}<AppointmentStatusActions appointmentId={appointment.id} canReject={canReject} canCancel={canCancel} /></div> : null}
