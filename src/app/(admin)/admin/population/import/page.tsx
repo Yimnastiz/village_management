@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PopulationImportForm } from "./import-form";
@@ -122,12 +123,7 @@ export default async function Page({ searchParams }: PageProps) {
         ? [{ fileName: "asc" }, { createdAt: "desc" }]
         : [{ createdAt: "desc" }];
 
-  const [village, recentJobs] = await Promise.all([
-    prisma.village.findUnique({
-      where: { id: adminMembership.villageId },
-      select: { id: true, name: true },
-    }),
-    prisma.populationImportJob.findMany({
+  const recentJobs = await prisma.populationImportJob.findMany({
       where,
       orderBy,
       take: 30,
@@ -142,31 +138,73 @@ export default async function Page({ searchParams }: PageProps) {
         createdAt: true,
         completedAt: true,
       },
-    }),
-  ]);
+  });
 
   return (
-    <div className="space-y-8">
-      {/* Header Section */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">นำเข้าข้อมูลบ้านและประชากร</h1>
-        <p className="mt-2 text-base text-gray-600">
-          เพิ่มหรือปรับปรุงข้อมูลบ้านและประชากรหลายรายการพร้อมกันจากไฟล์ Excel
-        </p>
-        <div className="mt-4 space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-          <p>
-            ข้อมูลที่นำเข้าจะใช้เป็นทะเบียนข้อมูลของหมู่บ้าน และสามารถใช้ช่วยตรวจสอบหรือจับคู่ข้อมูลเมื่อลูกบ้านสมัครและขอผูกเลขบ้านในภายหลัง
-          </p>
-          <p className="font-medium">การนำเข้าข้อมูลไม่ใช่การยืนยันตัวตนของลูกบ้านโดยอัตโนมัติ</p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      <AdminPageToolbar
+        sticky
+        variant="form"
+        title="นำเข้าข้อมูลบ้านและประชากร"
+        description="เพิ่มหรือปรับปรุงข้อมูลบ้านและประชากรหลายรายการพร้อมกันจากไฟล์ Excel"
+        actions={
+          <>
+            <a href="/api/admin/population/import-template" download className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+              ดาวน์โหลดไฟล์ตัวอย่าง
+            </a>
+            <a href="/api/admin/population/export" download className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
+              ส่งออกข้อมูล
+            </a>
+          </>
+        }
+      />
 
       {/* Main Import Form */}
-      <PopulationImportForm />
+      <PopulationImportForm showTemplateDownload={false} />
 
-      {/* Filters and Search */}
-      <section>
-        <form method="get" className="rounded-lg border border-gray-200 bg-white p-5">
+      {/* Data Format Info */}
+      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+        <h2 className="text-base font-semibold text-gray-900">ข้อมูลที่สามารถนำเข้าได้</h2>
+
+        <div className="mt-4 grid gap-5 md:grid-cols-2">
+          <div>
+            <h3 className="text-sm font-medium text-gray-900">ข้อมูลบ้าน</h3>
+            <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm leading-6 text-gray-600 sm:grid-cols-2">
+              {POPULATION_IMPORT_COLUMNS_ADMIN.filter((col) =>
+                ["house_number", "house_address", "zone_name", "occupancy_status", "latitude", "longitude"].includes(col.key)
+              ).map((col) => (
+                <li key={col.key}>{col.label}{col.required ? " (จำเป็น)" : ""}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-gray-900">ข้อมูลบุคคล</h3>
+            <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm leading-6 text-gray-600 sm:grid-cols-2">
+              {POPULATION_IMPORT_COLUMNS_ADMIN.filter((col) =>
+                ["first_name", "last_name", "phone_number", "national_id", "date_of_birth", "gender", "person_status", "email", "external_person_id", "note"].includes(col.key)
+              ).map((col) => (
+                <li key={col.key}>{col.label}{col.required ? " (จำเป็น)" : ""}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-4 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500">
+          <p>ข้อมูลขั้นต่ำ: เลขที่บ้าน</p>
+          <p>หากนำเข้าข้อมูลบุคคล ต้องระบุชื่อและนามสกุลให้ครบ</p>
+        </div>
+      </section>
+
+      {/* Recent Jobs */}
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">งานนำเข้าล่าสุด</h2>
+            <p className="mt-1 text-sm text-gray-500">ค้นหาและติดตามสถานะการนำเข้าข้อมูล</p>
+          </div>
+        </div>
+        <form method="get" className="rounded-xl border border-gray-200 bg-white p-4">
           <div className="grid gap-3 md:grid-cols-5">
             <input
               name="q"
@@ -214,58 +252,8 @@ export default async function Page({ searchParams }: PageProps) {
             )}
           </div>
         </form>
-      </section>
-
-      {/* Data Format Info */}
-      <section className="rounded-lg border border-gray-200 bg-white p-5">
-        <h2 className="text-lg font-semibold text-gray-900">ข้อมูลที่สามารถนำเข้าได้</h2>
-
-        <div className="mt-4 space-y-4">
-          {/* House Data */}
-          <div>
-            <h3 className="font-medium text-gray-900">ข้อมูลบ้าน</h3>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {POPULATION_IMPORT_COLUMNS_ADMIN.filter((col) =>
-                ["house_number", "house_address", "zone_name", "occupancy_status", "latitude", "longitude"].includes(col.key)
-              ).map((col) => (
-                <div key={col.key} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs sm:text-sm">
-                  <span className="font-medium text-gray-900">{col.label}</span>
-                  {col.required && <Badge variant="danger">บังคับ</Badge>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Person Data */}
-          <div>
-            <h3 className="font-medium text-gray-900">ข้อมูลบุคคล</h3>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {POPULATION_IMPORT_COLUMNS_ADMIN.filter((col) =>
-                ["first_name", "last_name", "phone_number", "national_id", "date_of_birth", "gender", "person_status", "email", "external_person_id", "note"].includes(col.key)
-              ).map((col) => (
-                <div key={col.key} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs sm:text-sm">
-                  <span className="font-medium text-gray-900">{col.label}</span>
-                  {col.required && <Badge variant="danger">บังคับ</Badge>}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Requirements */}
-          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="text-xs font-medium text-amber-900">ต้องมีอย่างน้อย: เลขที่บ้าน</p>
-            <p className="mt-1 text-xs text-amber-800">
-              หากต้องการนำเข้าบุคคล ต้องระบุชื่อและนามสกุลให้ครบ
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Recent Jobs and Export */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-white p-5">
-          <h2 className="text-lg font-semibold text-gray-900">งานนำเข้าล่าสุด</h2>
-          <div className="mt-4 space-y-3">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+          <div className="space-y-3">
             {recentJobs.length === 0 ? (
               <p className="text-sm text-gray-500">ยังไม่มีประวัติการนำเข้า</p>
             ) : (
@@ -303,31 +291,6 @@ export default async function Page({ searchParams }: PageProps) {
                 );
               })
             )}
-          </div>
-        </div>
-
-        {/* Export Section */}
-        <div className="space-y-4">
-          <div className="rounded-lg border border-gray-200 bg-white p-5">
-            <h2 className="text-lg font-semibold text-gray-900">ส่งออกข้อมูล</h2>
-            <p className="mt-2 text-xs text-gray-600">
-              ส่งออกข้อมูลล่าสุดของหมู่บ้านเป็น Excel เพื่อตรวจสอบหรือส่งต่อหน่วยงาน
-            </p>
-            <div className="mt-4 flex flex-col gap-2">
-              <a
-                href="/api/admin/population/export"
-                download
-                className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700"
-              >
-                ดาวน์โหลด Excel ทันที
-              </a>
-              <Link
-                href="/admin/population/export"
-                className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-              >
-                เปิดหน้าส่งออก
-              </Link>
-            </div>
           </div>
         </div>
       </section>
