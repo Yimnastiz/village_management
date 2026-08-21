@@ -12,7 +12,21 @@ type ImportJobDetailsPayload = {
   importedUserIds?: string[];
   createdPersonIds?: string[];
   createdHouseIds?: string[];
-  cleanupHistory?: Array<{ cleanedAt: string; actorId: string; reason: string; deletedPeople: number; deletedHouses: number; skippedCount: number; skippedReasonCounts: Record<string, number> }>;
+  createdPeople?: Array<{ id: string; label: string; houseNumber: string }>;
+  createdHouses?: Array<{ id: string; label: string }>;
+  cleanupHistory?: Array<{
+    cleanedAt: string;
+    actorId: string;
+    actorName?: string | null;
+    actorRole?: string | null;
+    reason: string;
+    deletedPeople: number;
+    deletedHouses: number;
+    skippedCount: number;
+    skippedReasonCounts: Record<string, number>;
+    deletedItems?: Array<{ kind: "person" | "house"; label: string }>;
+    retainedItems?: Array<{ kind: "person" | "house"; label: string; reason: string }>;
+  }>;
 };
 
 export type ImportCleanupPreflight = {
@@ -97,6 +111,8 @@ export async function confirmPopulationImportAction(formData: FormData) {
   let failedRows = 0;
   const createdPersonIds: string[] = [];
   const createdHouseIds: string[] = [];
+  const createdPeople: Array<{ id: string; label: string; houseNumber: string }> = [];
+  const createdHouses: Array<{ id: string; label: string }> = [];
   await prisma.$transaction(async (tx) => {
     const ctx: Parameters<typeof applyStoredImportRow>[1] = { userId: access.userId, villageId: access.villageId, importJobId: jobId, villageName: "", province: null, district: null, subdistrict: null };
     const village = await tx.village.findUnique({ where: { id: access.villageId }, select: { name: true, province: true, district: true, subdistrict: true } });
@@ -106,13 +122,17 @@ export async function confirmPopulationImportAction(formData: FormData) {
       if (row.action === "CONFLICT" || row.action === "FAILED") { failedRows += 1; continue; }
       const result = await applyStoredImportRow(tx, ctx, row);
       if (row.action === "CREATE") {
-        if (result.personId) createdPersonIds.push(result.personId);
+        if (result.personId) {
+          createdPersonIds.push(result.personId);
+          createdPeople.push({ id: result.personId, label: `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || "บุคคล", houseNumber: row.houseNumber });
+        }
         createdHouseIds.push(result.houseId);
+        if (!createdHouses.some((house) => house.id === result.houseId)) createdHouses.push({ id: result.houseId, label: `บ้าน ${row.houseNumber}` });
       }
       importedRows += 1;
     }
     const stage = failedRows > 0 ? PopulationImportStage.PARTIAL : PopulationImportStage.COMPLETED;
-    await tx.populationImportJob.update({ where: { id: jobId }, data: { stage, importedRows, failedRows, completedAt: new Date(), errors: { ...access.payload, createdPersonIds, createdHouseIds } } });
+    await tx.populationImportJob.update({ where: { id: jobId }, data: { stage, importedRows, failedRows, completedAt: new Date(), errors: { ...access.payload, createdPersonIds, createdHouseIds, createdPeople, createdHouses } } });
     const actorRole = targetVillageId ? "SUPERADMIN" : "ADMIN";
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, supportReason: reason } } });
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
@@ -208,7 +228,12 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   const houseIds = payload.createdHouseIds ?? [];
 
   const result = await prisma.$transaction(async (tx) => {
+    const actor = await tx.user.findUnique({
+      where: { id: userId },
+      select: { name: true, memberships: { where: { villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } },
+    });
     const assessment = await assessImportCleanup(tx, villageId, jobId, createdAt, personIds, houseIds);
+    const personLabels = new Map((await tx.person.findMany({ where: { id: { in: assessment.deletablePersonIds } }, select: { id: true, firstName: true, lastName: true } })).map((person) => [person.id, `${person.firstName} ${person.lastName}`]));
     let deletedPeople = 0;
     for (const personId of assessment.deletablePersonIds) {
       const deletedMovements = await tx.personMovement.deleteMany({ where: { personId, populationImportJobId: jobId } });
@@ -225,6 +250,7 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
       else if (deletedMovements.count > 0) throw new Error("ไม่สามารถลบประวัติการย้ายที่เป็นของงานนำเข้าได้อย่างปลอดภัย");
     }
     const afterPeople = await assessImportCleanup(tx, villageId, jobId, createdAt, [], houseIds);
+    const houseLabels = new Map((await tx.house.findMany({ where: { id: { in: afterPeople.deletableHouseIds } }, select: { id: true, houseNumber: true } })).map((house) => [house.id, `บ้าน ${house.houseNumber}`]));
     let deletedHouses = 0;
     for (const houseId of afterPeople.deletableHouseIds) {
       const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, bindingRequests: { none: {} }, correctionRequests: { none: {} }, movementHistory: { none: {} } } });
@@ -236,7 +262,12 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     const finalAssessment = await assessImportCleanup(tx, villageId, jobId, createdAt, [], houseIds);
     const skipped = [...assessment.skipped.filter((item) => item.kind === "person"), ...finalAssessment.skipped];
     const skippedReasonCounts = countSkipReasons(skipped);
-    const cleanupHistory = [...(payload.cleanupHistory ?? []), { cleanedAt: new Date().toISOString(), actorId: userId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts }].slice(-10);
+    const cleanupHistory = [...(payload.cleanupHistory ?? []), {
+      cleanedAt: new Date().toISOString(), actorId: userId, actorName: actor?.name ?? null, actorRole: actor?.memberships[0]?.role ?? null,
+      reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts,
+      deletedItems: [...assessment.deletablePersonIds.map((id) => ({ kind: "person" as const, label: personLabels.get(id) ?? "บุคคล" })), ...afterPeople.deletableHouseIds.map((id) => ({ kind: "house" as const, label: houseLabels.get(id) ?? "บ้าน" }))],
+      retainedItems: skipped,
+    }].slice(-10);
     await tx.populationImportJob.update({ where: { id: jobId }, data: { errors: { ...payload, cleanupHistory } } });
     await tx.auditLog.create({ data: { userId, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts } } });
     return { deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts };

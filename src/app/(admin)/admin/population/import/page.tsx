@@ -57,6 +57,17 @@ function getJobErrors(value: unknown): string[] {
   return [];
 }
 
+type CleanupSummary = { cleanedAt: string; deletedPeople: number; deletedHouses: number; skippedCount: number };
+function getLatestCleanup(value: unknown): CleanupSummary | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const history = (value as { cleanupHistory?: unknown }).cleanupHistory;
+  if (!Array.isArray(history) || history.length === 0) return null;
+  const latest = history[history.length - 1];
+  if (!latest || typeof latest !== "object" || Array.isArray(latest) || typeof (latest as { cleanedAt?: unknown }).cleanedAt !== "string") return null;
+  const entry = latest as Partial<CleanupSummary>;
+  return { cleanedAt: entry.cleanedAt!, deletedPeople: Number(entry.deletedPeople) || 0, deletedHouses: Number(entry.deletedHouses) || 0, skippedCount: Number(entry.skippedCount) || 0 };
+}
+
 type PageProps = {
   searchParams?: Promise<{ q?: string; status?: string; from?: string; to?: string; sort?: string }>;
 };
@@ -260,6 +271,8 @@ export default async function Page({ searchParams }: PageProps) {
             ) : (
               recentJobs.map((job) => {
                 const errors = getJobErrors(job.errors);
+                const cleanup = getLatestCleanup(job.errors);
+                const cleanupWasPartial = cleanup ? cleanup.skippedCount > 0 : false;
                 return (
                   <div key={job.id} className="rounded-lg border border-gray-200 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -269,8 +282,9 @@ export default async function Page({ searchParams }: PageProps) {
                           {job.createdAt.toLocaleString("th-TH")} • {job.totalRows} แถว: {job.importedRows} สำเร็จ, {job.failedRows} ไม่สำเร็จ
                         </p>
                       </div>
-                      <Badge variant={getStageBadgeVariant(job.stage)}>{getStageLabel(job.stage)}</Badge>
+                      <Badge variant={getStageBadgeVariant(job.stage)}>{job.stage === PopulationImportStage.COMPLETED ? "นำเข้าสำเร็จ" : getStageLabel(job.stage)}</Badge>
                     </div>
+                    {cleanup ? <p className="mt-1.5 text-xs text-slate-500">{cleanupWasPartial ? "ลบข้อมูลบางส่วนแล้ว" : "ลบข้อมูลที่สร้างแล้ว"} · {new Date(cleanup.cleanedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
                     <Link
                       href={`/admin/population/import/${job.id}`}
                       className="mt-2 inline-flex text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
