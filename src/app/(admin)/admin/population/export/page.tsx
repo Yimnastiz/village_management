@@ -22,6 +22,7 @@ export default async function Page() {
       membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role),
   );
   if (!adminMembership) redirect(computeLandingPath(session));
+  const canExportFullRegistry = adminMembership.role === VillageMembershipRole.HEADMAN;
 
   const [village, houseCount, peopleCount, accountCount, zones] = await Promise.all([
     prisma.village.findUnique({ where: { id: adminMembership.villageId }, select: { name: true } }),
@@ -48,10 +49,12 @@ export default async function Page() {
           <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="activeOnly" value="true" /> Active only</label>
           <select name="zoneId" className="rounded-lg border px-2 py-2 text-sm"><option value="">ทุกโซน</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select>
           <input type="date" name="from" className="rounded-lg border px-2 py-2 text-sm" /><input type="date" name="to" className="rounded-lg border px-2 py-2 text-sm" />
-          <input type="hidden" name="masked" value="true" />
-          <Button type="submit"><Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Masked Excel</Button>
+          <input type="hidden" name="masked" value={canExportFullRegistry ? "false" : "true"} />
+          <Button type="submit"><Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Excel</Button>
         </form>
       </div>
+
+      {canExportFullRegistry ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">ไฟล์ส่งออกมีข้อมูลส่วนบุคคล กรุณาจัดเก็บและใช้งานอย่างเหมาะสม</p> : null}
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-5">

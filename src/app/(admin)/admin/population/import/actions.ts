@@ -115,6 +115,7 @@ type RowImportResult = {
 type AdminVillageContext = {
   userId: string;
   villageId: string;
+  importJobId?: string;
   villageName: string;
   province: string | null;
   district: string | null;
@@ -831,10 +832,21 @@ export async function applyStoredImportRow(
   const nationalId = row.nationalId ? normalizeNationalId(row.nationalId) : null;
   if (row.nationalId && !isValidStrictThaiNationalId(row.nationalId)) throw new Error("เลขบัตรประชาชนไม่ถูกต้อง");
   const personData = { villageId: ctx.villageId, houseId: house.id, nationalId, firstName, lastName, dateOfBirth, gender, phone: row.phoneNumber, email: row.email, status: row.personStatus ?? PersonStatus.ACTIVE };
+  const createdPerson = !row.matchedPersonId;
   const person = row.matchedPersonId
     ? await tx.person.update({ where: { id: row.matchedPersonId }, data: personData, select: { id: true } })
     : await tx.person.create({ data: personData, select: { id: true } });
-  if (person.id && (row.movementType || !row.matchedPersonId)) await tx.personMovement.create({ data: { personId: person.id, houseId: house.id, movementType: row.movementType ?? MovementType.MOVE_IN, date: row.movementDate ?? new Date() } });
+  if (person.id && (row.movementType || createdPerson)) {
+    await tx.personMovement.create({
+      data: {
+        personId: person.id,
+        houseId: house.id,
+        movementType: row.movementType ?? MovementType.MOVE_IN,
+        date: row.movementDate ?? new Date(),
+        ...(createdPerson && ctx.importJobId ? { populationImportJobId: ctx.importJobId } : {}),
+      },
+    });
+  }
   return { personId: person.id, houseId: house.id };
 }
 

@@ -593,19 +593,22 @@ model Person {
 }
 
 model PersonMovement {
-  id           String       @id @default(cuid())
-  personId     String
-  houseId      String?
-  movementType MovementType
-  date         DateTime
-  note         String?
-  createdAt    DateTime     @default(now())
+  id                    String       @id @default(cuid())
+  personId              String
+  houseId               String?
+  populationImportJobId String?
+  movementType          MovementType
+  date                  DateTime
+  note                  String?
+  createdAt             DateTime     @default(now())
 
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-  house  House? @relation(fields: [houseId], references: [id])
+  person              Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  house               House?                @relation(fields: [houseId], references: [id])
+  populationImportJob PopulationImportJob? @relation(fields: [populationImportJobId], references: [id], onDelete: SetNull)
 
   @@index([personId])
   @@index([houseId])
+  @@index([populationImportJobId])
 }
 
 model BindingRequest {
@@ -1223,7 +1226,8 @@ model PopulationImportJob {
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @updatedAt
 
-  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  village         Village          @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  importMovements PersonMovement[]
 
   @@index([villageId])
   @@index([stage])

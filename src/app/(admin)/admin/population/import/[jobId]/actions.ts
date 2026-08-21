@@ -98,7 +98,7 @@ export async function confirmPopulationImportAction(formData: FormData) {
   const createdPersonIds: string[] = [];
   const createdHouseIds: string[] = [];
   await prisma.$transaction(async (tx) => {
-    const ctx: Parameters<typeof applyStoredImportRow>[1] = { userId: access.userId, villageId: access.villageId, villageName: "", province: null, district: null, subdistrict: null };
+    const ctx: Parameters<typeof applyStoredImportRow>[1] = { userId: access.userId, villageId: access.villageId, importJobId: jobId, villageName: "", province: null, district: null, subdistrict: null };
     const village = await tx.village.findUnique({ where: { id: access.villageId }, select: { name: true, province: true, district: true, subdistrict: true } });
     if (!village) throw new Error("ไม่พบหมู่บ้านของงาน");
     ctx.villageName = village.name; ctx.province = village.province; ctx.district = village.district; ctx.subdistrict = village.subdistrict;
@@ -136,18 +136,38 @@ function countSkipReasons(skipped: ImportCleanupPreflight["skipped"]) {
   }, {});
 }
 
-async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: string, jobCreatedAt: Date, personIds: string[], houseIds: string[]): Promise<ImportCleanupPreflight & { deletablePersonIds: string[]; deletableHouseIds: string[] }> {
+async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: string, jobId: string, jobCreatedAt: Date, personIds: string[], houseIds: string[]): Promise<ImportCleanupPreflight & { deletablePersonIds: string[]; deletableHouseIds: string[] }> {
   const skipped: ImportCleanupPreflight["skipped"] = [];
-  const people = personIds.length ? await tx.person.findMany({ where: { id: { in: personIds }, villageId }, select: { id: true, userId: true, firstName: true, lastName: true, createdAt: true, _count: { select: { movements: true } } } }) : [];
+  const people = personIds.length ? await tx.person.findMany({
+    where: { id: { in: personIds }, villageId },
+    select: {
+      id: true,
+      userId: true,
+      firstName: true,
+      lastName: true,
+      createdAt: true,
+      movements: { select: { populationImportJobId: true } },
+    },
+  }) : [];
   const deletablePersonIds: string[] = [];
   for (const person of people) {
     const label = `${person.firstName} ${person.lastName}`;
     if (person.createdAt < jobCreatedAt) skipped.push({ kind: "person", label, reason: "ข้อมูลไม่ได้ถูกสร้างจากงานนี้" });
     else if (person.userId) skipped.push({ kind: "person", label, reason: "เชื่อมกับบัญชีลูกบ้านแล้ว" });
-    else if (person._count.movements > 0) skipped.push({ kind: "person", label, reason: "มีประวัติการย้ายเข้า-ออก" });
+    else if (person.movements.some((movement) => movement.populationImportJobId !== jobId)) skipped.push({ kind: "person", label, reason: "มีประวัติการเปลี่ยนแปลงหลังนำเข้า" });
     else deletablePersonIds.push(person.id);
   }
-  const houses = houseIds.length ? await tx.house.findMany({ where: { id: { in: houseIds }, villageId }, select: { id: true, houseNumber: true, sourceType: true, createdAt: true, _count: { select: { memberships: true, bindingRequests: true, correctionRequests: true, movementHistory: true } } } }) : [];
+  const houses = houseIds.length ? await tx.house.findMany({
+    where: { id: { in: houseIds }, villageId },
+    select: {
+      id: true,
+      houseNumber: true,
+      sourceType: true,
+      createdAt: true,
+      _count: { select: { memberships: true, bindingRequests: true, correctionRequests: true } },
+      movementHistory: { select: { personId: true, populationImportJobId: true } },
+    },
+  }) : [];
   const deletableHouseIds: string[] = [];
   for (const house of houses) {
     const label = `บ้าน ${house.houseNumber}`;
@@ -157,7 +177,7 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
     else if (house._count.memberships > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลสมาชิกหมู่บ้านที่เกี่ยวข้อง" });
     else if (house._count.bindingRequests > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลการผูกบ้านที่เกี่ยวข้อง" });
     else if (house._count.correctionRequests > 0) skipped.push({ kind: "house", label, reason: "มีคำขอแก้ไขข้อมูลบ้านที่เกี่ยวข้อง" });
-    else if (house._count.movementHistory > 0) skipped.push({ kind: "house", label, reason: "มีประวัติการย้ายเข้า-ออกที่เกี่ยวข้อง" });
+    else if (house.movementHistory.some((movement) => movement.populationImportJobId !== jobId || !deletablePersonIds.includes(movement.personId))) skipped.push({ kind: "house", label, reason: "มีประวัติการเปลี่ยนแปลงหลังนำเข้า" });
     else deletableHouseIds.push(house.id);
   }
   return { deletablePeople: deletablePersonIds.length, deletableHouses: deletableHouseIds.length, deletablePersonIds, deletableHouseIds, skipped, skippedReasonCounts: countSkipReasons(skipped) };
@@ -166,7 +186,7 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
 export async function getImportCleanupPreflightAction(jobId: string): Promise<ImportCleanupPreflight> {
   const access = await requireImportJobForAdmin(jobId);
   if (access.stage !== PopulationImportStage.COMPLETED && access.stage !== PopulationImportStage.PARTIAL) throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
-  const assessment = await prisma.$transaction((tx) => assessImportCleanup(tx, access.villageId, access.createdAt, access.payload.createdPersonIds ?? [], access.payload.createdHouseIds ?? []));
+  const assessment = await prisma.$transaction((tx) => assessImportCleanup(tx, access.villageId, jobId, access.createdAt, access.payload.createdPersonIds ?? [], access.payload.createdHouseIds ?? []));
   return { deletablePeople: assessment.deletablePeople, deletableHouses: assessment.deletableHouses, skipped: assessment.skipped, skippedReasonCounts: assessment.skippedReasonCounts };
 }
 
@@ -188,13 +208,23 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   const houseIds = payload.createdHouseIds ?? [];
 
   const result = await prisma.$transaction(async (tx) => {
-    const assessment = await assessImportCleanup(tx, villageId, createdAt, personIds, houseIds);
+    const assessment = await assessImportCleanup(tx, villageId, jobId, createdAt, personIds, houseIds);
     let deletedPeople = 0;
     for (const personId of assessment.deletablePersonIds) {
-      const current = await tx.person.findFirst({ where: { id: personId, villageId, userId: null, createdAt: { gte: createdAt } }, select: { id: true, _count: { select: { movements: true } } } });
-      if (current?.id && current._count.movements === 0) { await tx.person.delete({ where: { id: current.id } }); deletedPeople += 1; }
+      const deletedMovements = await tx.personMovement.deleteMany({ where: { personId, populationImportJobId: jobId } });
+      const deletedPerson = await tx.person.deleteMany({
+        where: {
+          id: personId,
+          villageId,
+          userId: null,
+          createdAt: { gte: createdAt },
+          movements: { none: { OR: [{ populationImportJobId: null }, { populationImportJobId: { not: jobId } }] } },
+        },
+      });
+      if (deletedPerson.count === 1) deletedPeople += 1;
+      else if (deletedMovements.count > 0) throw new Error("ไม่สามารถลบประวัติการย้ายที่เป็นของงานนำเข้าได้อย่างปลอดภัย");
     }
-    const afterPeople = await assessImportCleanup(tx, villageId, createdAt, [], houseIds);
+    const afterPeople = await assessImportCleanup(tx, villageId, jobId, createdAt, [], houseIds);
     let deletedHouses = 0;
     for (const houseId of afterPeople.deletableHouseIds) {
       const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, bindingRequests: { none: {} }, correctionRequests: { none: {} }, movementHistory: { none: {} } } });
@@ -203,7 +233,7 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     if (deletedPeople === 0 && deletedHouses === 0 && assessment.skipped.length === 0) {
       throw new Error("ไม่พบข้อมูลที่สร้างจากงานนี้ซึ่งสามารถลบได้");
     }
-    const finalAssessment = await assessImportCleanup(tx, villageId, createdAt, [], houseIds);
+    const finalAssessment = await assessImportCleanup(tx, villageId, jobId, createdAt, [], houseIds);
     const skipped = [...assessment.skipped.filter((item) => item.kind === "person"), ...finalAssessment.skipped];
     const skippedReasonCounts = countSkipReasons(skipped);
     const cleanupHistory = [...(payload.cleanupHistory ?? []), { cleanedAt: new Date().toISOString(), actorId: userId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts }].slice(-10);
