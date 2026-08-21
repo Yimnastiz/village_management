@@ -163,7 +163,7 @@ export default async function Page({ searchParams }: PageProps) {
             <a href="/api/admin/population/import-template" download className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               ดาวน์โหลดไฟล์ตัวอย่าง
             </a>
-            <a href="/api/admin/population/export" download className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
+            <a href="/admin/population/export" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
               ส่งออกข้อมูล
             </a>
           </>
@@ -282,9 +282,9 @@ export default async function Page({ searchParams }: PageProps) {
                           {job.createdAt.toLocaleString("th-TH")} • {job.totalRows} แถว: {job.importedRows} สำเร็จ, {job.failedRows} ไม่สำเร็จ
                         </p>
                       </div>
-                      <Badge variant={getStageBadgeVariant(job.stage)}>{job.stage === PopulationImportStage.COMPLETED ? "นำเข้าสำเร็จ" : getStageLabel(job.stage)}</Badge>
+                      <Badge variant={cleanup ? (cleanupWasPartial ? "warning" : "outline") : getStageBadgeVariant(job.stage)}>{cleanup ? (cleanupWasPartial ? "ลบข้อมูลนำเข้าได้บางส่วน" : "ลบข้อมูลที่นำเข้าแล้ว") : job.stage === PopulationImportStage.COMPLETED ? "นำเข้าสำเร็จ" : getStageLabel(job.stage)}</Badge>
                     </div>
-                    {cleanup ? <p className="mt-1.5 text-xs text-slate-500">{cleanupWasPartial ? "ลบข้อมูลบางส่วนแล้ว" : "ลบข้อมูลที่สร้างแล้ว"} · {new Date(cleanup.cleanedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
+                    {cleanup ? <p className="mt-1.5 text-xs text-slate-500">{job.completedAt ? `นำเข้าสำเร็จเมื่อ ${job.completedAt.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })} · ` : ""}ลบข้อมูลเมื่อ {new Date(cleanup.cleanedAt).toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" })}</p> : null}
                     <Link
                       href={`/admin/population/import/${job.id}`}
                       className="mt-2 inline-flex text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"

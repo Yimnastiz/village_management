@@ -1,8 +1,8 @@
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
-import { Download, FileSpreadsheet, Home, Users } from "lucide-react";
+import { FileSpreadsheet, Home, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { PopulationExportForm } from "@/features/population/components/population-export-form";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
@@ -39,19 +39,7 @@ export default async function Page() {
           <h1 className="text-2xl font-bold text-gray-900">ส่งออกข้อมูลประชากร</h1>
           <p className="mt-1 text-sm text-gray-500">ส่งออกข้อมูลบ้าน คน และบัญชีผู้ใช้ของ {village?.name ?? "หมู่บ้านของคุณ"} เป็นไฟล์ Excel เดียว</p>
         </div>
-        <a href="/api/admin/population/export" download>
-          <Button>
-            <Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Excel
-          </Button>
-        </a>
-        <form action="/api/admin/population/export" method="get" className="flex flex-wrap items-center gap-2">
-          <select name="sheets" defaultValue="houses,people,accounts" className="rounded-lg border px-2 py-2 text-sm"><option value="houses,people,accounts">บ้าน บุคคล บัญชี</option><option value="houses">เฉพาะบ้าน</option><option value="people">เฉพาะบุคคล</option><option value="accounts">เฉพาะบัญชี</option></select>
-          <label className="flex items-center gap-1 text-sm"><input type="checkbox" name="activeOnly" value="true" /> Active only</label>
-          <select name="zoneId" className="rounded-lg border px-2 py-2 text-sm"><option value="">ทุกโซน</option>{zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select>
-          <input type="date" name="from" className="rounded-lg border px-2 py-2 text-sm" /><input type="date" name="to" className="rounded-lg border px-2 py-2 text-sm" />
-          <input type="hidden" name="masked" value={canExportFullRegistry ? "false" : "true"} />
-          <Button type="submit"><Download className="mr-1 h-4 w-4" /> ดาวน์โหลด Excel</Button>
-        </form>
+        <PopulationExportForm zones={zones} canExportFullRegistry={canExportFullRegistry} />
       </div>
 
       {canExportFullRegistry ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">ไฟล์ส่งออกมีข้อมูลส่วนบุคคล กรุณาจัดเก็บและใช้งานอย่างเหมาะสม</p> : null}
