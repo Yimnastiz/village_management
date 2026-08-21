@@ -1,4 +1,4 @@
-import { MembershipStatus, PopulationImportStage, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, MembershipStatus, PopulationImportStage, VillageMembershipRole } from "@prisma/client";
 import { CheckCircle2, CircleAlert, Clock3, LoaderCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -7,10 +7,11 @@ import { POPULATION_IMPORT_HEADER_ALIASES } from "@/features/population/server/i
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ImportJobActions } from "./import-confirm-form";
+import { getImportCleanupPreflightAction } from "./actions";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE]);
 type RowDetail = { rowNumber: number; action: string; status: string; errorCode?: string | null; errorMessage?: string | null; confidenceLevel?: string; matchedRecordId?: string | null };
-type ImportJobDetailsPayload = { errors?: string[]; sourceHeaders?: string[]; previewRows?: Array<Record<string, string>>; createdPersonIds?: string[]; createdHouseIds?: string[]; rowDetails?: RowDetail[] };
+type ImportJobDetailsPayload = { errors?: string[]; sourceHeaders?: string[]; previewRows?: Array<Record<string, string>>; createdPersonIds?: string[]; createdHouseIds?: string[]; rowDetails?: RowDetail[]; cleanupHistory?: Array<{ cleanedAt: string; actorId: string; reason: string; deletedPeople: number; deletedHouses: number; skippedCount: number; skippedReasonCounts: Record<string, number> }> };
 type StoredPreviewRow = { rowNumber?: number; houseNumber?: string | null; firstName?: string | null; lastName?: string | null; action?: string; note?: string | null };
 
 const COLUMN_GROUPS = [
@@ -76,6 +77,9 @@ export default async function Page({ params }: PageProps) {
   const invalidRows = Math.max(job.failedRows - job.conflictRows, 0);
   const hasIssues = job.failedRows > 0 || job.conflictRows > 0 || errors.length > 0;
   const canCleanup = isCompleted && (createdPeople.length > 0 || createdHouses.length > 0);
+  const cleanupHistory = payload.cleanupHistory ?? [];
+  const cleanupPreflight = isCompleted ? await getImportCleanupPreflightAction(job.id) : null;
+  const latestCleanupAudit = isCompleted ? await prisma.auditLog.findFirst({ where: { villageId: adminMembership.villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: job.id }, orderBy: { createdAt: "desc" }, select: { createdAt: true, user: { select: { name: true } } } }) : null;
   const status = statusPresentation(job.stage);
   const unknownHeaders = sourceHeaders.filter((header) => !canonicalHeader(header));
 
@@ -94,6 +98,6 @@ export default async function Page({ params }: PageProps) {
 
     {isCompleted ? <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5"><h2 className="text-base font-semibold text-gray-900">ข้อมูลที่เกี่ยวข้องกับงานนี้</h2>{createdPeople.length === 0 && createdHouses.length === 0 ? <p className="mt-3 text-sm text-gray-500">ไม่พบข้อมูลที่ติดตามได้ว่าเป็นรายการที่สร้างใหม่จากงานนี้</p> : <div className="mt-4 space-y-5">{createdHouses.length ? <section><h3 className="text-sm font-semibold text-gray-900">ทะเบียนบ้าน ({createdHouses.length.toLocaleString("th-TH")})</h3><ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-100">{createdHouses.map((house) => <li key={house.id} className="flex items-center justify-between gap-3 px-3 py-2.5"><p className="text-sm font-medium text-gray-900">บ้าน {house.houseNumber}</p><Link href={`/admin/population/houses/${house.id}`} className="shrink-0 text-sm font-medium text-green-700 hover:underline">ดูข้อมูลบ้าน</Link></li>)}</ul></section> : null}{createdPeople.length ? <section><h3 className="text-sm font-semibold text-gray-900">ทะเบียนประชากร ({createdPeople.length.toLocaleString("th-TH")})</h3><ul className="mt-2 divide-y divide-gray-100 rounded-lg border border-gray-100">{createdPeople.map((person) => <li key={person.id} className="flex items-center justify-between gap-3 px-3 py-2.5"><p className="min-w-0 text-sm text-gray-700"><span className="font-medium text-gray-900">{person.firstName} {person.lastName}</span> · บ้าน {person.house?.houseNumber ?? "-"}</p><Link href={`/admin/population/people/${person.id}`} className="shrink-0 text-sm font-medium text-green-700 hover:underline">ดูข้อมูล</Link></li>)}</ul></section> : null}</div>}</section> : null}
     {!isPreview && hasIssues ? <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5"><h2 className="text-base font-semibold text-gray-900">รายการที่ต้องตรวจสอบ</h2><p className="mt-1 text-sm text-gray-500">ดาวน์โหลดรายงานข้อผิดพลาดเพื่อดูรายละเอียดเพิ่มเติม</p>{rowDetails.filter((row) => row.action === "CONFLICT" || row.action === "FAILED").length > 0 ? <ul className="mt-3 divide-y divide-gray-100">{rowDetails.filter((row) => row.action === "CONFLICT" || row.action === "FAILED").slice(0, 20).map((row) => <li key={row.rowNumber} className="py-2 text-sm"><span className={`font-medium ${actionTone(row.action)}`}>แถว {row.rowNumber} · {actionLabel(row.action)}</span><p className="mt-1 text-gray-600">{rowMessage(row)}</p></li>)}</ul> : null}</section> : null}
-    {isCompleted && canCleanup ? <section className="border-t border-gray-200 pt-5"><h2 className="text-sm font-semibold text-gray-900">การจัดการงานนำเข้า</h2><p className="mt-1 max-w-2xl text-sm leading-5 text-gray-500">ลบได้เฉพาะข้อมูลที่ระบบติดตามว่าเป็นรายการสร้างใหม่ ข้อมูลเดิมที่ถูกอัปเดตจะไม่กลับเป็นค่าเดิมโดยอัตโนมัติ</p><div className="mt-3"><ImportJobActions jobId={job.id} createdRows={job.createdRows} updatedRows={job.updatedRows} conflictRows={job.conflictRows} failedRows={job.failedRows} cleanupPeopleCount={createdPeople.length} cleanupHousesCount={createdHouses.length} canConfirm={false} canCleanup /></div></section> : null}
+    {isCompleted && (canCleanup || cleanupHistory.length > 0) ? <section className="border-t border-gray-200 pt-5"><h2 className="text-sm font-semibold text-gray-900">การจัดการงานนำเข้า</h2><p className="mt-1 max-w-2xl text-sm leading-5 text-gray-500">ลบได้เฉพาะข้อมูลที่ระบบติดตามว่าเป็นรายการสร้างใหม่และยังปลอดภัยต่อการลบ ข้อมูลเดิมที่ถูกอัปเดตจากงานนี้จะไม่ถูกกู้คืนเป็นค่าเดิมโดยอัตโนมัติ</p>{latestCleanupAudit ? <p className="mt-2 text-sm text-gray-500">ดำเนินการลบล่าสุดโดย {latestCleanupAudit.user?.name ?? "ผู้ดูแลหมู่บ้าน"} เมื่อ {formatDateTime(latestCleanupAudit.createdAt)}</p> : null}<div className="mt-3"><ImportJobActions jobId={job.id} createdRows={job.createdRows} updatedRows={job.updatedRows} conflictRows={job.conflictRows} failedRows={job.failedRows} cleanupPeopleCount={createdPeople.length} cleanupHousesCount={createdHouses.length} cleanupPreflight={cleanupPreflight} canConfirm={false} canCleanup={canCleanup} /></div></section> : null}
   </div>;
 }

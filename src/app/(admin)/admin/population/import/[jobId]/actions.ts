@@ -12,6 +12,14 @@ type ImportJobDetailsPayload = {
   importedUserIds?: string[];
   createdPersonIds?: string[];
   createdHouseIds?: string[];
+  cleanupHistory?: Array<{ cleanedAt: string; actorId: string; reason: string; deletedPeople: number; deletedHouses: number; skippedCount: number; skippedReasonCounts: Record<string, number> }>;
+};
+
+export type ImportCleanupPreflight = {
+  deletablePeople: number;
+  deletableHouses: number;
+  skipped: Array<{ kind: "person" | "house"; label: string; reason: string }>;
+  skippedReasonCounts: Record<string, number>;
 };
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
@@ -76,7 +84,6 @@ async function requireImportJobForAdmin(jobId: string, targetVillageId = "") {
     payload: parsePayload(job.errors),
   };
 }
-
 export async function confirmPopulationImportAction(formData: FormData) {
   const jobId = typeof formData.get("jobId") === "string" ? formData.get("jobId")!.toString().trim() : "";
   const reason = typeof formData.get("supportReason") === "string" ? formData.get("supportReason")!.toString().trim() : "";
@@ -122,24 +129,45 @@ export async function confirmPopulationImportAction(formData: FormData) {
   }
 }
 
-async function cleanupImportedHouses(villageId: string, houseIds: string[], jobCreatedAt: Date, tx: Prisma.TransactionClient) {
-  if (houseIds.length === 0) return 0;
+function countSkipReasons(skipped: ImportCleanupPreflight["skipped"]) {
+  return skipped.reduce<Record<string, number>>((counts, item) => {
+    counts[item.reason] = (counts[item.reason] ?? 0) + 1;
+    return counts;
+  }, {});
+}
 
-  let deletedCount = 0;
-
-  for (const houseId of houseIds) {
-    const [peopleCount, memberCount] = await Promise.all([
-      tx.person.count({ where: { houseId } }),
-      tx.villageMembership.count({ where: { houseId } }),
-    ]);
-
-    if (peopleCount === 0 && memberCount === 0) {
-      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: jobCreatedAt } } });
-      deletedCount += deleted.count;
-    }
+async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: string, jobCreatedAt: Date, personIds: string[], houseIds: string[]): Promise<ImportCleanupPreflight & { deletablePersonIds: string[]; deletableHouseIds: string[] }> {
+  const skipped: ImportCleanupPreflight["skipped"] = [];
+  const people = personIds.length ? await tx.person.findMany({ where: { id: { in: personIds }, villageId }, select: { id: true, userId: true, firstName: true, lastName: true, createdAt: true, _count: { select: { movements: true } } } }) : [];
+  const deletablePersonIds: string[] = [];
+  for (const person of people) {
+    const label = `${person.firstName} ${person.lastName}`;
+    if (person.createdAt < jobCreatedAt) skipped.push({ kind: "person", label, reason: "ข้อมูลไม่ได้ถูกสร้างจากงานนี้" });
+    else if (person.userId) skipped.push({ kind: "person", label, reason: "เชื่อมกับบัญชีลูกบ้านแล้ว" });
+    else if (person._count.movements > 0) skipped.push({ kind: "person", label, reason: "มีประวัติการย้ายเข้า-ออก" });
+    else deletablePersonIds.push(person.id);
   }
+  const houses = houseIds.length ? await tx.house.findMany({ where: { id: { in: houseIds }, villageId }, select: { id: true, houseNumber: true, sourceType: true, createdAt: true, _count: { select: { memberships: true, bindingRequests: true, correctionRequests: true, movementHistory: true } } } }) : [];
+  const deletableHouseIds: string[] = [];
+  for (const house of houses) {
+    const label = `บ้าน ${house.houseNumber}`;
+    if (house.sourceType !== "IMPORT" || house.createdAt < jobCreatedAt) { skipped.push({ kind: "house", label, reason: "ข้อมูลไม่ได้ถูกสร้างจากงานนี้" }); continue; }
+    const remainingPeople = await tx.person.count({ where: { houseId: house.id, id: { notIn: deletablePersonIds } } });
+    if (remainingPeople > 0) skipped.push({ kind: "house", label, reason: "ยังมีประชากรอยู่" });
+    else if (house._count.memberships > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลสมาชิกหมู่บ้านที่เกี่ยวข้อง" });
+    else if (house._count.bindingRequests > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลการผูกบ้านที่เกี่ยวข้อง" });
+    else if (house._count.correctionRequests > 0) skipped.push({ kind: "house", label, reason: "มีคำขอแก้ไขข้อมูลบ้านที่เกี่ยวข้อง" });
+    else if (house._count.movementHistory > 0) skipped.push({ kind: "house", label, reason: "มีประวัติการย้ายเข้า-ออกที่เกี่ยวข้อง" });
+    else deletableHouseIds.push(house.id);
+  }
+  return { deletablePeople: deletablePersonIds.length, deletableHouses: deletableHouseIds.length, deletablePersonIds, deletableHouseIds, skipped, skippedReasonCounts: countSkipReasons(skipped) };
+}
 
-  return deletedCount;
+export async function getImportCleanupPreflightAction(jobId: string): Promise<ImportCleanupPreflight> {
+  const access = await requireImportJobForAdmin(jobId);
+  if (access.stage !== PopulationImportStage.COMPLETED && access.stage !== PopulationImportStage.PARTIAL) throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
+  const assessment = await prisma.$transaction((tx) => assessImportCleanup(tx, access.villageId, access.createdAt, access.payload.createdPersonIds ?? [], access.payload.createdHouseIds ?? []));
+  return { deletablePeople: assessment.deletablePeople, deletableHouses: assessment.deletableHouses, skipped: assessment.skipped, skippedReasonCounts: assessment.skippedReasonCounts };
 }
 
 export async function deleteImportJobDatasetAction(formData: FormData) {
@@ -151,7 +179,7 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   const jobId = jobIdValue.trim();
   const reason = typeof formData.get("supportReason") === "string" ? formData.get("supportReason")!.toString().trim() : "";
   if (reason.length < 5) throw new Error("กรุณาระบุเหตุผลการลบข้อมูลอย่างน้อย 5 ตัวอักษร");
-  const { villageId, createdAt, payload, stage } = await requireImportJobForAdmin(jobId);
+  const { villageId, createdAt, payload, stage, userId } = await requireImportJobForAdmin(jobId);
   if (stage !== PopulationImportStage.COMPLETED && stage !== PopulationImportStage.PARTIAL) {
     throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
   }
@@ -160,13 +188,28 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   const houseIds = payload.createdHouseIds ?? [];
 
   const result = await prisma.$transaction(async (tx) => {
-    const deletedPeople = personIds.length > 0 ? await tx.person.deleteMany({ where: { id: { in: personIds }, villageId, createdAt: { gte: createdAt } } }) : { count: 0 };
-    const deletedHouses = await cleanupImportedHouses(villageId, houseIds, createdAt, tx);
-    if (deletedPeople.count === 0 && deletedHouses === 0) {
+    const assessment = await assessImportCleanup(tx, villageId, createdAt, personIds, houseIds);
+    let deletedPeople = 0;
+    for (const personId of assessment.deletablePersonIds) {
+      const current = await tx.person.findFirst({ where: { id: personId, villageId, userId: null, createdAt: { gte: createdAt } }, select: { id: true, _count: { select: { movements: true } } } });
+      if (current?.id && current._count.movements === 0) { await tx.person.delete({ where: { id: current.id } }); deletedPeople += 1; }
+    }
+    const afterPeople = await assessImportCleanup(tx, villageId, createdAt, [], houseIds);
+    let deletedHouses = 0;
+    for (const houseId of afterPeople.deletableHouseIds) {
+      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, bindingRequests: { none: {} }, correctionRequests: { none: {} }, movementHistory: { none: {} } } });
+      deletedHouses += deleted.count;
+    }
+    if (deletedPeople === 0 && deletedHouses === 0 && assessment.skipped.length === 0) {
       throw new Error("ไม่พบข้อมูลที่สร้างจากงานนี้ซึ่งสามารถลบได้");
     }
-    await tx.auditLog.create({ data: { userId: (await getSessionContextFromServerCookies())!.id, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, reason, createdPersonCount: personIds.length, createdHouseCount: houseIds.length } } });
-    return { deletedPeople: deletedPeople.count, deletedHouses };
+    const finalAssessment = await assessImportCleanup(tx, villageId, createdAt, [], houseIds);
+    const skipped = [...assessment.skipped.filter((item) => item.kind === "person"), ...finalAssessment.skipped];
+    const skippedReasonCounts = countSkipReasons(skipped);
+    const cleanupHistory = [...(payload.cleanupHistory ?? []), { cleanedAt: new Date().toISOString(), actorId: userId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts }].slice(-10);
+    await tx.populationImportJob.update({ where: { id: jobId }, data: { errors: { ...payload, cleanupHistory } } });
+    await tx.auditLog.create({ data: { userId, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts } } });
+    return { deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts };
   });
   revalidatePath("/admin/population/import");
   revalidatePath(`/admin/population/import/${jobId}`);
@@ -175,7 +218,10 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   return result;
 }
 
-export async function deleteImportedPersonAction(formData: FormData) {
+export async function deleteImportedPersonAction(_formData: FormData) {
+  throw new Error("โปรดใช้การลบข้อมูลที่สร้างจากงานนี้ เพื่อให้ระบบตรวจสอบความปลอดภัยครบถ้วน");
+}
+/*
   const jobIdValue = formData.get("jobId");
   const personIdValue = formData.get("personId");
   if (typeof jobIdValue !== "string" || !jobIdValue.trim()) {
@@ -196,6 +242,8 @@ export async function deleteImportedPersonAction(formData: FormData) {
     throw new Error("บุคคลนี้ไม่ได้อยู่ในชุดนำเข้าของงานนี้");
   }
 
+  throw new Error("โปรดใช้การลบข้อมูลที่สร้างจากงานนี้ เพื่อให้ระบบตรวจสอบความปลอดภัยครบถ้วน");
+
   const person = await prisma.person.findFirst({
     where: {
       id: personId,
@@ -209,7 +257,7 @@ export async function deleteImportedPersonAction(formData: FormData) {
 
   await prisma.$transaction(async (tx) => {
     await tx.person.delete({ where: { id: person.id } });
-    if (person.houseId && houseIds.includes(person.houseId)) await cleanupImportedHouses(villageId, [person.houseId], new Date(0), tx);
+    void houseIds;
     await tx.auditLog.create({ data: { userId: (await getSessionContextFromServerCookies())!.id, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", reason: "ลบบุคคลที่สร้างจาก import job", personId } } });
   });
 
@@ -218,3 +266,4 @@ export async function deleteImportedPersonAction(formData: FormData) {
   revalidatePath("/admin/population/houses");
   revalidatePath("/admin/population/people");
 }
+*/
