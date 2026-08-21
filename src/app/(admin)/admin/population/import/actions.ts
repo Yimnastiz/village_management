@@ -19,6 +19,7 @@ import { getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } fro
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
+import { parsePopulationEvent, parsePopulationImportDate } from "@/features/population/server/import-value-parsers";
 import {
   POPULATION_IMPORT_COLUMNS,
   POPULATION_IMPORT_HEADER_ALIASES,
@@ -251,8 +252,7 @@ function parseSpreadsheetDate(value: unknown): Date | null {
     return null;
   }
 
-  const parsed = new Date(text);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return parsePopulationImportDate(text);
 }
 
 function parseHouseholdOccupancyStatus(value: unknown): HouseholdOccupancyStatus | null {
@@ -276,9 +276,7 @@ function parseHouseholdOccupancyStatus(value: unknown): HouseholdOccupancyStatus
   };
 
   const matched = mapped[normalized] ?? mapped[toTrimmedString(value) ?? ""];
-  if (!matched) {
-    throw new Error(`สถานะบ้านไม่ถูกต้อง: ${value}`);
-  }
+  if (!matched) throw new Error(`สถานะบ้าน "${value}" ไม่ถูกต้อง กรุณาเลือก: มีผู้อยู่อาศัย, ว่าง, กำลังก่อสร้าง หรือ รื้อถอนแล้ว`);
 
   return matched;
 }
@@ -304,18 +302,17 @@ function parsePersonStatus(value: unknown): PersonStatus | null {
   };
 
   const matched = mapped[normalized] ?? mapped[toTrimmedString(value) ?? ""];
-  if (!matched) {
-    throw new Error(`สถานะบุคคลไม่ถูกต้อง: ${value}`);
-  }
+  if (!matched) throw new Error(`สถานะบุคคล "${value}" ไม่ถูกต้อง กรุณาเลือก: อยู่ในทะเบียน, ย้ายออก, เสียชีวิต หรือ ไม่ทราบสถานะ`);
 
   return matched;
 }
 
 function parseMovementType(value: unknown): MovementType | null {
-  const normalized = toTrimmedString(value)?.toUpperCase().replace(/[ -]+/g, "_");
-  if (!normalized) return null;
-  if (!Object.values(MovementType).includes(normalized as MovementType)) throw new Error(`ประเภทการย้ายไม่ถูกต้อง: ${value}`);
-  return normalized as MovementType;
+  const text = toTrimmedString(value);
+  if (!text) return null;
+  const matched = parsePopulationEvent(text);
+  if (matched) return matched as MovementType;
+  throw new Error(`เหตุการณ์ประชากร "${text}" ไม่ถูกต้อง กรุณาเลือก: ย้ายเข้า, ย้ายออก, เกิด, เสียชีวิต หรือ ย้ายภายใน`);
 }
 
 function canonicalizeSpreadsheetRow(row: SpreadsheetRow) {
@@ -387,6 +384,11 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
   }
   if (dateOfBirth && dateOfBirth.getTime() > Date.now()) throw new Error("วันเกิดต้องไม่เป็นวันในอนาคต");
 
+  const movementDate = parseSpreadsheetDate(row.movement_date);
+  if (row.movement_date && !movementDate) {
+    throw new Error("วันที่เกิดเหตุการณ์ไม่ถูกต้อง กรุณากรอกเป็น วัน-เดือน-ปี พ.ศ. เช่น 01-08-2569");
+  }
+
   const gender = normalizePersonGender(toTrimmedString(row.gender));
   if (!gender) throw new Error("ข้อมูลเพศไม่ถูกต้อง");
 
@@ -417,7 +419,7 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     occupancyStatus: parseHouseholdOccupancyStatus(row.occupancy_status),
     personStatus: parsePersonStatus(row.person_status),
     movementType: parseMovementType(row.movement_type),
-    movementDate: parseSpreadsheetDate(row.movement_date),
+    movementDate,
     latitude: parseNumericValue(row.latitude, "latitude"),
     longitude: parseNumericValue(row.longitude, "longitude"),
     createUserAccount,

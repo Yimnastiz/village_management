@@ -1,3 +1,5 @@
+import { POPULATION_EVENT_THAI_OPTIONS } from "./import-value-parsers";
+
 export type PopulationImportColumn = {
   key: string;
   label: string;
@@ -81,8 +83,8 @@ const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     key: "date_of_birth",
     label: "วันเกิด",
     required: false,
-    description: "รองรับวันที่จาก Excel หรือข้อความวันที่มาตรฐาน",
-    example: "1988-04-12",
+    description: "กรอกเป็น วัน-เดือน-ปี พ.ศ. เช่น 12-08-2547 (ใช้ / แทน - ได้)",
+    example: "12-08-2547",
     aliases: ["birth_date", "dob", "วันเกิด", "วันเดือนปีเกิด", "เกิดวันที่"],
   },
   {
@@ -112,10 +114,10 @@ const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   },
   {
     key: "zone_name",
-    label: "โซน/หมู่",
+    label: "พื้นที่/คุ้ม",
     required: false,
-    description: "ใช้สร้างหรือจับคู่โซนของบ้านอัตโนมัติ",
-    example: "หมู่ 4",
+    description: "พื้นที่ย่อยหรือคุ้มภายในหมู่บ้าน ใช้สร้างหรือจับคู่พื้นที่ของบ้านอัตโนมัติ",
+    example: "คุ้มเหนือ",
     aliases: ["zone", "zone name", "หมู่", "หมู่ที่", "โซน", "เขต"],
   },
   {
@@ -154,20 +156,20 @@ const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   },
   {
     key: "movement_type",
-    label: "ประเภทการย้าย",
+    label: "เหตุการณ์ประชากร",
     required: false,
-    description: "MOVE_IN, MOVE_OUT หรือ TRANSFER",
-    example: "MOVE_IN",
-    acceptedValues: "MOVE_IN, MOVE_OUT, TRANSFER, BIRTH, DEATH",
-    aliases: ["movement", "movement type", "ประเภทการย้าย"],
+    description: "เลือกเหตุการณ์จากรายการ",
+    example: "ย้ายเข้า",
+    acceptedValues: "ย้ายเข้า, ย้ายออก, เกิด, เสียชีวิต, ย้ายภายใน",
+    aliases: ["movement", "movement type", "ประเภทการย้าย", "เหตุการณ์ประชากร"],
   },
   {
     key: "movement_date",
-    label: "วันที่ย้าย",
+    label: "วันที่เกิดเหตุการณ์",
     required: false,
-    description: "วันที่บันทึกการย้ายเข้า/ออก",
-    example: "2026-01-15",
-    aliases: ["movement date", "วันที่ย้าย"],
+    description: "กรอกเป็น วัน-เดือน-ปี พ.ศ. เช่น 01-08-2569 (ใช้ / แทน - ได้)",
+    example: "01-08-2569",
+    aliases: ["movement date", "วันที่ย้าย", "วันที่เกิดเหตุการณ์"],
   },
   {
     key: "create_user_account",
@@ -214,10 +216,10 @@ export const POPULATION_IMPORT_HEADER_ALIASES = ALL_POPULATION_IMPORT_COLUMNS.re
   return accumulator;
 }, {});
 
-// Headers for the admin-friendly template (excludes user account fields)
-export const POPULATION_IMPORT_TEMPLATE_HEADERS = POPULATION_IMPORT_COLUMNS_ADMIN.map(
-  (column) => column.key,
-);
+// The normal template deliberately omits the legacy migration identifier.
+export const POPULATION_IMPORT_TEMPLATE_HEADERS = POPULATION_IMPORT_COLUMNS_ADMIN
+  .filter((column) => column.key !== "external_person_id")
+  .map((column) => column.key);
 
 // All headers including legacy fields
 export const POPULATION_IMPORT_ALL_HEADERS = ALL_POPULATION_IMPORT_COLUMNS.map(
@@ -230,13 +232,15 @@ export const POPULATION_IMPORT_SAMPLE_ROW: Record<string, string> = {
   last_name: "ใจดี",
   phone_number: "0812345678",
   national_id: "1234567890123",
-  date_of_birth: "1988-04-12",
+  date_of_birth: "12-08-2547",
   gender: "ชาย",
   email: "somchai@example.com",
   house_address: "99/12 หมู่ 4 ถนนกลางหมู่บ้าน",
-  zone_name: "หมู่ 4",
+  zone_name: "คุ้มเหนือ",
   occupancy_status: "มีผู้อยู่อาศัย",
   person_status: "อยู่ในทะเบียน",
+  movement_type: "ย้ายเข้า",
+  movement_date: "01-08-2569",
   latitude: "13.7563",
   longitude: "100.5018",
   note: "หัวหน้าครัวเรือน",
@@ -305,56 +309,77 @@ export function buildPopulationImportTemplateXlsx() {
     ws[cellRef].s = headerCellStyle;
   }
 
-  // Format text columns (house_number, phone_number, national_id, external_person_id) to prevent Excel from auto-converting
-  const textColumns = ["house_number", "phone_number", "national_id", "external_person_id"];
+  // Text format prevents lost zeroes, 99/12 becoming a date, and Buddhist Era dates being reformatted.
+  const textColumns = ["house_number", "phone_number", "national_id", "date_of_birth", "movement_date"];
   const textColumnIndices = POPULATION_IMPORT_TEMPLATE_HEADERS
     .map((h, i) => (textColumns.includes(h) ? i : -1))
     .filter((i) => i !== -1);
 
-  for (let rowIdx = 1; rowIdx < ws_data.length; rowIdx++) {
+  for (let rowIdx = 1; rowIdx <= 1000; rowIdx++) {
     for (const colIdx of textColumnIndices) {
       const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
-      if (ws[cellRef]) {
-        ws[cellRef].z = "@"; // Format as text
-      }
+      ws[cellRef] ??= { t: "s", v: "" };
+      ws[cellRef].z = "@";
     }
   }
+
+  const validationValues: Record<string, string[]> = {
+    gender: ["ชาย", "หญิง", "ไม่ระบุ"],
+    person_status: ["อยู่ในทะเบียน", "ย้ายออก", "เสียชีวิต", "ไม่ทราบสถานะ"],
+    occupancy_status: ["มีผู้อยู่อาศัย", "ว่าง", "กำลังก่อสร้าง", "รื้อถอนแล้ว"],
+    movement_type: [...POPULATION_EVENT_THAI_OPTIONS],
+  };
+  const dataValidations = Object.entries(validationValues).map(([key, values]) => {
+    const columnIndex = POPULATION_IMPORT_TEMPLATE_HEADERS.indexOf(key);
+    const column = XLSX.utils.encode_col(columnIndex);
+    return `<dataValidation type="list" allowBlank="1" showErrorMessage="1" showInputMessage="1" sqref="${column}2:${column}1001"><formula1>&quot;${values.join(",")}&quot;</formula1></dataValidation>`;
+  }).join("");
 
   // Create workbook
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "ข้อมูลนำเข้า");
 
-  // Add instructions sheet
+  // Add concise Thai-first instructions; legacy migration fields are intentionally not shown.
   const instructions_data = [
-    ["คำแนะนำการนำเข้าข้อมูล"],
+    ["คำแนะนำ"],
     [],
-    ["ฟิลด์ที่จำเป็น:"],
-    ["• เลขที่บ้าน (บังคับมี)"],
+    ["ช่อง", "จำเป็น", "วิธีกรอก", "ตัวอย่าง / ค่าที่เลือกได้"],
+    ["เลขที่บ้าน", "จำเป็น", "ข้อความ", "99/12"],
+    ["ชื่อ", "เมื่อเพิ่มบุคคล", "กรอกพร้อมนามสกุล", "สมชาย"],
+    ["นามสกุล", "เมื่อเพิ่มบุคคล", "กรอกพร้อมชื่อ", "ใจดี"],
+    ["วันเกิด", "ไม่จำเป็น", "วัน-เดือน-ปี พ.ศ. (เป็นข้อความ)", "12-08-2547 หรือ 12/08/2547"],
+    ["เพศ", "ไม่จำเป็น", "เลือกจากรายการ", "ชาย, หญิง, ไม่ระบุ"],
+    ["สถานะบุคคล", "ไม่จำเป็น", "เลือกจากรายการ", "อยู่ในทะเบียน, ย้ายออก, เสียชีวิต, ไม่ทราบสถานะ"],
+    ["สถานะบ้าน", "ไม่จำเป็น", "เลือกจากรายการ", "มีผู้อยู่อาศัย, ว่าง, กำลังก่อสร้าง, รื้อถอนแล้ว"],
+    ["เหตุการณ์ประชากร", "ไม่จำเป็น", "เลือกจากรายการ", "ย้ายเข้า, ย้ายออก, เกิด, เสียชีวิต, ย้ายภายใน"],
+    ["วันที่เกิดเหตุการณ์", "เมื่อมีเหตุการณ์", "วัน-เดือน-ปี พ.ศ. (เป็นข้อความ)", "01-08-2569 หรือ 01/08/2569"],
+    ["พื้นที่/คุ้ม", "ไม่จำเป็น", "พื้นที่ย่อยภายในหมู่บ้าน", "คุ้มเหนือ"],
     [],
-    ["การนำเข้าบุคคล:"],
-    ["• หากต้องการนำเข้าบุคคล ต้องระบุ ชื่อ และ นามสกุล ให้ครบ"],
-    ["• สามารถนำเข้าเฉพาะบ้าน (โดยปล่อยให้ชื่อและนามสกุลว่าง) หรือ บ้าน + บุคคล พร้อมกัน"],
-    [],
-    ["ข้อมูลโทรศัพท์และเลขบัตรประชาชน:"],
-    ["• ตั้งค่าให้เป็น 'ข้อความ' (Text) ใน Excel เพื่อไม่ให้เลข 0 ด้านหน้าหาย"],
-    ["• เลขที่บ้าน เช่น 99/12 ต้องเป็น 'ข้อความ' เพื่อไม่ให้ถูกแปลงเป็นวันที่"],
-    [],
-    ["ค่าที่รับได้:"],
-    ["สถานะบ้าน: มีผู้อยู่อาศัย, ว่าง, กำลังก่อสร้าง, รื้อถอนแล้ว"],
-    ["สถานะบุคคล: อยู่ในทะเบียน, ย้ายออก, เสียชีวิต, ไม่ทราบสถานะ"],
-    ["เพศ: ชาย, หญิง, อื่นๆ"],
-    [],
-    ["หมายเหตุ:"],
-    ["• การนำเข้าข้อมูลไม่ใช่การยืนยันตัวตนของลูกบ้าน"],
-    ["• ระบบจะตรวจสอบข้อมูลเดิมก่อนสร้างรายการใหม่ เพื่อลดข้อมูลซ้ำ"],
-    ["• บ้านใหม่และรายการที่เปลี่ยนแปลงจะแสดง Preview ก่อนยืนยัน"],
+    ["หมายเหตุ", "", "แถวตัวอย่างมีไว้ดูวิธีกรอกเท่านั้น ไม่ใช่ข้อมูลจริง", "กรอกข้อมูลตั้งแต่แถวถัดไป"],
   ];
 
   const ws_instructions = XLSX.utils.aoa_to_sheet(instructions_data);
-  ws_instructions["!cols"] = [{ wch: 80 }];
+  ws_instructions["!cols"] = [{ wch: 22 }, { wch: 18 }, { wch: 42 }, { wch: 58 }];
 
   XLSX.utils.book_append_sheet(wb, ws_instructions, "คำแนะนำ");
 
-  // Generate and return Buffer
-  return XLSX.write(wb, { type: "buffer" });
+  // SheetJS CE preserves styles but does not write data validations. Inject the
+  // standard SpreadsheetML element so Excel shows native dropdowns.
+  const CFB = require("cfb");
+  const archive = CFB.read(XLSX.write(wb, { type: "buffer" }), { type: "buffer" });
+  const worksheet = archive.FileIndex[archive.FullPaths.indexOf("Root Entry/xl/worksheets/sheet1.xml")];
+  if (!worksheet?.content) throw new Error("ไม่สามารถสร้างรายการเลือกในแบบฟอร์ม Excel ได้");
+  const worksheetXml = Buffer.from(worksheet.content).toString("utf8");
+  const validationsXml = `<dataValidations count="${Object.keys(validationValues).length}">${dataValidations}</dataValidations>`;
+  let withValidations = worksheetXml.replace("</sheetData>", `</sheetData>${validationsXml}`);
+  for (const columnIndex of textColumnIndices) {
+    const excelColumnNumber = columnIndex + 1;
+    withValidations = withValidations.replace(
+      new RegExp(`<col min="${excelColumnNumber}" max="${excelColumnNumber}"`),
+      `<col min="${excelColumnNumber}" max="${excelColumnNumber}" style="1"`,
+    );
+  }
+  worksheet.content = Buffer.from(withValidations, "utf8");
+  worksheet.size = worksheet.content.length;
+  return CFB.write(archive, { type: "buffer", fileType: "zip", compression: true });
 }
