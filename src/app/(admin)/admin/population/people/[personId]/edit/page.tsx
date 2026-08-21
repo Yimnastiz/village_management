@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { PersonForm } from "../../person-form";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { normalizePersonGender } from "@/lib/person-validation";
+import { isThaiNationalIdChecksumBypassEnabled } from "@/lib/thai-identity";
 
 interface PageProps {
   params: Promise<{ personId: string }>;
@@ -71,6 +72,7 @@ export default async function EditPersonPage({ params }: PageProps) {
         linkedAccount={person.user ? { phoneNumber: person.user.phoneNumber, email: person.user.email?.endsWith("@local.invalid") ? null : person.user.email } : null}
         movedOut={false}
         deceased={false}
+        allowNationalIdChecksumBypass={isThaiNationalIdChecksumBypassEnabled()}
       />
     </div>
   );

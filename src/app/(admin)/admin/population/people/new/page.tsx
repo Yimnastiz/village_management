@@ -4,6 +4,7 @@ import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PersonForm } from "../person-form";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { isThaiNationalIdChecksumBypassEnabled } from "@/lib/thai-identity";
 
 export default async function NewPersonPage() {
   const session = await getSessionContextFromServerCookies();
@@ -32,6 +33,7 @@ export default async function NewPersonPage() {
       <PersonForm
         mode="create"
         houseOptions={houses.map((house) => ({ value: house.id, label: house.houseNumber }))}
+        allowNationalIdChecksumBypass={isThaiNationalIdChecksumBypassEnabled()}
       />
     </div>
   );

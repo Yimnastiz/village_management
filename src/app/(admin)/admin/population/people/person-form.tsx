@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { isValidPersonName, normalizePersonName, PERSON_GENDER_VALUES, validateOptionalPersonDate } from "@/lib/person-validation";
-import { isValidStrictThaiNationalId } from "@/lib/thai-identity";
+import { isThaiNationalIdFormat, isValidStrictThaiNationalId } from "@/lib/thai-identity";
 import { isSameNationalId } from "@/lib/person-national-id";
 import { createPersonAction, updatePersonAction } from "./actions";
 
@@ -33,11 +33,12 @@ type PersonFormProps = {
   linkedAccount?: { phoneNumber: string; email: string | null } | null;
   movedOut?: boolean;
   deceased?: boolean;
+  allowNationalIdChecksumBypass?: boolean;
 };
 
 const NAME_ERROR = "ใช้ได้เฉพาะตัวอักษร เว้นวรรค เครื่องหมาย - ' และ .";
 
-export function PersonForm({ mode, personId, houseOptions, defaultValues, linkedAccount = null, movedOut = false, deceased = false }: PersonFormProps) {
+export function PersonForm({ mode, personId, houseOptions, defaultValues, linkedAccount = null, movedOut = false, deceased = false, allowNationalIdChecksumBypass = false }: PersonFormProps) {
   const router = useRouter();
   const toast = useToast();
   const { register, handleSubmit, setError, setFocus, watch, formState: { errors, isSubmitting } } = useForm<FormValues>({
@@ -88,7 +89,7 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, linked
 
     <fieldset className="space-y-4"><legend className="text-sm font-semibold text-gray-900">ข้อมูลระบุตัวตน</legend>
       <div className="grid gap-4 sm:grid-cols-2"><Input label="ชื่อ" maxLength={100} {...register("firstName", { required: "กรุณาระบุชื่อ", validate: (value) => isValidPersonName(value) || `ชื่อ${NAME_ERROR}` })} error={errors.firstName?.message} required /><Input label="นามสกุล" maxLength={100} {...register("lastName", { required: "กรุณาระบุนามสกุล", validate: (value) => isValidPersonName(value) || `นามสกุล${NAME_ERROR}` })} error={errors.lastName?.message} required /></div>
-      <div className="grid gap-4 sm:grid-cols-2"><Input label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} {...register("nationalId", { validate: (value) => Boolean(linkedAccount) || (mode === "edit" && isSameNationalId(defaultValues?.nationalId ?? "", value)) || !value || isValidStrictThaiNationalId(value) || "เลขบัตรประชาชนไม่ถูกต้อง" })} error={errors.nationalId?.message} disabled={Boolean(linkedAccount)} helperText={linkedAccount ? "เลขบัตรประชาชนเป็นข้อมูลยืนยันตัวตนและแก้ไขจากหน้านี้ไม่ได้" : "ถ้าระบุ ต้องเป็นเลขบัตรประชาชนไทยที่ถูกต้อง 13 หลัก"} /><Input label="วันเกิด" type="date" max={new Date().toISOString().slice(0, 10)} {...register("dateOfBirth", { validate: (value) => { const result = validateOptionalPersonDate(value); return result.valid || (result.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง"); } })} error={errors.dateOfBirth?.message} /></div>
+      <div className="grid gap-4 sm:grid-cols-2"><Input label="เลขบัตรประชาชน" inputMode="numeric" maxLength={13} {...register("nationalId", { validate: (value) => Boolean(linkedAccount) || (mode === "edit" && isSameNationalId(defaultValues?.nationalId ?? "", value)) || !value || (allowNationalIdChecksumBypass ? isThaiNationalIdFormat(value) : isValidStrictThaiNationalId(value)) || "เลขบัตรประชาชนไม่ถูกต้อง" })} error={errors.nationalId?.message} disabled={Boolean(linkedAccount)} helperText={linkedAccount ? "เลขบัตรประชาชนเป็นข้อมูลยืนยันตัวตนและแก้ไขจากหน้านี้ไม่ได้" : "ถ้าระบุ ต้องเป็นเลขบัตรประชาชนไทยที่ถูกต้อง 13 หลัก"} /><Input label="วันเกิด" type="date" max={new Date().toISOString().slice(0, 10)} {...register("dateOfBirth", { validate: (value) => { const result = validateOptionalPersonDate(value); return result.valid || (result.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง"); } })} error={errors.dateOfBirth?.message} /></div>
       <Select label="เพศ" {...register("gender", { validate: (value) => PERSON_GENDER_VALUES.includes(value as (typeof PERSON_GENDER_VALUES)[number]) || "ข้อมูลเพศไม่ถูกต้อง" })} error={errors.gender?.message} options={PERSON_GENDER_VALUES.map((value) => ({ value, label: value }))} required />
     </fieldset>
 

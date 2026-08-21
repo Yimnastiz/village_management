@@ -6,6 +6,7 @@ import {
   normalizeNewNationalId,
   resolveUpdatedNationalId,
 } from "../src/lib/person-national-id.ts";
+import { isValidStrictThaiNationalId } from "../src/lib/thai-identity.ts";
 
 const legacyNationalId = "1234567890123";
 const validNationalId = "1101700203450";
@@ -35,4 +36,25 @@ test("new and changed national IDs remain strictly validated", () => {
     resolveUpdatedNationalId({ nationalId: validNationalId, userId: null }, legacyNationalId),
     { ok: false, message: INVALID_NATIONAL_ID_MESSAGE },
   );
+});
+
+test("checksum bypass is development-only and preserves the strict digit format", () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalBypass = process.env.DEV_BYPASS_THAI_NATIONAL_ID_CHECK;
+  try {
+    process.env.NODE_ENV = "development";
+    process.env.DEV_BYPASS_THAI_NATIONAL_ID_CHECK = "false";
+    assert.equal(isValidStrictThaiNationalId(legacyNationalId), false);
+
+    process.env.DEV_BYPASS_THAI_NATIONAL_ID_CHECK = "true";
+    assert.equal(isValidStrictThaiNationalId(legacyNationalId), true);
+    assert.equal(isValidStrictThaiNationalId("12345"), false);
+    assert.equal(isValidStrictThaiNationalId("12345678901AB"), false);
+
+    process.env.NODE_ENV = "production";
+    assert.equal(isValidStrictThaiNationalId(legacyNationalId), false);
+  } finally {
+    process.env.NODE_ENV = originalNodeEnv;
+    process.env.DEV_BYPASS_THAI_NATIONAL_ID_CHECK = originalBypass;
+  }
 });

@@ -9,7 +9,7 @@ import { createRegistrationCookie, hasExistingUserWithPhone, normalizePhone10, R
 import { finalizeAccountDeletion } from "@/lib/account-deletion";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 import { findBoundIdentityByNationalId } from "@/lib/identity";
-import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
+import { isValidStrictThaiNationalId, isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 import { normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
 
 const schema = z.object({
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   const firstName = normalizeThaiName(parsed.data.firstName).trim();
   const lastName = normalizeThaiName(parsed.data.lastName).trim();
   const nationalId = normalizeNationalId(parsed.data.nationalId);
-  if (!/^\d{13}$/.test(nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก" }, { status: 400 });
+  if (!isValidStrictThaiNationalId(parsed.data.nationalId)) return NextResponse.json({ error: "เลขบัตรประชาชนไม่ถูกต้อง" }, { status: 400 });
   const dateOfBirth = validateOptionalPersonDate(parsed.data.dateOfBirth);
   if (!dateOfBirth.valid) {
     return NextResponse.json({ error: dateOfBirth.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง" }, { status: 400 });
