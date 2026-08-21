@@ -118,7 +118,7 @@ const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     required: false,
     description: "พื้นที่ย่อยหรือคุ้มภายในหมู่บ้าน ใช้สร้างหรือจับคู่พื้นที่ของบ้านอัตโนมัติ",
     example: "คุ้มเหนือ",
-    aliases: ["zone", "zone name", "หมู่", "หมู่ที่", "โซน", "เขต"],
+    aliases: ["zone", "zone name", "พื้นที่/คุ้ม", "หมู่", "หมู่ที่", "โซน", "เขต"],
   },
   {
     key: "occupancy_status",
@@ -216,10 +216,26 @@ export const POPULATION_IMPORT_HEADER_ALIASES = ALL_POPULATION_IMPORT_COLUMNS.re
   return accumulator;
 }, {});
 
-// The normal template deliberately omits the legacy migration identifier.
-export const POPULATION_IMPORT_TEMPLATE_HEADERS = POPULATION_IMPORT_COLUMNS_ADMIN
-  .filter((column) => column.key !== "external_person_id")
-  .map((column) => column.key);
+// The normal template deliberately omits legacy/internal-only fields.
+// `zone_name` remains in ALL_POPULATION_IMPORT_COLUMNS so old files can still
+// be parsed, but it is no longer requested in the normal Admin workflow.
+export const POPULATION_IMPORT_TEMPLATE_HEADERS = [
+  "house_number",
+  "house_address",
+  "occupancy_status",
+  "latitude",
+  "longitude",
+  "first_name",
+  "last_name",
+  "phone_number",
+  "national_id",
+  "date_of_birth",
+  "gender",
+  "person_status",
+  "note",
+  "movement_type",
+  "movement_date",
+] as const;
 
 // All headers including legacy fields
 export const POPULATION_IMPORT_ALL_HEADERS = ALL_POPULATION_IMPORT_COLUMNS.map(
@@ -236,7 +252,6 @@ export const POPULATION_IMPORT_SAMPLE_ROW: Record<string, string> = {
   gender: "ชาย",
   email: "somchai@example.com",
   house_address: "99/12 หมู่ 4 ถนนกลางหมู่บ้าน",
-  zone_name: "คุ้มเหนือ",
   occupancy_status: "มีผู้อยู่อาศัย",
   person_status: "อยู่ในทะเบียน",
   movement_type: "ย้ายเข้า",
@@ -330,7 +345,7 @@ export function buildPopulationImportTemplateXlsx() {
     movement_type: [...POPULATION_EVENT_THAI_OPTIONS],
   };
   const dataValidations = Object.entries(validationValues).map(([key, values]) => {
-    const columnIndex = POPULATION_IMPORT_TEMPLATE_HEADERS.indexOf(key);
+    const columnIndex = POPULATION_IMPORT_TEMPLATE_HEADERS.indexOf(key as (typeof POPULATION_IMPORT_TEMPLATE_HEADERS)[number]);
     const column = XLSX.utils.encode_col(columnIndex);
     return `<dataValidation type="list" allowBlank="1" showErrorMessage="1" showInputMessage="1" sqref="${column}2:${column}1001"><formula1>&quot;${values.join(",")}&quot;</formula1></dataValidation>`;
   }).join("");
@@ -353,7 +368,6 @@ export function buildPopulationImportTemplateXlsx() {
     ["สถานะบ้าน", "ไม่จำเป็น", "เลือกจากรายการ", "มีผู้อยู่อาศัย, ว่าง, กำลังก่อสร้าง, รื้อถอนแล้ว"],
     ["เหตุการณ์ประชากร", "ไม่จำเป็น", "เลือกจากรายการ", "ย้ายเข้า, ย้ายออก, เกิด, เสียชีวิต, ย้ายภายใน"],
     ["วันที่เกิดเหตุการณ์", "เมื่อมีเหตุการณ์", "วัน-เดือน-ปี พ.ศ. (เป็นข้อความ)", "01-08-2569 หรือ 01/08/2569"],
-    ["พื้นที่/คุ้ม", "ไม่จำเป็น", "พื้นที่ย่อยภายในหมู่บ้าน", "คุ้มเหนือ"],
     [],
     ["หมายเหตุ", "", "แถวตัวอย่างมีไว้ดูวิธีกรอกเท่านั้น ไม่ใช่ข้อมูลจริง", "กรอกข้อมูลตั้งแต่แถวถัดไป"],
   ];

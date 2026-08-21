@@ -7,7 +7,7 @@ import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PopulationImportForm } from "./import-form";
-import { POPULATION_IMPORT_COLUMNS_ADMIN } from "@/features/population/server/import-template";
+import { ImportPreparationDisclosure } from "./import-preparation-disclosure";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
@@ -160,41 +160,42 @@ export default async function Page({ searchParams }: PageProps) {
       />
 
       {/* Main Import Form */}
-      <PopulationImportForm showTemplateDownload={false} />
-
-      {/* Data Format Info */}
-      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
-        <h2 className="text-base font-semibold text-gray-900">ข้อมูลที่สามารถนำเข้าได้</h2>
-
-        <div className="mt-4 grid gap-5 md:grid-cols-2">
-          <div>
-            <h3 className="text-sm font-medium text-gray-900">ข้อมูลบ้าน</h3>
-            <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm leading-6 text-gray-600 sm:grid-cols-2">
-              {POPULATION_IMPORT_COLUMNS_ADMIN.filter((col) =>
-                ["house_number", "house_address", "zone_name", "occupancy_status", "latitude", "longitude"].includes(col.key)
-              ).map((col) => (
-                <li key={col.key}>{col.label}{col.required ? " (จำเป็น)" : ""}</li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-gray-900">ข้อมูลบุคคล</h3>
-            <ul className="mt-2 grid gap-x-6 gap-y-1 text-sm leading-6 text-gray-600 sm:grid-cols-2">
-              {POPULATION_IMPORT_COLUMNS_ADMIN.filter((col) =>
-                ["first_name", "last_name", "phone_number", "national_id", "date_of_birth", "gender", "person_status", "email", "external_person_id", "note"].includes(col.key)
-              ).map((col) => (
-                <li key={col.key}>{col.label}{col.required ? " (จำเป็น)" : ""}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-4 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500">
-          <p>ข้อมูลขั้นต่ำ: เลขที่บ้าน</p>
-          <p>หากนำเข้าข้อมูลบุคคล ต้องระบุชื่อและนามสกุลให้ครบ</p>
-        </div>
-      </section>
+      <PopulationImportForm
+        showTemplateDownload={false}
+        showPreparationNotes={false}
+        preUploadContent={
+          <>
+            <ImportPreparationDisclosure />
+            <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5" aria-labelledby="supported-import-data-heading">
+              <h2 id="supported-import-data-heading" className="text-base font-semibold text-gray-900">ข้อมูลที่สามารถนำเข้าได้</h2>
+              <div className="mt-3 grid gap-4 md:grid-cols-3">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">ข้อมูลบ้าน</h3>
+                  <ul className="mt-1.5 space-y-1 text-sm leading-5 text-gray-600">
+                    <li>เลขที่บ้าน (จำเป็น)</li><li>รายละเอียดที่อยู่</li><li>สถานะบ้าน</li><li>พิกัด</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">ข้อมูลบุคคล</h3>
+                  <ul className="mt-1.5 grid gap-x-5 gap-y-1 text-sm leading-5 text-gray-600 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+                    <li>ชื่อ</li><li>นามสกุล</li><li>เบอร์โทรศัพท์</li><li>เลขบัตรประชาชน</li><li>วันเกิด</li><li>เพศ</li><li>สถานะบุคคล</li><li>หมายเหตุ</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">ข้อมูลเหตุการณ์ประชากร</h3>
+                  <ul className="mt-1.5 space-y-1 text-sm leading-5 text-gray-600">
+                    <li>เหตุการณ์ประชากร</li><li>วันที่เกิดเหตุการณ์</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="mt-3 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500">
+                <p>ข้อมูลขั้นต่ำ: เลขที่บ้าน</p>
+                <p>หากนำเข้าข้อมูลบุคคล ต้องระบุชื่อและนามสกุลให้ครบ</p>
+              </div>
+            </section>
+          </>
+        }
+      />
 
       {/* Recent Jobs */}
       <section className="space-y-4">

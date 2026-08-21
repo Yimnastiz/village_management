@@ -1,12 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, type ReactNode } from "react";
 import { Check, Info, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { importPopulationWorkbookAction, type ImportActionState } from "./actions";
 import { useToast } from "@/components/ui/toast";
 
-export function PopulationImportForm({ targetVillageId, templateHref = "/api/admin/population/import-template", importAction = importPopulationWorkbookAction, showTemplateDownload = true }: { targetVillageId?: string; templateHref?: string; importAction?: typeof importPopulationWorkbookAction; showTemplateDownload?: boolean }) {
+export function PopulationImportForm({ targetVillageId, templateHref = "/api/admin/population/import-template", importAction = importPopulationWorkbookAction, showTemplateDownload = true, showPreparationNotes = true, preUploadContent }: { targetVillageId?: string; templateHref?: string; importAction?: typeof importPopulationWorkbookAction; showTemplateDownload?: boolean; showPreparationNotes?: boolean; preUploadContent?: ReactNode }) {
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
   const [state, formAction, isPending] = useActionState<ImportActionState | null, FormData>(
     importAction,
@@ -63,7 +63,7 @@ export function PopulationImportForm({ targetVillageId, templateHref = "/api/adm
       </ol>
 
       {/* Important Notes */}
-      <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4" aria-labelledby="import-notes-heading">
+      {showPreparationNotes && <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4" aria-labelledby="import-notes-heading">
         <div className="flex gap-3">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
           <div>
@@ -75,7 +75,9 @@ export function PopulationImportForm({ targetVillageId, templateHref = "/api/adm
             </ul>
           </div>
         </div>
-      </section>
+      </section>}
+
+      {preUploadContent}
 
       {state && (
         <div
@@ -139,7 +141,7 @@ export function PopulationImportForm({ targetVillageId, templateHref = "/api/adm
 
         <p className="flex gap-2 text-xs leading-5 text-gray-500">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" aria-hidden="true" />
-          ไฟล์ตัวอย่างตั้งค่าเลขที่บ้าน เบอร์โทรศัพท์ และเลขบัตรประชาชนเป็นรูปแบบข้อความไว้แล้ว เพื่อป้องกันเลข 0 ด้านหน้าหาย {showTemplateDownload ? "สำหรับไฟล์ CSV หรือไฟล์ที่สร้างเอง โปรดตั้งค่าคอลัมน์เหล่านี้เป็นข้อความ" : ""}
+          รองรับไฟล์ .xlsx, .xls และ .csv ขนาดไม่เกิน 10 MB กรุณาตรวจสอบข้อมูลก่อนยืนยันบันทึก
         </p>
 
         <div className="flex flex-wrap items-center gap-3">

@@ -123,7 +123,9 @@ export async function confirmPopulationImportAction(formData: FormData) {
 }
 
 async function cleanupImportedHouses(villageId: string, houseIds: string[], jobCreatedAt: Date, tx: Prisma.TransactionClient) {
-  if (houseIds.length === 0) return;
+  if (houseIds.length === 0) return 0;
+
+  let deletedCount = 0;
 
   for (const houseId of houseIds) {
     const [peopleCount, memberCount] = await Promise.all([
@@ -132,9 +134,12 @@ async function cleanupImportedHouses(villageId: string, houseIds: string[], jobC
     ]);
 
     if (peopleCount === 0 && memberCount === 0) {
-      await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: jobCreatedAt } } });
+      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: jobCreatedAt } } });
+      deletedCount += deleted.count;
     }
   }
+
+  return deletedCount;
 }
 
 export async function deleteImportJobDatasetAction(formData: FormData) {
@@ -145,22 +150,29 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
 
   const jobId = jobIdValue.trim();
   const reason = typeof formData.get("supportReason") === "string" ? formData.get("supportReason")!.toString().trim() : "";
-  if (reason.length < 5) throw new Error("กรุณาระบุเหตุผลการ rollback อย่างน้อย 5 ตัวอักษร");
-  const { villageId, createdAt, payload } = await requireImportJobForAdmin(jobId);
+  if (reason.length < 5) throw new Error("กรุณาระบุเหตุผลการลบข้อมูลอย่างน้อย 5 ตัวอักษร");
+  const { villageId, createdAt, payload, stage } = await requireImportJobForAdmin(jobId);
+  if (stage !== PopulationImportStage.COMPLETED && stage !== PopulationImportStage.PARTIAL) {
+    throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
+  }
 
   const personIds = payload.createdPersonIds ?? [];
   const houseIds = payload.createdHouseIds ?? [];
 
-  await prisma.$transaction(async (tx) => {
-    if (personIds.length > 0) await tx.person.deleteMany({ where: { id: { in: personIds }, villageId, createdAt: { gte: createdAt } } });
-    await cleanupImportedHouses(villageId, houseIds, createdAt, tx);
+  const result = await prisma.$transaction(async (tx) => {
+    const deletedPeople = personIds.length > 0 ? await tx.person.deleteMany({ where: { id: { in: personIds }, villageId, createdAt: { gte: createdAt } } }) : { count: 0 };
+    const deletedHouses = await cleanupImportedHouses(villageId, houseIds, createdAt, tx);
+    if (deletedPeople.count === 0 && deletedHouses === 0) {
+      throw new Error("ไม่พบข้อมูลที่สร้างจากงานนี้ซึ่งสามารถลบได้");
+    }
     await tx.auditLog.create({ data: { userId: (await getSessionContextFromServerCookies())!.id, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: "ADMIN", jobId, reason, createdPersonCount: personIds.length, createdHouseCount: houseIds.length } } });
+    return { deletedPeople: deletedPeople.count, deletedHouses };
   });
-
   revalidatePath("/admin/population/import");
   revalidatePath(`/admin/population/import/${jobId}`);
   revalidatePath("/admin/population/houses");
   revalidatePath("/admin/population/people");
+  return result;
 }
 
 export async function deleteImportedPersonAction(formData: FormData) {
