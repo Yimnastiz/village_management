@@ -141,7 +141,7 @@ export default async function Page({ searchParams }: PageProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div data-admin-compact-top className="space-y-3">
       <AdminPageToolbar
         sticky
         variant="form"
