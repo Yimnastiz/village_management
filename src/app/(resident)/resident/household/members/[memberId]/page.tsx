@@ -136,7 +136,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
   const age = memberData.dateOfBirth ? calculateAge(memberData.dateOfBirth) : null;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-0">
       <Link
         href="/resident/household"
         className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -144,7 +144,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
         <ArrowLeft className="h-4 w-4" /> กลับข้อมูลครัวเรือน
       </Link>
 
-      <div className="rounded-xl border border-gray-200 bg-white p-8">
+      <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
         {/* Profile header */}
         <div className="mb-8 flex items-center gap-5 border-b pb-6">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-100">
