@@ -91,7 +91,7 @@ const LOGIN_OTP_STATE_TTL_MS = 5 * 60 * 1000;
 export type LoginOtpState = {
   phoneNumber: string;
   callbackUrl: string | null;
-  outcome?: "OTP_SENT" | "RESUME_EXISTING_CHALLENGE" | "LOCKED";
+  outcome?: "OTP_SENT" | "DEV_OTP_READY" | "RESUME_EXISTING_CHALLENGE" | "LOCKED";
   createdAt: number;
 };
 

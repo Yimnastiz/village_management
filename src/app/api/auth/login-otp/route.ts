@@ -5,6 +5,7 @@ import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import {
   LOGIN_OTP_MAX_SENDS_PER_WINDOW,
+  LOGIN_OTP_IN_FLIGHT_MS,
   LOGIN_OTP_RESEND_COOLDOWN_MS,
   LOGIN_OTP_SEND_WINDOW_MS,
   LOGIN_OTP_TTL_MS,
@@ -90,23 +91,101 @@ export async function POST(request: NextRequest) {
   const now = new Date();
   const reservation = await withLoginPhoneLock(phoneNumber, async (tx) => {
     const existing = await tx.loginOtpChallenge.findUnique({ where: { phoneNumber } });
-    const resumableStatuses: LoginOtpChallengeStatus[] = [
+    // An older challenge may use the alternate +66 representation for the
+    // same phone. It is safe to clean that identifier too, but never delete a
+    // verification for a genuinely different phone number.
+    const verificationIdentifiers = existing && normalizeLoginPhone(existing.otpIdentifier) === phoneNumber
+      ? [user.phoneNumber, existing.otpIdentifier]
+      : [user.phoneNumber];
+    if (existing?.lockedUntil && existing.lockedUntil > now) {
+      return { resumed: true as const, challenge: existing, locked: true as const };
+    }
+
+    const isRecentInFlight = existing
+      && now.getTime() - existing.updatedAt.getTime() < LOGIN_OTP_IN_FLIGHT_MS;
+    if (existing?.status === LoginOtpChallengeStatus.PENDING_SEND && isRecentInFlight) {
+      return {
+        resumed: false as const,
+        denied: true as const,
+        reason: "in-flight",
+        challenge: existing,
+        retryAt: new Date(existing.updatedAt.getTime() + LOGIN_OTP_IN_FLIGHT_MS),
+      };
+    }
+    if (existing?.status === LoginOtpChallengeStatus.VERIFYING && isRecentInFlight) {
+      return {
+        resumed: false as const,
+        denied: true as const,
+        reason: "verification-in-flight",
+        challenge: existing,
+        retryAt: new Date(existing.updatedAt.getTime() + LOGIN_OTP_IN_FLIGHT_MS),
+      };
+    }
+
+    const verification = existing && existing.otpIdentifier === user.phoneNumber
+      ? await tx.authVerification.findFirst({
+          where: { identifier: existing.otpIdentifier, expiresAt: { gt: now } },
+          orderBy: { updatedAt: "desc" },
+        })
+      : null;
+    const hasUsableOtp = Boolean(
+      existing
+      && existing.otpIdentifier === user.phoneNumber
+      && existing.otpSentAt
+      && existing.otpExpiresAt
+      && existing.otpExpiresAt > now
+      && existing.resendAvailableAt
+      && verification
+    );
+
+    if (intent === "START_OR_RESUME" && existing?.status === LoginOtpChallengeStatus.ACTIVE && hasUsableOtp) {
+      return { resumed: true as const, challenge: existing, locked: false as const };
+    }
+
+    // A verification call can be interrupted after it has reserved the
+    // challenge. Once the in-flight window has elapsed, restore a genuinely
+    // usable code to ACTIVE; this does not permit concurrent verification.
+    if (intent === "START_OR_RESUME" && existing?.status === LoginOtpChallengeStatus.VERIFYING && hasUsableOtp) {
+      const recovered = await tx.loginOtpChallenge.update({
+        where: { id: existing.id },
+        data: { status: LoginOtpChallengeStatus.ACTIVE },
+      });
+      return { resumed: true as const, challenge: recovered, locked: false as const };
+    }
+
+    // A manual resend must never invalidate a genuinely usable code before
+    // its cooldown has elapsed. A stale record is reset below and receives a
+    // new cooldown only after a fresh OTP is successfully issued.
+    if (
+      hasUsableOtp
+      && (existing?.status === LoginOtpChallengeStatus.ACTIVE || existing?.status === LoginOtpChallengeStatus.VERIFYING)
+      && existing.resendAvailableAt
+      && existing.resendAvailableAt > now
+    ) {
+      return { resumed: false as const, denied: true as const, reason: "cooldown", challenge: existing, retryAt: existing.resendAvailableAt };
+    }
+
+    const staleOtpStatuses: LoginOtpChallengeStatus[] = [
       LoginOtpChallengeStatus.PENDING_SEND,
       LoginOtpChallengeStatus.ACTIVE,
       LoginOtpChallengeStatus.VERIFYING,
-      LoginOtpChallengeStatus.LOCKED,
     ];
-    if (intent === "START_OR_RESUME" && existing && resumableStatuses.includes(existing.status)) {
-      return { resumed: true as const, challenge: existing };
-    }
-    if (existing?.lockedUntil && existing.lockedUntil > now) {
-      return { resumed: false as const, denied: true as const, reason: "lock", challenge: existing, retryAt: existing.lockedUntil };
-    }
-    if (existing?.resendAvailableAt && existing.resendAvailableAt > now) {
-      return { resumed: false as const, denied: true as const, reason: "cooldown", challenge: existing, retryAt: existing.resendAvailableAt };
-    }
-    if (existing?.status === LoginOtpChallengeStatus.PENDING_SEND && now.getTime() - existing.updatedAt.getTime() < 30_000) {
-      return { resumed: false as const, denied: true as const, reason: "in-flight", challenge: existing, retryAt: new Date(existing.updatedAt.getTime() + 30_000) };
+    const mayContainStaleOtp = existing && staleOtpStatuses.includes(existing.status);
+    if (mayContainStaleOtp) {
+      // Never leave an unusable code in a status that looks resumable. Keep an
+      // existing resend timestamp so recovery still obeys the cooldown.
+      await tx.authVerification.deleteMany({ where: { identifier: { in: verificationIdentifiers } } });
+      await tx.loginOtpChallenge.update({
+        where: { id: existing.id },
+        data: {
+          status: LoginOtpChallengeStatus.SEND_FAILED,
+          otpSentAt: null,
+          otpExpiresAt: null,
+          resendAvailableAt: null,
+          failedAttempts: 0,
+          lockedUntil: null,
+        },
+      });
     }
 
     const windowStartedAt = !existing || now.getTime() - existing.sendWindowStartedAt.getTime() >= LOGIN_OTP_SEND_WINDOW_MS
@@ -133,17 +212,22 @@ export async function POST(request: NextRequest) {
         otpIdentifier: user.phoneNumber,
         challengeToken,
         status: LoginOtpChallengeStatus.PENDING_SEND,
+        otpSentAt: null,
+        otpExpiresAt: null,
+        resendAvailableAt: null,
+        failedAttempts: 0,
+        lockedUntil: null,
         sendWindowStartedAt: windowStartedAt,
         sendCount: sendCount + 1,
         ipHash: requestIpHash(request),
       },
     });
-    await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
+    await tx.authVerification.deleteMany({ where: { identifier: { in: verificationIdentifiers } } });
     return { resumed: false as const, denied: false as const, challenge };
   });
 
   if (reservation.resumed) {
-    const locked = Boolean(reservation.challenge.lockedUntil && reservation.challenge.lockedUntil > now);
+    const locked = reservation.locked;
     const response = NextResponse.json({
       ok: true,
       outcome: locked ? "LOCKED" : "RESUME_EXISTING_CHALLENGE",
@@ -156,7 +240,11 @@ export async function POST(request: NextRequest) {
 
   if (reservation.denied) {
     return NextResponse.json({
-      error: reservation.reason === "lock" ? "OTP verification is temporarily locked." : "Please wait before requesting another OTP.",
+      error: reservation.reason === "verification-in-flight"
+        ? "OTP verification is already in progress."
+        : reservation.reason === "in-flight"
+          ? "OTP delivery is still in progress."
+          : "Please wait before requesting another OTP.",
       retryAfterSeconds: retryAfterSeconds(reservation.retryAt, now),
       data: publicLoginChallengeState(reservation.challenge),
     }, { status: 429, headers: { "Retry-After": String(retryAfterSeconds(reservation.retryAt, now)) } });

@@ -75,12 +75,16 @@ function LoginContent() {
       if (!result.ok) {
         throw new Error("ไม่สามารถส่งรหัส OTP ได้");
       }
-      const resultBody = (await result.json()) as { outcome?: "OTP_SENT" | "RESUME_EXISTING_CHALLENGE" | "LOCKED" };
+      const resultBody = (await result.json()) as { outcome?: "OTP_SENT" | "DEV_OTP_READY" | "RESUME_EXISTING_CHALLENGE" | "LOCKED" };
 
       // Login state is tab-scoped and short-lived. Do not expose the phone
       // number in browser history, logs, referrers, or registration storage.
       saveLoginOtpState(loginPhoneNumber, callbackUrl, resultBody.outcome);
-      success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS และกรอกรหัสเพื่อเข้าสู่ระบบ");
+      if (resultBody.outcome === "RESUME_EXISTING_CHALLENGE") {
+        success("ใช้รหัส OTP ที่ส่งไว้ก่อนหน้า", "กรุณากรอกรหัสที่ยังไม่หมดอายุเพื่อเข้าสู่ระบบ");
+      } else {
+        success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS และกรอกรหัสเพื่อเข้าสู่ระบบ");
+      }
       router.push("/auth/verify-otp?mode=signin");
     } catch (err) {
       setError(err instanceof Error ? err.message : "ไม่สามารถส่งรหัส OTP ได้");

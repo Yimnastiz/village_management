@@ -11,6 +11,10 @@ export const LOGIN_OTP_LOCK_MS = 15 * 60 * 1000;
 export const LOGIN_OTP_MAX_FAILED = 5;
 export const LOGIN_OTP_SEND_WINDOW_MS = 15 * 60 * 1000;
 export const LOGIN_OTP_MAX_SENDS_PER_WINDOW = 5;
+// A send or verification request that has not finished within this window is
+// treated as interrupted. The per-phone advisory lock still prevents a second
+// request from racing during the normal in-flight period.
+export const LOGIN_OTP_IN_FLIGHT_MS = 30 * 1000;
 
 export function normalizeLoginPhone(raw: string) {
   const digits = raw.replace(/\D/g, "");
