@@ -14,7 +14,7 @@ const requestSchema = z.object({
   location: z.string().optional(),
   startsAt: z.string().min(1, "กรุณาระบุวันเวลาเริ่ม"),
   endsAt: z.string().optional(),
-  visibility: z.string().min(1, "กรุณาเลือกการมองเห็น"),
+  visibility: z.enum(["PUBLIC", "RESIDENT"], { message: "กรุณาเลือกการมองเห็นที่ต้องการ" }),
 });
 
 type RequestInput = z.infer<typeof requestSchema>;

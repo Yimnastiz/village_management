@@ -85,7 +85,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
             {VILLAGE_EVENT_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}
           </Badge>
           <Badge variant="outline">
-            {VILLAGE_EVENT_VISIBILITY_LABELS[request.isPublic ? "PUBLIC" : "RESIDENT"]}
+            การมองเห็นที่ต้องการ: {VILLAGE_EVENT_VISIBILITY_LABELS[request.isPublic ? "PUBLIC" : "RESIDENT"]}
           </Badge>
         </div>
 
@@ -118,7 +118,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
 
         {request.status === "PENDING" ? (
           <div className="space-y-4 border-t border-gray-100 pt-4">
-            <CalendarRequestReviewButtons requestId={request.id} />
+            <CalendarRequestReviewButtons requestId={request.id} requestedVisibility={request.isPublic ? "PUBLIC" : "RESIDENT"} />
             <CalendarRequestManagementActions requestId={request.id} />
           </div>
         ) : (

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -10,12 +11,13 @@ import {
   adminRejectVillageEventSubmissionAction,
 } from "../actions";
 
-export function CalendarRequestReviewButtons({ requestId }: { requestId: string }) {
+export function CalendarRequestReviewButtons({ requestId, requestedVisibility }: { requestId: string; requestedVisibility: "PUBLIC" | "RESIDENT" }) {
   const router = useRouter();
   const { pushToast } = useToast();
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [reviewNote, setReviewNote] = useState("");
+  const [finalVisibility, setFinalVisibility] = useState<"PUBLIC" | "RESIDENT">(requestedVisibility);
   const [error, setError] = useState<string | null>(null);
   const isPending = isApproving || isRejecting;
 
@@ -24,7 +26,7 @@ export function CalendarRequestReviewButtons({ requestId }: { requestId: string 
     setError(null);
 
     try {
-      const result = await adminApproveVillageEventSubmissionAction(requestId, reviewNote);
+      const result = await adminApproveVillageEventSubmissionAction(requestId, reviewNote, finalVisibility);
       if (!result.success) {
         setError(result.error);
         pushToast({ tone: "error", title: "อนุมัติคำขอไม่สำเร็จ", description: result.error });
@@ -69,6 +71,16 @@ export function CalendarRequestReviewButtons({ requestId }: { requestId: string 
 
   return (
     <div className="space-y-3">
+      <Select
+        label="การมองเห็นเมื่อเผยแพร่"
+        value={finalVisibility}
+        onChange={(event) => setFinalVisibility(event.target.value as "PUBLIC" | "RESIDENT")}
+        disabled={isPending}
+        options={[
+          { value: "RESIDENT", label: "เฉพาะลูกบ้าน" },
+          { value: "PUBLIC", label: "สาธารณะ" },
+        ]}
+      />
       <Textarea
         label="หมายเหตุถึงผู้ส่งคำขอ"
         value={reviewNote}

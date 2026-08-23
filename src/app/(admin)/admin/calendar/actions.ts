@@ -169,7 +169,8 @@ export async function deleteVillageEventAction(
 
 export async function adminApproveVillageEventSubmissionAction(
   requestId: string,
-  reviewNote?: string
+  reviewNote?: string,
+  finalVisibility?: "PUBLIC" | "RESIDENT"
 ): Promise<{ success: true; eventId: string } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
@@ -185,19 +186,23 @@ export async function adminApproveVillageEventSubmissionAction(
   if (!request) {
     return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   }
+  if (finalVisibility !== "PUBLIC" && finalVisibility !== "RESIDENT") {
+    return { success: false, error: "กรุณาเลือกการมองเห็นเมื่อเผยแพร่" };
+  }
+  const isPublic = finalVisibility === "PUBLIC";
 
   try {
     const now = new Date();
     const approved = await prisma.$transaction(async (tx) => {
       let eventId = request.eventId ?? "";
       if ((request.type ?? "CREATE") === "CREATE") {
-        const event = await tx.villageEvent.create({ data: { villageId: request.villageId, createdById: ctx.userId, title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic: request.isPublic }, select: { id: true } });
+        const event = await tx.villageEvent.create({ data: { villageId: request.villageId, createdById: ctx.userId, title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic }, select: { id: true } });
         eventId = event.id;
       } else {
         const existingEvent = request.eventId ? await tx.villageEvent.findFirst({ where: { id: request.eventId, villageId: request.villageId }, select: { id: true } }) : null;
         if (!existingEvent) throw new Error("ไม่พบกิจกรรมเป้าหมาย");
         if (request.type === "DELETE") await tx.villageEvent.delete({ where: { id: existingEvent.id } });
-        if (request.type === "EDIT") await tx.villageEvent.update({ where: { id: existingEvent.id }, data: { title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic: request.isPublic } });
+        if (request.type === "EDIT") await tx.villageEvent.update({ where: { id: existingEvent.id }, data: { title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic } });
       }
 
       await tx.villageEventSubmission.update({
