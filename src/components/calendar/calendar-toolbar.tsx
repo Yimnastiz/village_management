@@ -179,7 +179,7 @@ export function CalendarToolbar({
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-          {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />วันนี้</Link> : null}
+          {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />เดือนนี้</Link> : null}
           {residentCompact && isMonthPickerOpen ? (
             <section
               id={`${namespace}-month-picker`}
@@ -240,7 +240,7 @@ export function CalendarToolbar({
             className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5"
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">วันนี้</span>
+            <span className="hidden sm:inline">{residentCompact ? "เดือนนี้" : "วันนี้"}</span>
           </Link>
         </div>
         {isAdminToolbar && actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
