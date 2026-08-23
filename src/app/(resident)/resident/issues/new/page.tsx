@@ -67,11 +67,11 @@ export default function NewIssuePage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/resident/issues" className="text-gray-400 hover:text-gray-600 transition-colors">
+      <div>
+        <Link href="/resident/issues" aria-label="กลับรายการแจ้งปัญหา" className="inline-flex items-center gap-1.5 px-1 py-2 text-sm text-gray-500 transition-colors hover:text-gray-700">
           <ArrowLeft className="h-5 w-5" />
+          กลับรายการแจ้งปัญหา
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">แจ้งปัญหาใหม่</h1>
       </div>
 
       <form

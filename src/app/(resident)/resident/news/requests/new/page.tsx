@@ -46,16 +46,6 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
 
   return (
     <div className="max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          {targetNews ? "ขอแก้ไขข่าว" : "ส่งคำขอเพิ่มข่าว"}
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
-          {targetNews
-            ? "ยื่นคำขอแก้ไขข้อมูลข่าวสารของคุณ เพื่อให้ผู้ดูแลพิจารณาและอัปเดตระบบ"
-            : "ข่าวที่ส่งจะเข้าสู่คิวรอตรวจสอบ ผู้ดูแลหมู่บ้านจะเป็นผู้อนุมัติก่อนเผยแพร่"}
-        </p>
-      </div>
       <NewsRequestForm
         mode={targetNews ? "update" : "create"}
         targetNewsId={targetNews?.id}

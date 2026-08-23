@@ -100,12 +100,10 @@ export function ProfileDetails({ user, person, village, avatar, profileArea = "r
     finally { setIsPending(false); }
   };
   return <div className="space-y-4">
-    <section className="sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-20 rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:p-4">
-      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0"><h1 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">โปรไฟล์</h1><p className="mt-0.5 text-sm text-gray-500">ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ</p></div>
-        {!isEditing && <Button type="button" variant="outline" className="min-h-10 w-full shrink-0 gap-2 sm:w-auto" onClick={() => setIsEditing(true)}><Edit3 className="h-4 w-4" />แก้ไขข้อมูล</Button>}
-      </div>
-    </section>
+    {!isEditing ? <section className="sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-20 flex justify-end rounded-xl border border-gray-200 bg-white/95 p-3 shadow-sm backdrop-blur sm:p-4">
+      {profileArea === "admin" ? <div className="mr-auto min-w-0"><h1 className="text-lg font-bold tracking-tight text-gray-900 sm:text-xl">โปรไฟล์</h1><p className="mt-0.5 text-sm text-gray-500">ตรวจสอบข้อมูลบัญชีและข้อมูลทะเบียนของคุณ</p></div> : null}
+      <Button type="button" variant="outline" className="min-h-10 w-full shrink-0 gap-2 sm:w-auto" onClick={() => setIsEditing(true)}><Edit3 className="h-4 w-4" />แก้ไขข้อมูล</Button>
+    </section> : null}
     <section className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex min-w-0 items-center gap-3">
         {avatar.image ? <img src={avatar.image} alt="รูปโปรไฟล์" className="h-16 w-16 flex-none rounded-full border border-gray-200 object-cover" /> : <div className={`flex h-16 w-16 flex-none items-center justify-center rounded-full text-xl font-bold ${profileArea === "admin" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>{avatar.text}</div>}

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { NotificationItem } from "./notification-item";
 import { MarkAllReadButton } from "./mark-all-read-button";
-import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
+import { ResidentPageHeaderRegistration } from "@/components/layout/resident-page-header-context";
 
 export default async function ResidentNotificationsPage() {
   const session = await getSessionContextFromServerCookies();
@@ -28,13 +28,8 @@ export default async function ResidentNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <ResidentPageToolbar
-        namespace="resident-notifications"
-        registerHeader
-        title="การแจ้งเตือน"
-        description={unreadCount > 0 ? `${unreadCount} ข้อความใหม่` : undefined}
-        actions={unreadCount > 0 ? <MarkAllReadButton /> : undefined}
-      />
+      <ResidentPageHeaderRegistration context={{ title: "การแจ้งเตือน", description: unreadCount > 0 ? `${unreadCount} รายการยังไม่ได้อ่าน` : "ติดตามข่าวสารและการอัปเดตที่เกี่ยวข้องกับคุณ" }} />
+      {unreadCount > 0 ? <div className="flex justify-end"><MarkAllReadButton /></div> : null}
 
       {notifications.length === 0 ? (
         <EmptyState icon={Bell} title="ยังไม่มีการแจ้งเตือน" />

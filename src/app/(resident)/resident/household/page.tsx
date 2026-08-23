@@ -146,8 +146,6 @@ export default async function HouseholdPage() {
 
   return (
     <HouseholdPageShell>
-      <h1 className="text-2xl font-bold text-gray-900">ข้อมูลครัวเรือน</h1>
-
       <div className="shrink-0 rounded-xl border border-gray-200 bg-white p-6">
         <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
           <div>

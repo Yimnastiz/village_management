@@ -60,11 +60,7 @@ export default async function ResidentNewsRequestsPage() {
     <div className="space-y-10">
       {/* Requests Section */}
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">คำขอข่าวของฉัน</h1>
-            <p className="text-sm text-gray-500 mt-1">ติดตามสถานะคำขอเพิ่มหรือแก้ไขข่าว</p>
-          </div>
+        <div className="flex justify-end">
           <Link href="/resident/news/requests/new">
             <Button size="sm">
               <Plus className="h-4 w-4 mr-1" /> ส่งคำขอเพิ่มข่าว
