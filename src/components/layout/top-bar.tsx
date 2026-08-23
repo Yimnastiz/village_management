@@ -15,6 +15,7 @@ import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-b
 import type { AdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
 import { useAutoHideTopBar } from "./use-auto-hide-top-bar";
 import { useOptionalAdminPageHeader } from "./admin-page-header-context";
+import { useOptionalResidentPageHeader } from "./resident-page-header-context";
 
 interface TopBarProps {
   userArea: "resident" | "admin";
@@ -40,6 +41,7 @@ export function TopBar({
   adminActionCounts,
 }: TopBarProps) {
   const adminPageHeader = useOptionalAdminPageHeader();
+  const residentPageHeader = useOptionalResidentPageHeader();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobilePopulationOpen, setMobilePopulationOpen] = useState(false);
@@ -61,6 +63,7 @@ export function TopBar({
   }, [residentNavigationState, userArea]);
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
+  const pageHeader = isAdminArea ? adminPageHeader : residentPageHeader;
   const villageMooLabel = villageMoo?.toString().trim();
   const residentVillageLabel = villageName?.trim()
     ? `หมู่บ้าน ${villageName.trim()}${villageMooLabel ? ` หมู่ ${villageMooLabel}` : ""}`
@@ -113,7 +116,7 @@ export function TopBar({
           isScrolled ? "shadow-sm" : "shadow-none"
         )}
       >
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           type="button"
           className={cn(
@@ -127,15 +130,15 @@ export function TopBar({
         >
           <Menu className="h-5 w-5" />
         </button>
-        {isAdminArea && adminPageHeader ? <div className="min-w-0"><p className="truncate text-sm font-semibold text-white md:text-base">{adminPageHeader.title}</p>{adminPageHeader.description ? <p className="hidden truncate text-xs text-gray-400 lg:block">{adminPageHeader.description}</p> : null}</div> : null}
+        {pageHeader ? <div className="min-w-0"><p className={cn("truncate text-sm font-semibold md:text-base", isAdminArea ? "text-white" : "text-gray-900")}>{pageHeader.title}</p>{pageHeader.description ? <p className={cn("hidden truncate text-xs lg:block", isAdminArea ? "text-gray-400" : "text-gray-500")}>{pageHeader.description}</p> : null}</div> : null}
       </div>
-      <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-3 md:gap-4">
+      <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3 md:gap-4">
         {isAdminArea ? (
           <span title={adminVillageLabel} className="max-w-[7.5rem] truncate rounded-full bg-blue-500 px-2.5 py-1 text-xs font-semibold text-white sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem] xl:max-w-[36rem]">
             {adminVillageLabel}
           </span>
         ) : (
-          <span title={residentVillageLabel} className="max-w-[8rem] truncate rounded-full border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700 sm:max-w-[14rem] md:max-w-[22rem] md:text-sm lg:max-w-[28rem]">
+          <span title={residentVillageLabel} className="max-w-[4.75rem] truncate rounded-full border border-green-200 bg-green-50 px-2 py-1 text-xs font-semibold text-green-700 min-[390px]:max-w-[7rem] sm:max-w-[14rem] md:max-w-[22rem] md:px-2.5 md:text-sm lg:max-w-[28rem]">
             {residentVillageLabel}
           </span>
         )}

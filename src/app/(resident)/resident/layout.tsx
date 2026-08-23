@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { ResidentSidebar } from "@/components/layout/resident-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
+import { ResidentPageHeaderProvider } from "@/components/layout/resident-page-header-context";
 import { prisma } from "@/lib/prisma";
 import {
   getAuthenticatedAccessRedirectPath,
@@ -74,9 +75,10 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 [--app-sticky-top:var(--app-topbar-visible-offset,4rem)]">
       <ResidentSidebar state={residentNavigationState} />
-      <div className="flex-1 flex flex-col min-w-0">
+      <ResidentPageHeaderProvider>
+      <div className="flex-1 flex min-w-0 flex-col">
         <TopBar
           userArea="resident"
           userName={userProfile?.name || session.name}
@@ -88,6 +90,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
         />
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
+      </ResidentPageHeaderProvider>
     </div>
   );
 }
