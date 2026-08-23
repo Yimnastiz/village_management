@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { ResidentDownloadsToolbar } from "./resident-downloads-toolbar";
 
 type ResidentDownloadsPageProps = {
-  searchParams?: Promise<{ q?: string; sort?: string; visibility?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string; visibility?: string; category?: string }>;
 };
 
 export default async function ResidentDownloadsPage({ searchParams }: ResidentDownloadsPageProps) {
@@ -23,6 +23,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
 
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
+  const category = query.category?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const visibilityParam = (query.visibility ?? "").trim();
   const requestedVisibilities = Array.from(
@@ -57,6 +58,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
             },
           }
         : {}),
+      ...(category ? { category } : {}),
     },
     orderBy:
       sort === "oldest"
@@ -75,7 +77,7 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
     },
   });
 
-  const titleSuggestions = await prisma.downloadFile.findMany({
+  const [titleSuggestions, categoryRows] = await Promise.all([prisma.downloadFile.findMany({
     where: {
       villageId: membership.villageId,
       stage: "PUBLISHED",
@@ -84,13 +86,25 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
     select: { title: true },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     take: 50,
-  });
+  }), prisma.downloadFile.findMany({
+    where: {
+      villageId: membership.villageId,
+      stage: "PUBLISHED",
+      visibility: membership.hasResidentAccess ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : NewsVisibility.PUBLIC,
+      category: { not: null },
+    },
+    distinct: ["category"],
+    select: { category: true },
+    orderBy: { category: "asc" },
+  })]);
   const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
 
   return (
     <div className="space-y-6">
       <ResidentDownloadsToolbar
         keyword={keyword}
+        category={category}
+        categories={categoryRows.map((item) => item.category).filter((value): value is string => Boolean(value))}
         selectedVisibilities={selectedVisibilities}
         sort={sort}
         suggestionTitles={suggestionTitles}

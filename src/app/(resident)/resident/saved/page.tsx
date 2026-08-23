@@ -3,15 +3,14 @@ import { BookmarkCheck, AlertCircle, Images, Download, ShieldCheck, PhoneCall, N
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
-import { NewsFilterChip } from "@/components/news/news-toolbar";
-import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
+import { ResidentFilterDropdown, ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 import { NEWS_VISIBILITY_LABELS, ISSUE_STAGE_LABELS, VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { sort?: string; type?: string };
+type SearchParams = { q?: string; sort?: string; type?: string };
 
 const TYPE_LABELS: Record<string, string> = {
   all: "ทั้งหมด",
@@ -35,7 +34,8 @@ export default async function SavedPage({
   const membership = getResidentMembership(session);
   if (!membership) redirect("/resident/dashboard");
 
-  const { sort = "date_desc", type = "all" } = await searchParams;
+  const { q = "", sort = "date_desc", type = "all" } = await searchParams;
+  const keyword = q.trim();
   const orderDir = sort === "date_asc" ? "asc" : "desc";
 
   const savedItems = await prisma.savedItem.findMany({
@@ -60,6 +60,8 @@ export default async function SavedPage({
       ?? item.galleryAlbum?.villageId ?? item.transparencyRecord?.villageId ?? item.contact?.villageId ?? item.place?.villageId;
     if (vid && vid !== membership.villageId) return false;
     if (item.transparencyRecord && item.transparencyRecord.stage !== "PUBLISHED") return false;
+    const matchesSearch = !keyword || [item.news?.title, item.news?.summary, item.download?.title, item.download?.description, item.issue?.title, item.galleryAlbum?.title, item.transparencyRecord?.title, item.transparencyRecord?.category, item.contact?.name, item.contact?.role, item.contact?.phone, item.place?.name, item.place?.address].some((value) => value?.toLocaleLowerCase("th-TH").includes(keyword.toLocaleLowerCase("th-TH")));
+    if (!matchesSearch) return false;
     if (type === "news") return !!item.newsId;
     if (type === "issue") return !!item.issueId;
     if (type === "album") return !!item.galleryAlbumId;
@@ -70,6 +72,15 @@ export default async function SavedPage({
     return true;
   });
 
+  const savedHref = (nextType = type, nextSort = sort) => {
+    const params = new URLSearchParams();
+    if (keyword) params.set("q", keyword);
+    if (nextType !== "all") params.set("type", nextType);
+    if (nextSort !== "date_desc") params.set("sort", nextSort);
+    const query = params.toString();
+    return query ? `/resident/saved?${query}` : "/resident/saved";
+  };
+
   return (
     <div className="space-y-6">
       <ResidentPageToolbar
@@ -77,8 +88,9 @@ export default async function SavedPage({
         registerHeader
         title="รายการที่บันทึกไว้"
         description="รวมรายการสำคัญที่คุณบันทึกไว้เพื่อกลับมาดูภายหลัง"
+        search={{ keyword, placeholder: "ค้นหารายการที่บันทึก", label: "ค้นหารายการที่บันทึก" }}
         activeFilterCount={Number(type !== "all")}
-        filters={<><span className="text-xs font-semibold text-gray-500">ประเภท</span>{Object.entries(TYPE_LABELS).map(([key, label]) => <NewsFilterChip key={key} href={`/resident/saved?type=${key}&sort=${sort}`} active={type === key}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span><NewsFilterChip href={`/resident/saved?type=${type}&sort=date_desc`} active={sort !== "date_asc"}>ล่าสุดก่อน</NewsFilterChip><NewsFilterChip href={`/resident/saved?type=${type}&sort=date_asc`} active={sort === "date_asc"}>เก่าก่อน</NewsFilterChip></>}
+        filters={<><ResidentFilterDropdown label="ประเภท" options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ label, href: savedHref(value), active: type === value }))} /><ResidentFilterDropdown label="เรียง" options={[{ label: "ล่าสุดก่อน", href: savedHref(type, "date_desc"), active: sort !== "date_asc" }, { label: "เก่าก่อน", href: savedHref(type, "date_asc"), active: sort === "date_asc" }]} />{type !== "all" ? <Link href={savedHref("all")} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}</>}
       />
 
       {filtered.length === 0 ? (
