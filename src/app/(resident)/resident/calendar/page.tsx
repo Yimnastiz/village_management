@@ -9,8 +9,9 @@ import { getVillageCalendarEvents } from "@/features/public-village/server/publi
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 import { ResidentCalendarGrid } from "./resident-calendar-grid";
 import { ResidentEventRequestModal } from "./resident-event-request-modal";
+import { ResidentCalendarTypeFilter, type ResidentCalendarItemType } from "./resident-calendar-type-filter";
 
-type Props = { searchParams?: Promise<{ month?: string; date?: string }> };
+type Props = { searchParams?: Promise<{ month?: string; date?: string; q?: string; type?: string }> };
 export default async function ResidentVillageCalendarPage({ searchParams }: Props) {
   const params = (searchParams ? await searchParams : {}) ?? {};
   const session = await getSessionContextFromServerCookies();
@@ -22,13 +23,15 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Prop
   const { year, monthIndex, yearStart, yearEnd } = parseCalendarMonth(params.month);
   const expectedMonth = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
   const initialDate = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) && params.date.startsWith(`${expectedMonth}-`) && !Number.isNaN(new Date(`${params.date}T00:00:00`).getTime()) ? params.date : null;
+  const searchKeyword = typeof params.q === "string" ? params.q : "";
+  const itemType = params.type === "appointment" || params.type === "event" ? params.type : "all";
   const start = new Date(year, monthIndex, 1), end = new Date(year, monthIndex + 1, 1);
   const [events, appointments] = await Promise.all([
     getVillageCalendarEvents({ villageId: village.id, startsAt: start, endsBefore: end, publicOnly: !membership.hasResidentAccess }),
     membership.hasResidentAccess ? prisma.appointment.findMany({ where: { villageId: village.id, userId: session.id, stage: { notIn: ["CANCELLED", "REJECTED"] }, OR: [{ scheduledAt: { gte: start, lt: end } }, { slot: { date: { gte: start, lt: end } } }] }, select: { id: true, title: true, stage: true, scheduledAt: true, slot: { select: { date: true, startTime: true, endTime: true } } } }) : [],
   ]);
   return <div className="space-y-6">
-    <CalendarToolbar namespace="resident-calendar" residentCompact registerHeader title="ปฏิทิน" description={`ดูกิจกรรมทั้งหมดของ ${village.name}`} currentYear={year} currentMonth={monthIndex + 1} yearStart={yearStart} yearEnd={yearEnd} todayMonthKey={toMonthKey(new Date())} actions={membership.hasResidentAccess ? <><Link href="/resident/calendar/requests"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอของฉัน</span></Button></Link><ResidentEventRequestModal /></> : undefined} />
-    <ResidentCalendarGrid key={`${expectedMonth}-${initialDate ?? "none"}`} year={year} monthIndex={monthIndex} todayKey={toDateKey(new Date())} initialDate={initialDate} showAppointments={membership.hasResidentAccess} events={events.map(event => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))} appointments={appointments.map(item => ({ id: item.id, title: item.title, stage: item.stage, date: toDateKey(item.scheduledAt ?? item.slot!.date), startTime: item.slot?.startTime ?? null, endTime: item.slot?.endTime ?? null }))} />
+    <CalendarToolbar namespace="resident-calendar" residentCompact registerHeader title="ปฏิทิน" description={`ดูกิจกรรมทั้งหมดของ ${village.name}`} currentYear={year} currentMonth={monthIndex + 1} yearStart={yearStart} yearEnd={yearEnd} todayMonthKey={toMonthKey(new Date())} search={{ keyword: searchKeyword, placeholder: "ค้นหากิจกรรมหรือนัดหมาย", label: "ค้นหากิจกรรมหรือนัดหมาย" }} filters={<ResidentCalendarTypeFilter type={itemType as ResidentCalendarItemType} />} actions={membership.hasResidentAccess ? <><Link href="/resident/calendar/requests"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอของฉัน</span></Button></Link><ResidentEventRequestModal /></> : undefined} />
+    <ResidentCalendarGrid key={`${expectedMonth}-${initialDate ?? "none"}`} year={year} monthIndex={monthIndex} todayKey={toDateKey(new Date())} initialDate={initialDate} showAppointments={membership.hasResidentAccess} searchKeyword={searchKeyword} itemType={itemType} events={events.map(event => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))} appointments={appointments.map(item => ({ id: item.id, title: item.title, stage: item.stage, date: toDateKey(item.scheduledAt ?? item.slot!.date), startTime: item.slot?.startTime ?? null, endTime: item.slot?.endTime ?? null }))} />
   </div>;
 }
