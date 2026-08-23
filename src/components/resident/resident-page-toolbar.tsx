@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Filter, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { ResidentPageHeaderRegistration, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
+import { ResidentPageHeaderRegistration, useOptionalResidentPageHeader, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
 
 type ExpandedPanel = "filter" | null;
 
@@ -37,6 +37,7 @@ export function ResidentPageToolbar({
   compactSpacing: _compactSpacing = false,
 }: ResidentPageToolbarProps) {
   const residentPageHeaderRegistry = useOptionalResidentPageHeaderRegistry();
+  const residentPageHeader = useOptionalResidentPageHeader();
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(null);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [, startTransition] = useTransition();
@@ -54,7 +55,7 @@ export function ResidentPageToolbar({
   const filterPersistenceKey = `resident-toolbar:${pathname}:filters-open`;
   const searchLabel = search?.label ?? "ค้นหา";
   const hasTools = Boolean(search || filters);
-  const shouldHideHeading = hideHeading ?? (registerHeader && Boolean(residentPageHeaderRegistry));
+  const shouldHideHeading = hideHeading ?? (registerHeader || Boolean(residentPageHeader));
   const backLink = backHref ? <Link href={backHref} className="inline-flex min-h-9 items-center gap-1.5 px-1 text-sm text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{backLabel}</Link> : null;
 
   useEffect(() => setSearchValue(search?.keyword ?? ""), [search?.keyword]);

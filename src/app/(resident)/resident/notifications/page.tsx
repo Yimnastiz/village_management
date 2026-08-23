@@ -30,6 +30,7 @@ export default async function ResidentNotificationsPage() {
     <div className="space-y-6">
       <ResidentPageToolbar
         namespace="resident-notifications"
+        registerHeader
         title="การแจ้งเตือน"
         description={unreadCount > 0 ? `${unreadCount} ข้อความใหม่` : undefined}
         actions={unreadCount > 0 ? <MarkAllReadButton /> : undefined}

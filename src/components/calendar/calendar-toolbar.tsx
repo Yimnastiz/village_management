@@ -11,6 +11,7 @@ import {
 } from "@/lib/calendar-month";
 import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
+import { ResidentPageHeaderRegistration, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
 import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 
 type CalendarToolbarProps = {
@@ -25,6 +26,8 @@ type CalendarToolbarProps = {
   todayMonthKey: string;
   /** Resident calendar uses a single compact month control on small screens. */
   residentCompact?: boolean;
+  /** Lets the Resident calendar declare its semantic page title in the shared Topbar. */
+  registerHeader?: boolean;
   search?: {
     keyword: string;
     placeholder: string;
@@ -45,15 +48,18 @@ export function CalendarToolbar({
   yearEnd,
   todayMonthKey,
   residentCompact = false,
+  registerHeader = false,
   search,
   filters,
   adminFilterGroups = [],
 }: CalendarToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
+  const residentPageHeaderRegistry = useOptionalResidentPageHeaderRegistry();
   const pathname = usePathname();
   const router = useRouter();
   const currentSearchParams = useSearchParams();
   const isAdminToolbar = Boolean(adminPageHeaderRegistry);
+  const hasTopbarHeader = isAdminToolbar || (registerHeader && Boolean(residentPageHeaderRegistry));
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
@@ -145,14 +151,15 @@ export function CalendarToolbar({
   return (
     <section
       className={cn(
-        "sticky top-[var(--resident-sticky-top,var(--app-sticky-top,4rem))] z-30 border-gray-200 bg-gray-50/95 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)] supports-[backdrop-filter]:bg-gray-50/90",
-        isAdminToolbar ? "-mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : "-mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+        "sticky top-[var(--app-sticky-top)] z-30 border-gray-200 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)]",
+        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
       )}
       aria-label={`เครื่องมือ${title}`}
     >
       {adminPageHeaderRegistry ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
+      {registerHeader && residentPageHeaderRegistry ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
       <div className="flex min-w-0 items-center justify-between gap-2">
-        {!adminPageHeaderRegistry ? <div className="min-w-0">
+        {!hasTopbarHeader ? <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
           {description ? <p className="hidden truncate text-xs text-gray-500 sm:block lg:text-sm">{description}</p> : null}
         </div> : null}

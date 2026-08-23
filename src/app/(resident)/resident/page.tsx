@@ -2,6 +2,7 @@ import { MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getSessionContextFromServerCookies, setActiveVillageForCurrentSession } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { ResidentPageHeaderRegistration } from "@/components/layout/resident-page-header-context";
 
 export default async function ResidentRootPage() {
   const session = await getSessionContextFromServerCookies();
@@ -59,6 +60,7 @@ export default async function ResidentRootPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-4">
+      <ResidentPageHeaderRegistration context={{ title: "เลือกหมู่บ้าน" }} />
       <div>
         <h1 className="text-2xl font-bold text-gray-900">เลือกหมู่บ้านที่ต้องการดูข้อมูล</h1>
         <p className="mt-1 text-sm text-gray-500">คุณสามารถสลับหมู่บ้านได้จากหน้าแรกเมื่อมีสมาชิกภาพมากกว่าหนึ่งหมู่บ้าน</p>

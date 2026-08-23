@@ -74,9 +74,10 @@ export default async function SavedPage({
     <div className="space-y-6">
       <ResidentPageToolbar
         namespace="resident-saved"
+        registerHeader
         title="รายการที่บันทึกไว้"
         description="รวมรายการสำคัญที่คุณบันทึกไว้เพื่อกลับมาดูภายหลัง"
-        activeFilterCount={Number(type !== "all") + Number(sort !== "date_desc")}
+        activeFilterCount={Number(type !== "all")}
         filters={<><span className="text-xs font-semibold text-gray-500">ประเภท</span>{Object.entries(TYPE_LABELS).map(([key, label]) => <NewsFilterChip key={key} href={`/resident/saved?type=${key}&sort=${sort}`} active={type === key}>{label}</NewsFilterChip>)}<span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span><NewsFilterChip href={`/resident/saved?type=${type}&sort=date_desc`} active={sort !== "date_asc"}>ล่าสุดก่อน</NewsFilterChip><NewsFilterChip href={`/resident/saved?type=${type}&sort=date_asc`} active={sort === "date_asc"}>เก่าก่อน</NewsFilterChip></>}
       />
 
