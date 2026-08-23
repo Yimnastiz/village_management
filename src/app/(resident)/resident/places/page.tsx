@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Building2 } from "lucide-react";
+import { Building2, Eye, MapPin, Star, Tag } from "lucide-react";
 import { redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
@@ -147,14 +146,14 @@ export default async function ResidentPlacesPage({ searchParams }: PageProps) {
                     <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">ไม่มีรูปภาพ</div>
                   )}
                 </div>
-                <div className="space-y-2 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
-                    {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
-                    <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
-                  </div>
+                <div className="space-y-2.5 p-4">
                   <p className="line-clamp-1 font-medium text-gray-900">{place.name}</p>
-                  {place.address && <p className="line-clamp-1 text-sm text-gray-600">{place.address}</p>}
+                  {place.address && <p className="inline-flex w-full items-start gap-1.5 line-clamp-1 text-sm text-gray-600"><MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />{place.address}</p>}
+                  <div className="grid gap-1.5 text-xs text-gray-500">
+                    <p className="inline-flex items-center gap-1.5"><Tag className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" /><span>หมวดหมู่</span><span className="font-medium text-gray-700">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</span></p>
+                    <p className="inline-flex items-center gap-1.5"><Eye className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" /><span>การมองเห็น</span><span className="font-medium text-gray-700">{place.isPublic ? "สาธารณะ" : "ภายในหมู่บ้าน"}</span></p>
+                    {place.isFeatured ? <p className="inline-flex items-center gap-1.5 font-medium text-green-700"><Star className="h-3.5 w-3.5 fill-current" aria-hidden="true" />สถานที่สำคัญ</p> : null}
+                  </div>
                   {place.openingHours && <p className="text-xs text-gray-500">เวลา: {place.openingHours}</p>}
                   {place.description && <p className="line-clamp-2 text-sm text-gray-500">{place.description}</p>}
                 </div>

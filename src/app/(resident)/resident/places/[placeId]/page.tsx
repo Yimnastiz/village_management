@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, Clock3, MapPin, Phone } from "lucide-react";
+import { ArrowLeft, Clock3, Eye, MapPin, Phone, Star, Tag } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { SaveButton } from "@/components/ui/save-button";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -31,6 +30,7 @@ type PlaceDetail = {
   createdById: string | null;
   images: PlaceImageView[];
   isPublic: boolean;
+  isFeatured: boolean;
 };
 
 type VillagePlaceDetailDelegate = {
@@ -65,6 +65,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
       createdById: true,
       images: { orderBy: { sortOrder: "asc" }, select: { id: true, url: true, fileKey: true, sortOrder: true, isCover: true } },
       isPublic: true,
+      isFeatured: true,
     },
   });
 
@@ -100,16 +101,11 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
       </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
-          <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
-        </div>
-
         <h1 className="mt-3 text-2xl font-bold text-gray-900">{place.name}</h1>
 
         {imageUrls.length > 0 && (
           <div className="mt-5">
-            <ImageCarousel images={imageUrls} altPrefix={place.name} />
+            <ImageCarousel images={imageUrls} altPrefix={place.name} thumbnailBehavior="select" />
           </div>
         )}
 
@@ -132,6 +128,12 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
           {place.latitude != null && place.longitude != null && (
             <p className="text-xs text-gray-500">พิกัด: {place.latitude}, {place.longitude}</p>
           )}
+        </div>
+
+        <div className="mt-5 grid gap-2 border-t border-gray-100 pt-5 text-sm text-gray-600 sm:grid-cols-2">
+          <p className="inline-flex items-center gap-2"><Tag className="h-4 w-4 text-gray-400" aria-hidden="true" /><span>หมวดหมู่</span><span className="font-medium text-gray-800">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</span></p>
+          <p className="inline-flex items-center gap-2"><Eye className="h-4 w-4 text-gray-400" aria-hidden="true" /><span>การมองเห็น</span><span className="font-medium text-gray-800">{place.isPublic ? "สาธารณะ" : "ภายในหมู่บ้าน"}</span></p>
+          {place.isFeatured ? <p className="inline-flex items-center gap-2 font-medium text-green-700 sm:col-span-2"><Star className="h-4 w-4 fill-current" aria-hidden="true" />สถานที่สำคัญ</p> : null}
         </div>
 
         {place.description && (
