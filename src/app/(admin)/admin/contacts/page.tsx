@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { contactFilterCategories } from "@/lib/contact";
 import { ContactCreateDialog } from "./contact-create-dialog";
 
 type PageProps = {
@@ -85,7 +86,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
   })]);
 
   const suggestionTitles = Array.from(new Set(suggestionRows.map((contact) => contact.name))).slice(0, 12);
-  const categories = categoryRows.map((item) => item.category).filter((value): value is string => Boolean(value));
+  const categories = contactFilterCategories(categoryRows.map((item) => item.category));
 
   function buildContactsHref(next: { q?: string; visibility?: string; category?: string; sort?: string }) {
     const query = new URLSearchParams();

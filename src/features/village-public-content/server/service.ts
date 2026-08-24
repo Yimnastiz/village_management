@@ -11,7 +11,7 @@ import { z } from "zod";
 import { areSafeImageSources } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
-import { validateContactPhone } from "@/lib/contact";
+import { isContactCategory, validateContactPhone } from "@/lib/contact";
 import type { VillageActorContext } from "./context";
 
 type ActionResult<T = undefined> = T extends undefined
@@ -37,7 +37,7 @@ const contactInputSchema = z.object({
   phone: z.string().optional(),
   email: z.string().optional(),
   address: z.string().optional(),
-  category: z.string().optional(),
+  category: z.string().trim().min(1, "กรุณาเลือกหมวดหมู่"),
   sortOrder: z.string().optional(),
   isPublic: z.string().min(1),
 });
@@ -117,13 +117,15 @@ function normalizeNewsInput(data: NewsInput) {
   };
 }
 
-function normalizeContactInput(data: ContactInput) {
+function normalizeContactInput(data: ContactInput, allowedLegacyCategory?: string | null) {
   const parsed = contactInputSchema.safeParse(data);
   if (!parsed.success) return { ok: false as const, error: firstZodError(parsed.error) };
 
   const phone = parsed.data.phone?.trim() || "";
   const phoneError = validateContactPhone(phone, false);
   if (phoneError) return { ok: false as const, error: phoneError };
+  const category = parsed.data.category.trim();
+  if (!isContactCategory(category) && category !== allowedLegacyCategory) return { ok: false as const, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง" };
   if (parsed.data.isPublic !== "PUBLIC" && parsed.data.isPublic !== "RESIDENT") return { ok: false as const, error: "การมองเห็นไม่ถูกต้อง" };
   const sortOrderRaw = parsed.data.sortOrder?.trim();
   const sortOrder = sortOrderRaw ? Number(sortOrderRaw) : undefined;
@@ -137,7 +139,7 @@ function normalizeContactInput(data: ContactInput) {
       phone: phone || null,
       email: parsed.data.email?.trim() || null,
       address: parsed.data.address?.trim() || null,
-      category: parsed.data.category?.trim() || null,
+      category,
       sortOrder,
       isPublic: parsed.data.isPublic === "PUBLIC",
     },
@@ -355,13 +357,13 @@ export async function createContact(context: VillageActorContext, input: Contact
 }
 
 export async function updateContact(context: VillageActorContext, id: string, input: ContactInput): Promise<ActionResult> {
-  const normalized = normalizeContactInput(input);
-  if (!normalized.ok) return { success: false, error: normalized.error };
   const existing = await prisma.contactDirectory.findFirst({
     where: { id, villageId: context.villageId },
     select: { id: true, name: true, role: true, category: true, isPublic: true, sortOrder: true },
   });
   if (!existing) return { success: false, error: "ไม่พบผู้ติดต่อหรือไม่มีสิทธิ์แก้ไข" };
+  const normalized = normalizeContactInput(input, existing.category);
+  if (!normalized.ok) return { success: false, error: normalized.error };
   await prisma.$transaction(async (tx) => {
     await tx.contactDirectory.update({ where: { id }, data: { ...normalized.value, ...(normalized.value.sortOrder === undefined ? {} : { sortOrder: normalized.value.sortOrder }) } });
     await auditSuperAdmin(tx, context, {

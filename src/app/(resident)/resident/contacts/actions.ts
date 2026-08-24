@@ -95,7 +95,10 @@ export async function createResidentContactRequestAction(formData: FormData): Pr
   if (phoneError) {
     return { success: false, error: phoneError, field: "phone" };
   }
-  if (category && !isContactCategory(category)) {
+  if (!category) {
+    return { success: false, error: "กรุณาเลือกหมวดหมู่", field: "category" };
+  }
+  if (!isContactCategory(category)) {
     return { success: false, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง", field: "category" };
   }
   const emailError = validateContactEmail(email);
@@ -141,7 +144,8 @@ function validateContactRequestValues(value: ContactRequestValues, allowedLegacy
   if (phoneError) return { success: false, error: phoneError, field: "phone" };
   const emailError = validateContactEmail(value.email ?? "");
   if (emailError) return { success: false, error: emailError, field: "email" };
-  if (value.category && !isContactCategory(value.category) && value.category !== allowedLegacyCategory) return { success: false, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง", field: "category" };
+  if (!value.category) return { success: false, error: "กรุณาเลือกหมวดหมู่", field: "category" };
+  if (!isContactCategory(value.category) && value.category !== allowedLegacyCategory) return { success: false, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง", field: "category" };
   return null;
 }
 

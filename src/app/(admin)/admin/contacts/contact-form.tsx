@@ -24,7 +24,7 @@ const schema = z.object({
   phone: z.string().refine((value) => !value || !validateContactPhone(value, false), "เบอร์โทรต้องเป็นตัวเลข 3–10 หลัก"),
   email: z.string().optional(),
   address: z.string().optional(),
-  category: z.string().optional(),
+  category: z.string().trim().min(1, "กรุณาเลือกหมวดหมู่"),
   isPublic: z.boolean(),
 });
 
@@ -118,7 +118,7 @@ export function ContactForm({ mode, contactId, defaultValues, formId, compact = 
         <Input label="ชื่อผู้ติดต่อ" {...register("name")} error={errors.name?.message} required />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="ตำแหน่ง/บทบาท" {...register("role")} error={errors.role?.message} />
-          <Select label="หมวดหมู่" {...register("category")} options={categoryOptions} placeholder="เลือกหมวดหมู่" error={errors.category?.message} />
+          <Select label="หมวดหมู่" required {...register("category")} options={categoryOptions} placeholder="เลือกหมวดหมู่" error={errors.category?.message} />
         </div>
       </section>
       <section className="space-y-4">

@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { contactFilterCategories } from "@/lib/contact";
 import { toggleSaveContactAction } from "@/features/saved/server/actions";
 import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 
@@ -61,7 +62,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
 
   return (
     <div className="space-y-4">
-      <ResidentContactsToolbar keyword={keyword} category={category} sort={sort} categories={categoryRows.map((item) => item.category).filter((value): value is string => Boolean(value))} canSubmit={membership.hasResidentAccess} />
+      <ResidentContactsToolbar keyword={keyword} category={category} sort={sort} categories={contactFilterCategories(categoryRows.map((item) => item.category))} canSubmit={membership.hasResidentAccess} />
 
       {contacts.length === 0 ? (
         <EmptyState

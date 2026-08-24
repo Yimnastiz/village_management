@@ -13,6 +13,13 @@ export type ContactCategory = (typeof CONTACT_CATEGORIES)[number];
 
 export const CONTACT_CATEGORY_OPTIONS = CONTACT_CATEGORIES.map((value) => ({ value, label: value }));
 
+/** Keeps filters canonical while still making values on historical records discoverable. */
+export function contactFilterCategories(values: Array<string | null | undefined>) {
+  const legacy = Array.from(new Set(values.filter((value): value is string => Boolean(value?.trim()) && !isContactCategory(value.trim())).map((value) => value.trim())))
+    .sort((a, b) => a.localeCompare(b, "th"));
+  return [...CONTACT_CATEGORIES, ...legacy];
+}
+
 export const CONTACT_PHONE_MIN_LENGTH = 3;
 export const CONTACT_PHONE_MAX_LENGTH = 10;
 
