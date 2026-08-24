@@ -23,6 +23,52 @@ export type ContactRequestResult =
   | { success: true; requestId: string }
   | { success: false; error: string; field?: ContactRequestField };
 
+async function createContactRequestNotifications(
+  tx: Prisma.TransactionClient,
+  input: { requestId: string; villageId: string; requesterId: string; requesterName: string | null; contactName: string; requestType: ContactRequestType },
+) {
+  const isUpdate = input.requestType === ContactRequestType.UPDATE;
+  await tx.notification.create({
+    data: {
+      userId: input.requesterId,
+      villageId: input.villageId,
+      type: NotificationType.SYSTEM,
+      title: isUpdate ? "ส่งคำขอแก้ไขผู้ติดต่อแล้ว" : "ส่งคำขอเพิ่มผู้ติดต่อแล้ว",
+      body: isUpdate ? "คำขอแก้ไขของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว" : "คำขอของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
+      metadata: {
+        source: "RESIDENT_CONTACT_REQUEST_SUBMITTED",
+        requestId: input.requestId,
+        requestType: input.requestType,
+        workflowStatus: "PENDING",
+        actionUrl: `/resident/contacts/requests/${input.requestId}`,
+      },
+    },
+  });
+
+  const admins = await tx.villageMembership.findMany({
+    where: { villageId: input.villageId, status: "ACTIVE", role: { in: ADMIN_ROLES } },
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+  if (!admins.length) return;
+  await tx.notification.createMany({
+    data: admins.map((admin) => ({
+      userId: admin.userId,
+      villageId: input.villageId,
+      type: NotificationType.SYSTEM,
+      title: isUpdate ? "มีคำขอแก้ไขผู้ติดต่อจากลูกบ้าน" : "มีคำขอเพิ่มผู้ติดต่อจากลูกบ้าน",
+      body: `${input.requesterName || "ลูกบ้าน"} ส่งคำขอ${isUpdate ? "แก้ไข" : "เพิ่ม"}ผู้ติดต่อ “${input.contactName}”`,
+      metadata: {
+        source: "RESIDENT_CONTACT_REQUEST_REVIEW",
+        requestId: input.requestId,
+        requestType: input.requestType,
+        workflowStatus: "PENDING",
+        actionUrl: `/admin/contacts/requests/${input.requestId}`,
+      },
+    })),
+  });
+}
+
 export async function createResidentContactRequestAction(formData: FormData): Promise<ContactRequestResult> {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
@@ -73,69 +119,11 @@ export async function createResidentContactRequestAction(formData: FormData): Pr
       },
     });
 
-    const tracking = await tx.notification.create({ data: {
-      userId: session.id,
-      villageId: membership.villageId,
-      type: NotificationType.SYSTEM,
-      title: "ส่งคำขอเพิ่มผู้ติดต่อแล้ว",
-      body: `${name} (${phone})`,
-      metadata: {
-        source: "RESIDENT_CONTACT_REQUEST_TRACKING",
-        requestId,
-        workflowStatus: "PENDING",
-        payload: {
-          name,
-          role: role || null,
-          phone,
-          email: email || null,
-          address: address || null,
-          category: category || null,
-          note: note || null,
-        },
-      },
-    }, select: { id: true } });
-
-  const admins = await prisma.villageMembership.findMany({
-    where: {
-      villageId: membership.villageId,
-      status: "ACTIVE",
-      role: { in: ADMIN_ROLES },
-    },
-    distinct: ["userId"],
-    select: { userId: true },
+    await createContactRequestNotifications(tx, { requestId: request.id, villageId: membership.villageId, requesterId: session.id, requesterName: session.name, contactName: name, requestType: ContactRequestType.CREATE });
+    return { requestId: request.id };
   });
 
-  if (admins.length > 0) {
-    await tx.notification.createMany({
-      data: admins.map((admin) => ({
-        userId: admin.userId,
-        villageId: membership.villageId,
-        type: NotificationType.SYSTEM,
-        title: "มีคำขอเพิ่มผู้ติดต่อจากลูกบ้าน",
-        body: `${session.name} ส่งคำขอ: ${name} (${phone})`,
-        metadata: {
-          source: "RESIDENT_CONTACT_REQUEST_REVIEW",
-          requestId,
-          requesterId: session.id,
-          requesterName: session.name,
-          trackingNotificationId: tracking.id,
-          payload: {
-            name,
-            role: role || null,
-            phone,
-            email: email || null,
-            address: address || null,
-            category: category || null,
-            note: note || null,
-          },
-        },
-      })),
-    }); }
-    return { id: tracking.id, requestId: request.id };
-  });
-
-  revalidatePath("/resident/contacts");
-  revalidatePath("/resident/contacts/requests");
+  revalidateResidentContactRequest(trackingNotification.requestId);
   return { success: true, requestId: trackingNotification.requestId };
 }
 
@@ -174,7 +162,9 @@ function proposedMatchesSnapshot(proposed: ContactRequestValues, snapshot: Conta
 }
 
 function revalidateResidentContactRequest(requestId: string, contactId?: string) {
-  ["/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`, "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, ...(contactId ? [`/resident/contacts/${contactId}`, `/admin/contacts/${contactId}`] : [])].forEach((path) => revalidatePath(path));
+  ["/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`, "/resident/notifications", "/admin/contacts", "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, "/admin/notifications", ...(contactId ? [`/resident/contacts/${contactId}`, `/admin/contacts/${contactId}`] : [])].forEach((path) => revalidatePath(path));
+  revalidatePath("/resident", "layout");
+  revalidatePath("/admin", "layout");
 }
 
 async function residentContext() {
@@ -224,6 +214,7 @@ export async function createResidentContactUpdateRequestAction(contactId: string
   try {
     created = await prisma.$transaction(async (tx) => {
       const request = await tx.contactRequest.create({ data: { id: randomUUID(), villageId: context.membership.villageId, requesterId: context.session.id, type: ContactRequestType.UPDATE, targetContactId: contact.id, targetSnapshot: snapshot as Prisma.InputJsonValue, ...value }, select: { id: true } });
+      await createContactRequestNotifications(tx, { requestId: request.id, villageId: context.membership.villageId, requesterId: context.session.id, requesterName: context.session.name, contactName: contact.name, requestType: ContactRequestType.UPDATE });
       await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "RESIDENT_CONTACT_UPDATE_REQUESTED", requestType: "UPDATE", targetContactId: contact.id } } });
       return request;
     });

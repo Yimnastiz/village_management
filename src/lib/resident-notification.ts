@@ -33,6 +33,7 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   const albumId = stringValue(metadata, "albumId");
   const transparencyId = stringValue(metadata, "transparencyId");
   const correctionRequestId = stringValue(metadata, "correctionRequestId");
+  const contactId = stringValue(metadata, "approvedContactId") ?? stringValue(metadata, "targetContactId");
   const requestId = stringValue(metadata, "requestId") ?? stringValue(metadata, "submissionId");
   if (appointmentId) return `/resident/appointments/${appointmentId}`;
   if (issueId) return `/resident/issues/${issueId}`;
@@ -41,6 +42,7 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   if (albumId) return `/resident/gallery/${albumId}`;
   if (transparencyId) return `/resident/transparency/${transparencyId}`;
   if (correctionRequestId) return `/resident/household/corrections/${correctionRequestId}`;
+  if (source?.includes("CONTACT")) return contactId ? `/resident/contacts/${contactId}` : requestId ? `/resident/contacts/requests/${requestId}` : null;
   if (source?.includes("CALENDAR") && requestId) return `/resident/calendar/requests/${requestId}`;
   if (notification.type === "APPOINTMENT_UPDATE") return "/resident/appointments";
   if (notification.type === "ISSUE_UPDATE") return "/resident/issues";
