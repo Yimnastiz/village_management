@@ -18,12 +18,16 @@ type CalendarToolbarProps = {
   namespace: string;
   title: string;
   description?: string;
+  /** Actions that should precede calendar navigation, such as a contextual back link. */
+  leadingActions?: ReactNode;
   actions?: ReactNode;
   currentYear: number;
   currentMonth: number;
   yearStart: number;
   yearEnd: number;
   todayMonthKey: string;
+  /** Visible label for the action that returns to the current month. */
+  currentMonthLabel?: string;
   /** Resident calendar uses a single compact month control on small screens. */
   residentCompact?: boolean;
   /** Lets the Resident calendar declare its semantic page title in the shared Topbar. */
@@ -42,12 +46,14 @@ export function CalendarToolbar({
   namespace,
   title,
   description,
+  leadingActions,
   actions,
   currentYear,
   currentMonth,
   yearStart,
   yearEnd,
   todayMonthKey,
+  currentMonthLabel,
   residentCompact = false,
   registerHeader = false,
   search,
@@ -167,6 +173,7 @@ export function CalendarToolbar({
       </div>
 
       <div className="mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">
+        {leadingActions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{leadingActions}</div> : null}
         <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
@@ -247,7 +254,7 @@ export function CalendarToolbar({
             className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5"
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">{residentCompact ? "เดือนนี้" : "วันนี้"}</span>
+            <span className="hidden sm:inline">{currentMonthLabel ?? (residentCompact ? "เดือนนี้" : "วันนี้")}</span>
           </Link>
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
