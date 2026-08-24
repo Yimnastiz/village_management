@@ -1,0 +1,107 @@
+@startuml
+
+left to right direction
+
+skinparam backgroundColor white
+skinparam shadowing false
+skinparam defaultFontName "Tahoma"
+skinparam defaultFontSize 15
+skinparam packageStyle rectangle
+skinparam linetype ortho
+
+skinparam actor {
+    BackgroundColor white
+    BorderColor black
+    FontColor black
+}
+
+skinparam usecase {
+    BackgroundColor white
+    BorderColor black
+    FontColor black
+}
+
+skinparam rectangle {
+    BackgroundColor white
+    BorderColor black
+    FontColor black
+}
+
+actor "บุคคลทั่วไป" as Guest
+
+actor "ลูกบ้าน" as Resident
+
+actor "ผู้ใหญ่บ้าน" as Headman
+
+actor "ผู้ช่วยผู้ใหญ่บ้าน" as Assistant
+
+actor "ผู้ดูแลระบบระดับสูง" as SuperAdmin
+
+
+rectangle "ระบบบริหารจัดการหมู่บ้าน\nVillage Information Management System" as VillageSystem {
+
+    usecase "เข้าสู่ระบบ" as UC01
+
+    usecase "ค้นหาหมู่บ้านและ\nเรียกดูข้อมูลสาธารณะ" as UC02
+
+    usecase "สมัครสมาชิกและ\nยืนยันหมายเลขโทรศัพท์" as UC03
+
+    usecase "พิจารณาคำขอ\nสมัครสมาชิก" as UC04
+
+    usecase "ส่งคำขอผูก\nบัญชีกับบ้าน" as UC05
+
+    usecase "พิจารณาคำขอผูก\nบัญชีกับบ้าน" as UC06
+
+    usecase "จัดการข้อมูลบ้าน\nและประชากร" as UC07
+
+    usecase "เรียกดูข่าวสาร\nและข้อมูลหมู่บ้าน" as UC08
+
+    usecase "จัดการข่าวสารและ\nข้อมูลประชาสัมพันธ์" as UC09
+
+    usecase "แจ้งปัญหาและ\nติดตามผล" as UC10
+
+    usecase "จัดการรายการ\nแจ้งปัญหา" as UC11
+
+    usecase "ส่งคำขอ\nนัดหมาย" as UC12
+
+    usecase "จัดการ\nการนัดหมาย" as UC13
+
+    usecase "จัดการหมู่บ้านและ\nผู้ดูแลหมู่บ้าน" as UC14
+
+    usecase "ตรวจสอบผู้ใช้งานและ\nบันทึกกิจกรรม" as UC15
+}
+
+
+Guest --> UC02
+Guest --> UC03
+
+
+Resident --> UC01
+Resident --> UC05
+Resident --> UC08
+Resident --> UC10
+Resident --> UC12
+
+
+Headman --> UC01
+Headman --> UC04
+Headman --> UC06
+Headman --> UC07
+Headman --> UC09
+Headman --> UC11
+Headman --> UC13
+
+
+Assistant --> UC01
+Assistant --> UC06
+Assistant --> UC07
+Assistant --> UC09
+Assistant --> UC11
+Assistant --> UC13
+
+
+SuperAdmin --> UC01
+SuperAdmin --> UC14
+SuperAdmin --> UC15
+
+@enduml

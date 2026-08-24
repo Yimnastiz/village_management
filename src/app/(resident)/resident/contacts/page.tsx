@@ -75,37 +75,30 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {contacts.map((contact) => (
-            <article key={contact.id} className="rounded-xl border border-gray-200 bg-white p-4">
-              <div className="space-y-3">
+            <article key={contact.id} className="group relative rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:border-green-300 hover:bg-green-50/30">
+              <Link href={`/resident/contacts/${contact.id}`} aria-label={`ดูรายละเอียด ${contact.name}`} className="absolute inset-0 z-10 cursor-pointer rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600" />
+              <div className="relative z-0 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-gray-900">
-                      <Link href={`/resident/contacts/${contact.id}`} className="hover:underline">
-                      {contact.name}
-                      </Link>
-                    </h2>
+                    <h2 className="text-base font-semibold text-gray-900">{contact.name}</h2>
                     <p className={`mt-1 flex min-h-5 items-center gap-1.5 text-sm ${contact.category ? "text-gray-500" : "text-gray-400"}`}><Tag className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{contact.category ?? "ไม่ระบุหมวดหมู่"}</span></p>
                     {contact.role && <p className="mt-1 text-sm text-gray-500">{contact.role}</p>}
                   </div>
-                  {membership.hasResidentAccess ? <SaveButton itemId={contact.id} initialSaved={savedSet.has(contact.id)} toggleAction={toggleSaveContactAction} compact ariaLabel="บันทึกผู้ติดต่อ" savedAriaLabel="นำออกจากรายการบันทึก" /> : null}
+                  {membership.hasResidentAccess ? <div className="relative z-20"><SaveButton itemId={contact.id} initialSaved={savedSet.has(contact.id)} toggleAction={toggleSaveContactAction} compact ariaLabel="บันทึกผู้ติดต่อ" savedAriaLabel="นำออกจากรายการบันทึก" /></div> : null}
                 </div>
 
                 <div className="space-y-1.5 text-sm text-gray-600">
                   {contact.phone && (
-                    <p className="flex items-center gap-1.5">
+                    <a href={`tel:${contact.phone}`} className="relative z-20 flex w-fit items-center gap-1.5 font-medium text-green-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
                       <Phone className="h-4 w-4 shrink-0 text-green-700" aria-hidden="true" />
-                      <a href={`tel:${contact.phone}`} className="font-medium text-green-700 hover:underline">
-                        {contact.phone}
-                      </a>
-                    </p>
+                      {contact.phone}
+                    </a>
                   )}
                   {contact.email && (
-                    <p className="flex min-w-0 items-center gap-1.5">
+                    <a href={`mailto:${contact.email}`} className="relative z-20 flex min-w-0 w-fit items-center gap-1.5 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
                       <Mail className="h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
-                      <a href={`mailto:${contact.email}`} className="truncate hover:underline">
-                        {contact.email}
-                      </a>
-                    </p>
+                      <span className="truncate">{contact.email}</span>
+                    </a>
                   )}
                   {contact.address && (
                     <p className="flex items-start gap-1.5">

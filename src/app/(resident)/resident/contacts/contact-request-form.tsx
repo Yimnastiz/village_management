@@ -33,7 +33,10 @@ export function ContactRequestForm({ formId, initialValues, submitAction = creat
     event.preventDefault();
     if (submittingRef.current) return;
     submittingRef.current = true;
-    const formData = new FormData(event.currentTarget);
+    // React events can outlive the form when a successful submit closes this modal.
+    // Keep the form reference while it is guaranteed to exist, before any async work.
+    const form = event.currentTarget;
+    const formData = new FormData(form);
     const name = String(formData.get("name") ?? "").trim();
     const phone = String(formData.get("phone") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
@@ -48,8 +51,8 @@ export function ContactRequestForm({ formId, initialValues, submitAction = creat
     else if (!isContactCategory(category) && category !== initialValues?.category) nextErrors.category = "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง";
     if (Object.keys(nextErrors).length > 0) { setErrors(nextErrors); submittingRef.current = false; return; }
 
+    setErrors({}); setIsSubmitting(true); onSubmittingChange?.(true);
     try {
-      setErrors({}); setIsSubmitting(true); onSubmittingChange?.(true);
       let result: ContactRequestResult;
       try {
         result = await submitAction(formData);
@@ -61,16 +64,18 @@ export function ContactRequestForm({ formId, initialValues, submitAction = creat
         if (result.field) { setErrors({ [result.field]: result.error }); return; }
         toast.error(failureToastTitle, result.error); return;
       }
+
+      // A successful submit closes and unmounts the dialog, so its uncontrolled
+      // inputs are fresh on the next open. There is no DOM form reset to perform.
       try {
-        event.currentTarget.reset();
+        toast.success(successToastTitle);
       } catch (error) {
-        console.error("Contact request succeeded but form reset failed", error);
+        if (process.env.NODE_ENV !== "production") console.error("Contact request succeeded but success toast failed", error);
       }
-      toast.success(successToastTitle);
       try {
         onSuccess(result.requestId);
       } catch (error) {
-        console.error("Contact request succeeded but post-success UI work failed", error);
+        if (process.env.NODE_ENV !== "production") console.error("Contact request succeeded but post-success UI work failed", error);
       }
     } finally {
       submittingRef.current = false; setIsSubmitting(false); onSubmittingChange?.(false);
