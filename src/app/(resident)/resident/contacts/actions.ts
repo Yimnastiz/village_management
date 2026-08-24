@@ -2,6 +2,8 @@
 
 import { randomUUID } from "crypto";
 import { NotificationType, VillageMembershipRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { isContactCategory, validateContactPhone } from "@/lib/contact";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
@@ -16,9 +18,12 @@ function readText(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export async function createResidentContactRequestAction(
-  formData: FormData
-): Promise<{ success: true; requestId: string } | { success: false; error: string }> {
+type ContactRequestField = "name" | "phone" | "category";
+type ContactRequestResult =
+  | { success: true; requestId: string }
+  | { success: false; error: string; field?: ContactRequestField };
+
+export async function createResidentContactRequestAction(formData: FormData): Promise<ContactRequestResult> {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
     return { success: false, error: "กรุณาเข้าสู่ระบบ" };
@@ -38,10 +43,14 @@ export async function createResidentContactRequestAction(
   const note = readText(formData, "note");
 
   if (name.length < 2) {
-    return { success: false, error: "กรุณาระบุชื่อผู้ติดต่ออย่างน้อย 2 ตัวอักษร" };
+    return { success: false, error: "กรุณาระบุชื่อผู้ติดต่ออย่างน้อย 2 ตัวอักษร", field: "name" };
   }
-  if (!phone) {
-    return { success: false, error: "กรุณาระบุเบอร์โทร" };
+  const phoneError = validateContactPhone(phone);
+  if (phoneError) {
+    return { success: false, error: phoneError, field: "phone" };
+  }
+  if (category && !isContactCategory(category)) {
+    return { success: false, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง", field: "category" };
   }
 
   const requestId = randomUUID();
@@ -123,5 +132,7 @@ export async function createResidentContactRequestAction(
     return { id: tracking.id, requestId: request.id };
   });
 
+  revalidatePath("/resident/contacts");
+  revalidatePath("/resident/contacts/requests");
   return { success: true, requestId: trackingNotification.requestId };
 }

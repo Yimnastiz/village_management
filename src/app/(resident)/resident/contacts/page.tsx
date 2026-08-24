@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { MapPin, Mail, Phone, PhoneCall } from "lucide-react";
+import { MapPin, Mail, Phone, PhoneCall, Tag } from "lucide-react";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
@@ -74,18 +73,16 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
           {contacts.map((contact) => (
             <article key={contact.id} className="rounded-xl border border-gray-200 bg-white p-4">
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    {contact.category && (
-                      <Badge variant="outline" className="mb-1">{contact.category}</Badge>
-                    )}
                     <h2 className="text-base font-semibold text-gray-900">
                       <Link href={`/resident/contacts/${contact.id}`} className="hover:underline">
                       {contact.name}
                       </Link>
                     </h2>
-                    {contact.role && <p className="text-sm text-gray-500">{contact.role}</p>}
+                    <p className={`mt-1 flex min-h-5 items-center gap-1.5 text-sm ${contact.category ? "text-gray-500" : "text-gray-400"}`}><Tag className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="min-w-0 break-words">{contact.category ?? "ไม่ระบุหมวดหมู่"}</span></p>
+                    {contact.role && <p className="mt-1 text-sm text-gray-500">{contact.role}</p>}
                   </div>
                   {membership.hasResidentAccess ? <SaveButton itemId={contact.id} initialSaved={savedSet.has(contact.id)} toggleAction={toggleSaveContactAction} compact ariaLabel="บันทึกผู้ติดต่อ" savedAriaLabel="นำออกจากรายการบันทึก" /> : null}
                 </div>
