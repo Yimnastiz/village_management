@@ -195,6 +195,11 @@ enum ContactRequestStatus {
   REJECTED
 }
 
+enum ContactRequestType {
+  CREATE
+  UPDATE
+}
+
 enum NotificationType {
   ISSUE_UPDATE
   APPOINTMENT_UPDATE
@@ -1122,6 +1127,7 @@ model GalleryItemSubmission {
 model ContactDirectory {
   id         String      @id @default(cuid())
   savedItems SavedItem[]
+  updateRequests ContactRequest[] @relation("ContactRequestTarget")
   villageId  String
   name       String
   role       String?
@@ -1152,6 +1158,9 @@ model ContactRequest {
   address           String?
   category          String?
   note              String?
+  type              ContactRequestType @default(CREATE)
+  targetContactId   String?
+  targetSnapshot    Json?
   status            ContactRequestStatus @default(PENDING)
   reviewedById      String?
   reviewedByName    String?
@@ -1163,10 +1172,12 @@ model ContactRequest {
 
   village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
   requester User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  targetContact ContactDirectory? @relation("ContactRequestTarget", fields: [targetContactId], references: [id], onDelete: SetNull)
 
   @@index([villageId, status])
   @@index([requesterId, createdAt])
   @@index([approvedContactId])
+  @@index([targetContactId, requesterId, status])
 }
 
 model FAQItem {

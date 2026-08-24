@@ -23,7 +23,7 @@ export default async function AdminContactRequestsPage({ searchParams }: PagePro
     prisma.contactRequest.findMany({
       where: { villageId: membership.villageId, status: history ? { in: ["APPROVED", "REJECTED"] } : "PENDING" },
       orderBy: history ? { reviewedAt: "desc" } : { createdAt: "desc" },
-      select: { id: true, name: true, role: true, phone: true, status: true, createdAt: true, reviewedAt: true, reviewedByName: true, rejectReason: true, requester: { select: { name: true } } },
+      select: { id: true, name: true, role: true, phone: true, type: true, targetContactId: true, status: true, createdAt: true, reviewedAt: true, reviewedByName: true, rejectReason: true, requester: { select: { name: true } } },
     }),
   ]);
 
@@ -38,7 +38,7 @@ export default async function AdminContactRequestsPage({ searchParams }: PagePro
     </nav>
     {rows.length === 0 ? <div className="rounded-xl border border-dashed border-gray-300 bg-white p-10 text-center text-sm text-gray-500">{history ? "ยังไม่มีประวัติการพิจารณา" : "ไม่มีคำขอที่รอพิจารณา"}</div> :
       <div className="space-y-2">{rows.map((request) => <Link key={request.id} href={`/admin/contacts/requests/${request.id}`} className="block rounded-xl border border-gray-200 bg-white p-4 transition hover:border-green-300 hover:bg-green-50/30 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="font-semibold text-gray-900">{request.name}</p><p className="mt-0.5 text-sm text-gray-600">{request.role || "ไม่ได้ระบุตำแหน่ง"} <span aria-hidden="true">•</span> {request.phone}</p></div><Badge variant={statusVariant[request.status]}>{statusCopy[request.status]}</Badge></div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="mb-1 flex flex-wrap gap-2"><Badge variant="outline">{request.type === "UPDATE" ? "แก้ไขผู้ติดต่อ" : "เพิ่มผู้ติดต่อ"}</Badge></div><p className="font-semibold text-gray-900">{request.name}</p><p className="mt-0.5 text-sm text-gray-600">{request.role || "ไม่ได้ระบุตำแหน่ง"} <span aria-hidden="true">•</span> {request.phone}</p></div><Badge variant={statusVariant[request.status]}>{statusCopy[request.status]}</Badge></div>
         {history ? <div className="mt-3 text-sm text-gray-500"><p>ผู้พิจารณา: {request.reviewedByName || "ไม่ได้ระบุ"}</p><p>พิจารณาเมื่อ: {request.reviewedAt?.toLocaleString("th-TH") || "ไม่ได้ระบุ"}</p>{request.status === "REJECTED" && request.rejectReason ? <p className="mt-1 text-red-700">เหตุผล: {request.rejectReason}</p> : null}</div> : <p className="mt-3 text-sm text-gray-500">ผู้ขอ: {request.requester.name} <span aria-hidden="true">•</span> ส่งเมื่อ: {request.createdAt.toLocaleString("th-TH")}</p>}
       </Link>)}</div>}
   </div>;

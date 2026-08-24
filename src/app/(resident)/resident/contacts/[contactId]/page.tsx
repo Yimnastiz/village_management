@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ContactRequestType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { ResidentContactRequestModal } from "../resident-contact-request-modal";
 
 interface PageProps {
   params: Promise<{ contactId: string }>;
@@ -21,6 +23,11 @@ export default async function ResidentContactDetailPage({ params }: PageProps) {
   });
 
   if (!contact) notFound();
+
+  const [originRequest, pendingUpdate] = membership.hasResidentAccess ? await Promise.all([
+    prisma.contactRequest.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: contact.id }, select: { id: true } }),
+    prisma.contactRequest.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, type: ContactRequestType.UPDATE, status: "PENDING", targetContactId: contact.id }, select: { id: true } }),
+  ]) : [null, null];
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4">
@@ -42,6 +49,7 @@ export default async function ResidentContactDetailPage({ params }: PageProps) {
           <p>อีเมล: {contact.email ? <a href={`mailto:${contact.email}`} className="font-medium text-blue-700 hover:underline">{contact.email}</a> : "-"}</p>
           <p>ที่อยู่: {contact.address || "-"}</p>
         </div>
+        {originRequest ? <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">{pendingUpdate ? <Link href={`/resident/contacts/requests/${pendingUpdate.id}`} className="inline-flex min-h-10 items-center rounded-lg border border-amber-300 px-3 text-sm font-medium text-amber-800 hover:bg-amber-50">คำขอแก้ไขรอพิจารณา</Link> : <ResidentContactRequestModal mode="update-contact" contactId={contact.id} initialValues={{ name: contact.name, role: contact.role, phone: contact.phone ?? "", email: contact.email, address: contact.address, category: contact.category }} fullLabel />}</div> : null}
       </div>
     </div>
   );

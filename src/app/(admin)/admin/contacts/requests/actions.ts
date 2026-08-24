@@ -1,12 +1,13 @@
 "use server";
 
-import { AuditAction, NotificationStatus, Prisma } from "@prisma/client";
+import { AuditAction, ContactRequestType, NotificationStatus, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 
 type RequestPayload = { name: string; role: string | null; phone: string; email: string | null; address: string | null; category: string | null; note: string | null };
 type ActionResult = { success: boolean; already?: boolean; message: string; approvedContactId?: string };
+type ContactSnapshot = { name: string; role: string | null; phone: string; email: string | null; address: string | null; category: string | null };
 
 function readText(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -24,6 +25,17 @@ function payloadFrom(value: unknown): RequestPayload | null {
   if (!name || !phone) return null;
   const optional = (key: string) => typeof input[key] === "string" && input[key].trim() ? input[key].trim() : null;
   return { name, phone, role: optional("role"), email: optional("email"), address: optional("address"), category: optional("category"), note: optional("note") };
+}
+
+function contactSnapshot(value: unknown): ContactSnapshot | null {
+  const input = objectValue(value);
+  if (typeof input.name !== "string" || typeof input.phone !== "string") return null;
+  const optional = (key: string) => typeof input[key] === "string" && input[key].trim() ? input[key].trim() : null;
+  return { name: input.name.trim(), phone: input.phone.trim(), role: optional("role"), email: optional("email"), address: optional("address"), category: optional("category") };
+}
+
+function snapshotMatchesContact(snapshot: ContactSnapshot, contact: { name: string; role: string | null; phone: string | null; email: string | null; address: string | null; category: string | null }) {
+  return snapshot.name === contact.name && snapshot.role === contact.role && snapshot.phone === (contact.phone ?? "") && snapshot.email === contact.email && snapshot.address === contact.address && snapshot.category === contact.category;
 }
 
 async function requireAdminContext() {
@@ -108,8 +120,8 @@ async function runSerializable<T>(operation: (tx: Prisma.TransactionClient) => P
   throw new Error("Unable to complete transaction");
 }
 
-function revalidateRequestPaths(requestId: string) {
-  ["/admin", "/admin/contacts", "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, "/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`].forEach((path) => revalidatePath(path));
+function revalidateRequestPaths(requestId: string, contactId?: string | null) {
+  ["/admin", "/admin/contacts", "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, "/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`, ...(contactId ? [`/admin/contacts/${contactId}`, `/resident/contacts/${contactId}`] : [])].forEach((path) => revalidatePath(path));
 }
 
 export async function approveResidentContactRequestAction(formData: FormData): Promise<ActionResult> {
@@ -126,6 +138,17 @@ export async function approveResidentContactRequestAction(formData: FormData): P
       if (request.status === "APPROVED") return { success: true, already: true, message: "คำขอนี้ได้รับการอนุมัติแล้ว", approvedContactId: request.approvedContactId ?? undefined };
       if (request.status === "REJECTED") return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
 
+      let targetContact: { id: string; name: string; role: string | null; phone: string | null; email: string | null; address: string | null; category: string | null } | null = null;
+      if (request.type === ContactRequestType.UPDATE) {
+        if (!request.targetContactId) return { success: false, message: "คำขอแก้ไขไม่มีข้อมูลผู้ติดต่อปลายทาง" } as ActionResult;
+        const source = await tx.contactRequest.findFirst({ where: { villageId: ctx.villageId, requesterId: request.requesterId, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: request.targetContactId }, select: { id: true } });
+        if (!source) return { success: false, message: "ผู้ส่งคำขอไม่มีสิทธิ์แก้ไขข้อมูลผู้ติดต่อนี้" } as ActionResult;
+        targetContact = await tx.contactDirectory.findFirst({ where: { id: request.targetContactId, villageId: ctx.villageId }, select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } });
+        if (!targetContact) return { success: false, message: "ไม่พบข้อมูลผู้ติดต่อปลายทาง หรืออยู่คนละหมู่บ้าน" } as ActionResult;
+        const snapshot = contactSnapshot(request.targetSnapshot);
+        if (!snapshot || !snapshotMatchesContact(snapshot, targetContact)) return { success: false, message: "ข้อมูลผู้ติดต่อถูกเปลี่ยนหลังส่งคำขอ กรุณาตรวจสอบและพิจารณาคำขอใหม่" } as ActionResult;
+      }
+
       const reviewedAt = new Date();
       const claimed = await tx.contactRequest.updateMany({
         where: { id: request.id, villageId: ctx.villageId, status: "PENDING" },
@@ -133,14 +156,16 @@ export async function approveResidentContactRequestAction(formData: FormData): P
       });
       if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
 
-      const contact = await tx.contactDirectory.create({ data: { villageId: ctx.villageId, name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category, isPublic: false, sortOrder: 0 }, select: { id: true } });
-      await tx.contactRequest.update({ where: { id: request.id }, data: { approvedContactId: contact.id } });
-      await syncTrackingNotification(tx, { ...request, status: "APPROVED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, approvedContactId: contact.id });
+      const approvedContactId = targetContact
+        ? (await tx.contactDirectory.update({ where: { id: targetContact.id }, data: { name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category }, select: { id: true } })).id
+        : (await tx.contactDirectory.create({ data: { villageId: ctx.villageId, name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category, isPublic: false, sortOrder: 0 }, select: { id: true } })).id;
+      await tx.contactRequest.update({ where: { id: request.id }, data: { approvedContactId } });
+      await syncTrackingNotification(tx, { ...request, status: "APPROVED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, approvedContactId });
       await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_REQUEST_APPROVED", requestId: request.id, contactId: contact.id, requesterId: request.requesterId, reviewerId: ctx.session.id } } });
-      return { success: true, message: "อนุมัติคำขอและเพิ่มผู้ติดต่อเรียบร้อยแล้ว", approvedContactId: contact.id };
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_APPROVED" : "CONTACT_REQUEST_APPROVED", requestType: request.type, requestId: request.id, contactId: approvedContactId, requesterId: request.requesterId, reviewerId: ctx.session.id } } });
+      return { success: true, message: request.type === ContactRequestType.UPDATE ? "อนุมัติคำขอแก้ไขผู้ติดต่อเรียบร้อยแล้ว" : "อนุมัติคำขอและเพิ่มผู้ติดต่อเรียบร้อยแล้ว", approvedContactId };
     });
-    revalidateRequestPaths(requestId);
+    revalidateRequestPaths(requestId, result.approvedContactId);
     return result;
   } catch (error) {
     console.error("approve contact request", error);
@@ -168,7 +193,7 @@ export async function rejectResidentContactRequestAction(formData: FormData): Pr
       if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
       await syncTrackingNotification(tx, { ...request, status: "REJECTED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, rejectReason: reason });
       await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_REQUEST_REJECTED", requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, rejectReason: reason } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_REJECTED" : "CONTACT_REQUEST_REJECTED", requestType: request.type, requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, rejectReason: reason } } });
       return { success: true, message: "บันทึกการไม่อนุมัติเรียบร้อยแล้ว" };
     });
     revalidateRequestPaths(requestId);

@@ -33,3 +33,8 @@ export function validateContactPhone(value: string, required = true): string | n
   }
   return null;
 }
+
+export function validateContactEmail(value: string): string | null {
+  if (!value) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : "รูปแบบอีเมลไม่ถูกต้อง";
+}

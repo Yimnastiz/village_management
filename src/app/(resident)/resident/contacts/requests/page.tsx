@@ -20,7 +20,7 @@ export default async function ResidentContactRequestsPage({ searchParams }: { se
   const rows = await prisma.contactRequest.findMany({
     where: { requesterId: session.id, villageId: membership.villageId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, phone: true, status: true, createdAt: true },
+    select: { id: true, name: true, phone: true, type: true, status: true, createdAt: true },
   });
 
   return <div className="space-y-4">
@@ -33,7 +33,7 @@ export default async function ResidentContactRequestsPage({ searchParams }: { se
       </div>}
     />
     <div className="space-y-3">
-      {rows.length === 0 ? <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">ยังไม่มีคำขอ</div> : rows.map((request) => <Link key={request.id} href={`/resident/contacts/requests/${request.id}`} className="block rounded-xl border border-gray-200 bg-white p-4 hover:border-green-300 hover:bg-green-50/40"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium text-gray-900">{request.name}</p><Badge variant={statusVariant[request.status]}>{statusCopy[request.status]}</Badge></div><p className="mt-1 text-sm text-gray-600">{request.phone}</p><p className="mt-1 text-xs text-gray-400">ส่งเมื่อ {request.createdAt.toLocaleString("th-TH")}</p></Link>)}
+      {rows.length === 0 ? <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center text-sm text-gray-500">ยังไม่มีคำขอ</div> : rows.map((request) => <Link key={request.id} href={`/resident/contacts/requests/${request.id}`} className="block rounded-xl border border-gray-200 bg-white p-4 hover:border-green-300 hover:bg-green-50/40"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-medium text-gray-900">{request.type === "UPDATE" ? "แก้ไขผู้ติดต่อ" : "เพิ่มผู้ติดต่อ"}</p><p className="mt-0.5 text-sm text-gray-600">{request.name} · {request.phone}</p></div><Badge variant={statusVariant[request.status]}>{statusCopy[request.status]}</Badge></div><p className="mt-1 text-xs text-gray-400">ส่งเมื่อ {request.createdAt.toLocaleString("th-TH")}</p></Link>)}
     </div>
   </div>;
 }

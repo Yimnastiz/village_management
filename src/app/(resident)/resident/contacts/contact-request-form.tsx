@@ -5,20 +5,27 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { CONTACT_CATEGORY_OPTIONS, CONTACT_PHONE_MAX_LENGTH, normalizeContactPhone, validateContactPhone } from "@/lib/contact";
-import { createResidentContactRequestAction } from "./actions";
+import { CONTACT_CATEGORY_OPTIONS, CONTACT_PHONE_MAX_LENGTH, isContactCategory, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
+import { createResidentContactRequestAction, type ContactRequestResult } from "./actions";
+
+export type ContactRequestFormValues = { name: string; role?: string | null; phone: string; email?: string | null; address?: string | null; category?: string | null; note?: string | null };
 
 type ContactRequestFormProps = {
-  formId?: string;
+  formId: string;
+  initialValues?: ContactRequestFormValues;
+  submitAction?: (formData: FormData) => Promise<ContactRequestResult>;
   onSuccess: (requestId: string) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
 };
 
-export function ContactRequestForm({ formId = "resident-contact-request-form", onSuccess, onSubmittingChange }: ContactRequestFormProps) {
+export function ContactRequestForm({ formId, initialValues, submitAction = createResidentContactRequestAction, onSuccess, onSubmittingChange }: ContactRequestFormProps) {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const toast = useToast();
+  const categoryOptions = initialValues?.category && !isContactCategory(initialValues.category)
+    ? [{ value: initialValues.category, label: `${initialValues.category} (หมวดหมู่เดิม)` }, ...CONTACT_CATEGORY_OPTIONS]
+    : CONTACT_CATEGORY_OPTIONS;
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -27,48 +34,40 @@ export function ContactRequestForm({ formId = "resident-contact-request-form", o
     const formData = new FormData(event.currentTarget);
     const name = String(formData.get("name") ?? "").trim();
     const phone = String(formData.get("phone") ?? "").trim();
+    const email = String(formData.get("email") ?? "").trim();
     const nextErrors: Record<string, string> = {};
     if (name.length < 2) nextErrors.name = "กรุณาระบุชื่อผู้ติดต่ออย่างน้อย 2 ตัวอักษร";
     const phoneError = validateContactPhone(phone);
     if (phoneError) nextErrors.phone = phoneError;
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors);
-      submittingRef.current = false;
-      return;
-    }
-    setErrors({});
-    setIsSubmitting(true);
-    onSubmittingChange?.(true);
+    const emailError = validateContactEmail(email);
+    if (emailError) nextErrors.email = emailError;
+    if (Object.keys(nextErrors).length > 0) { setErrors(nextErrors); submittingRef.current = false; return; }
+
+    setErrors({}); setIsSubmitting(true); onSubmittingChange?.(true);
     try {
-      const result = await createResidentContactRequestAction(formData);
+      const result = await submitAction(formData);
       if (!result.success) {
-        if (result.field) {
-          setErrors({ [result.field]: result.error });
-          return;
-        }
-        toast.error("ส่งคำขอผู้ติดต่อไม่สำเร็จ", result.error);
-        return;
+        if (result.field) { setErrors({ [result.field]: result.error }); return; }
+        toast.error("ส่งคำขอผู้ติดต่อไม่สำเร็จ", result.error); return;
       }
       event.currentTarget.reset();
       onSuccess(result.requestId);
     } catch {
-      const message = "ไม่สามารถส่งคำขอได้ กรุณาลองใหม่อีกครั้ง";
-      toast.error("ส่งคำขอผู้ติดต่อไม่สำเร็จ", message);
+      toast.error("ส่งคำขอผู้ติดต่อไม่สำเร็จ", "ไม่สามารถส่งคำขอได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
-      submittingRef.current = false;
-      setIsSubmitting(false);
-      onSubmittingChange?.(false);
+      submittingRef.current = false; setIsSubmitting(false); onSubmittingChange?.(false);
     }
   };
 
   return <form id={formId} className="space-y-4" onSubmit={submit} noValidate>
-    <Input name="name" label="ชื่อผู้ติดต่อ" required minLength={2} error={errors.name} onChange={() => setErrors((current) => ({ ...current, name: "" }))} />
+    <Input name="name" label="ชื่อผู้ติดต่อ" required minLength={2} defaultValue={initialValues?.name ?? ""} error={errors.name} onChange={() => setErrors((current) => ({ ...current, name: "" }))} />
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <Input name="phone" type="tel" label="เบอร์โทร" required inputMode="numeric" autoComplete="tel" maxLength={CONTACT_PHONE_MAX_LENGTH} pattern="[0-9]*" helperText="ตัวเลข 3–10 หลัก" error={errors.phone} onChange={(event) => { event.currentTarget.value = normalizeContactPhone(event.currentTarget.value); setErrors((current) => ({ ...current, phone: "" })); }} />
-      <Input name="role" label="ตำแหน่ง/บทบาท" />
+      <Input name="phone" type="tel" label="เบอร์โทร" required inputMode="numeric" autoComplete="tel" maxLength={CONTACT_PHONE_MAX_LENGTH} pattern="[0-9]*" defaultValue={initialValues?.phone ?? ""} helperText="ตัวเลข 3–10 หลัก" error={errors.phone} onChange={(event) => { event.currentTarget.value = normalizeContactPhone(event.currentTarget.value); setErrors((current) => ({ ...current, phone: "" })); }} />
+      <Input name="role" label="ตำแหน่ง/บทบาท" defaultValue={initialValues?.role ?? ""} />
     </div>
-    <Select name="category" label="หมวดหมู่" placeholder="เลือกหมวดหมู่ (ไม่ระบุได้)" options={CONTACT_CATEGORY_OPTIONS} error={errors.category} onChange={() => setErrors((current) => ({ ...current, category: "" }))} />
-    <Input name="address" label="ที่อยู่/รายละเอียดสถานที่" />
-    <Textarea name="note" label="หมายเหตุเพิ่มเติม" rows={4} />
+    <Select name="category" label="หมวดหมู่" placeholder="เลือกหมวดหมู่ (ไม่ระบุได้)" options={categoryOptions} defaultValue={initialValues?.category ?? ""} error={errors.category} onChange={() => setErrors((current) => ({ ...current, category: "" }))} />
+    <Input name="email" type="email" label="อีเมล" autoComplete="email" defaultValue={initialValues?.email ?? ""} error={errors.email} onChange={() => setErrors((current) => ({ ...current, email: "" }))} />
+    <Input name="address" label="ที่อยู่/รายละเอียดสถานที่" defaultValue={initialValues?.address ?? ""} />
+    <Textarea name="note" label="หมายเหตุเพิ่มเติม" rows={4} defaultValue={initialValues?.note ?? ""} />
   </form>;
 }
