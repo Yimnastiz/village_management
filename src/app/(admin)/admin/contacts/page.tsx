@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FilePlus2, ListChecks, Phone, PhoneCall } from "lucide-react";
+import { ListChecks, Phone, PhoneCall } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { ContactCreateDialog } from "./contact-create-dialog";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; category?: string; sort?: string }>;
@@ -54,7 +55,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
         ? [{ createdAt: "desc" as const }]
         : [{ sortOrder: "asc" as const }, { createdAt: "desc" as const }];
 
-  const [contacts, categoryRows, suggestionRows] = await Promise.all([prisma.contactDirectory.findMany({
+  const [contacts, categoryRows, suggestionRows, pendingRequestCount] = await Promise.all([prisma.contactDirectory.findMany({
     where,
     orderBy,
     select: {
@@ -78,6 +79,9 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
     select: { name: true },
     orderBy: { name: "asc" },
     take: 20,
+  }),
+  prisma.contactRequest.count({
+    where: { villageId: membership.villageId, status: "PENDING" },
   })]);
 
   const suggestionTitles = Array.from(new Set(suggestionRows.map((contact) => contact.name))).slice(0, 12);
@@ -135,15 +139,11 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
           },
         ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <Link href="/admin/contacts/requests">
-              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอจากลูกบ้าน</span></Button>
+              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอจากลูกบ้าน</span>{pendingRequestCount > 0 ? <span aria-label={`คำขอรอพิจารณา ${pendingRequestCount} รายการ`} className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">{pendingRequestCount}</span> : null}</Button>
             </Link>
-            <Link href="/admin/contacts/new">
-              <Button size="sm" className="h-10 px-2 sm:px-3">
-                <FilePlus2 className="h-4 w-4" /><span className="hidden min-[390px]:ml-1.5 min-[390px]:inline">เพิ่มผู้ติดต่อ</span>
-              </Button>
-            </Link>
+            <ContactCreateDialog compact />
           </div>
         }
       />
@@ -153,7 +153,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
           <PhoneCall className="mx-auto mb-3 h-10 w-10 text-gray-300" />
           <p className="font-medium text-gray-700">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "sort" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีข้อมูลผู้ติดต่อ"}</p>
           <p className="mt-1 text-sm text-gray-500">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "sort" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มผู้ติดต่อเพื่อเริ่มต้นจัดการรายชื่อ"}</p>
-          {!keyword && activeVisibility === "ALL" && !activeCategory && activeSort === "sort" ? <Link href="/admin/contacts/new" className="mt-4 inline-flex"><Button size="sm">เพิ่มผู้ติดต่อ</Button></Link> : null}
+          {!keyword && activeVisibility === "ALL" && !activeCategory && activeSort === "sort" ? <div className="mt-4 inline-flex"><ContactCreateDialog /></div> : null}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">

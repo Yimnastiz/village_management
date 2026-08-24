@@ -48,7 +48,6 @@ export default async function ContactDetailPage({ params }: PageProps) {
           <Badge variant={contact.isPublic ? "success" : "info"}>
             {contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
           </Badge>
-          <Badge variant="outline">ลำดับการแสดงผล {contact.sortOrder}</Badge>
           {contact.category && <Badge variant="outline">{contact.category}</Badge>}
         </div>
         <h2 className="text-xl font-semibold text-gray-900">{contact.name}</h2>

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { areSafeImageSources } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
+import { validateContactPhone } from "@/lib/contact";
 import type { VillageActorContext } from "./context";
 
 type ActionResult<T = undefined> = T extends undefined
@@ -120,16 +121,20 @@ function normalizeContactInput(data: ContactInput) {
   const parsed = contactInputSchema.safeParse(data);
   if (!parsed.success) return { ok: false as const, error: firstZodError(parsed.error) };
 
+  const phone = parsed.data.phone?.trim() || "";
+  const phoneError = validateContactPhone(phone, false);
+  if (phoneError) return { ok: false as const, error: phoneError };
+  if (parsed.data.isPublic !== "PUBLIC" && parsed.data.isPublic !== "RESIDENT") return { ok: false as const, error: "การมองเห็นไม่ถูกต้อง" };
   const sortOrderRaw = parsed.data.sortOrder?.trim();
-  const sortOrder = sortOrderRaw ? Number(sortOrderRaw) : 0;
-  if (!Number.isFinite(sortOrder)) return { ok: false as const, error: "ลำดับการแสดงผลไม่ถูกต้อง" };
+  const sortOrder = sortOrderRaw ? Number(sortOrderRaw) : undefined;
+  if (sortOrder !== undefined && !Number.isFinite(sortOrder)) return { ok: false as const, error: "ลำดับการแสดงผลไม่ถูกต้อง" };
 
   return {
     ok: true as const,
     value: {
       name: parsed.data.name.trim(),
       role: parsed.data.role?.trim() || null,
-      phone: parsed.data.phone?.trim() || null,
+      phone: phone || null,
       email: parsed.data.email?.trim() || null,
       address: parsed.data.address?.trim() || null,
       category: parsed.data.category?.trim() || null,
@@ -333,7 +338,9 @@ export async function createContact(context: VillageActorContext, input: Contact
   const normalized = normalizeContactInput(input);
   if (!normalized.ok) return { success: false, error: normalized.error };
   const created = await prisma.$transaction(async (tx) => {
-    const contact = await tx.contactDirectory.create({ data: { villageId: context.villageId, ...normalized.value }, select: { id: true } });
+    const lastSortOrder = await tx.contactDirectory.aggregate({ where: { villageId: context.villageId }, _max: { sortOrder: true } });
+    const sortOrder = normalized.value.sortOrder ?? (lastSortOrder._max.sortOrder ?? -1) + 1;
+    const contact = await tx.contactDirectory.create({ data: { villageId: context.villageId, ...normalized.value, sortOrder }, select: { id: true } });
     await auditSuperAdmin(tx, context, {
       action: AuditAction.CREATE,
       actionName: "SUPERADMIN_CONTACT_CREATED",
@@ -356,7 +363,7 @@ export async function updateContact(context: VillageActorContext, id: string, in
   });
   if (!existing) return { success: false, error: "ไม่พบผู้ติดต่อหรือไม่มีสิทธิ์แก้ไข" };
   await prisma.$transaction(async (tx) => {
-    await tx.contactDirectory.update({ where: { id }, data: normalized.value });
+    await tx.contactDirectory.update({ where: { id }, data: { ...normalized.value, ...(normalized.value.sortOrder === undefined ? {} : { sortOrder: normalized.value.sortOrder }) } });
     await auditSuperAdmin(tx, context, {
       action: AuditAction.UPDATE,
       actionName: existing.isPublic !== normalized.value.isPublic ? "SUPERADMIN_CONTACT_VISIBILITY_CHANGED" : "SUPERADMIN_CONTACT_UPDATED",

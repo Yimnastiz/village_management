@@ -41,8 +41,7 @@ export default async function EditContactPage({ params }: PageProps) {
           email: contact.email || "",
           address: contact.address || "",
           category: contact.category || "",
-          sortOrder: String(contact.sortOrder),
-          isPublic: contact.isPublic ? "PUBLIC" : "RESIDENT",
+          isPublic: contact.isPublic,
         }}
       />
     </div>
