@@ -13,6 +13,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
 import { isContactCategory, validateContactPhone } from "@/lib/contact";
 import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
+import { getNextContactSortOrder } from "@/features/contact-ordering/server/order";
 import type { VillageActorContext } from "./context";
 
 type ActionResult<T = undefined> = T extends undefined
@@ -343,8 +344,7 @@ export async function createContact(context: VillageActorContext, input: Contact
   const normalized = normalizeContactInput(input);
   if (!normalized.ok) return { success: false, error: normalized.error };
   const created = await prisma.$transaction(async (tx) => {
-    const lastSortOrder = await tx.contactDirectory.aggregate({ where: { villageId: context.villageId }, _max: { sortOrder: true } });
-    const sortOrder = normalized.value.sortOrder ?? (lastSortOrder._max.sortOrder ?? -1) + 1;
+    const sortOrder = await getNextContactSortOrder(tx, context.villageId);
     const contact = await tx.contactDirectory.create({ data: { villageId: context.villageId, ...normalized.value, sortOrder }, select: { id: true } });
     await auditSuperAdmin(tx, context, {
       action: AuditAction.CREATE,
@@ -354,7 +354,7 @@ export async function createContact(context: VillageActorContext, input: Contact
       newValue: { name: normalized.value.name, role: normalized.value.role, category: normalized.value.category, isPublic: normalized.value.isPublic },
     });
     return contact;
-  });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   revalidateVillagePublicContent(context, "contacts", created.id);
   return { success: true, id: created.id };
 }

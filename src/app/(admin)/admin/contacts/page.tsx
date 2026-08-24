@@ -1,14 +1,15 @@
 import Link from "next/link";
-import { ListChecks, Phone, PhoneCall } from "lucide-react";
+import { ListChecks, PhoneCall } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { contactFilterCategories } from "@/lib/contact";
+import { CONTACT_SORT_OPTIONS, parseContactSort, sortContactsByName } from "@/lib/contact-sort";
 import { ContactCreateDialog } from "./contact-create-dialog";
+import { ContactSortableList } from "./contact-sortable-list";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; category?: string; sort?: string }>;
@@ -29,7 +30,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
   const keyword = params.q?.trim() ?? "";
   const activeVisibility = params.visibility ?? "ALL";
   const activeCategory = params.category?.trim() ?? "";
-  const activeSort = params.sort ?? "sort";
+  const activeSort = parseContactSort(params.sort);
 
   const where: Prisma.ContactDirectoryWhereInput = { villageId: membership.villageId };
   if (activeVisibility === "PUBLIC") {
@@ -49,14 +50,13 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
     ];
   }
 
-  const orderBy =
-    activeSort === "name"
-      ? [{ name: "asc" as const }]
-      : activeSort === "newest"
-        ? [{ createdAt: "desc" as const }]
-        : [{ sortOrder: "asc" as const }, { createdAt: "desc" as const }];
+  const orderBy = activeSort === "newest"
+    ? [{ createdAt: "desc" as const }, { id: "desc" as const }]
+    : activeSort === "recommended"
+      ? [{ sortOrder: "asc" as const }, { createdAt: "asc" as const }, { id: "asc" as const }]
+      : [{ id: "asc" as const }];
 
-  const [contacts, categoryRows, suggestionRows, pendingRequestCount] = await Promise.all([prisma.contactDirectory.findMany({
+  const [contactRows, categoryRows, suggestionRows, pendingRequestCount] = await Promise.all([prisma.contactDirectory.findMany({
     where,
     orderBy,
     select: {
@@ -85,6 +85,8 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
     where: { villageId: membership.villageId, status: "PENDING" },
   })]);
 
+  const contacts = activeSort === "name_asc" ? sortContactsByName(contactRows, "asc") : activeSort === "name_desc" ? sortContactsByName(contactRows, "desc") : contactRows;
+  const canReorder = activeSort === "recommended" && !keyword && !activeCategory && activeVisibility === "ALL";
   const suggestionTitles = Array.from(new Set(suggestionRows.map((contact) => contact.name))).slice(0, 12);
   const categories = contactFilterCategories(categoryRows.map((item) => item.category));
 
@@ -93,11 +95,11 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
     const q = next.q?.trim() ?? "";
     const visibility = next.visibility ?? "ALL";
     const category = next.category ?? "";
-    const sort = next.sort ?? "sort";
+    const sort = parseContactSort(next.sort);
     if (q) query.set("q", q);
     if (visibility !== "ALL") query.set("visibility", visibility);
     if (category) query.set("category", category);
-    if (sort !== "sort") query.set("sort", sort);
+    if (sort !== "recommended") query.set("sort", sort);
     const queryString = query.toString();
     return queryString ? `/admin/contacts?${queryString}` : "/admin/contacts";
   }
@@ -132,11 +134,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
           }] : []),
           {
             label: "เรียงลำดับ",
-            options: [
-              { label: "ตามลำดับ", href: buildContactsHref({ q: keyword, visibility: activeVisibility, category: activeCategory, sort: "sort" }), active: activeSort === "sort", isDefault: true },
-              { label: "ชื่อตาม ก-ฮ", href: buildContactsHref({ q: keyword, visibility: activeVisibility, category: activeCategory, sort: "name" }), active: activeSort === "name" },
-              { label: "ล่าสุด", href: buildContactsHref({ q: keyword, visibility: activeVisibility, category: activeCategory, sort: "newest" }), active: activeSort === "newest" },
-            ],
+            options: CONTACT_SORT_OPTIONS.map((option) => ({ label: option.label, href: buildContactsHref({ q: keyword, visibility: activeVisibility, category: activeCategory, sort: option.value }), active: activeSort === option.value, isDefault: option.value === "recommended" })),
           },
         ]}
         actions={
@@ -149,39 +147,17 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
         }
       />
 
+      {activeSort === "recommended" ? <p className="px-1 text-xs text-gray-500">{canReorder ? "ลาก ⠿ เพื่อจัดลำดับ" : "ล้างการค้นหาและตัวกรองเพื่อจัดลำดับ"}</p> : null}
+
       {contacts.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <PhoneCall className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="font-medium text-gray-700">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "sort" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีข้อมูลผู้ติดต่อ"}</p>
-          <p className="mt-1 text-sm text-gray-500">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "sort" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มผู้ติดต่อเพื่อเริ่มต้นจัดการรายชื่อ"}</p>
-          {!keyword && activeVisibility === "ALL" && !activeCategory && activeSort === "sort" ? <div className="mt-4 inline-flex"><ContactCreateDialog /></div> : null}
+          <p className="font-medium text-gray-700">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "recommended" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีข้อมูลผู้ติดต่อ"}</p>
+          <p className="mt-1 text-sm text-gray-500">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "recommended" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มผู้ติดต่อเพื่อเริ่มต้นจัดการรายชื่อ"}</p>
+          {!keyword && activeVisibility === "ALL" && !activeCategory && activeSort === "recommended" ? <div className="mt-4 inline-flex"><ContactCreateDialog /></div> : null}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
-          {contacts.map((contact) => (
-            <Link
-              key={contact.id}
-              href={`/admin/contacts/${contact.id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="mb-1 flex flex-wrap items-center gap-2">
-                    <Badge variant={contact.isPublic ? "success" : "info"}>
-                      {contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
-                    </Badge>
-                    {contact.category ? <Badge variant="outline">{contact.category}</Badge> : null}
-                  </div>
-                  <p className="font-semibold text-gray-900">{contact.name}</p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {contact.role || "ไม่ระบุตำแหน่ง"}
-                  </p>
-                  {contact.phone ? <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-green-700"><Phone className="h-4 w-4" aria-hidden="true" />{contact.phone}</p> : null}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <ContactSortableList contacts={contacts} enabled={canReorder} />
       )}
     </div>
   );

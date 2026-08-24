@@ -6,6 +6,7 @@ import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { contactFilterCategories } from "@/lib/contact";
+import { parseContactSort, sortContactsByName } from "@/lib/contact-sort";
 import { toggleSaveContactAction } from "@/features/saved/server/actions";
 import { ResidentContactsToolbar } from "./resident-contacts-toolbar";
 
@@ -25,9 +26,9 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const category = query.category?.trim() ?? "";
-  const sort = query.sort === "name" ? "name" : "default";
+  const sort = parseContactSort(query.sort);
 
-  const [contacts, categoryRows, savedContacts] = await Promise.all([
+  const [contactRows, categoryRows, savedContacts] = await Promise.all([
     prisma.contactDirectory.findMany({
       where: {
         villageId: membership.villageId,
@@ -44,7 +45,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
           : {}),
         ...(category ? { category } : {}),
       },
-      orderBy: sort === "name" ? [{ name: "asc" }] : [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      orderBy: sort === "newest" ? [{ createdAt: "desc" }, { id: "desc" }] : sort === "recommended" ? [{ sortOrder: "asc" }, { createdAt: "asc" }, { id: "asc" }] : [{ id: "asc" }],
     }),
     prisma.contactDirectory.findMany({
       where: { villageId: membership.villageId, ...(!membership.hasResidentAccess ? { isPublic: true } : {}), category: { not: null } },
@@ -58,6 +59,7 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
     }),
   ]);
 
+  const contacts = sort === "name_asc" ? sortContactsByName(contactRows, "asc") : sort === "name_desc" ? sortContactsByName(contactRows, "desc") : contactRows;
   const savedSet = new Set(savedContacts.map((s) => s.contactId));
 
   return (
@@ -67,8 +69,8 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
       {contacts.length === 0 ? (
         <EmptyState
           icon={PhoneCall}
-          title={keyword || category || sort !== "default" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีรายชื่อผู้ติดต่อ"}
-          description={keyword || category || sort !== "default" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "แอดมินหมู่บ้านยังไม่ได้เพิ่มรายชื่อผู้ติดต่อ"}
+          title={keyword || category || sort !== "recommended" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีรายชื่อผู้ติดต่อ"}
+          description={keyword || category || sort !== "recommended" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "แอดมินหมู่บ้านยังไม่ได้เพิ่มรายชื่อผู้ติดต่อ"}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">

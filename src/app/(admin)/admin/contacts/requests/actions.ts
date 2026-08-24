@@ -4,6 +4,7 @@ import { AuditAction, ContactRequestType, NotificationStatus, NotificationType, 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getNextContactSortOrder } from "@/features/contact-ordering/server/order";
 
 type RequestPayload = { name: string; role: string | null; phone: string; email: string | null; address: string | null; category: string | null; note: string | null };
 type ActionResult = { success: boolean; already?: boolean; message: string; approvedContactId?: string };
@@ -213,7 +214,7 @@ export async function approveResidentContactRequestAction(formData: FormData): P
 
       const approvedContactId = targetContact
         ? (await tx.contactDirectory.update({ where: { id: targetContact.id }, data: { name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category }, select: { id: true } })).id
-        : (await tx.contactDirectory.create({ data: { villageId: ctx.villageId, name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category, isPublic: false, sortOrder: 0 }, select: { id: true } })).id;
+        : (await tx.contactDirectory.create({ data: { villageId: ctx.villageId, name: request.name, role: request.role, phone: request.phone, email: request.email, address: request.address, category: request.category, isPublic: false, sortOrder: await getNextContactSortOrder(tx, ctx.villageId) }, select: { id: true } })).id;
       await tx.contactRequest.update({ where: { id: request.id }, data: { approvedContactId } });
       await createReviewResultNotification(tx, { ...request, status: "APPROVED", approvedContactId });
       await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
