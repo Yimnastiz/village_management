@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, type UseFormRegister } from "react-hook-form";
+import { useForm, type Resolver, type UseFormRegister } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
@@ -27,11 +27,13 @@ const schema = z.object({
   category: z.string().trim().min(1, "กรุณาเลือกหมวดหมู่"),
   isPublic: z.boolean(),
 });
+const visibilitySchema = z.object({ isPublic: z.boolean() });
 
 type FormData = z.infer<typeof schema>;
 
 type ContactFormProps = {
   mode: "create" | "edit";
+  editScope?: "full" | "visibility";
   contactId?: string;
   defaultValues?: {
     name: string;
@@ -58,7 +60,7 @@ function VisibilitySwitch({ register }: { register: UseFormRegister<FormData> })
   </label>;
 }
 
-export function ContactForm({ mode, contactId, defaultValues, formId, compact = false, hideActions = false, onCancel, onSuccess, onDirtyChange, onSubmittingChange }: ContactFormProps) {
+export function ContactForm({ mode, editScope = "full", contactId, defaultValues, formId, compact = false, hideActions = false, onCancel, onSuccess, onDirtyChange, onSubmittingChange }: ContactFormProps) {
   const router = useRouter();
   const toast = useToast();
   const {
@@ -68,7 +70,7 @@ export function ContactForm({ mode, contactId, defaultValues, formId, compact = 
     setValue,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<FormData>({
-    resolver: zodResolver(schema),
+    resolver: (mode === "edit" && editScope === "visibility" ? zodResolver(visibilitySchema) : zodResolver(schema)) as Resolver<FormData>,
     defaultValues: defaultValues ?? { name: "", role: "", phone: "", email: "", address: "", category: "", isPublic: true },
   });
 
@@ -90,7 +92,10 @@ export function ContactForm({ mode, contactId, defaultValues, formId, compact = 
         router.refresh();
         return;
       }
-      const result = await updateContactAction(contactId ?? "", payload);
+      const result = await updateContactAction(
+        contactId ?? "",
+        editScope === "visibility" ? { isPublic: payload.isPublic } : payload,
+      );
       if (!result.success) {
         setError("root", { message: result.error });
         toast.error(result.error);
@@ -113,7 +118,7 @@ export function ContactForm({ mode, contactId, defaultValues, formId, compact = 
 
   return (
     <form id={formId} onSubmit={handleSubmit(onSubmit)} className={compact ? "space-y-5" : "space-y-6 rounded-xl border border-gray-200 bg-white p-5 sm:p-6"}>
-      <section className="space-y-4">
+      {mode === "edit" && editScope === "visibility" ? <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">ข้อมูลหลักของผู้ติดต่อนี้มาจากคำขอของลูกบ้าน การแก้ไขข้อมูลจะดำเนินการผ่านคำขอแก้ไข</p> : <><section className="space-y-4">
         {!compact ? <h2 className="text-sm font-semibold text-gray-900">ข้อมูลผู้ติดต่อ</h2> : null}
         <Input label="ชื่อผู้ติดต่อ" {...register("name")} error={errors.name?.message} required />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -128,7 +133,7 @@ export function ContactForm({ mode, contactId, defaultValues, formId, compact = 
           <Input label="อีเมล" type="email" {...register("email")} error={errors.email?.message} />
         </div>
         <Textarea label="ที่อยู่" {...register("address")} error={errors.address?.message} rows={compact ? 2 : 3} />
-      </section>
+      </section></>}
       <section className="space-y-4">
         {!compact ? <h2 className="text-sm font-semibold text-gray-900">การแสดงผล</h2> : null}
         <VisibilitySwitch register={register} />

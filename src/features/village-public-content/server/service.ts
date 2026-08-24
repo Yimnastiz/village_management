@@ -12,6 +12,7 @@ import { areSafeImageSources } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
 import { isContactCategory, validateContactPhone } from "@/lib/contact";
+import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
 import type { VillageActorContext } from "./context";
 
 type ActionResult<T = undefined> = T extends undefined
@@ -43,6 +44,8 @@ const contactInputSchema = z.object({
 });
 
 export type ContactInput = z.input<typeof contactInputSchema>;
+export type ContactVisibilityInput = { isPublic: string };
+export type ContactUpdateInput = ContactInput | ContactVisibilityInput;
 
 export type PlaceInput = {
   name?: string;
@@ -356,24 +359,84 @@ export async function createContact(context: VillageActorContext, input: Contact
   return { success: true, id: created.id };
 }
 
-export async function updateContact(context: VillageActorContext, id: string, input: ContactInput): Promise<ActionResult> {
+export async function updateContact(context: VillageActorContext, id: string, input: ContactUpdateInput): Promise<ActionResult> {
   const existing = await prisma.contactDirectory.findFirst({
     where: { id, villageId: context.villageId },
-    select: { id: true, name: true, role: true, category: true, isPublic: true, sortOrder: true },
+    select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true, isPublic: true, sortOrder: true },
   });
   if (!existing) return { success: false, error: "ไม่พบผู้ติดต่อหรือไม่มีสิทธิ์แก้ไข" };
-  const normalized = normalizeContactInput(input, existing.category);
+
+  const provenance = await getContactProvenance(context.villageId, id);
+  if (provenance.source === "RESIDENT_REQUESTED") {
+    const value = input as Record<string, unknown>;
+    const protectedFields = ["name", "role", "phone", "email", "address", "category"];
+    if (protectedFields.some((field) => Object.prototype.hasOwnProperty.call(value, field))) {
+      return { success: false, error: "ข้อมูลหลักของผู้ติดต่อนี้ต้องแก้ไขผ่านคำขอจากลูกบ้าน" };
+    }
+    if (value.isPublic !== "PUBLIC" && value.isPublic !== "RESIDENT") {
+      return { success: false, error: "การมองเห็นไม่ถูกต้อง" };
+    }
+
+    const isPublic = value.isPublic === "PUBLIC";
+    await prisma.$transaction(async (tx) => {
+      await tx.contactDirectory.update({ where: { id }, data: { isPublic } });
+      if (context.actorRole === "ADMIN" && context.actorUserId) {
+        await tx.auditLog.create({
+          data: {
+            userId: context.actorUserId,
+            villageId: context.villageId,
+            action: AuditAction.UPDATE,
+            resource: "ContactDirectory",
+            resourceId: id,
+            metadata: {
+              actionName: "ADMIN_RESIDENT_CONTACT_VISIBILITY_CHANGED",
+              provenance: "RESIDENT_REQUESTED",
+              changedFields: existing.isPublic === isPublic ? [] : ["isPublic"],
+            },
+          },
+        });
+      } else {
+        await auditSuperAdmin(tx, context, {
+          action: AuditAction.UPDATE,
+          actionName: "SUPERADMIN_RESIDENT_CONTACT_VISIBILITY_CHANGED",
+          resource: "ContactDirectory",
+          resourceId: id,
+          oldValue: { isPublic: existing.isPublic },
+          newValue: { isPublic },
+        });
+      }
+    });
+    revalidateVillagePublicContent(context, "contacts", id);
+    return { success: true };
+  }
+
+  const normalized = normalizeContactInput(input as ContactInput, existing.category);
   if (!normalized.ok) return { success: false, error: normalized.error };
   await prisma.$transaction(async (tx) => {
-    await tx.contactDirectory.update({ where: { id }, data: { ...normalized.value, ...(normalized.value.sortOrder === undefined ? {} : { sortOrder: normalized.value.sortOrder }) } });
-    await auditSuperAdmin(tx, context, {
-      action: AuditAction.UPDATE,
-      actionName: existing.isPublic !== normalized.value.isPublic ? "SUPERADMIN_CONTACT_VISIBILITY_CHANGED" : "SUPERADMIN_CONTACT_UPDATED",
-      resource: "ContactDirectory",
-      resourceId: id,
-      oldValue: existing,
-      newValue: { name: normalized.value.name, role: normalized.value.role, category: normalized.value.category, isPublic: normalized.value.isPublic, sortOrder: normalized.value.sortOrder },
-    });
+    // Normal contact edits deliberately retain the stored order. Reordering has
+    // its own workflow and is not inferred from a content form submission.
+    await tx.contactDirectory.update({ where: { id }, data: { name: normalized.value.name, role: normalized.value.role, phone: normalized.value.phone, email: normalized.value.email, address: normalized.value.address, category: normalized.value.category, isPublic: normalized.value.isPublic } });
+    const changedFields = [
+      existing.name !== normalized.value.name ? "name" : null,
+      existing.role !== normalized.value.role ? "role" : null,
+      existing.phone !== normalized.value.phone ? "phone" : null,
+      existing.email !== normalized.value.email ? "email" : null,
+      existing.address !== normalized.value.address ? "address" : null,
+      existing.category !== normalized.value.category ? "category" : null,
+      existing.isPublic !== normalized.value.isPublic ? "isPublic" : null,
+    ].filter((field): field is string => Boolean(field));
+    if (context.actorRole === "ADMIN" && context.actorUserId) {
+      await tx.auditLog.create({ data: { userId: context.actorUserId, villageId: context.villageId, action: AuditAction.UPDATE, resource: "ContactDirectory", resourceId: id, metadata: { actionName: existing.isPublic !== normalized.value.isPublic ? "ADMIN_CONTACT_VISIBILITY_CHANGED" : "ADMIN_CONTACT_UPDATED", provenance: "ADMIN_MANUAL", changedFields } } });
+    } else {
+      await auditSuperAdmin(tx, context, {
+        action: AuditAction.UPDATE,
+        actionName: existing.isPublic !== normalized.value.isPublic ? "SUPERADMIN_CONTACT_VISIBILITY_CHANGED" : "SUPERADMIN_CONTACT_UPDATED",
+        resource: "ContactDirectory",
+        resourceId: id,
+        oldValue: { name: existing.name, role: existing.role, category: existing.category, isPublic: existing.isPublic },
+        newValue: { name: normalized.value.name, role: normalized.value.role, category: normalized.value.category, isPublic: normalized.value.isPublic },
+      });
+    }
   });
   revalidateVillagePublicContent(context, "contacts", id);
   return { success: true };

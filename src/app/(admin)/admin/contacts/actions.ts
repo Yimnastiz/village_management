@@ -6,6 +6,7 @@ import {
   deleteContact,
   updateContact,
   type ContactInput,
+  type ContactUpdateInput,
 } from "@/features/village-public-content/server/service";
 
 export async function createContactAction(
@@ -18,7 +19,7 @@ export async function createContactAction(
 
 export async function updateContactAction(
   id: string,
-  data: ContactInput
+  data: ContactUpdateInput
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillageContext();
   if (!ctx.ok) return { success: false, error: ctx.error };
@@ -32,4 +33,3 @@ export async function deleteContactAction(
   if (!ctx.ok) return { success: false, error: ctx.error };
   return deleteContact(ctx.context, id);
 }
-

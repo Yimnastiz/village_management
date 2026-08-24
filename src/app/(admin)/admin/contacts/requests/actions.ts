@@ -48,6 +48,24 @@ async function requireAdminContext() {
   return membership ? { session, villageId: membership.villageId } : null;
 }
 
+function getResidentCreateSource(
+  tx: Prisma.TransactionClient,
+  villageId: string,
+  requesterId: string,
+  contactId: string,
+) {
+  return tx.contactRequest.findFirst({
+    where: {
+      villageId,
+      requesterId,
+      type: ContactRequestType.CREATE,
+      status: "APPROVED",
+      approvedContactId: contactId,
+    },
+    select: { id: true },
+  });
+}
+
 async function createReviewResultNotification(tx: Prisma.TransactionClient, request: {
   id: string; villageId: string; requesterId: string; name: string; type: ContactRequestType; targetContactId: string | null; status: "APPROVED" | "REJECTED"; rejectReason?: string | null; approvedContactId?: string | null;
 }) {
@@ -160,7 +178,7 @@ export async function approveResidentContactRequestAction(formData: FormData): P
 
       if (request.type === ContactRequestType.DELETE) {
         if (!request.targetContactId) return { success: false, message: "คำขอลบไม่มีข้อมูลผู้ติดต่อปลายทาง" } as ActionResult;
-        const source = await tx.contactRequest.findFirst({ where: { villageId: ctx.villageId, requesterId: request.requesterId, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: request.targetContactId }, select: { id: true } });
+        const source = await getResidentCreateSource(tx, ctx.villageId, request.requesterId, request.targetContactId);
         if (!source) return { success: false, message: "ผู้ส่งคำขอไม่มีสิทธิ์ขอลบผู้ติดต่อนี้" } as ActionResult;
         const target = await tx.contactDirectory.findFirst({ where: { id: request.targetContactId, villageId: ctx.villageId }, select: { id: true, name: true } });
         if (!target) return { success: false, message: "ไม่พบผู้ติดต่อปลายทาง หรืออยู่คนละหมู่บ้าน" } as ActionResult;
@@ -178,7 +196,7 @@ export async function approveResidentContactRequestAction(formData: FormData): P
       let targetContact: { id: string; name: string; role: string | null; phone: string | null; email: string | null; address: string | null; category: string | null } | null = null;
       if (request.type === ContactRequestType.UPDATE) {
         if (!request.targetContactId) return { success: false, message: "คำขอแก้ไขไม่มีข้อมูลผู้ติดต่อปลายทาง" } as ActionResult;
-        const source = await tx.contactRequest.findFirst({ where: { villageId: ctx.villageId, requesterId: request.requesterId, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: request.targetContactId }, select: { id: true } });
+        const source = await getResidentCreateSource(tx, ctx.villageId, request.requesterId, request.targetContactId);
         if (!source) return { success: false, message: "ผู้ส่งคำขอไม่มีสิทธิ์แก้ไขข้อมูลผู้ติดต่อนี้" } as ActionResult;
         targetContact = await tx.contactDirectory.findFirst({ where: { id: request.targetContactId, villageId: ctx.villageId }, select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } });
         if (!targetContact) return { success: false, message: "ไม่พบข้อมูลผู้ติดต่อปลายทาง หรืออยู่คนละหมู่บ้าน" } as ActionResult;
