@@ -193,11 +193,13 @@ enum ContactRequestStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 enum ContactRequestType {
   CREATE
   UPDATE
+  DELETE
 }
 
 enum NotificationType {
@@ -1166,6 +1168,7 @@ model ContactRequest {
   reviewedByName    String?
   reviewedAt        DateTime?
   rejectReason      String?
+  deleteReason      String?
   approvedContactId String?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt

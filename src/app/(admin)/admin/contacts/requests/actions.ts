@@ -59,15 +59,18 @@ async function createReviewResultNotification(tx: Prisma.TransactionClient, requ
   if (existing) return;
 
   const isUpdate = request.type === ContactRequestType.UPDATE;
+  const isDelete = request.type === ContactRequestType.DELETE;
   const contactId = request.status === "APPROVED" ? request.approvedContactId : request.targetContactId;
-  const actionUrl = request.status === "APPROVED" && contactId
+  const actionUrl = isDelete
+    ? `/resident/contacts/requests/${request.id}`
+    : request.status === "APPROVED" && contactId
     ? `/resident/contacts/${contactId}`
     : `/resident/contacts/requests/${request.id}`;
   const title = request.status === "APPROVED"
-    ? (isUpdate ? "คำขอแก้ไขผู้ติดต่อได้รับการอนุมัติ" : "คำขอเพิ่มผู้ติดต่อได้รับการอนุมัติ")
-    : (isUpdate ? "คำขอแก้ไขผู้ติดต่อไม่ได้รับการอนุมัติ" : "คำขอเพิ่มผู้ติดต่อไม่ได้รับการอนุมัติ");
+    ? (isDelete ? "คำขอลบผู้ติดต่อได้รับการอนุมัติ" : isUpdate ? "คำขอแก้ไขผู้ติดต่อได้รับการอนุมัติ" : "คำขอเพิ่มผู้ติดต่อได้รับการอนุมัติ")
+    : (isDelete ? "คำขอลบผู้ติดต่อไม่ได้รับการอนุมัติ" : isUpdate ? "คำขอแก้ไขผู้ติดต่อไม่ได้รับการอนุมัติ" : "คำขอเพิ่มผู้ติดต่อไม่ได้รับการอนุมัติ");
   const body = request.status === "APPROVED"
-    ? (isUpdate ? `ข้อมูล “${request.name}” ได้รับการอัปเดตแล้ว` : `“${request.name}” ถูกเพิ่มเข้ารายชื่อผู้ติดต่อแล้ว`)
+    ? (isDelete ? `“${request.name}” ถูกนำออกจากรายชื่อผู้ติดต่อแล้ว` : isUpdate ? `ข้อมูล “${request.name}” ได้รับการอัปเดตแล้ว` : `“${request.name}” ถูกเพิ่มเข้ารายชื่อผู้ติดต่อแล้ว`)
     : `เหตุผล: ${(request.rejectReason?.trim() || "ไม่ระบุเหตุผล").slice(0, 300)}`;
   await tx.notification.create({
     data: {
@@ -81,6 +84,7 @@ async function createReviewResultNotification(tx: Prisma.TransactionClient, requ
         eventKey,
         requestId: request.id,
         requestType: request.type,
+        workflowEvent: isDelete ? (request.status === "APPROVED" ? "CONTACT_DELETE_APPROVED" : "CONTACT_DELETE_REJECTED") : "CONTACT_REQUEST_REVIEWED",
         workflowStatus: request.status,
         ...(request.status === "APPROVED" ? { approvedContactId: request.approvedContactId, targetContactId: request.targetContactId } : { targetContactId: request.targetContactId }),
         actionUrl,
@@ -152,7 +156,24 @@ export async function approveResidentContactRequestAction(formData: FormData): P
       if (!request) request = await materializeLegacyRequest(tx, requestId, ctx.villageId);
       if (!request || request.villageId !== ctx.villageId) return { success: false, message: "ไม่พบคำขอหรือข้อมูลคำขอไม่ถูกต้อง" } as ActionResult;
       if (request.status === "APPROVED") return { success: true, already: true, message: "คำขอนี้ได้รับการอนุมัติแล้ว", approvedContactId: request.approvedContactId ?? undefined };
-      if (request.status === "REJECTED") return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
+      if (request.status !== "PENDING") return { success: true, already: true, message: request.status === "CANCELLED" ? "คำขอนี้ถูกยกเลิกแล้ว" : "คำขอนี้ได้รับการพิจารณาแล้ว" };
+
+      if (request.type === ContactRequestType.DELETE) {
+        if (!request.targetContactId) return { success: false, message: "คำขอลบไม่มีข้อมูลผู้ติดต่อปลายทาง" } as ActionResult;
+        const source = await tx.contactRequest.findFirst({ where: { villageId: ctx.villageId, requesterId: request.requesterId, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: request.targetContactId }, select: { id: true } });
+        if (!source) return { success: false, message: "ผู้ส่งคำขอไม่มีสิทธิ์ขอลบผู้ติดต่อนี้" } as ActionResult;
+        const target = await tx.contactDirectory.findFirst({ where: { id: request.targetContactId, villageId: ctx.villageId }, select: { id: true, name: true } });
+        if (!target) return { success: false, message: "ไม่พบผู้ติดต่อปลายทาง หรืออยู่คนละหมู่บ้าน" } as ActionResult;
+        const reviewedAt = new Date();
+        const claimed = await tx.contactRequest.updateMany({ where: { id: request.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "APPROVED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt } });
+        if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
+        await tx.savedItem.deleteMany({ where: { contactId: target.id } });
+        await tx.contactDirectory.delete({ where: { id: target.id } });
+        await createReviewResultNotification(tx, { ...request, status: "APPROVED", approvedContactId: null });
+        await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
+        await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_DELETE_REQUEST_APPROVED", requestType: request.type, requestId: request.id, contactId: target.id, requesterId: request.requesterId, reviewerId: ctx.session.id, workflowEvent: "CONTACT_DELETE_APPROVED" } } });
+        return { success: true, message: "อนุมัติคำขอลบผู้ติดต่อเรียบร้อยแล้ว", approvedContactId: target.id };
+      }
 
       let targetContact: { id: string; name: string; role: string | null; phone: string | null; email: string | null; address: string | null; category: string | null } | null = null;
       if (request.type === ContactRequestType.UPDATE) {
@@ -202,14 +223,14 @@ export async function rejectResidentContactRequestAction(formData: FormData): Pr
       let request = await tx.contactRequest.findFirst({ where: { id: requestId, villageId: ctx.villageId } });
       if (!request) request = await materializeLegacyRequest(tx, requestId, ctx.villageId);
       if (!request || request.villageId !== ctx.villageId) return { success: false, message: "ไม่พบคำขอหรือข้อมูลคำขอไม่ถูกต้อง" } as ActionResult;
-      if (request.status !== "PENDING") return { success: true, already: true, message: request.status === "APPROVED" ? "คำขอนี้ได้รับการอนุมัติแล้ว" : "คำขอนี้ได้รับการพิจารณาแล้ว" };
+      if (request.status !== "PENDING") return { success: true, already: true, message: request.status === "APPROVED" ? "คำขอนี้ได้รับการอนุมัติแล้ว" : request.status === "CANCELLED" ? "คำขอนี้ถูกยกเลิกแล้ว" : "คำขอนี้ได้รับการพิจารณาแล้ว" };
 
       const reviewedAt = new Date();
       const claimed = await tx.contactRequest.updateMany({ where: { id: request.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "REJECTED", reviewedById: ctx.session.id, reviewedByName: ctx.session.name ?? null, reviewedAt, rejectReason: reason } });
       if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
       await createReviewResultNotification(tx, { ...request, status: "REJECTED", rejectReason: reason });
       await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_REJECTED" : "CONTACT_REQUEST_REJECTED", requestType: request.type, requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, rejectReason: reason } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: request.type === ContactRequestType.DELETE ? "CONTACT_DELETE_REQUEST_REJECTED" : request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_REJECTED" : "CONTACT_REQUEST_REJECTED", requestType: request.type, requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, rejectReason: reason, workflowEvent: request.type === ContactRequestType.DELETE ? "CONTACT_DELETE_REJECTED" : undefined } } });
       return { success: true, message: "บันทึกการไม่อนุมัติเรียบร้อยแล้ว" };
     });
     revalidateRequestPaths(requestId);

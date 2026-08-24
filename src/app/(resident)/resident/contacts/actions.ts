@@ -18,7 +18,7 @@ function readText(formData: FormData, key: string): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-export type ContactRequestField = "name" | "phone" | "email" | "category";
+export type ContactRequestField = "name" | "phone" | "email" | "category" | "deleteReason";
 export type ContactRequestResult =
   | { success: true; requestId: string }
   | { success: false; error: string; field?: ContactRequestField };
@@ -28,17 +28,19 @@ async function createContactRequestNotifications(
   input: { requestId: string; villageId: string; requesterId: string; requesterName: string | null; contactName: string; requestType: ContactRequestType },
 ) {
   const isUpdate = input.requestType === ContactRequestType.UPDATE;
+  const isDelete = input.requestType === ContactRequestType.DELETE;
   await tx.notification.create({
     data: {
       userId: input.requesterId,
       villageId: input.villageId,
       type: NotificationType.SYSTEM,
-      title: isUpdate ? "ส่งคำขอแก้ไขผู้ติดต่อแล้ว" : "ส่งคำขอเพิ่มผู้ติดต่อแล้ว",
-      body: isUpdate ? "คำขอแก้ไขของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว" : "คำขอของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
+      title: isDelete ? "ส่งคำขอลบผู้ติดต่อแล้ว" : isUpdate ? "ส่งคำขอแก้ไขผู้ติดต่อแล้ว" : "ส่งคำขอเพิ่มผู้ติดต่อแล้ว",
+      body: isDelete ? "คำขอลบของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว" : isUpdate ? "คำขอแก้ไขของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว" : "คำขอของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
       metadata: {
         source: "RESIDENT_CONTACT_REQUEST_SUBMITTED",
         requestId: input.requestId,
         requestType: input.requestType,
+        workflowEvent: isDelete ? "CONTACT_DELETE_REQUESTED" : "CONTACT_REQUEST_SUBMITTED",
         workflowStatus: "PENDING",
         actionUrl: `/resident/contacts/requests/${input.requestId}`,
       },
@@ -56,12 +58,13 @@ async function createContactRequestNotifications(
       userId: admin.userId,
       villageId: input.villageId,
       type: NotificationType.SYSTEM,
-      title: isUpdate ? "มีคำขอแก้ไขผู้ติดต่อจากลูกบ้าน" : "มีคำขอเพิ่มผู้ติดต่อจากลูกบ้าน",
-      body: `${input.requesterName || "ลูกบ้าน"} ส่งคำขอ${isUpdate ? "แก้ไข" : "เพิ่ม"}ผู้ติดต่อ “${input.contactName}”`,
+      title: isDelete ? "มีคำขอลบผู้ติดต่อจากลูกบ้าน" : isUpdate ? "มีคำขอแก้ไขผู้ติดต่อจากลูกบ้าน" : "มีคำขอเพิ่มผู้ติดต่อจากลูกบ้าน",
+      body: `${input.requesterName || "ลูกบ้าน"} ส่งคำขอ${isDelete ? "ลบ" : isUpdate ? "แก้ไข" : "เพิ่ม"}ผู้ติดต่อ “${input.contactName}”`,
       metadata: {
         source: "RESIDENT_CONTACT_REQUEST_REVIEW",
         requestId: input.requestId,
         requestType: input.requestType,
+        workflowEvent: isDelete ? "CONTACT_DELETE_REQUESTED" : "CONTACT_REQUEST_SUBMITTED",
         workflowStatus: "PENDING",
         actionUrl: `/admin/contacts/requests/${input.requestId}`,
       },
@@ -184,7 +187,7 @@ export async function updateResidentContactRequestAction(requestId: string, form
   if (!context.ok) return { success: false, error: context.error };
   const value = readContactRequestValues(formData);
   const request = await prisma.contactRequest.findFirst({ where: { id: requestId, requesterId: context.session.id, villageId: context.membership.villageId, status: "PENDING" }, select: { id: true, type: true, targetContactId: true, category: true, targetSnapshot: true } });
-  if (!request || ![ContactRequestType.CREATE, ContactRequestType.UPDATE].includes(request.type)) return { success: false, error: "คำขอนี้ไม่สามารถแก้ไขได้" };
+  if (!request || (request.type !== ContactRequestType.CREATE && request.type !== ContactRequestType.UPDATE)) return { success: false, error: "คำขอนี้ไม่สามารถแก้ไขได้" };
   const snapshot = request.type === ContactRequestType.UPDATE ? snapshotFromJson(request.targetSnapshot) : null;
   const invalid = validateContactRequestValues(value, snapshot?.category ?? request.category);
   if (invalid) return invalid;
@@ -212,8 +215,8 @@ export async function createResidentContactUpdateRequestAction(contactId: string
   if (!source) return { success: false, error: "คุณไม่มีสิทธิ์ขอแก้ไขข้อมูลผู้ติดต่อนี้" };
   const snapshot = snapshotFromContact(contact);
   if (proposedMatchesSnapshot(value, snapshot)) return { success: false, error: "ไม่มีข้อมูลที่เปลี่ยนแปลง" };
-  const duplicate = await prisma.contactRequest.findFirst({ where: { villageId: context.membership.villageId, requesterId: context.session.id, type: ContactRequestType.UPDATE, targetContactId: contact.id, status: "PENDING" }, select: { id: true } });
-  if (duplicate) return { success: false, error: "มีคำขอแก้ไขข้อมูลนี้รอการพิจารณาอยู่แล้ว" };
+  const duplicate = await prisma.contactRequest.findFirst({ where: { villageId: context.membership.villageId, requesterId: context.session.id, type: { in: [ContactRequestType.UPDATE, ContactRequestType.DELETE] }, targetContactId: contact.id, status: "PENDING" }, select: { id: true } });
+  if (duplicate) return { success: false, error: "มีคำขอเกี่ยวกับผู้ติดต่อนี้รอการพิจารณาอยู่แล้ว" };
   let created: { id: string };
   try {
     created = await prisma.$transaction(async (tx) => {
@@ -223,9 +226,55 @@ export async function createResidentContactUpdateRequestAction(contactId: string
       return request;
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { success: false, error: "มีคำขอแก้ไขข้อมูลนี้รอการพิจารณาอยู่แล้ว" };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { success: false, error: "มีคำขอเกี่ยวกับผู้ติดต่อนี้รอการพิจารณาอยู่แล้ว" };
     throw error;
   }
   revalidateResidentContactRequest(created.id, contact.id);
   return { success: true, requestId: created.id };
+}
+
+export async function createResidentContactDeleteRequestAction(contactId: string, formData: FormData): Promise<ContactRequestResult> {
+  const context = await residentContext();
+  if (!context.ok) return { success: false, error: context.error };
+  const deleteReason = readText(formData, "deleteReason");
+  if (deleteReason.length < 5) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร", field: "deleteReason" };
+  const contact = await prisma.contactDirectory.findFirst({ where: { id: contactId, villageId: context.membership.villageId }, select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } });
+  if (!contact) return { success: false, error: "ไม่พบข้อมูลผู้ติดต่อ" };
+  const source = await prisma.contactRequest.findFirst({ where: { villageId: context.membership.villageId, requesterId: context.session.id, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: contact.id }, select: { id: true } });
+  if (!source) return { success: false, error: "คุณไม่มีสิทธิ์ขอลบผู้ติดต่อนี้" };
+  const conflict = await prisma.contactRequest.findFirst({ where: { villageId: context.membership.villageId, requesterId: context.session.id, targetContactId: contact.id, type: { in: [ContactRequestType.UPDATE, ContactRequestType.DELETE] }, status: "PENDING" }, select: { id: true } });
+  if (conflict) return { success: false, error: "มีคำขอเกี่ยวกับผู้ติดต่อนี้รอการพิจารณาอยู่แล้ว" };
+  const snapshot = snapshotFromContact(contact);
+  try {
+    const request = await prisma.$transaction(async (tx) => {
+      const created = await tx.contactRequest.create({ data: { id: randomUUID(), villageId: context.membership.villageId, requesterId: context.session.id, type: ContactRequestType.DELETE, targetContactId: contact.id, targetSnapshot: snapshot as Prisma.InputJsonValue, name: contact.name, role: contact.role, phone: contact.phone ?? "", email: contact.email, address: contact.address, category: contact.category, deleteReason }, select: { id: true } });
+      await createContactRequestNotifications(tx, { requestId: created.id, villageId: context.membership.villageId, requesterId: context.session.id, requesterName: context.session.name, contactName: contact.name, requestType: ContactRequestType.DELETE });
+      await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: created.id, metadata: { actionName: "CONTACT_DELETE_REQUESTED", requestType: "DELETE", targetContactId: contact.id } } });
+      return created;
+    });
+    revalidateResidentContactRequest(request.id, contact.id);
+    return { success: true, requestId: request.id };
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { success: false, error: "มีคำขอเกี่ยวกับผู้ติดต่อนี้รอการพิจารณาอยู่แล้ว" };
+    throw error;
+  }
+}
+
+export async function cancelResidentContactRequestAction(requestId: string): Promise<ContactRequestResult> {
+  const context = await residentContext();
+  if (!context.ok) return { success: false, error: context.error };
+  const request = await prisma.contactRequest.findFirst({ where: { id: requestId, villageId: context.membership.villageId, requesterId: context.session.id }, select: { id: true, type: true, targetContactId: true, status: true } });
+  if (!request || ![ContactRequestType.CREATE, ContactRequestType.UPDATE, ContactRequestType.DELETE].includes(request.type)) return { success: false, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
+  if (request.status !== "PENDING") return { success: false, error: "คำขอนี้ไม่สามารถยกเลิกได้" };
+  const cancelledAt = new Date();
+  const updated = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.contactRequest.updateMany({ where: { id: request.id, villageId: context.membership.villageId, requesterId: context.session.id, status: "PENDING" }, data: { status: "CANCELLED", reviewedAt: cancelledAt } });
+    if (claimed.count !== 1) return false;
+    await tx.notification.updateMany({ where: { villageId: context.membership.villageId, metadata: { path: ["requestId"], equals: request.id } }, data: { status: "ARCHIVED", readAt: cancelledAt } });
+    await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.UPDATE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_REQUEST_CANCELLED", requestType: request.type, targetContactId: request.targetContactId, workflowEvent: "CONTACT_REQUEST_CANCELLED" } } });
+    return true;
+  });
+  if (!updated) return { success: false, error: "คำขอนี้ไม่สามารถยกเลิกได้" };
+  revalidateResidentContactRequest(request.id, request.targetContactId ?? undefined);
+  return { success: true, requestId: request.id };
 }
