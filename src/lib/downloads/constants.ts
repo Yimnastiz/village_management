@@ -1,7 +1,7 @@
 export const DOWNLOAD_STAGE_LABELS: Record<string, string> = {
   DRAFT: "ร่าง",
   PUBLISHED: "เผยแพร่แล้ว",
-  ARCHIVED: "เก็บถาวร",
+  ARCHIVED: "จัดเก็บ",
 };
 
 export const DOWNLOAD_CATEGORY_OPTIONS = [

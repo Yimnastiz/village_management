@@ -2,10 +2,8 @@ import Link from "next/link";
 import { Files } from "lucide-react";
 import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
-import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/downloads/constants";
+import { DownloadMetadata } from "@/components/downloads/download-metadata";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ResidentDownloadsToolbar } from "./resident-downloads-toolbar";
@@ -127,25 +125,18 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  {membership.hasResidentAccess ? <div className="mb-1">
-                    <Badge
-                      variant="outline"
-                      className={
-                        file.visibility === "PUBLIC"
-                          ? "border-sky-200 bg-sky-50 text-sky-700"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      }
-                    >
-                      {NEWS_VISIBILITY_LABELS[file.visibility]}
-                    </Badge>
-                  </div> : null}
-                  <p className="font-medium text-gray-900">{file.title}</p>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{file.description || "-"}</p>
-                  <p className="text-xs text-gray-400 mt-1">{file.category === "OTHER" ? file.categoryLabel || DOWNLOAD_CATEGORY_LABELS.OTHER : file.category ? DOWNLOAD_CATEGORY_LABELS[file.category] || file.category : "ทั่วไป"} · {file._count.attachments} ไฟล์</p>
+                  <p className="break-words text-base font-semibold text-gray-900">{file.title}</p>
+                  <p className="mt-1 line-clamp-2 break-words text-sm text-gray-500">{file.description || "-"}</p>
+                  <div className="mt-2">
+                    <DownloadMetadata
+                      visibility={file.visibility}
+                      category={file.category}
+                      categoryLabel={file.categoryLabel}
+                      attachmentCount={file._count.attachments}
+                      date={(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-gray-400 whitespace-nowrap">
-                  {(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}
-                </p>
               </div>
             </Link>
           ))}
