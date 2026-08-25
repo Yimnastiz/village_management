@@ -23,7 +23,7 @@ export function useAdminFilterDropdowns() {
 }
 
 export type AdminPageToolbarVariant = "list" | "detail" | "form" | "request";
-export type AdminPageToolbarBackPlacement = "top" | "header-end";
+export type AdminPageToolbarBackPlacement = "top" | "header-start" | "header-end";
 
 type AdminPageToolbarProps = {
   title: string;
@@ -166,13 +166,30 @@ export function AdminPageToolbar({
       {adminPageHeaderRegistry ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {backPlacement === "top" && backLink ? <div className="mb-2">{backLink}</div> : null}
 
-      {!hideHeading && !adminPageHeaderRegistry ? <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
-          {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", backPlacement === "header-end" ? "block" : "hidden sm:block")}>{description}</p> : null}
-        </div>
-        {actions || (backPlacement === "header-end" && backLink) ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}{backPlacement === "header-end" ? backLink : null}</div> : null}
-      </header> : null}
+      {!hideHeading && !adminPageHeaderRegistry ? (
+        <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          {backPlacement === "header-start" && backLink ? (
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="shrink-0">{backLink}</div>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
+                {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", "hidden sm:block")}>{description}</p> : null}
+              </div>
+            </div>
+          ) : (
+            <div className="min-w-0">
+              <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>
+              {description ? <p className={cn("mt-0.5 text-sm leading-5 text-gray-500", backPlacement === "header-end" ? "block" : "hidden sm:block")}>{description}</p> : null}
+            </div>
+          )}
+          {actions || (backPlacement === "header-end" && backLink) ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">
+              {backPlacement === "header-end" ? backLink : null}
+              {actions}
+            </div>
+          ) : null}
+        </header>
+      ) : null}
       {(hideHeading || adminPageHeaderRegistry) && actions && !hasTools ? <div className="flex min-w-0 flex-wrap justify-end gap-2 sm:gap-3">{actions}</div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
