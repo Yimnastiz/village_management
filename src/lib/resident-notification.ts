@@ -18,11 +18,23 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   const metadata = metadataOf(notification);
   const source = stringValue(metadata, "source");
   const explicitUrl = stringValue(metadata, "actionUrl");
+  const requestType = stringValue(metadata, "requestType")?.toUpperCase();
+  const workflowStatus = (stringValue(metadata, "workflowStatus") ?? stringValue(metadata, "status"))?.toUpperCase();
+  const requestId = stringValue(metadata, "requestId") ?? stringValue(metadata, "submissionId");
   if (notification.type === "BINDING_REQUEST") {
     const action = stringValue(metadata, "action")?.toLowerCase();
     if (action === "approve" || action === "approved") return "/resident/dashboard?from=notifications";
     return "/resident/binding/pending?from=notifications";
   }
+  // A delete result is historical by definition: its live entity may no longer
+  // exist, so prefer the request history even for older rows with an actionUrl.
+  if ((source?.includes("CONTACT") || source?.includes("NEWS") || source?.includes("PLACE")) &&
+    (requestType === "DELETE" || workflowStatus === "REJECTED" || workflowStatus === "CANCELLED")) {
+    if (source?.includes("CONTACT") && requestId) return `/resident/contacts/requests/${requestId}`;
+    if (source?.includes("NEWS") && requestId) return `/resident/news/requests/${requestId}`;
+    if (source?.includes("PLACE") && requestId) return `/resident/places/requests/${requestId}`;
+  }
+  if (stringValue(metadata, "action")?.includes("ISSUE_DELETED")) return "/resident/issues";
   if (explicitUrl?.startsWith("/resident/")) return explicitUrl;
   if (notification.type === "SYSTEM" && source === "SUPERADMIN_BROADCAST") return `/resident/notifications/${notification.id}`;
 
@@ -34,7 +46,6 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   const transparencyId = stringValue(metadata, "transparencyId");
   const correctionRequestId = stringValue(metadata, "correctionRequestId");
   const contactId = stringValue(metadata, "approvedContactId") ?? stringValue(metadata, "targetContactId");
-  const requestId = stringValue(metadata, "requestId") ?? stringValue(metadata, "submissionId");
   if (appointmentId) return `/resident/appointments/${appointmentId}`;
   if (issueId) return `/resident/issues/${issueId}`;
   if (newsId) return `/resident/news/${newsId}`;
@@ -42,7 +53,7 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   if (albumId) return `/resident/gallery/${albumId}`;
   if (transparencyId) return `/resident/transparency/${transparencyId}`;
   if (correctionRequestId) return `/resident/household/corrections/${correctionRequestId}`;
-  if (source?.includes("CONTACT")) return contactId ? `/resident/contacts/${contactId}` : requestId ? `/resident/contacts/requests/${requestId}` : null;
+  if (source?.includes("CONTACT")) return workflowStatus === "APPROVED" && requestType !== "DELETE" && contactId ? `/resident/contacts/${contactId}` : requestId ? `/resident/contacts/requests/${requestId}` : "/resident/contacts";
   if (source?.includes("CALENDAR") && requestId) return `/resident/calendar/requests/${requestId}`;
   if (notification.type === "APPOINTMENT_UPDATE") return "/resident/appointments";
   if (notification.type === "ISSUE_UPDATE") return "/resident/issues";

@@ -32,11 +32,13 @@ export function resolveAdminNotificationDestination(
   const contactId = stringValue(metadata, "contactId");
   const placeId = stringValue(metadata, "placeId");
   const source = stringValue(metadata, "source");
+  const action = stringValue(metadata, "action");
 
   const fromNotifications = (path: string) => `${path}${path.includes("?") ? "&" : "?"}from=notifications`;
+  if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
   if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);
   if (appointmentId) return fromNotifications(`/admin/appointments/${appointmentId}`);
-  if (issueId) return fromNotifications(`/admin/issues/${issueId}`);
+  if (issueId) return action?.includes("ISSUE_DELETED") ? "/admin/issues" : fromNotifications(`/admin/issues/${issueId}`);
 
   if (notification.type === "NEWS") {
     if (requestId) return fromNotifications(`/admin/news/requests/${requestId}`);
@@ -48,7 +50,7 @@ export function resolveAdminNotificationDestination(
     if (eventId) return fromNotifications(`/admin/calendar/${eventId}`);
   }
 
-  if (source?.includes("GALLERY") || gallerySubmissionId || albumId) {
+  if (source?.includes("GALLERY") || albumId) {
     if (gallerySubmissionId) return fromNotifications(`/admin/gallery/submissions/${gallerySubmissionId}`);
     if (albumId) return fromNotifications(`/admin/gallery/${albumId}`);
   }

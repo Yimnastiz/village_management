@@ -35,6 +35,9 @@ export function NotificationCard({ notification, title, body, destination, markA
       } catch {
         setIsRead(false);
         error("ไม่สามารถอัปเดตสถานะการแจ้งเตือนได้", "กรุณาลองใหม่อีกครั้ง");
+        // Reading is advisory for navigation. A transient update failure should
+        // not prevent access to a destination that was already authorized.
+        if (destination) router.push(destination.includes("from=notifications") ? destination : `${destination}${destination.includes("?") ? "&" : "?"}from=notifications`);
         return;
       } finally {
         setIsUpdating(false);

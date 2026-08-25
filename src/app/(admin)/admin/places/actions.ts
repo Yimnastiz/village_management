@@ -131,7 +131,7 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
       }
       await tx.villagePlaceSubmission.update({ where: { id: submission.id }, data: { approvedPlaceId: place.id } });
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
-      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `สถานที่: ${payload.name}`, metadata: { source: "PLACE", submissionId: submission.id, placeId: place.id, status: "APPROVED", actionUrl: `/resident/places/${place.id}?from=notifications` } } });
+      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `สถานที่: ${payload.name}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, placeId: place.id, status: "APPROVED", actionUrl: `/resident/places/${place.id}?from=notifications` } } });
       await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
       return place;
     });
@@ -158,7 +158,7 @@ export async function adminRejectVillagePlaceSubmissionAction(submissionId: stri
       const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "REJECTED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: reason } });
       if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณไม่ได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ";
-      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `เหตุผล: ${reason}`, metadata: { source: "PLACE", submissionId: submission.id, status: "REJECTED", actionUrl: `/resident/places/requests/${submission.id}?from=notifications` } } });
+      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `เหตุผล: ${reason}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, status: "REJECTED", actionUrl: `/resident/places/requests/${submission.id}?from=notifications` } } });
       await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_REJECTED", requestType: submission.type, requesterId: submission.requesterId, rejectReason: reason } } });
     });
     revalidatePlacePaths(undefined, submissionId);
