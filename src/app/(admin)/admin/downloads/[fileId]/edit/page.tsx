@@ -1,8 +1,9 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { DownloadForm } from "../../download-form";
-import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/downloads/constants";
 
 interface PageProps {
@@ -29,8 +30,13 @@ export default async function Page({ params }: PageProps) {
   if (!file) notFound();
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-3" data-admin-compact-top>
-      <AdminPageToolbar sticky variant="form" backHref={`/admin/downloads/${file.id}`} backLabel="กลับรายละเอียดเอกสาร" backPlacement="header-end" title="แก้ไขเอกสาร" description="แก้ไขข้อมูลและจัดการไฟล์แนบของเอกสาร" />
+    <div className="mx-auto w-full max-w-3xl space-y-4" data-admin-compact-top>
+      <div className="flex items-center">
+        <Link href={`/admin/downloads/${file.id}`} className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700">
+          <ArrowLeft className="h-4 w-4" />
+          <span>กลับรายละเอียดเอกสาร</span>
+        </Link>
+      </div>
       <DownloadForm
         mode="edit"
         fileId={file.id}
