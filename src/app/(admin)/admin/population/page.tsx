@@ -348,6 +348,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
           title: "การผูกบัญชีได้รับการอนุมัติแล้ว",
           body: "ยินดีด้วย! การผูกบัญชีของคุณได้รับการอนุมัติ คุณสามารถเข้าสู่ระบบและใช้งานโปรแกรมได้แล้ว",
           metadata: { 
+            source: "BINDING",
             bindingRequestId: requestId, 
             action: "approved",
             actionUrl: "/resident/dashboard",
@@ -364,7 +365,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
           type: NotificationType.BINDING_REQUEST,
           title: "การผูกบัญชีถูกปฏิเสธ",
           body: reviewNote ? `การผูกบัญชีของคุณถูกปฏิเสธ เหตุผล: ${reviewNote}` : "การผูกบัญชีของคุณถูกปฏิเสธ",
-          metadata: { bindingRequestId: requestId, action: "rejected", actionUrl: "/resident/binding/pending", reason: reviewNote },
+          metadata: { source: "BINDING", bindingRequestId: requestId, action: "rejected", actionUrl: "/resident/binding/pending", reason: reviewNote },
         },
       });
     }

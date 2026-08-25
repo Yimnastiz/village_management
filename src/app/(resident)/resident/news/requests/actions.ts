@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
 import { areSafeImageSources } from "@/lib/image-input";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -68,7 +69,7 @@ async function notifyVillageAdmins(
       type: NotificationType.NEWS,
       title,
       body,
-      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+      metadata: notificationMetadata("NEWS", metadata ?? {}),
     })),
   });
 }

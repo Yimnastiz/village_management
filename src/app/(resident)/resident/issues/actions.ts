@@ -12,6 +12,7 @@ import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
 import { writeVillageAuditLog } from "@/lib/audit-log";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -91,7 +92,7 @@ async function notifyVillageAdmins(
       type: NotificationType.ISSUE_UPDATE,
       title,
       body,
-      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+      metadata: notificationMetadata("ISSUE", metadata ?? {}),
     })),
   });
 }
@@ -309,7 +310,7 @@ export async function deleteIssueAction(
           type: NotificationType.ISSUE_UPDATE,
           title: "ลูกบ้านลบคำร้องปัญหา",
           body: `หัวข้อ: ${issue.title}\nผู้ลบ: ${session.name}\nเหตุผล: ${trimmedReason}`,
-          metadata: { action: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, deletedBy: session.name, deletionReason: trimmedReason },
+          metadata: notificationMetadata("ISSUE", { action: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, deletedBy: session.name, deletionReason: trimmedReason }),
         })),
       });
     }

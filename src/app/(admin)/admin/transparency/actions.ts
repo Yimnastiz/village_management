@@ -4,6 +4,7 @@ import { AuditAction, MembershipStatus, NewsVisibility, NotificationType, Prisma
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { notificationMetadata } from "@/lib/notification-copy";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 
 const transparencyInputSchema = z.object({
@@ -58,7 +59,7 @@ async function createPublishNotifications(tx: Prisma.TransactionClient, villageI
     userId, villageId, type: NotificationType.SYSTEM,
     title: `ข้อมูลความโปร่งใสใหม่: ${title}`,
     body: category ? `หมวดหมู่: ${category}` : "มีข้อมูลความโปร่งใสใหม่ในหมู่บ้าน",
-    metadata: { transparencyId },
+    metadata: notificationMetadata("TRANSPARENCY", { transparencyId }),
   })) });
 }
 

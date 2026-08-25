@@ -37,7 +37,7 @@ async function createContactRequestNotifications(
       title: isDelete ? "ส่งคำขอลบผู้ติดต่อแล้ว" : isUpdate ? "ส่งคำขอแก้ไขผู้ติดต่อแล้ว" : "ส่งคำขอเพิ่มผู้ติดต่อแล้ว",
       body: isDelete ? "คำขอลบของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว" : isUpdate ? "คำขอแก้ไขของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว" : "คำขอของคุณถูกส่งให้ผู้ดูแลหมู่บ้านตรวจสอบแล้ว",
       metadata: {
-        source: "RESIDENT_CONTACT_REQUEST_SUBMITTED",
+        source: "CONTACT",
         requestId: input.requestId,
         requestType: input.requestType,
         workflowEvent: isDelete ? "CONTACT_DELETE_REQUESTED" : "CONTACT_REQUEST_SUBMITTED",
@@ -61,7 +61,7 @@ async function createContactRequestNotifications(
       title: isDelete ? "มีคำขอลบผู้ติดต่อจากลูกบ้าน" : isUpdate ? "มีคำขอแก้ไขผู้ติดต่อจากลูกบ้าน" : "มีคำขอเพิ่มผู้ติดต่อจากลูกบ้าน",
       body: `${input.requesterName || "ลูกบ้าน"} ส่งคำขอ${isDelete ? "ลบ" : isUpdate ? "แก้ไข" : "เพิ่ม"}ผู้ติดต่อ “${input.contactName}”`,
       metadata: {
-        source: "RESIDENT_CONTACT_REQUEST_REVIEW",
+        source: "CONTACT",
         requestId: input.requestId,
         requestType: input.requestType,
         workflowEvent: isDelete ? "CONTACT_DELETE_REQUESTED" : "CONTACT_REQUEST_SUBMITTED",

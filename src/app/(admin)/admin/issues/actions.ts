@@ -16,6 +16,7 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 import { writeVillageAuditLog } from "@/lib/audit-log";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -80,10 +81,10 @@ async function notifyIssueStakeholders(params: {
       type: NotificationType.ISSUE_UPDATE,
       title: params.title,
       body: params.body,
-      metadata: {
+      metadata: notificationMetadata("ISSUE", {
         issueId: params.issueId,
         ...(params.metadata ?? {}),
-      } as Prisma.InputJsonValue,
+      }),
     })),
   });
 }
@@ -285,7 +286,7 @@ export async function adminDeleteIssueAction(
           type: NotificationType.ISSUE_UPDATE,
           title: "คำร้องของคุณถูกลบโดยผู้ดูแลหมู่บ้าน",
           body: `เหตุผล: ${trimmedReason}`,
-          metadata: { action: "ISSUE_DELETED", issueTitle: issue.title, deletionReason: trimmedReason },
+          metadata: notificationMetadata("ISSUE", { action: "ISSUE_DELETED", issueTitle: issue.title, deletionReason: trimmedReason }),
         },
       });
     }

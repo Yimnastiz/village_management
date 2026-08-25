@@ -9,6 +9,7 @@ import { isAdminUser } from "@/lib/access-control";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { formatThaiDate, formatThaiShortDate } from "@/lib/utils";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const appointmentSchema = z.object({
   title: z.string().min(3, "ชื่อนัดหมายต้องมีความยาวอย่างน้อย 3 ตัวอักษร"),
@@ -146,7 +147,7 @@ async function notifyVillageAdmins(
       type: NotificationType.APPOINTMENT_UPDATE,
       title,
       body,
-      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+      metadata: notificationMetadata("APPOINTMENT", metadata ?? {}),
     })),
   });
 }
@@ -165,7 +166,7 @@ async function notifyUser(
       type: NotificationType.APPOINTMENT_UPDATE,
       title,
       body,
-      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+      metadata: notificationMetadata("APPOINTMENT", metadata ?? {}),
     },
   });
 }

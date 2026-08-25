@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
+import { adminRequestCopy, notificationMetadata } from "@/lib/notification-copy";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 
 const item = z.object({
@@ -44,7 +45,7 @@ export async function createGalleryItemSubmissionAction(albumId: string, data: S
     select: { id: true },
   }));
   const admins = await prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: "ACTIVE", role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } }, select: { userId: true }, distinct: ["userId"] });
-  if (admins.length) await prisma.notification.createMany({ data: admins.map((admin) => ({ userId: admin.userId, villageId: membership.villageId, type: NotificationType.SYSTEM, title: "มีคำขอเพิ่มรูปภาพใหม่", body: `${session.name} ส่งรูป ${created.length} รูปไปยังอัลบั้ม ${album.title}`, metadata: { actionUrl: `/admin/gallery/submissions?batchId=${encodeURIComponent(batchId)}`, actionLabel: "ตรวจสอบคำขอ", batchId, albumId: album.id, submissionCount: created.length } })) });
+  if (admins.length) { const copy = adminRequestCopy({ source: "GALLERY", requestType: "CREATE", entityName: album.title, requesterName: session.name }); await prisma.notification.createMany({ data: admins.map((admin) => ({ userId: admin.userId, villageId: membership.villageId, type: NotificationType.SYSTEM, title: copy.title, body: `${copy.body} (${created.length} รูป)`, metadata: notificationMetadata("GALLERY", { actionUrl: `/admin/gallery/submissions?batchId=${encodeURIComponent(batchId)}`, actionLabel: "ตรวจสอบคำขอ", batchId, albumId: album.id, submissionCount: created.length }) })) }); }
   revalidate(album.id, created.map((entry) => entry.id));
   return { success: true, ids: created.map((entry) => entry.id), batchId };
 }

@@ -8,6 +8,7 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isSafeImageSource } from "@/lib/image-input";
 import { deletePlaceUploads, verifyPlaceUploadToken } from "@/lib/place-upload.server";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const db = prisma;
 
@@ -136,7 +137,7 @@ async function notifyResidents(
       type: NotificationType.SYSTEM,
       title,
       body,
-      ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}),
+      metadata: notificationMetadata("GALLERY", metadata ?? {}),
     })),
   });
 }
@@ -509,6 +510,7 @@ export async function adminApproveGalleryItemSubmissionAction(
         title: "รูปภาพที่คุณส่งได้รับการอนุมัติ",
         body: `อัลบั้ม ${submission.album.title}: รูปภาพที่คุณส่งได้รับการอนุมัติแล้ว`,
         metadata: {
+          source: "GALLERY",
           actionUrl: `/resident/gallery/requests/${submission.batchId ?? submission.id}?image=${submission.id}`,
           actionLabel: "ดูคำขอเพิ่มรูป",
           submissionId: submission.id,
@@ -569,6 +571,7 @@ export async function adminRejectGalleryItemSubmissionAction(
         title: "รูปภาพที่คุณส่งไม่ได้รับการอนุมัติ",
         body: `อัลบั้ม ${submission.album.title}: ${reason}`,
         metadata: {
+          source: "GALLERY",
           actionUrl: `/resident/gallery/requests/${submission.batchId ?? submission.id}?image=${submission.id}`,
           actionLabel: "ดูคำขอเพิ่มรูป",
           submissionId: submission.id,

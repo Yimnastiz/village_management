@@ -105,6 +105,7 @@ export async function createVillageEventSubmissionAction(
           title: "มีคำขอเพิ่มกิจกรรมใหม่",
           body: `${session.name} ขอเพิ่มกิจกรรม \"${normalized.value.title}\"`,
           metadata: {
+            source: "CALENDAR",
             actionUrl: `/admin/calendar/requests/${created.id}`,
             actionLabel: "ตรวจสอบคำขอ",
             requestId: created.id,

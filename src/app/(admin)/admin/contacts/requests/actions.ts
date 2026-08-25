@@ -99,7 +99,7 @@ async function createReviewResultNotification(tx: Prisma.TransactionClient, requ
       title,
       body,
       metadata: {
-        source: "RESIDENT_CONTACT_REQUEST_RESULT",
+        source: "CONTACT",
         eventKey,
         requestId: request.id,
         requestType: request.type,
@@ -114,7 +114,7 @@ async function createReviewResultNotification(tx: Prisma.TransactionClient, requ
 
 async function archiveReviewNotifications(tx: Prisma.TransactionClient, villageId: string, requestId: string, reviewedAt: Date) {
   await tx.notification.updateMany({
-    where: { villageId, metadata: { path: ["source"], equals: "RESIDENT_CONTACT_REQUEST_REVIEW" }, AND: [{ metadata: { path: ["requestId"], equals: requestId } }] },
+    where: { villageId, metadata: { path: ["source"], equals: "CONTACT" }, AND: [{ metadata: { path: ["requestId"], equals: requestId } }] },
     data: { status: NotificationStatus.ARCHIVED, readAt: reviewedAt },
   });
 }

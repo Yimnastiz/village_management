@@ -32,7 +32,7 @@ async function notifyReviewers(villageId: string, requestId: string, requesterNa
   const reviewers = await prisma.villageMembership.findMany({ where: { villageId, status: "ACTIVE", role: { in: [...REVIEWER_ROLES] } }, distinct: ["userId"], select: { userId: true } });
   if (!reviewers.length) return;
   const isUpdate = type === "UPDATE";
-  await prisma.notification.createMany({ data: reviewers.map(({ userId }) => ({ userId, villageId, type: NotificationType.SYSTEM, title: isUpdate ? "มีคำขอแก้ไขสถานที่" : "มีคำขอเพิ่มสถานที่ใหม่", body: `${requesterName} ขอ${isUpdate ? "แก้ไข" : "เพิ่ม"}สถานที่ “${name}”`, metadata: { actionUrl: `/admin/places/requests/${requestId}`, actionLabel: "ตรวจสอบคำขอ", requestId } })) });
+  await prisma.notification.createMany({ data: reviewers.map(({ userId }) => ({ userId, villageId, type: NotificationType.SYSTEM, title: isUpdate ? "มีคำขอแก้ไขสถานที่ใหม่" : "มีคำขอเพิ่มสถานที่ใหม่", body: `${requesterName} ขอ${isUpdate ? "แก้ไข" : "เพิ่ม"}สถานที่ “${name}”`, metadata: { source: "PLACE", actionUrl: `/admin/places/requests/${requestId}`, actionLabel: "ตรวจสอบคำขอ", requestId } })) });
 }
 
 export async function createVillagePlaceSubmissionAction(data: PlaceRequestInput): Promise<{ success: true; requestId: string } | { success: false; error: string }> {

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { downloadFormSchema } from "@/lib/downloads/schema";
 import type { DownloadActionResult, DownloadFormInput } from "@/lib/downloads/types";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
 
@@ -43,7 +44,7 @@ async function getResidentRecipientIds(villageId: string) {
 async function notifyResidents(villageId: string, title: string, body: string, metadata?: Prisma.InputJsonObject) {
   const recipientIds = await getResidentRecipientIds(villageId);
   if (!recipientIds.length) return;
-  await prisma.notification.createMany({ data: recipientIds.map((userId) => ({ userId, villageId, type: NotificationType.SYSTEM, title, body, ...(metadata ? { metadata: metadata as Prisma.InputJsonValue } : {}) })) });
+  await prisma.notification.createMany({ data: recipientIds.map((userId) => ({ userId, villageId, type: NotificationType.SYSTEM, title, body, metadata: notificationMetadata("DOWNLOAD", metadata ?? {}) })) });
 }
 
 function revalidateDownloadViews(fileId?: string) {

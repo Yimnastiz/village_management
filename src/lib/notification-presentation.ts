@@ -35,7 +35,7 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   const actionUrl = typeof metadata.actionUrl === "string" ? metadata.actionUrl : "";
   if (notification.type === "NEWS" || hasString(metadata, "newsId") || source.includes("NEWS")) return PRESENTATIONS.news;
   if (notification.type === "ISSUE_UPDATE" || hasString(metadata, "issueId") || source.includes("ISSUE")) return PRESENTATIONS.issues;
-  if (notification.type === "APPOINTMENT_UPDATE" || hasString(metadata, "appointmentId") || hasString(metadata, "eventId") || source.includes("CALENDAR")) return PRESENTATIONS.appointments;
+  if (notification.type === "APPOINTMENT_UPDATE" || hasString(metadata, "appointmentId") || hasString(metadata, "eventId") || source.includes("APPOINTMENT") || source.includes("CALENDAR")) return PRESENTATIONS.appointments;
   if (hasString(metadata, "albumId") || hasString(metadata, "batchId") || source.includes("GALLERY")) return PRESENTATIONS.gallery;
   if (hasString(metadata, "contactId") || hasString(metadata, "approvedContactId") || hasString(metadata, "targetContactId") || source.includes("CONTACT")) return PRESENTATIONS.contacts;
   if (hasString(metadata, "placeId") || source.includes("PLACE") || actionUrl.includes("/places")) return PRESENTATIONS.places;

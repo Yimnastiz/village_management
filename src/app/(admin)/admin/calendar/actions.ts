@@ -222,8 +222,9 @@ export async function adminApproveVillageEventSubmissionAction(
           villageId: request.villageId,
           type: NotificationType.SYSTEM,
           title: "คำขอเพิ่มกิจกรรมได้รับการอนุมัติ",
-          body: `กิจกรรม \"${request.title}\" ได้รับการอนุมัติแล้ว`,
+          body: `“${request.title}” ถูกเพิ่มในปฏิทินแล้ว`,
           metadata: {
+            source: "CALENDAR",
             actionUrl: eventId ? `/resident/calendar/${eventId}` : "/resident/calendar/requests",
             actionLabel: "ดูกิจกรรม",
             requestId: request.id,
@@ -285,9 +286,10 @@ export async function adminRejectVillageEventSubmissionAction(
           userId: request.requesterId,
           villageId: request.villageId,
           type: NotificationType.SYSTEM,
-          title: "คำขอเพิ่มกิจกรรมไม่ผ่านการอนุมัติ",
-          body: `กิจกรรม \"${request.title}\" ไม่ผ่านการอนุมัติ`,
+          title: "คำขอเพิ่มกิจกรรมไม่ได้รับการอนุมัติ",
+          body: `เหตุผล: ${reviewNote?.trim() || "ไม่ระบุเหตุผล"}`,
           metadata: {
+            source: "CALENDAR",
             actionUrl: "/resident/calendar/requests",
             actionLabel: "ดูคำขอของฉัน",
             requestId: request.id,
