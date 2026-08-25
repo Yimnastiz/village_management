@@ -121,22 +121,24 @@ export default async function ResidentDownloadsPage({ searchParams }: ResidentDo
             <Link
               key={file.id}
               href={`/resident/downloads/${file.id}`}
-              className="block rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow"
+              className="block rounded-xl border border-gray-200 bg-white p-4 transition-shadow hover:shadow-md sm:p-5"
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="break-words text-base font-semibold text-gray-900">{file.title}</p>
-                  <p className="mt-1 line-clamp-2 break-words text-sm text-gray-500">{file.description || "-"}</p>
-                  <div className="mt-2">
-                    <DownloadMetadata
-                      visibility={file.visibility}
-                      category={file.category}
-                      categoryLabel={file.categoryLabel}
-                      attachmentCount={file._count.attachments}
-                      date={(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}
-                    />
-                  </div>
+                  {file.description ? <p className="mt-1 line-clamp-2 break-words text-sm text-gray-500">{file.description}</p> : null}
                 </div>
+                <time className="shrink-0 text-right text-[11px] font-medium text-gray-400 sm:text-xs">
+                  {(file.publishedAt ?? file.createdAt).toLocaleDateString("th-TH")}
+                </time>
+              </div>
+              <div className="mt-3">
+                <DownloadMetadata
+                  visibility={file.visibility}
+                  category={file.category}
+                  categoryLabel={file.categoryLabel}
+                  attachmentCount={file._count.attachments}
+                />
               </div>
             </Link>
           ))}
