@@ -197,7 +197,10 @@ export async function adminDeleteNewsAction(
     return { success: false, error: "ไม่พบข่าวนี้หรือไม่มีสิทธิ์ลบ" };
   }
 
-  await prisma.news.delete({ where: { id: newsId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { newsId } });
+    await tx.news.delete({ where: { id: newsId } });
+  });
   await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "News", resourceId: newsId, metadata: { actionName: "NEWS_DELETED", title: existing.title } });
   revalidateNewsPaths(newsId);
   return { success: true };
@@ -254,6 +257,7 @@ export async function adminApproveNewsSubmissionAction(
     }
 
     await prisma.$transaction(async (tx) => {
+      await tx.savedItem.deleteMany({ where: { newsId: submission.targetNewsId! } });
       await tx.news.delete({
         where: { id: submission.targetNewsId! },
       });
@@ -284,7 +288,7 @@ export async function adminApproveNewsSubmissionAction(
       await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
     });
 
-    revalidateAdminSidebar();
+    revalidateNewsPaths(submission.targetNewsId);
     return { success: true, newsId: submission.targetNewsId };
   }
 
@@ -337,7 +341,7 @@ export async function adminApproveNewsSubmissionAction(
       return news;
     });
 
-    revalidateAdminSidebar();
+    revalidateNewsPaths(created.id);
     return { success: true, newsId: created.id };
   }
 
@@ -399,7 +403,7 @@ export async function adminApproveNewsSubmissionAction(
     await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title, newValue: { visibility: finalVisibility, isPinned: finalIsPinned } } });
   });
 
-  revalidateAdminSidebar();
+  revalidateNewsPaths(target.id);
   return { success: true, newsId: target.id };
 }
 
@@ -451,7 +455,7 @@ export async function adminRejectNewsSubmissionAction(
 }
 
 function revalidateNewsPaths(newsId?: string) {
-  ["/admin/news", "/resident/news", ...(newsId ? [`/admin/news/${newsId}`, `/resident/news/${newsId}`] : [])].forEach((path) => revalidatePath(path));
+  ["/admin/news", "/resident/news", "/resident/saved", ...(newsId ? [`/admin/news/${newsId}`, `/resident/news/${newsId}`] : [])].forEach((path) => revalidatePath(path));
   revalidateAdminSidebar();
 }
 

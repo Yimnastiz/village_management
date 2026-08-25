@@ -13,7 +13,7 @@ export async function toggleSaveIssueAction(issueId: string): Promise<ToggleResu
   if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
 
   const issue = await prisma.issue.findFirst({
-    where: { id: issueId, villageId: membership.villageId },
+    where: { id: issueId, villageId: membership.villageId, OR: [{ reporterId: session.id }, { isPublic: true }] },
     select: { id: true },
   });
   if (!issue) return { success: false, error: "ไม่พบปัญหานี้" };
@@ -65,7 +65,7 @@ export async function toggleSaveDownloadAction(downloadId: string): Promise<Togg
   if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
 
   const file = await prisma.downloadFile.findFirst({
-    where: { id: downloadId, villageId: membership.villageId, stage: "PUBLISHED" },
+    where: { id: downloadId, villageId: membership.villageId, stage: "PUBLISHED", visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] } },
     select: { id: true },
   });
   if (!file) return { success: false, error: "ไม่พบเอกสารนี้" };
@@ -91,7 +91,7 @@ export async function toggleSaveTransparencyAction(transparencyId: string): Prom
   if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
 
   const record = await prisma.transparencyRecord.findFirst({
-    where: { id: transparencyId, villageId: membership.villageId, stage: "PUBLISHED" },
+    where: { id: transparencyId, villageId: membership.villageId, stage: "PUBLISHED", visibility: { in: ["PUBLIC", "RESIDENT_ONLY"] } },
     select: { id: true },
   });
   if (!record) return { success: false, error: "ไม่พบรายการนี้" };

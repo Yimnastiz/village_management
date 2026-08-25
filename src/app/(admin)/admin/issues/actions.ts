@@ -302,6 +302,9 @@ export async function adminDeleteIssueAction(
   });
   revalidatePath("/admin/issues");
   revalidatePath("/resident/issues");
+  revalidatePath(`/admin/issues/${issueId}`);
+  revalidatePath(`/resident/issues/${issueId}`);
+  revalidatePath("/resident/saved");
   revalidatePath("/resident/notifications");
   return { success: true };
 }

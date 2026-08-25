@@ -152,11 +152,12 @@ export async function deleteTransparencyAction(id: string): Promise<ActionResult
   const result = await prisma.$transaction(async (tx) => {
     const record = await tx.transparencyRecord.findFirst({ where: { id, villageId: ctx.villageId } });
     if (!record || record.stage !== TransparencyStage.DRAFT) return false;
+    await tx.savedItem.deleteMany({ where: { transparencyId: id } });
     await tx.transparencyRecord.delete({ where: { id } });
     await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "TransparencyRecord", resourceId: id, metadata: { actionName: "TRANSPARENCY_DRAFT_DELETED", oldValue: { title: record.title, stage: record.stage } } } });
     return true;
   });
   if (!result) return { success: false, error: "ลบได้เฉพาะฉบับร่างที่ยังไม่เคยเผยแพร่" };
-  revalidateTransparencyViews();
+  revalidateTransparencyViews(id);
   return { success: true };
 }

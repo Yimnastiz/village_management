@@ -48,6 +48,7 @@ async function notifyResidents(villageId: string, title: string, body: string, m
 
 function revalidateDownloadViews(fileId?: string) {
   revalidatePath("/resident/downloads");
+  revalidatePath("/resident/saved");
   revalidatePath("/admin/downloads");
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
@@ -157,7 +158,10 @@ export async function deleteDownloadAction(fileId: string): Promise<DownloadActi
   if (!ctx.ok) return invalid(ctx.error);
   const existing = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: ctx.villageId }, include: { attachments: { select: { fileKey: true } } } });
   if (!existing) return invalid("ไม่พบเอกสารนี้หรือไม่มีสิทธิ์ลบ");
-  await prisma.downloadFile.delete({ where: { id: fileId } });
+  await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { downloadId: fileId } });
+    await tx.downloadFile.delete({ where: { id: fileId } });
+  });
   void deleteDownloadUploads(existing.attachments.map((item) => item.fileKey).filter((value): value is string => Boolean(value)));
   revalidateDownloadViews(fileId);
   return { success: true };

@@ -158,7 +158,7 @@ async function runSerializable<T>(operation: (tx: Prisma.TransactionClient) => P
 }
 
 function revalidateRequestPaths(requestId: string, contactId?: string | null) {
-  ["/admin/contacts", "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, "/admin/notifications", "/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`, "/resident/notifications", ...(contactId ? [`/admin/contacts/${contactId}`, `/resident/contacts/${contactId}`] : [])].forEach((path) => revalidatePath(path));
+  ["/admin/contacts", "/admin/contacts/requests", `/admin/contacts/requests/${requestId}`, "/admin/notifications", "/resident/contacts", "/resident/contacts/requests", `/resident/contacts/requests/${requestId}`, "/resident/notifications", "/resident/saved", ...(contactId ? [`/admin/contacts/${contactId}`, `/resident/contacts/${contactId}`] : [])].forEach((path) => revalidatePath(path));
   revalidatePath("/admin", "layout");
   revalidatePath("/resident", "layout");
 }

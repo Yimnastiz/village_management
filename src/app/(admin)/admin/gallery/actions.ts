@@ -144,6 +144,7 @@ async function notifyResidents(
 function revalidateGalleryViews(albumId?: string, submissionId?: string) {
   revalidateAdminSidebar();
   revalidatePath("/resident/gallery");
+  revalidatePath("/resident/saved");
   revalidatePath("/resident/gallery/requests");
   revalidatePath("/admin/gallery");
   revalidatePath("/resident/notifications");
@@ -315,7 +316,10 @@ export async function deleteGalleryAlbumAction(
   });
   if (!existing) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์ลบ" };
 
-  await prisma.galleryAlbum.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { galleryAlbumId: id } });
+    await tx.galleryAlbum.delete({ where: { id } });
+  });
   await deletePlaceUploads(existing.items.flatMap((item) => item.fileKey ? [item.fileKey] : []));
   revalidateGalleryViews(id);
   return { success: true };

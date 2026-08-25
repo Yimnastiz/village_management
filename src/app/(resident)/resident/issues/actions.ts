@@ -260,6 +260,7 @@ export async function editIssueAction(
 
   revalidatePath("/resident/issues");
   revalidatePath(`/resident/issues/${issueId}`);
+  revalidatePath("/resident/saved");
   revalidatePath("/admin/issues");
 
   return { success: true };
@@ -325,6 +326,9 @@ export async function deleteIssueAction(
   });
   revalidatePath("/resident/issues");
   revalidatePath("/admin/issues");
+  revalidatePath(`/resident/issues/${issueId}`);
+  revalidatePath(`/admin/issues/${issueId}`);
+  revalidatePath("/resident/saved");
   revalidatePath("/resident/notifications");
   revalidatePath("/admin/notifications");
   revalidateAdminSidebar();

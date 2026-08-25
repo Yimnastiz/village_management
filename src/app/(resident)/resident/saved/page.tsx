@@ -12,6 +12,15 @@ export const dynamic = "force-dynamic";
 
 type SearchParams = { q?: string; sort?: string; type?: string };
 
+type SavedCard =
+  | { id: string; type: "news"; target: { id: string; title: string; summary: string | null; visibility: keyof typeof NEWS_VISIBILITY_LABELS }; searchable: Array<string | null> }
+  | { id: string; type: "issue"; target: { id: string; title: string; stage: keyof typeof ISSUE_STAGE_LABELS }; searchable: Array<string | null> }
+  | { id: string; type: "album"; target: { id: string; title: string }; searchable: Array<string | null> }
+  | { id: string; type: "download"; target: { id: string; title: string; description: string | null; category: string | null; visibility: keyof typeof NEWS_VISIBILITY_LABELS }; searchable: Array<string | null> }
+  | { id: string; type: "transparency"; target: { id: string; title: string; category: string | null; visibility: keyof typeof NEWS_VISIBILITY_LABELS }; searchable: Array<string | null> }
+  | { id: string; type: "contact"; target: { id: string; name: string; role: string | null; phone: string | null; category: string | null }; searchable: Array<string | null> }
+  | { id: string; type: "place"; target: { id: string; name: string; address: string | null; category: keyof typeof VILLAGE_PLACE_CATEGORY_LABELS }; searchable: Array<string | null> };
+
 const TYPE_LABELS: Record<string, string> = {
   all: "ทั้งหมด",
   news: "ข่าว",
@@ -38,6 +47,22 @@ export default async function SavedPage({
   const keyword = q.trim();
   const orderDir = sort === "date_asc" ? "asc" : "desc";
 
+  // Foreign keys on SavedItem intentionally use SET NULL. Remove only rows that
+  // no longer reference any target; saves for temporarily unavailable content
+  // remain intact so they can reappear after publish/access is restored.
+  await prisma.savedItem.deleteMany({
+    where: {
+      userId: session.id,
+      newsId: null,
+      downloadId: null,
+      issueId: null,
+      galleryAlbumId: null,
+      transparencyId: null,
+      contactId: null,
+      placeId: null,
+    },
+  });
+
   const savedItems = await prisma.savedItem.findMany({
     where: { userId: session.id },
     orderBy: { createdAt: orderDir },
@@ -45,32 +70,53 @@ export default async function SavedPage({
       id: true,
       newsId: true, downloadId: true, issueId: true,
       galleryAlbumId: true, transparencyId: true, contactId: true, placeId: true,
-      news: { select: { id: true, title: true, summary: true, visibility: true, villageId: true } },
-      download: { select: { id: true, title: true, description: true, visibility: true, category: true, villageId: true } },
-      issue: { select: { id: true, title: true, stage: true, category: true, villageId: true } },
-      galleryAlbum: { select: { id: true, title: true, villageId: true } },
+      news: { select: { id: true, title: true, summary: true, visibility: true, villageId: true, stage: true } },
+      download: { select: { id: true, title: true, description: true, visibility: true, category: true, villageId: true, stage: true } },
+      issue: { select: { id: true, title: true, stage: true, category: true, villageId: true, reporterId: true, isPublic: true } },
+      galleryAlbum: { select: { id: true, title: true, villageId: true, isPublic: true } },
       transparencyRecord: { select: { id: true, title: true, category: true, visibility: true, villageId: true, stage: true } },
-      contact: { select: { id: true, name: true, role: true, phone: true, category: true, villageId: true } },
-      place: { select: { id: true, name: true, address: true, category: true, villageId: true } },
+      contact: { select: { id: true, name: true, role: true, phone: true, category: true, villageId: true, isPublic: true } },
+      place: { select: { id: true, name: true, address: true, category: true, villageId: true, isPublic: true } },
     },
   });
 
-  const filtered = savedItems.filter((item) => {
-    const vid = item.news?.villageId ?? item.download?.villageId ?? item.issue?.villageId
-      ?? item.galleryAlbum?.villageId ?? item.transparencyRecord?.villageId ?? item.contact?.villageId ?? item.place?.villageId;
-    if (vid && vid !== membership.villageId) return false;
-    if (item.transparencyRecord && item.transparencyRecord.stage !== "PUBLISHED") return false;
-    const matchesSearch = !keyword || [item.news?.title, item.news?.summary, item.download?.title, item.download?.description, item.issue?.title, item.galleryAlbum?.title, item.transparencyRecord?.title, item.transparencyRecord?.category, item.contact?.name, item.contact?.role, item.contact?.phone, item.place?.name, item.place?.address].some((value) => value?.toLocaleLowerCase("th-TH").includes(keyword.toLocaleLowerCase("th-TH")));
-    if (!matchesSearch) return false;
-    if (type === "news") return !!item.newsId;
-    if (type === "issue") return !!item.issueId;
-    if (type === "album") return !!item.galleryAlbumId;
-    if (type === "download") return !!item.downloadId;
-    if (type === "transparency") return !!item.transparencyId;
-    if (type === "contact") return !!item.contactId;
-    if (type === "place") return !!item.placeId;
-    return true;
+  const isCurrentVillage = (villageId: string) => villageId === membership.villageId;
+  const hasMatchingVisibility = (visibility: "PUBLIC" | "RESIDENT_ONLY") =>
+    membership ? ["PUBLIC", "RESIDENT_ONLY"].includes(visibility) : visibility === "PUBLIC";
+
+  // Every branch below mirrors its resident detail route. This deliberately
+  // builds cards only after existence and access checks rather than filtering
+  // raw SavedItem rows and returning null later while rendering.
+  const visibleSavedItems: SavedCard[] = savedItems.flatMap((item): SavedCard[] => {
+    if (item.news && isCurrentVillage(item.news.villageId) && item.news.stage === "PUBLISHED" && hasMatchingVisibility(item.news.visibility)) {
+      return [{ id: item.id, type: "news" as const, target: item.news, searchable: [item.news.title, item.news.summary] }];
+    }
+    if (item.issue && isCurrentVillage(item.issue.villageId) && (item.issue.reporterId === session.id || item.issue.isPublic)) {
+      return [{ id: item.id, type: "issue" as const, target: item.issue, searchable: [item.issue.title] }];
+    }
+    if (item.galleryAlbum && isCurrentVillage(item.galleryAlbum.villageId)) {
+      return [{ id: item.id, type: "album" as const, target: item.galleryAlbum, searchable: [item.galleryAlbum.title] }];
+    }
+    if (item.download && isCurrentVillage(item.download.villageId) && item.download.stage === "PUBLISHED" && hasMatchingVisibility(item.download.visibility)) {
+      return [{ id: item.id, type: "download" as const, target: item.download, searchable: [item.download.title, item.download.description] }];
+    }
+    if (item.transparencyRecord && isCurrentVillage(item.transparencyRecord.villageId) && item.transparencyRecord.stage === "PUBLISHED" && hasMatchingVisibility(item.transparencyRecord.visibility)) {
+      return [{ id: item.id, type: "transparency" as const, target: item.transparencyRecord, searchable: [item.transparencyRecord.title, item.transparencyRecord.category] }];
+    }
+    if (item.contact && isCurrentVillage(item.contact.villageId)) {
+      return [{ id: item.id, type: "contact" as const, target: item.contact, searchable: [item.contact.name, item.contact.role, item.contact.phone] }];
+    }
+    if (item.place && isCurrentVillage(item.place.villageId)) {
+      return [{ id: item.id, type: "place" as const, target: item.place, searchable: [item.place.name, item.place.address] }];
+    }
+    return [];
   });
+
+  const normalizedKeyword = keyword.toLocaleLowerCase("th-TH");
+  const filtered = visibleSavedItems.filter((item) =>
+    (type === "all" || item.type === type) &&
+    (!keyword || item.searchable.some((value) => value?.toLocaleLowerCase("th-TH").includes(normalizedKeyword)))
+  );
 
   const savedHref = (nextType = type, nextSort = sort) => {
     const params = new URLSearchParams();
@@ -99,79 +145,79 @@ export default async function SavedPage({
       ) : (
         <div className="space-y-3">
           {filtered.map((item) => {
-            if (item.news) return (
-              <Link key={item.id} href={`/resident/news/${item.news.id}`}
+            if (item.type === "news") return (
+              <Link key={item.id} href={`/resident/news/${item.target.id}`}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-50">
                   <Newspaper className="h-4 w-4 text-blue-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">ข่าว/ประกาศ</p>
-                  <p className="font-medium text-gray-900 line-clamp-1">{item.news.title}</p>
-                  {item.news.summary && <p className="text-sm text-gray-500 line-clamp-1">{item.news.summary}</p>}
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.target.title}</p>
+                  {item.target.summary && <p className="text-sm text-gray-500 line-clamp-1">{item.target.summary}</p>}
                 </div>
-                <Badge variant="outline" className="shrink-0">{NEWS_VISIBILITY_LABELS[item.news.visibility ?? "PUBLIC"]}</Badge>
+                <Badge variant="outline" className="shrink-0">{NEWS_VISIBILITY_LABELS[item.target.visibility ?? "PUBLIC"]}</Badge>
               </Link>
             );
 
-            if (item.issue) return (
-              <Link key={item.id} href={`/resident/issues/${item.issue.id}`}
+            if (item.type === "issue") return (
+              <Link key={item.id} href={`/resident/issues/${item.target.id}`}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-orange-50">
                   <AlertCircle className="h-4 w-4 text-orange-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">ปัญหา</p>
-                  <p className="font-medium text-gray-900 line-clamp-1">{item.issue.title}</p>
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.target.title}</p>
                 </div>
-                <Badge variant="outline" className="shrink-0">{ISSUE_STAGE_LABELS[item.issue.stage] ?? item.issue.stage}</Badge>
+                <Badge variant="outline" className="shrink-0">{ISSUE_STAGE_LABELS[item.target.stage] ?? item.target.stage}</Badge>
               </Link>
             );
 
-            if (item.galleryAlbum) return (
-              <Link key={item.id} href={`/resident/gallery/${item.galleryAlbum.id}`}
+            if (item.type === "album") return (
+              <Link key={item.id} href={`/resident/gallery/${item.target.id}`}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-purple-50">
                   <Images className="h-4 w-4 text-purple-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">อัลบั้มรูป</p>
-                  <p className="font-medium text-gray-900 line-clamp-1">{item.galleryAlbum.title}</p>
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.target.title}</p>
                 </div>
               </Link>
             );
 
-            if (item.download) return (
-              <Link key={item.id} href={`/resident/downloads/${item.download.id}`}
+            if (item.type === "download") return (
+              <Link key={item.id} href={`/resident/downloads/${item.target.id}`}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-green-50">
                   <Download className="h-4 w-4 text-green-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">เอกสารดาวน์โหลด</p>
-                  <p className="font-medium text-gray-900 line-clamp-1">{item.download.title}</p>
-                  <p className="text-sm text-gray-500">{item.download.category || "ทั่วไป"}</p>
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.target.title}</p>
+                  <p className="text-sm text-gray-500">{item.target.category || "ทั่วไป"}</p>
                 </div>
-                <Badge variant="outline" className="shrink-0">{NEWS_VISIBILITY_LABELS[item.download.visibility ?? "PUBLIC"]}</Badge>
+                <Badge variant="outline" className="shrink-0">{NEWS_VISIBILITY_LABELS[item.target.visibility ?? "PUBLIC"]}</Badge>
               </Link>
             );
 
-            if (item.transparencyRecord) return (
-              <Link key={item.id} href={`/resident/transparency/${item.transparencyRecord.id}`}
+            if (item.type === "transparency") return (
+              <Link key={item.id} href={`/resident/transparency/${item.target.id}`}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-teal-50">
                   <ShieldCheck className="h-4 w-4 text-teal-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">ความโปร่งใส</p>
-                  <p className="font-medium text-gray-900 line-clamp-1">{item.transparencyRecord.title}</p>
-                  {item.transparencyRecord.category && <p className="text-sm text-gray-500">{item.transparencyRecord.category}</p>}
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.target.title}</p>
+                  {item.target.category && <p className="text-sm text-gray-500">{item.target.category}</p>}
                 </div>
-                <Badge variant="outline" className="shrink-0">{NEWS_VISIBILITY_LABELS[item.transparencyRecord.visibility ?? "PUBLIC"]}</Badge>
+                <Badge variant="outline" className="shrink-0">{NEWS_VISIBILITY_LABELS[item.target.visibility ?? "PUBLIC"]}</Badge>
               </Link>
             );
 
-            if (item.contact) return (
+            if (item.type === "contact") return (
               <div key={item.id}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-50">
@@ -179,34 +225,32 @@ export default async function SavedPage({
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">ผู้ติดต่อ</p>
-                  <p className="font-medium text-gray-900">{item.contact.name}</p>
-                  {item.contact.role && <p className="text-sm text-gray-500">{item.contact.role}</p>}
-                  {item.contact.phone && (
-                    <a href={`tel:${item.contact.phone}`} className="text-sm font-medium text-green-700 hover:underline">
-                      {item.contact.phone}
+                  <p className="font-medium text-gray-900">{item.target.name}</p>
+                  {item.target.role && <p className="text-sm text-gray-500">{item.target.role}</p>}
+                  {item.target.phone && (
+                    <a href={`tel:${item.target.phone}`} className="text-sm font-medium text-green-700 hover:underline">
+                      {item.target.phone}
                     </a>
                   )}
                 </div>
-                {item.contact.category && <Badge variant="outline" className="shrink-0">{item.contact.category}</Badge>}
+                {item.target.category && <Badge variant="outline" className="shrink-0">{item.target.category}</Badge>}
               </div>
             );
 
-            if (item.place) return (
-              <Link key={item.id} href={`/resident/places/${item.place.id}`}
+            if (item.type === "place") return (
+              <Link key={item.id} href={`/resident/places/${item.target.id}`}
                 className="flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow">
                 <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-50">
                   <MapPin className="h-4 w-4 text-emerald-600" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-400 mb-0.5">สถานที่</p>
-                  <p className="font-medium text-gray-900 line-clamp-1">{item.place.name}</p>
-                  {item.place.address && <p className="text-sm text-gray-500 line-clamp-1">{item.place.address}</p>}
+                  <p className="font-medium text-gray-900 line-clamp-1">{item.target.name}</p>
+                  {item.target.address && <p className="text-sm text-gray-500 line-clamp-1">{item.target.address}</p>}
                 </div>
-                <Badge variant="outline" className="shrink-0">{VILLAGE_PLACE_CATEGORY_LABELS[item.place.category] ?? item.place.category}</Badge>
+                <Badge variant="outline" className="shrink-0">{VILLAGE_PLACE_CATEGORY_LABELS[item.target.category] ?? item.target.category}</Badge>
               </Link>
             );
-
-            return null;
           })}
         </div>
       )}

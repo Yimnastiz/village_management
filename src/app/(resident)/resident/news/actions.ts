@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
+import { revalidatePath } from "next/cache";
 
 export async function toggleSaveNewsAction(
   newsId: string
@@ -39,6 +40,7 @@ export async function toggleSaveNewsAction(
 
   if (existing) {
     await prisma.savedItem.delete({ where: { id: existing.id } });
+    revalidatePath("/resident/saved");
     return { success: true, saved: false };
   }
 
@@ -48,5 +50,6 @@ export async function toggleSaveNewsAction(
       newsId,
     },
   });
+  revalidatePath("/resident/saved");
   return { success: true, saved: true };
 }

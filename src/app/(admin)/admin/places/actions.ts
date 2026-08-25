@@ -29,7 +29,7 @@ async function requireAdminVillage() {
 }
 
 function revalidatePlacePaths(placeId?: string, requestId?: string) {
-  ["/admin/places", "/admin/places/requests", "/resident/places", "/resident/places/requests", ...(placeId ? [`/admin/places/${placeId}`, `/resident/places/${placeId}`] : []), ...(requestId ? [`/admin/places/requests/${requestId}`, `/resident/places/requests/${requestId}`] : [])].forEach((path) => revalidatePath(path));
+  ["/admin/places", "/admin/places/requests", "/resident/places", "/resident/places/requests", "/resident/saved", ...(placeId ? [`/admin/places/${placeId}`, `/resident/places/${placeId}`] : []), ...(requestId ? [`/admin/places/requests/${requestId}`, `/resident/places/requests/${requestId}`] : [])].forEach((path) => revalidatePath(path));
   revalidateAdminSidebar();
 }
 
@@ -81,6 +81,7 @@ export async function adminDeleteVillagePlaceAction(placeId: string): Promise<{ 
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true, images: { select: { fileKey: true } } } });
     if (!existing) return false;
+    await tx.savedItem.deleteMany({ where: { placeId } });
     await tx.villagePlace.delete({ where: { id: placeId } });
     await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillagePlace", resourceId: placeId, metadata: { actionName: "PLACE_DELETED", name: existing.name } } });
     return existing.images.flatMap((image) => image.fileKey ? [image.fileKey] : []);

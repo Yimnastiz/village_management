@@ -231,6 +231,18 @@ async function auditSuperAdmin(
 function revalidateVillagePublicContent(context: VillageActorContext, module: string, resourceId?: string) {
   revalidatePath(`/superadmin/villages/${context.villageId}/${module}`);
   revalidatePath(`/admin/${module}`);
+  const residentRoutes: Record<string, string> = {
+    news: "/resident/news",
+    contacts: "/resident/contacts",
+    places: "/resident/places",
+    transparency: "/resident/transparency",
+  };
+  const residentRoute = residentRoutes[module];
+  if (residentRoute) {
+    revalidatePath(residentRoute);
+    if (resourceId) revalidatePath(`${residentRoute}/${resourceId}`);
+    revalidatePath("/resident/saved");
+  }
   if (context.villageSlug) {
     revalidatePath(`/${context.villageSlug}/${module}`);
     if (resourceId) revalidatePath(`/${context.villageSlug}/${module}/${resourceId}`);
@@ -327,6 +339,7 @@ export async function deleteNews(context: VillageActorContext, newsId: string): 
   if (!existing) return { success: false, error: "ไม่พบข่าวนี้หรือไม่มีสิทธิ์ลบ" };
 
   await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { newsId } });
     await tx.news.delete({ where: { id: newsId } });
     await auditSuperAdmin(tx, context, {
       action: AuditAction.DELETE,
@@ -336,7 +349,7 @@ export async function deleteNews(context: VillageActorContext, newsId: string): 
       oldValue: { title: existing.title, stage: existing.stage },
     });
   });
-  revalidateVillagePublicContent(context, "news");
+  revalidateVillagePublicContent(context, "news", newsId);
   return { success: true };
 }
 
@@ -446,10 +459,11 @@ export async function deleteContact(context: VillageActorContext, id: string): P
   const existing = await prisma.contactDirectory.findFirst({ where: { id, villageId: context.villageId }, select: { id: true, name: true } });
   if (!existing) return { success: false, error: "ไม่พบผู้ติดต่อหรือไม่มีสิทธิ์ลบ" };
   await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { contactId: id } });
     await tx.contactDirectory.delete({ where: { id } });
     await auditSuperAdmin(tx, context, { action: AuditAction.DELETE, actionName: "SUPERADMIN_CONTACT_DELETED", resource: "ContactDirectory", resourceId: id, oldValue: { name: existing.name } });
   });
-  revalidateVillagePublicContent(context, "contacts");
+  revalidateVillagePublicContent(context, "contacts", id);
   return { success: true };
 }
 
@@ -505,10 +519,11 @@ export async function deletePlace(context: VillageActorContext, placeId: string)
   const existing = await prisma.villagePlace.findFirst({ where: { id: placeId, villageId: context.villageId }, select: { id: true, name: true } });
   if (!existing) return { success: false, error: "ไม่พบสถานที่หรือไม่มีสิทธิ์ลบ" };
   await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { placeId } });
     await tx.villagePlace.delete({ where: { id: placeId } });
     await auditSuperAdmin(tx, context, { action: AuditAction.DELETE, actionName: "SUPERADMIN_PLACE_DELETED", resource: "VillagePlace", resourceId: placeId, oldValue: { name: existing.name } });
   });
-  revalidateVillagePublicContent(context, "places");
+  revalidateVillagePublicContent(context, "places", placeId);
   return { success: true };
 }
 
@@ -591,9 +606,10 @@ export async function deleteTransparency(context: VillageActorContext, id: strin
   const existing = await prisma.transparencyRecord.findFirst({ where: { id, villageId: context.villageId }, select: { id: true, title: true } });
   if (!existing) return { success: false, error: "ไม่พบรายการหรือไม่มีสิทธิ์ลบ" };
   await prisma.$transaction(async (tx) => {
+    await tx.savedItem.deleteMany({ where: { transparencyId: id } });
     await tx.transparencyRecord.delete({ where: { id } });
     await auditSuperAdmin(tx, context, { action: AuditAction.DELETE, actionName: "SUPERADMIN_TRANSPARENCY_DELETED", resource: "TransparencyRecord", resourceId: id, oldValue: { title: existing.title } });
   });
-  revalidateVillagePublicContent(context, "transparency");
+  revalidateVillagePublicContent(context, "transparency", id);
   return { success: true };
 }
