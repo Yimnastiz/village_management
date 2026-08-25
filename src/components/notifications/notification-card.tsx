@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { Notification, NotificationStatus } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
+import { formatNotificationTimestamp, resolveNotificationPresentation } from "@/lib/notification-presentation";
 
 type Props = {
   notification: Notification;
@@ -20,6 +21,8 @@ export function NotificationCard({ notification, title, body, destination, markA
   const [isRead, setIsRead] = useState(notification.status !== NotificationStatus.UNREAD);
   const [isUpdating, setIsUpdating] = useState(false);
   const canAct = !isRead || Boolean(destination);
+  const presentation = resolveNotificationPresentation(notification);
+  const ModuleIcon = presentation.icon;
 
   const handleClick = async () => {
     if (!canAct || isUpdating) return;
@@ -42,17 +45,16 @@ export function NotificationCard({ notification, title, body, destination, markA
   };
 
   return (
-    <article className={`overflow-hidden rounded-xl border transition-colors ${isRead ? "border-gray-200 bg-gray-50" : "border-blue-200 bg-blue-50"}`}>
+    <article className={`overflow-hidden rounded-xl border transition-colors ${isRead ? "border-gray-200 bg-white" : "border-blue-200 bg-blue-50/70"}`}>
       <button type="button" onClick={handleClick} disabled={isUpdating}
         aria-label={destination ? `เปิดการแจ้งเตือน: ${title}` : `ทำเครื่องหมายการแจ้งเตือนว่าอ่านแล้ว: ${title}`}
-        className={`flex min-h-24 w-full gap-3 p-4 text-left sm:p-5 ${canAct ? "cursor-pointer hover:bg-slate-900/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600" : "cursor-default"}`}>
-        <span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${isRead ? "bg-gray-300" : "bg-blue-500"}`} aria-hidden="true" />
+        className={`flex min-h-24 w-full gap-3 p-4 text-left sm:gap-4 sm:p-5 ${canAct ? "cursor-pointer hover:bg-slate-900/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600" : "cursor-default"}`}>
+        <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ${presentation.iconContainerClassName}`} aria-hidden="true"><ModuleIcon className={`size-4 ${presentation.iconClassName}`} /></span>
         <span className="min-w-0 flex-1">
-          <span className={`block break-words text-sm font-semibold sm:text-base ${isRead ? "text-gray-600" : "text-gray-900"}`}>{title}</span>
-          {body ? <span className={`mt-1 block break-words text-sm leading-6 ${isRead ? "text-gray-500" : "text-gray-700"}`}>{body}</span> : null}
-          <time className={`mt-3 block text-xs ${isRead ? "text-gray-400" : "text-gray-500"}`} dateTime={notification.createdAt.toISOString()}>{notification.createdAt.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time>
+          <span className="flex items-start gap-2"><span className="min-w-0 flex-1 break-words text-sm font-semibold text-gray-900 sm:text-base">{title}</span>{!isRead ? <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" aria-label="ยังไม่ได้อ่าน" /> : null}</span>
+          {body ? <span className="mt-1 block break-words text-sm leading-6 text-gray-600">{body}</span> : null}
+          <span className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500"><time dateTime={notification.createdAt.toISOString()}>{formatNotificationTimestamp(notification.createdAt)}</time>{destination ? <ChevronRight className="size-4 shrink-0 text-gray-400" aria-hidden="true" /> : null}</span>
         </span>
-        {destination ? <ChevronRight className="mt-0.5 size-5 shrink-0 text-gray-400" aria-hidden="true" /> : null}
       </button>
     </article>
   );
