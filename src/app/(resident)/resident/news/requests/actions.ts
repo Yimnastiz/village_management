@@ -209,7 +209,7 @@ export async function updatePendingNewsSubmissionAction(
       villageId: ctx.villageId,
       status: "PENDING",
     },
-    select: { id: true, type: true, payload: true },
+    select: { id: true, payload: true },
   });
 
   if (!existing || existing.payload && typeof existing.payload === "object" && !Array.isArray(existing.payload) && existing.payload.isDeleteRequest === true) {
@@ -219,13 +219,23 @@ export async function updatePendingNewsSubmissionAction(
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
-  await prisma.newsSubmission.update({
-    where: { id: submissionId },
+  const updated = await prisma.newsSubmission.updateMany({
+    where: {
+      id: submissionId,
+      requesterId: ctx.userId,
+      villageId: ctx.villageId,
+      status: "PENDING",
+      type: { in: ["CREATE", "UPDATE"] },
+    },
     data: {
       payload: normalized.value,
       updatedAt: new Date(),
     },
   });
+
+  if (updated.count !== 1) {
+    return { success: false, error: "ไม่พบคำขอที่แก้ไขได้ (ต้องเป็นคำขอที่รออนุมัติ)" };
+  }
 
   revalidatePath("/resident/news/requests");
   revalidateAdminSidebar();
@@ -240,21 +250,22 @@ export async function deletePendingNewsSubmissionAction(
   const ctx = await requireResidentVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
 
-  const existing = await prisma.newsSubmission.findFirst({
+  // Keep the status check in the delete statement so an admin review that wins
+  // the race cannot cause a reviewed request to be removed.
+  const deleted = await prisma.newsSubmission.deleteMany({
     where: {
       id: submissionId,
       requesterId: ctx.userId,
       villageId: ctx.villageId,
       status: "PENDING",
+      type: { in: ["CREATE", "UPDATE"] },
     },
-    select: { id: true, type: true },
   });
 
-  if (!existing || (existing.type !== "CREATE" && existing.type !== "UPDATE")) {
+  if (deleted.count !== 1) {
     return { success: false, error: "ไม่พบคำขอที่ลบได้ (ต้องเป็นคำขอที่รออนุมัติ)" };
   }
 
-  await prisma.newsSubmission.delete({ where: { id: submissionId } });
   revalidatePath("/resident/news/requests");
   revalidateAdminSidebar();
   return { success: true };
