@@ -209,10 +209,10 @@ export async function updatePendingNewsSubmissionAction(
       villageId: ctx.villageId,
       status: "PENDING",
     },
-    select: { id: true },
+    select: { id: true, type: true, payload: true },
   });
 
-  if (!existing) {
+  if (!existing || existing.payload && typeof existing.payload === "object" && !Array.isArray(existing.payload) && existing.payload.isDeleteRequest === true) {
     return { success: false, error: "ไม่พบคำขอที่แก้ไขได้ (ต้องเป็นคำขอที่รออนุมัติ)" };
   }
 
@@ -247,10 +247,10 @@ export async function deletePendingNewsSubmissionAction(
       villageId: ctx.villageId,
       status: "PENDING",
     },
-    select: { id: true },
+    select: { id: true, type: true },
   });
 
-  if (!existing) {
+  if (!existing || (existing.type !== "CREATE" && existing.type !== "UPDATE")) {
     return { success: false, error: "ไม่พบคำขอที่ลบได้ (ต้องเป็นคำขอที่รออนุมัติ)" };
   }
 

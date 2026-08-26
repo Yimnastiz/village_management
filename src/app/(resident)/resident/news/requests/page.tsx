@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { deletePendingNewsSubmissionAction, createNewsDeleteRequestAction } from "./actions";
+import { createNewsDeleteRequestAction } from "./actions";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
@@ -22,6 +22,12 @@ function isDeleteRequestPayload(payload: Prisma.JsonValue): boolean {
       !Array.isArray(payload) &&
       payload.isDeleteRequest === true,
   );
+}
+
+function requestTitle(payload: Prisma.JsonValue): string {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return "คำขอข่าว";
+  const title = payload.title;
+  return typeof title === "string" && title.trim() ? title : "คำขอข่าว";
 }
 
 export default async function ResidentNewsRequestsPage() {
@@ -78,52 +84,33 @@ export default async function ResidentNewsRequestsPage() {
             {requests.map((request) => {
               const isDeleteRequest = isDeleteRequestPayload(request.payload);
               return (
-                <article key={request.id} className="rounded-xl border border-gray-200 bg-white p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                <article key={request.id} className="rounded-xl border border-gray-200 bg-white transition hover:border-gray-300 hover:shadow-sm">
+                  <Link
+                    href={`/resident/news/requests/${request.id}`}
+                    className="block p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600"
+                    aria-label={`ดูรายละเอียดคำขอข่าว: ${requestTitle(request.payload)}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                         <Badge variant={statusVariant[request.status] ?? "default"}>
                           {NEWS_SUBMISSION_STATUS_LABELS[request.status]}
                         </Badge>
                         <Badge variant="outline">
                           {isDeleteRequest ? "ขอลบข่าว" : NEWS_SUBMISSION_TYPE_LABELS[request.type]}
                         </Badge>
-                      </div>
+                        </div>
+                      <p className="truncate font-semibold text-gray-900">{requestTitle(request.payload)}</p>
                       <p className="text-sm text-gray-500">
                         {request.targetNews?.title ? `อ้างอิงข่าว: ${request.targetNews.title}` : "คำขอเพิ่มข่าวใหม่"}
                       </p>
                       {request.reviewNote && <p className="text-sm text-gray-700 mt-2">หมายเหตุ: {request.reviewNote}</p>}
-
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <Link href={`/resident/news/requests/${request.id}`}>
-                          <Button size="sm" variant="outline">ดูรายละเอียด</Button>
-                        </Link>
-
-                        {request.status === "PENDING" && (
-                          <>
-                            {!isDeleteRequest && (
-                              <Link href={`/resident/news/requests/${request.id}/edit`}>
-                                <Button size="sm" variant="outline">แก้ไขคำขอ</Button>
-                              </Link>
-                            )}
-                            <form
-                              action={async () => {
-                                "use server";
-                                await deletePendingNewsSubmissionAction(request.id);
-                              }}
-                            >
-                              <Button size="sm" variant="ghost" className="text-red-600 hover:text-red-700">
-                                ลบคำขอ
-                              </Button>
-                            </form>
-                          </>
-                        )}
                       </div>
+                      <p className="text-xs text-gray-400 whitespace-nowrap">
+                        ส่งเมื่อ {request.createdAt.toLocaleDateString("th-TH")}
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-400 whitespace-nowrap">
-                      {request.createdAt.toLocaleDateString("th-TH")}
-                    </p>
-                  </div>
+                  </Link>
                 </article>
               );
             })}

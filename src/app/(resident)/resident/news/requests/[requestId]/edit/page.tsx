@@ -28,6 +28,7 @@ export default async function ResidentEditNewsSubmissionPage({ params }: PagePro
   if (!request) notFound();
 
   const payload = request.payload as Prisma.JsonObject;
+  if (payload.isDeleteRequest === true) notFound();
   const imageUrls = Array.isArray(payload.imageUrls)
     ? payload.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
     : [];

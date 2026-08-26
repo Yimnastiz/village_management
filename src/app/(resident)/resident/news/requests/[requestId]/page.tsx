@@ -12,6 +12,7 @@ import {
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ImageCarousel } from "@/components/ui/image-carousel";
+import { ResidentNewsRequestActions } from "./resident-news-request-actions";
 
 interface PageProps {
   params: Promise<{ requestId: string }>;
@@ -47,6 +48,10 @@ export default async function ResidentNewsRequestDetailPage({ params }: PageProp
 
   const stage = String(payload.stage ?? "DRAFT");
   const visibility = String(payload.visibility ?? "PUBLIC");
+  const isDeleteRequest = payload.isDeleteRequest === true;
+  const isPending = request.status === "PENDING";
+  const editable = isPending && !isDeleteRequest;
+  const deletable = isPending && (request.type === "CREATE" || request.type === "UPDATE");
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -63,11 +68,6 @@ export default async function ResidentNewsRequestDetailPage({ params }: PageProp
           <Badge variant={request.status === "PENDING" ? "warning" : request.status === "APPROVED" ? "success" : "danger"}>
             {NEWS_SUBMISSION_STATUS_LABELS[request.status]}
           </Badge>
-          {request.status === "PENDING" && (
-            <Link href={`/resident/news/requests/${request.id}/edit`} className="text-sm text-green-700 hover:text-green-800">
-              แก้ไขคำขอนี้
-            </Link>
-          )}
         </div>
 
         {request.targetNews?.title && (
@@ -97,6 +97,8 @@ export default async function ResidentNewsRequestDetailPage({ params }: PageProp
             <p className="text-sm text-gray-700">หมายเหตุจากผู้พิจารณา: {request.reviewNote}</p>
           </div>
         )}
+
+        <ResidentNewsRequestActions requestId={request.id} editable={editable} deletable={deletable} />
       </div>
     </div>
   );
