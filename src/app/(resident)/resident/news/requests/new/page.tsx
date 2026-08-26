@@ -49,6 +49,7 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
       <NewsRequestForm
         mode={targetNews ? "update" : "create"}
         targetNewsId={targetNews?.id}
+        cancelHref={targetNews ? `/resident/news/${targetNews.id}` : "/resident/news/requests"}
         defaultValues={defaultValues}
       />
     </div>

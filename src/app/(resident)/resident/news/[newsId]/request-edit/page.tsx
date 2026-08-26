@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { PageBackLink } from "@/components/ui/page-back-link";
 import { NewsRequestForm } from "../../requests/request-form";
 
 interface PageProps {
@@ -35,14 +36,12 @@ export default async function ResidentEditNewsRequestPage({ params }: PageProps)
     : [];
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">ส่งคำขอแก้ไขข่าว</h1>
-        <p className="text-sm text-gray-500 mt-1">ข่าว: {news.title}</p>
-      </div>
+    <div className="mx-auto w-full max-w-3xl space-y-4 sm:space-y-5">
+      <PageBackLink href={`/resident/news/${news.id}`} label="กลับรายละเอียดข่าว" />
       <NewsRequestForm
         mode="update"
         targetNewsId={news.id}
+        cancelHref={`/resident/news/${news.id}`}
         defaultValues={{
           title: news.title,
           summary: news.summary || "",

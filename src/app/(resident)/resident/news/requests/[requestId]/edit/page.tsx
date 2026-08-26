@@ -43,6 +43,7 @@ export default async function ResidentEditNewsSubmissionPage({ params }: PagePro
       <NewsRequestForm
         mode="submission-edit"
         submissionId={request.id}
+        cancelHref={`/resident/news/requests/${request.id}`}
         defaultValues={{
           title: String(payload.title ?? ""),
           summary: String(payload.summary ?? ""),

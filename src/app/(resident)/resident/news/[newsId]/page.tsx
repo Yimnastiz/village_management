@@ -106,7 +106,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
           </div>
         )}
 
-        <div className="border-t pt-6">
+        <div className="border-t border-gray-100 pt-6">
           <p className="break-words whitespace-pre-wrap text-gray-700 leading-7">{news.content}</p>
         </div>
       </div>
