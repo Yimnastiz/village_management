@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { NEWS_AUTHOR_SOURCE_LABELS, NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsSaveButton } from "./news-save-button";
 import { formatNewsAuthor } from "@/lib/news-author";
+import { NewsMetadata } from "@/components/news/news-metadata";
 
 interface PageProps {
   params: Promise<{ newsId: string }>;
@@ -89,18 +89,12 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
 
       <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-8">
         <div className="mb-6">
-          <div className="flex flex-wrap items-center gap-2">
-            {news.isPinned && (
-              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">ปักหมุด</span>
-            )}
-            <Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge>
-            <Badge variant="outline">{sourceLabel}</Badge>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mt-3">{news.title}</h1>
-          <p className="text-sm text-gray-400 mt-2">
-            {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
+          <h1 className="text-2xl font-bold text-gray-900">{news.title}</h1>
+          <NewsMetadata className="mt-3 text-sm" visibility={news.visibility} isPinned={news.isPinned} showStage={false} />
+          <p className="mt-2 text-sm text-gray-400">
+            {sourceLabel} · {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
           </p>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="mt-1 text-xs text-gray-500">
             ผู้สร้างข่าว: {formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}
           </p>
           {news.summary && <p className="text-sm text-gray-600 mt-3">{news.summary}</p>}

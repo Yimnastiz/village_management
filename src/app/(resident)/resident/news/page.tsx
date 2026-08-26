@@ -2,9 +2,8 @@ import Link from "next/link";
 import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
+import { NewsMetadata } from "@/components/news/news-metadata";
 import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ResidentNewsToolbar } from "./resident-news-toolbar";
@@ -211,7 +210,8 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
-              badge={membership.hasResidentAccess ? <Badge variant="outline">{NEWS_VISIBILITY_LABELS[news.visibility]}</Badge> : undefined}
+              showPinnedIndicator={false}
+              metadata={<NewsMetadata visibility={news.visibility} isPinned={news.isPinned} showStage={false} />}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
             />
           ))}
