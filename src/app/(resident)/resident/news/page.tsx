@@ -210,8 +210,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
-              showPinnedIndicator={false}
-              metadata={<NewsMetadata visibility={news.visibility} isPinned={news.isPinned} showStage={false} />}
+              metadata={<NewsMetadata visibility={news.visibility} isPinned={news.isPinned} showPinned={false} showStage={false} />}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
             />
           ))}
