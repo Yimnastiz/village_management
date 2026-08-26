@@ -1,26 +1,115 @@
 import Link from "next/link";
-import { ArrowLeft, FileClock, Plus } from "lucide-react";
+import { FileClock, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import type { Prisma } from "@prisma/client";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageBackLink } from "@/components/ui/page-back-link";
+import { RequestViewTabs } from "@/components/ui/request-view-tabs";
 import { Button } from "@/components/ui/button";
-import { VILLAGE_EVENT_SUBMISSION_STATUS_LABELS, VILLAGE_EVENT_VISIBILITY_LABELS } from "@/lib/constants";
+import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { resolveApprovedSubmissionEvent } from "@/lib/calendar-submission-event";
 import { prisma } from "@/lib/prisma";
+import { ResidentCalendarRequestCard, ResidentPublishedCalendarCard } from "./resident-calendar-request-cards";
 
-const variants: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
+type Tab = "pending" | "history" | "published";
 
-export default async function ResidentCalendarRequestsPage() {
+const statusLabels: Record<string, string> = { PENDING: "รอพิจารณา", APPROVED: "อนุมัติแล้ว", REJECTED: "ไม่อนุมัติ" };
+const typeLabels: Record<string, string> = { CREATE: "คำขอเพิ่มกิจกรรม", EDIT: "คำขอแก้ไขกิจกรรม", DELETE: "คำขอลบกิจกรรม" };
+
+function tabHref(tab: Tab) {
+  if (tab === "history") return "/resident/calendar/requests?tab=history";
+  if (tab === "published") return "/resident/calendar/requests?tab=published";
+  return "/resident/calendar/requests";
+}
+
+function formatEventSchedule(startsAt: Date, endsAt: Date | null) {
+  const options = { timeZone: "Asia/Bangkok" };
+  const date = startsAt.toLocaleDateString("th-TH", { ...options, day: "numeric", month: "short", year: "numeric" });
+  const startTime = startsAt.toLocaleTimeString("th-TH", { ...options, hour: "2-digit", minute: "2-digit" });
+  if (!endsAt) return `${date} · ${startTime}`;
+  const endDate = endsAt.toLocaleDateString("en-CA", options);
+  const startDate = startsAt.toLocaleDateString("en-CA", options);
+  if (startDate === endDate) return `${date} · ${startTime}–${endsAt.toLocaleTimeString("th-TH", { ...options, hour: "2-digit", minute: "2-digit" })}`;
+  return `${date} · ${startTime} – ${endsAt.toLocaleDateString("th-TH", { ...options, day: "numeric", month: "short", year: "numeric" })} ${endsAt.toLocaleTimeString("th-TH", { ...options, hour: "2-digit", minute: "2-digit" })}`;
+}
+
+export default async function ResidentCalendarRequestsPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   const membership = getResidentMembership(session);
   if (!membership) redirect("/resident/dashboard");
-  const requests = await prisma.villageEventSubmission.findMany({
-    where: { requesterId: session.id, villageId: membership.villageId },
-    select: { id: true, status: true, isPublic: true, title: true, startsAt: true, location: true, reviewNote: true, createdAt: true },
-    orderBy: [{ createdAt: "desc" }],
-  });
-  return <div className="space-y-6">
-    <div className="flex items-start justify-between gap-3"><div><h1 className="text-2xl font-bold text-gray-900">คำขอกิจกรรมของฉัน</h1><p className="mt-1 text-sm text-gray-500">ติดตามสถานะคำขอเพิ่มกิจกรรมหมู่บ้าน</p></div><div className="flex shrink-0 gap-2"><Link href="/resident/calendar" className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 px-2 text-sm text-gray-700 hover:bg-gray-50"><ArrowLeft className="h-4 w-4" /><span className="hidden sm:inline">กลับไปปฏิทิน</span></Link><Link href="/resident/calendar/requests/new"><Button size="sm"><Plus className="h-4 w-4" /><span className="hidden sm:ml-1 sm:inline">ส่งคำขอ</span></Button></Link></div></div>
-    {requests.length === 0 ? <div className="rounded-xl border border-gray-200 bg-white p-10 text-center"><FileClock className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="text-gray-600">ยังไม่มีคำขอกิจกรรม</p></div> : <div className="space-y-3">{requests.map((request) => <Link key={request.id} href={`/resident/calendar/requests/${request.id}`} className="block cursor-pointer rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:border-green-300 hover:bg-green-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="mb-1 flex flex-wrap gap-2"><Badge variant={variants[request.status] ?? "default"}>{VILLAGE_EVENT_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}</Badge><Badge variant="outline">การมองเห็นที่ต้องการ: {VILLAGE_EVENT_VISIBILITY_LABELS[request.isPublic ? "PUBLIC" : "RESIDENT"]}</Badge></div><p className="font-medium text-gray-900">{request.title}</p><p className="mt-1 text-sm text-gray-500">{request.startsAt.toLocaleString("th-TH")}{request.location ? ` · ${request.location}` : ""}</p>{request.reviewNote ? <p className="mt-2 text-sm text-gray-600">หมายเหตุ: {request.reviewNote}</p> : null}</div><p className="whitespace-nowrap text-xs text-gray-400">{request.createdAt.toLocaleDateString("th-TH")}</p></div></Link>)}</div>}
+
+  const query = await searchParams;
+  const tab: Tab = query?.tab === "history" || query?.tab === "published" ? query.tab : "pending";
+  const requestWhere: Prisma.VillageEventSubmissionWhereInput = {
+    requesterId: session.id,
+    villageId: membership.villageId,
+    ...(tab === "pending" ? { status: "PENDING" } : { status: { in: ["APPROVED", "REJECTED"] } }),
+  };
+
+  const [pendingCount, requests, approvedCreateSubmissions] = await Promise.all([
+    prisma.villageEventSubmission.count({ where: { requesterId: session.id, villageId: membership.villageId, status: "PENDING" } }),
+    tab === "published" ? Promise.resolve([]) : prisma.villageEventSubmission.findMany({
+      where: requestWhere,
+      select: { id: true, status: true, type: true, isPublic: true, title: true, startsAt: true, endsAt: true, location: true, reviewNote: true, reviewedAt: true, createdAt: true },
+      orderBy: tab === "pending" ? [{ createdAt: "desc" }] : [{ reviewedAt: "desc" }, { createdAt: "desc" }],
+    }),
+    tab !== "published" ? Promise.resolve([]) : prisma.villageEventSubmission.findMany({
+      where: { requesterId: session.id, villageId: membership.villageId, type: "CREATE", status: "APPROVED" },
+      select: { eventId: true, villageId: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true },
+      orderBy: [{ reviewedAt: "desc" }, { createdAt: "desc" }],
+    }),
+  ]);
+
+  const publishedEvents = tab === "published"
+    ? Array.from(new Map((await Promise.all(approvedCreateSubmissions.map(resolveApprovedSubmissionEvent))).filter((event): event is NonNullable<typeof event> => Boolean(event)).map((event) => [event.id, event])).values())
+    : [];
+  const pendingEventIds = publishedEvents.map((event) => event.id);
+  const pendingChangeRequests = pendingEventIds.length
+    ? await prisma.villageEventSubmission.findMany({ where: { requesterId: session.id, villageId: membership.villageId, eventId: { in: pendingEventIds }, type: { in: ["EDIT", "DELETE"] }, status: "PENDING" }, select: { eventId: true } })
+    : [];
+  const pendingChangeEventIds = new Set(pendingChangeRequests.flatMap((request) => request.eventId ? [request.eventId] : []));
+
+  const tabs = <RequestViewTabs label="มุมมองคำขอกิจกรรม" className="w-fit max-w-full flex-nowrap overflow-x-auto" tabs={[
+    { href: tabHref("pending"), label: "รอพิจารณา", count: pendingCount, active: tab === "pending" },
+    { href: tabHref("history"), label: "ประวัติ", active: tab === "history" },
+    { href: tabHref("published"), label: "กิจกรรมที่เผยแพร่", active: tab === "published" },
+  ]} />;
+
+  return <div className="space-y-4 sm:space-y-5">
+    <ResidentPageToolbar
+      namespace="resident-calendar-requests"
+      title="คำขอกิจกรรม"
+      hideHeading
+      actions={<div className="flex min-w-0 flex-wrap items-center gap-2"><PageBackLink href="/resident/calendar" label="กลับปฏิทิน" />{tabs}<Link href="/resident/calendar/requests/new"><Button size="sm"><Plus className="h-4 w-4" /><span className="hidden sm:ml-1 sm:inline">ส่งคำขอ</span></Button></Link></div>}
+    />
+
+    {tab !== "published" ? <section className="space-y-3" aria-label={tab === "pending" ? "คำขอที่รอพิจารณา" : "ประวัติคำขอ"}>
+      {requests.length === 0 ? <EmptyState icon={FileClock} title={tab === "pending" ? "ไม่มีคำขอที่รอพิจารณา" : "ยังไม่มีประวัติคำขอ"} /> : requests.map((request) => <ResidentCalendarRequestCard
+        key={request.id}
+        href={`/resident/calendar/requests/${request.id}`}
+        status={request.status}
+        statusLabel={statusLabels[request.status] ?? request.status}
+        typeLabel={typeLabels[request.type] ?? request.type}
+        title={request.title}
+        schedule={formatEventSchedule(request.startsAt, request.endsAt)}
+        location={request.location}
+        isPublic={request.isPublic}
+        submittedAt={request.createdAt.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" })}
+        reviewedAt={tab === "history" && request.reviewedAt ? request.reviewedAt.toLocaleDateString("th-TH", { timeZone: "Asia/Bangkok" }) : undefined}
+        note={request.reviewNote}
+      />)}
+    </section> : <section className="space-y-3" aria-label="กิจกรรมที่เผยแพร่จากคำขอของฉัน">
+      {publishedEvents.length === 0 ? <EmptyState icon={FileClock} title="ยังไม่มีกิจกรรมที่เผยแพร่จากคำขอของคุณ" /> : publishedEvents.map((event) => <ResidentPublishedCalendarCard
+        key={event.id}
+        href={`/resident/calendar/${event.id}`}
+        title={event.title}
+        schedule={formatEventSchedule(event.startsAt, event.endsAt)}
+        location={event.location}
+        isPublic={event.isPublic}
+        hasPendingRequest={pendingChangeEventIds.has(event.id)}
+      />)}
+    </section>}
   </div>;
 }
