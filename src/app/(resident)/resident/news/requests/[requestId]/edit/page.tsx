@@ -39,13 +39,8 @@ export default async function ResidentEditNewsSubmissionPage({ params, searchPar
     : [];
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4 sm:space-y-5">
       <PageBackLink href={detailHref} label="กลับรายละเอียดคำขอ" />
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แก้ไขคำขอข่าว</h1>
-        <p className="text-sm text-gray-500 mt-1">คุณสามารถแก้ไขได้เฉพาะคำขอที่ยังรออนุมัติ</p>
-      </div>
-
       <NewsRequestForm
         mode="submission-edit"
         submissionId={request.id}

@@ -8,18 +8,16 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { deletePendingNewsSubmissionAction } from "../actions";
-import { NewsDeleteRequestButton } from "../news-delete-request-button";
-import { newRequestHref, requestEditHref, requestListHref, type ResidentNewsContext } from "@/lib/resident-news-navigation";
+import { requestEditHref, requestListHref, type ResidentNewsContext } from "@/lib/resident-news-navigation";
 
 type ResidentNewsRequestActionsProps = {
   requestId: string;
   editable: boolean;
   deletable: boolean;
-  liveNewsId?: string;
   context: ResidentNewsContext | null;
 };
 
-export function ResidentNewsRequestActions({ requestId, editable, deletable, liveNewsId, context }: ResidentNewsRequestActionsProps) {
+export function ResidentNewsRequestActions({ requestId, editable, deletable, context }: ResidentNewsRequestActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const router = useRouter();
@@ -48,27 +46,20 @@ export function ResidentNewsRequestActions({ requestId, editable, deletable, liv
     }
   };
 
-  if (!editable && !deletable && !liveNewsId) return null;
+  if (!editable && !deletable) return null;
 
   return (
     <div className="flex flex-wrap justify-end gap-2" aria-label="การดำเนินการคำขอ">
-      {liveNewsId ? <>
-        <Link href={newRequestHref(context, liveNewsId)}>
-          <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />ขอแก้ไขข่าว</Button>
+      {editable ? (
+        <Link href={requestEditHref(requestId, context)}>
+          <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />แก้ไขคำขอ</Button>
         </Link>
-        <NewsDeleteRequestButton newsId={liveNewsId} />
-      </> : <>
-        {editable ? (
-          <Link href={requestEditHref(requestId, context)}>
-            <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />แก้ไขคำขอ</Button>
-          </Link>
-        ) : null}
-        {deletable ? (
-          <Button type="button" variant="danger" onClick={() => setConfirmOpen(true)} disabled={pending}>
-            <Trash2 className="mr-1.5 h-4 w-4" />ลบคำขอ
-          </Button>
-        ) : null}
-      </>}
+      ) : null}
+      {deletable ? (
+        <Button type="button" variant="danger" onClick={() => setConfirmOpen(true)} disabled={pending}>
+          <Trash2 className="mr-1.5 h-4 w-4" />ลบคำขอ
+        </Button>
+      ) : null}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => { if (!pending) setConfirmOpen(false); }}

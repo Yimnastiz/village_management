@@ -43,7 +43,7 @@ export default async function ResidentNewsRequestDetailPage({ params, searchPara
   return <div className="mx-auto w-full max-w-4xl space-y-4 sm:space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
       <PageBackLink href={requestListHref(context)} label="กลับรายการคำขอ" />
-      <ResidentNewsRequestActions requestId={request.id} editable={editable} deletable={deletable} liveNewsId={liveTarget?.id} context={context} />
+      <ResidentNewsRequestActions requestId={request.id} editable={editable} deletable={deletable} context={context} />
     </div>
 
     <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:p-8">
