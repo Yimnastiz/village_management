@@ -58,8 +58,8 @@ function adminCreatedAppointmentNotificationCopy(
 ) {
   const roleLabel = appointmentAdminRoleLabel(creatorRole);
   return {
-    title: `นัดหมายใหม่จาก${roleLabel}`,
-    body: `${title}\nรอการยืนยันเวลาจากคุณ · ${formatAppointmentStart(date, startTime)}`,
+    title: "มีนัดหมายใหม่รอคุณยืนยันเวลา",
+    body: `${roleLabel}ได้นัดหมาย “${title}” ${formatAppointmentStart(date, startTime)} กรุณาตรวจสอบและยืนยันเวลานัดหมาย`,
   };
 }
 
@@ -67,19 +67,18 @@ function proposedAppointmentTimeNotificationCopy(
   title: string,
   date: Date,
   startTime: string,
-  responderRole: VillageMembershipRole | null | undefined
+  _responderRole: VillageMembershipRole | null | undefined
 ) {
-  const roleLabel = appointmentAdminRoleLabel(responderRole);
   return {
-    title: `${roleLabel}เสนอเวลานัดหมาย`,
-    body: `${title}\nกรุณายืนยันเวลา · ${formatAppointmentStart(date, startTime)}`,
+    title: "มีเวลานัดหมายใหม่รอการยืนยัน",
+    body: `มีการเสนอเวลาใหม่สำหรับ “${title}” ${formatAppointmentStart(date, startTime)} กรุณาตรวจสอบและยืนยันเวลานัดหมาย`,
   };
 }
 
 function updatedAdminCreatedAppointmentNotificationCopy(title: string, date: Date, startTime: string) {
   return {
-    title: "มีการแก้ไขนัดหมาย",
-    body: `${title}\nเวลาที่เสนอใหม่ · ${formatAppointmentStart(date, startTime)}`,
+    title: "มีเวลานัดหมายใหม่รอการยืนยัน",
+    body: `มีการเสนอเวลาใหม่สำหรับ “${title}” ${formatAppointmentStart(date, startTime)} กรุณาตรวจสอบและยืนยันเวลานัดหมาย`,
   };
 }
 
@@ -609,8 +608,8 @@ export async function approveAppointmentAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "อัปเดตนัดหมาย: อนุมัติแล้ว",
-    `เรื่อง: ${appointment.title} | เวลา ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)}${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    "ยืนยันนัดหมายแล้ว",
+    `นัดหมาย “${appointment.title}” วันที่ ${formatThaiShortDate(slot.date)} เวลา ${slot.startTime}-${slot.endTime} ได้รับการยืนยันแล้ว${responder ? ` โดย ${responder.name}` : ""}`,
     {
       appointmentId: appointment.id,
       responderName: responder?.name ?? null,
@@ -700,8 +699,8 @@ export async function rejectAppointmentAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "ปฏิเสธคำขอนัดหมาย",
-    `คำขอนัดหมายถูกปฏิเสธ | เรื่อง: ${appointment.title} | เหตุผล: ${parsed.data.reviewNote}${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    "นัดหมายไม่ได้รับการยืนยัน",
+    `นัดหมาย “${appointment.title}” ไม่ได้รับการยืนยัน เหตุผล: ${parsed.data.reviewNote}${responder ? ` โดย ${responder.name}` : ""}`,
     {
       appointmentId: appointment.id,
       responderName: responder?.name ?? null,
@@ -817,8 +816,8 @@ export async function suggestTimeAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "อัปเดตนัดหมาย: มีการแนะนำเวลา",
-    `เรื่อง: ${appointment.title} | เวลาแนะนำ ${slot.startTime}-${slot.endTime} | วันที่ ${formatThaiShortDate(slot.date)} | กรุณายืนยันหรือปฏิเสธ${responder ? ` | ผู้ตอบกลับ: ${responder.name}` : ""}`,
+    "มีเวลานัดหมายใหม่รอการยืนยัน",
+    `มีการเสนอเวลาใหม่สำหรับ “${appointment.title}” วันที่ ${formatThaiShortDate(slot.date)} เวลา ${slot.startTime}-${slot.endTime} กรุณาตรวจสอบและยืนยันเวลานัดหมาย${responder ? ` โดย ${responder.name}` : ""}`,
     {
       appointmentId: appointment.id,
       responderName: responder?.name ?? null,
@@ -984,8 +983,8 @@ export async function adminCancelAppointmentAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "ยกเลิกนัดหมาย",
-    `นัดหมายถูกยกเลิก | เรื่อง: ${appointment.title} | เหตุผล: ${reason.trim()}`,
+    "นัดหมายถูกยกเลิก",
+    `นัดหมาย “${appointment.title}” ถูกยกเลิก เหตุผล: ${reason.trim()}`,
     { appointmentId }
   );
 
@@ -1081,8 +1080,8 @@ export async function adminEditAppointmentAction(
   await notifyUser(
     appointment.userId,
     appointment.villageId,
-    "อัปเดตนัดหมาย: มีการแก้ไข",
-    `เรื่อง: ${newTitle} | ผู้บริหารแก้ไขข้อมูลนัดหมาย`,
+    "นัดหมายได้รับการแก้ไข",
+    `นัดหมาย “${newTitle}” ได้รับการแก้ไข กรุณาตรวจสอบรายละเอียดนัดหมาย`,
     { appointmentId }
   );
 

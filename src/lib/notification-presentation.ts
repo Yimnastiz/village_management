@@ -1,6 +1,6 @@
 import type { Notification, Prisma } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarClock, CircleAlert, Contact, FileDown, House, Images, Landmark, MapPin, Megaphone, Newspaper } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, Images, MapPin, Megaphone, Newspaper, Phone, UsersRound } from "lucide-react";
 
 type NotificationMetadata = Record<string, Prisma.JsonValue | undefined>;
 
@@ -10,13 +10,14 @@ const DEFAULT_PRESENTATION: NotificationPresentation = { icon: Bell, iconClassNa
 const PRESENTATIONS = {
   news: { icon: Newspaper, iconClassName: "text-sky-700", iconContainerClassName: "bg-sky-50" },
   issues: { icon: CircleAlert, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50" },
+  calendar: { icon: CalendarDays, iconClassName: "text-blue-700", iconContainerClassName: "bg-blue-50" },
   appointments: { icon: CalendarClock, iconClassName: "text-violet-700", iconContainerClassName: "bg-violet-50" },
   gallery: { icon: Images, iconClassName: "text-fuchsia-700", iconContainerClassName: "bg-fuchsia-50" },
-  contacts: { icon: Contact, iconClassName: "text-cyan-700", iconContainerClassName: "bg-cyan-50" },
+  contacts: { icon: Phone, iconClassName: "text-cyan-700", iconContainerClassName: "bg-cyan-50" },
   places: { icon: MapPin, iconClassName: "text-emerald-700", iconContainerClassName: "bg-emerald-50" },
   downloads: { icon: FileDown, iconClassName: "text-indigo-700", iconContainerClassName: "bg-indigo-50" },
-  transparency: { icon: Landmark, iconClassName: "text-teal-700", iconContainerClassName: "bg-teal-50" },
-  household: { icon: House, iconClassName: "text-orange-700", iconContainerClassName: "bg-orange-50" },
+  transparency: { icon: FileSearch, iconClassName: "text-teal-700", iconContainerClassName: "bg-teal-50" },
+  household: { icon: UsersRound, iconClassName: "text-orange-700", iconContainerClassName: "bg-orange-50" },
   broadcast: { icon: Megaphone, iconClassName: "text-rose-700", iconContainerClassName: "bg-rose-50" },
 } satisfies Record<string, NotificationPresentation>;
 
@@ -35,7 +36,13 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   const actionUrl = typeof metadata.actionUrl === "string" ? metadata.actionUrl : "";
   if (notification.type === "NEWS" || hasString(metadata, "newsId") || source.includes("NEWS")) return PRESENTATIONS.news;
   if (notification.type === "ISSUE_UPDATE" || hasString(metadata, "issueId") || source.includes("ISSUE")) return PRESENTATIONS.issues;
-  if (notification.type === "APPOINTMENT_UPDATE" || hasString(metadata, "appointmentId") || hasString(metadata, "eventId") || source.includes("APPOINTMENT") || source.includes("CALENDAR")) return PRESENTATIONS.appointments;
+  // Calendar and appointments are separate Resident modules. Prioritize the
+  // explicit source semantics, then their durable target identifiers, never
+  // card copy. This also handles malformed legacy metadata containing both IDs.
+  if (source.includes("APPOINTMENT")) return PRESENTATIONS.appointments;
+  if (source.includes("CALENDAR")) return PRESENTATIONS.calendar;
+  if (notification.type === "APPOINTMENT_UPDATE" || hasString(metadata, "appointmentId")) return PRESENTATIONS.appointments;
+  if (hasString(metadata, "eventId") || actionUrl.includes("/calendar")) return PRESENTATIONS.calendar;
   if (hasString(metadata, "albumId") || hasString(metadata, "batchId") || source.includes("GALLERY")) return PRESENTATIONS.gallery;
   if (hasString(metadata, "contactId") || hasString(metadata, "approvedContactId") || hasString(metadata, "targetContactId") || source.includes("CONTACT")) return PRESENTATIONS.contacts;
   if (hasString(metadata, "placeId") || source.includes("PLACE") || actionUrl.includes("/places")) return PRESENTATIONS.places;

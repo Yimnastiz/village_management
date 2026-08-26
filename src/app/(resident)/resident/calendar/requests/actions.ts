@@ -7,6 +7,7 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { resolveApprovedSubmissionEvent } from "@/lib/calendar-submission-event";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
@@ -104,12 +105,11 @@ export async function createVillageEventSubmissionAction(
           type: NotificationType.SYSTEM,
           title: "มีคำขอเพิ่มกิจกรรมใหม่",
           body: `${session.name} ขอเพิ่มกิจกรรม \"${normalized.value.title}\"`,
-          metadata: {
-            source: "CALENDAR",
+          metadata: notificationMetadata("CALENDAR", {
             actionUrl: `/admin/calendar/requests/${created.id}`,
             actionLabel: "ตรวจสอบคำขอ",
             requestId: created.id,
-          },
+          }),
         })),
       });
     }
@@ -175,7 +175,7 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
             type: NotificationType.SYSTEM,
             title: "มีคำขอแก้ไขกิจกรรมใหม่",
             body: `${session.name} ขอแก้ไขกิจกรรม \"${normalized.value.title}\"`,
-            metadata: { actionUrl: `/admin/calendar/requests/${created[1].id}`, actionLabel: "ตรวจสอบคำขอ", requestId: created[1].id },
+            metadata: notificationMetadata("CALENDAR", { actionUrl: `/admin/calendar/requests/${created[1].id}`, actionLabel: "ตรวจสอบคำขอ", requestId: created[1].id, eventId: event.id }),
           })),
         });
       }

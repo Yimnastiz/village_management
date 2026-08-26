@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const villageEventSubmission = prisma.villageEventSubmission;
 
@@ -223,13 +224,13 @@ export async function adminApproveVillageEventSubmissionAction(
           type: NotificationType.SYSTEM,
           title: "คำขอเพิ่มกิจกรรมได้รับการอนุมัติ",
           body: `“${request.title}” ถูกเพิ่มในปฏิทินแล้ว`,
-          metadata: {
-            source: "CALENDAR",
+          metadata: notificationMetadata("CALENDAR", {
             actionUrl: eventId ? `/resident/calendar/${eventId}` : "/resident/calendar/requests",
             actionLabel: "ดูกิจกรรม",
             requestId: request.id,
+            eventId,
             status: "APPROVED",
-          },
+          }),
         },
       });
 
@@ -287,14 +288,13 @@ export async function adminRejectVillageEventSubmissionAction(
           villageId: request.villageId,
           type: NotificationType.SYSTEM,
           title: "คำขอเพิ่มกิจกรรมไม่ได้รับการอนุมัติ",
-          body: `เหตุผล: ${reviewNote?.trim() || "ไม่ระบุเหตุผล"}`,
-          metadata: {
-            source: "CALENDAR",
+          body: `คำขอ “${request.title}” ไม่ได้รับการอนุมัติ เหตุผล: ${reviewNote?.trim() || "ไม่ระบุเหตุผล"}`,
+          metadata: notificationMetadata("CALENDAR", {
             actionUrl: "/resident/calendar/requests",
             actionLabel: "ดูคำขอของฉัน",
             requestId: request.id,
             status: "REJECTED",
-          },
+          }),
         },
       });
     });
