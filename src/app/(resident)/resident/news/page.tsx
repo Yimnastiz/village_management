@@ -77,14 +77,10 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         villageId: membership.villageId,
         stage: "PUBLISHED",
         visibility: visibilityWhereClause,
-        ...(keyword
-          ? {
-              title: {
-                contains: keyword,
-                mode: "insensitive" as const,
-              },
-            }
-          : {}),
+        ...(keyword ? { OR: [
+          { title: { contains: keyword, mode: "insensitive" as const } },
+          { author: { is: { name: { contains: keyword, mode: "insensitive" as const } } } },
+        ] } : {}),
       },
       orderBy,
       select: {

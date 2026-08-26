@@ -286,7 +286,7 @@ export function CalendarToolbar({
                   className={cn("relative flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto", isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]")}
                 >
                   <label htmlFor={`${namespace}-search-input`} className="sr-only">{search.label ?? "ค้นหากิจกรรม"}</label>
-                  {isAdminToolbar ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
+                  {isAdminToolbar || residentCompact ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
                   <input
                     ref={searchInputRef}
                     id={`${namespace}-search-input`}
@@ -296,9 +296,9 @@ export function CalendarToolbar({
                     onChange={(event) => setSearchValue(event.target.value)}
                     list={search.suggestions?.length ? suggestionsId : undefined}
                     placeholder={search.placeholder}
-                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", isAdminToolbar && "w-full pl-9 pr-10")}
+                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
                   />
-                  {isAdminToolbar && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+                  {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
                   <button
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
