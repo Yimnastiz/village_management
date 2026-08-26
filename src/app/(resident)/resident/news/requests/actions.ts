@@ -15,7 +15,7 @@ const requestSchema = z.object({
   content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
   imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).optional(),
   coverUrl: z.string().nullable().optional(),
-  visibility: z.string().optional(),
+  visibility: z.string().min(1, "กรุณาเลือกการมองเห็นที่ต้องการ"),
   stage: z.string().optional(),
   isPinned: z.boolean().optional(),
 });
@@ -76,6 +76,13 @@ async function notifyVillageAdmins(
   });
 }
 
+async function findPendingTargetNewsRequest(villageId: string, targetNewsId: string) {
+  return prisma.newsSubmission.findFirst({
+    where: { targetNewsId, villageId, status: "PENDING" },
+    select: { id: true },
+  });
+}
+
 function normalizeInput(data: RequestInput) {
   const parsed = requestSchema.safeParse(data);
   if (!parsed.success) {
@@ -86,7 +93,7 @@ function normalizeInput(data: RequestInput) {
     };
   }
 
-  const visibility = (parsed.data.visibility || "PUBLIC") as NewsVisibility;
+  const visibility = parsed.data.visibility as NewsVisibility;
   const stage = (parsed.data.stage || "DRAFT") as NewsStage;
 
   if (!VALID_VISIBILITY.includes(visibility)) {
@@ -172,6 +179,9 @@ export async function createNewsUpdateRequestAction(
 
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+
+  const existingPending = await findPendingTargetNewsRequest(ctx.villageId, targetNewsId);
+  if (existingPending) return { success: false, error: "มีคำขอเกี่ยวกับข่าวนี้รอการพิจารณาอยู่แล้ว" };
 
   const created = await prisma.newsSubmission.create({
     data: {
@@ -309,16 +319,10 @@ export async function createNewsDeleteRequestAction(
     return { success: false, error: "คุณสามารถขอแก้ไขหรือลบได้เฉพาะข่าวที่คุณสร้างเอง" };
   }
 
-  // Check if there is already a pending request for this news
-  const existingPending = await prisma.newsSubmission.findFirst({
-    where: {
-      targetNewsId,
-      villageId: ctx.villageId,
-      status: "PENDING",
-    },
-  });
+  // UPDATE and DELETE requests share a target-level pending guard.
+  const existingPending = await findPendingTargetNewsRequest(ctx.villageId, targetNewsId);
   if (existingPending) {
-    return { success: false, error: "มีคำขอที่อยู่ระหว่างดำเนินการสำหรับข่าวนี้แล้ว" };
+    return { success: false, error: "มีคำขอเกี่ยวกับข่าวนี้รอการพิจารณาอยู่แล้ว" };
   }
 
   const created = await prisma.newsSubmission.create({

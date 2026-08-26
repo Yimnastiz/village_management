@@ -29,7 +29,7 @@ export function parseNewsSubmissionPayload(value: Prisma.JsonValue | unknown): N
     content: typeof payload.content === "string" ? payload.content.trim() : "",
     imageUrls,
     coverUrl,
-    visibility: typeof payload.visibility === "string" ? payload.visibility : "PUBLIC",
+    visibility: typeof payload.visibility === "string" ? payload.visibility : "",
     stage: typeof payload.stage === "string" ? payload.stage : "DRAFT",
     isPinned: payload.isPinned === true,
     isDeleteRequest: payload.isDeleteRequest === true,
