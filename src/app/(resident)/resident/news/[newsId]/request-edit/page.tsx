@@ -3,13 +3,17 @@ import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { NewsRequestForm } from "../../requests/request-form";
+import { newsDetailHref, readResidentNewsContext } from "@/lib/resident-news-navigation";
 
 interface PageProps {
   params: Promise<{ newsId: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
-export default async function ResidentEditNewsRequestPage({ params }: PageProps) {
+export default async function ResidentEditNewsRequestPage({ params, searchParams }: PageProps) {
   const { newsId } = await params;
+  const context = readResidentNewsContext(await searchParams);
+  const detailHref = newsDetailHref(newsId, context);
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
@@ -37,11 +41,12 @@ export default async function ResidentEditNewsRequestPage({ params }: PageProps)
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 sm:space-y-5">
-      <PageBackLink href={`/resident/news/${news.id}`} label="กลับรายละเอียดข่าว" />
+      <PageBackLink href={detailHref} label="กลับรายละเอียดข่าว" />
       <NewsRequestForm
         mode="update"
         targetNewsId={news.id}
-        cancelHref={`/resident/news/${news.id}`}
+        cancelHref={detailHref}
+        successHref={detailHref}
         defaultValues={{
           title: news.title,
           summary: news.summary || "",

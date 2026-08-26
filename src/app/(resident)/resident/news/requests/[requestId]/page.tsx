@@ -9,13 +9,15 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { prisma } from "@/lib/prisma";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { ResidentNewsRequestActions } from "./resident-news-request-actions";
+import { newsDetailHref, readResidentNewsContext, requestListHref } from "@/lib/resident-news-navigation";
 
-interface PageProps { params: Promise<{ requestId: string }>; }
+interface PageProps { params: Promise<{ requestId: string }>; searchParams: Promise<Record<string, string | undefined>>; }
 
 const statusVariant = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" } as const;
 
-export default async function ResidentNewsRequestDetailPage({ params }: PageProps) {
+export default async function ResidentNewsRequestDetailPage({ params, searchParams }: PageProps) {
   const { requestId } = await params;
+  const context = readResidentNewsContext(await searchParams);
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   const membership = getResidentMembership(session);
@@ -40,8 +42,8 @@ export default async function ResidentNewsRequestDetailPage({ params }: PageProp
 
   return <div className="mx-auto w-full max-w-4xl space-y-4 sm:space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-      <PageBackLink href="/resident/news/requests" label="กลับรายการคำขอ" />
-      <ResidentNewsRequestActions requestId={request.id} editable={editable} deletable={deletable} liveNewsId={liveTarget?.id} />
+      <PageBackLink href={requestListHref(context)} label="กลับรายการคำขอ" />
+      <ResidentNewsRequestActions requestId={request.id} editable={editable} deletable={deletable} liveNewsId={liveTarget?.id} context={context} />
     </div>
 
     <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:p-8">
@@ -59,7 +61,7 @@ export default async function ResidentNewsRequestDetailPage({ params }: PageProp
         {Boolean(payload.isPinned) ? <span>ขอปักหมุด</span> : null}
       </div>
 
-      {liveTarget ? <Link href={`/resident/news/${liveTarget.id}`} className="inline-flex text-sm font-medium text-green-700 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500">ดูข่าวที่เผยแพร่แล้ว</Link> : null}
+      {liveTarget ? <Link href={newsDetailHref(liveTarget.id, context)} className="inline-flex text-sm font-medium text-green-700 hover:text-green-800 focus:outline-none focus:ring-2 focus:ring-green-500">ดูข่าวที่เผยแพร่แล้ว</Link> : null}
       {!liveTarget && request.targetNews?.title ? <p className="text-sm text-gray-600">ข่าวที่อ้างอิง: {request.targetNews.title}</p> : null}
       {String(payload.summary ?? "").trim() ? <p className="text-sm text-gray-600">{String(payload.summary)}</p> : null}
       {imageUrls.length > 0 ? <ImageCarousel images={imageUrls} altPrefix={String(payload.title ?? "news")} thumbnailBehavior="select" /> : null}

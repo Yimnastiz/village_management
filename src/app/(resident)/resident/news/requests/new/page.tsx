@@ -2,9 +2,11 @@ import { redirect } from "next/navigation";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { NewsRequestForm } from "../request-form";
+import { newsDetailHref, newsListHref, readResidentNewsContext, requestListHref } from "@/lib/resident-news-navigation";
+import { PageBackLink } from "@/components/ui/page-back-link";
 
 interface PageProps {
-  searchParams?: Promise<{ newsId?: string }>;
+  searchParams?: Promise<Record<string, string | undefined>>;
 }
 
 export default async function ResidentCreateNewsRequestPage({ searchParams }: PageProps) {
@@ -15,6 +17,7 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
   if (!membership) redirect("/resident/dashboard");
 
   const params = (searchParams ? await searchParams : {}) ?? {};
+  const context = readResidentNewsContext(params);
   const newsId = params.newsId?.trim();
 
   let targetNews = null;
@@ -28,6 +31,8 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
       },
     });
   }
+
+  const cancelHref = targetNews ? newsDetailHref(targetNews.id, context) : context?.from === "requests-pending" || context?.from === "requests-history" || context?.from === "requests-published" ? requestListHref(context) : newsListHref(context);
 
   const defaultValues = targetNews
     ? {
@@ -46,10 +51,12 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
+      <PageBackLink href={cancelHref} label={targetNews ? "กลับรายละเอียดข่าว" : context?.from === "news-list" ? "กลับข่าวสาร" : "กลับรายการคำขอ"} />
       <NewsRequestForm
         mode={targetNews ? "update" : "create"}
         targetNewsId={targetNews?.id}
-        cancelHref={targetNews ? `/resident/news/${targetNews.id}` : "/resident/news/requests"}
+        cancelHref={cancelHref}
+        successHref={targetNews ? requestListHref(context) : requestListHref(context)}
         defaultValues={defaultValues}
       />
     </div>

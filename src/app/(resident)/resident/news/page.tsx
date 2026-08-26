@@ -10,6 +10,7 @@ import { ResidentNewsToolbar } from "./resident-news-toolbar";
 import { NewsCard } from "@/components/news/news-card";
 import { formatNewsAuthor } from "@/lib/news-author";
 import { residentContentVisibility } from "@/lib/resident-content-access";
+import { newsDetailHref, type ResidentNewsContext } from "@/lib/resident-news-navigation";
 
 interface PageProps {
   searchParams: Promise<{ sort?: string; source?: string; visibility?: string; q?: string }>;
@@ -61,6 +62,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
       : { in: ["PUBLIC", "RESIDENT_ONLY"] };
 
   const keyword = query.q?.trim() ?? "";
+  const newsContext: ResidentNewsContext = { from: "news-list", q: keyword || undefined, sort, source, visibility: [...selectedVisibilities].sort().join(",") || undefined };
 
   const orderBy =
     sort === "oldest"
@@ -205,7 +207,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
           {filteredNewsList.map((news) => (
             <NewsCard
               key={news.id}
-              href={`/resident/news/${news.id}`}
+              href={newsDetailHref(news.id, newsContext)}
               title={news.title}
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}

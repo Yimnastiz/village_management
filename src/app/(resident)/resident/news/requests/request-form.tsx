@@ -34,6 +34,7 @@ type RequestFormProps = {
   targetNewsId?: string;
   submissionId?: string;
   cancelHref?: string;
+  successHref?: string;
   defaultValues?: {
     title: string;
     summary: string;
@@ -54,7 +55,7 @@ function isRequestedVisibility(value: string | undefined): value is "PUBLIC" | "
   return value === "PUBLIC" || value === "RESIDENT_ONLY";
 }
 
-export function NewsRequestForm({ mode, targetNewsId, submissionId, cancelHref = "/resident/news/requests", defaultValues }: RequestFormProps) {
+export function NewsRequestForm({ mode, targetNewsId, submissionId, cancelHref = "/resident/news/requests", successHref = "/resident/news/requests", defaultValues }: RequestFormProps) {
   const router = useRouter();
   const [imageUrls, setImageUrls] = useState<string[]>(
     normalizeExistingImageUrls(defaultValues?.imageUrls ?? [])
@@ -111,7 +112,7 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, cancelHref =
       return;
     }
 
-    router.push("/resident/news/requests");
+    router.push(successHref);
     router.refresh();
   };
 

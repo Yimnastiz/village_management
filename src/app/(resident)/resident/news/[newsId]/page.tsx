@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
@@ -8,13 +7,19 @@ import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsSaveButton } from "./news-save-button";
 import { formatNewsAuthor } from "@/lib/news-author";
 import { NewsMetadata } from "@/components/news/news-metadata";
+import { PageBackLink } from "@/components/ui/page-back-link";
+import { newsListHref, newsRequestEditHref, readResidentNewsContext, requestListHref } from "@/lib/resident-news-navigation";
 
 interface PageProps {
   params: Promise<{ newsId: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }
 
-export default async function ResidentNewsDetailPage({ params }: PageProps) {
+export default async function ResidentNewsDetailPage({ params, searchParams }: PageProps) {
   const { newsId } = await params;
+  const context = readResidentNewsContext(await searchParams);
+  const fromPublished = context?.from === "requests-published";
+  const backHref = fromPublished ? requestListHref(context) : newsListHref(context);
   const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
 
   const session = await getSessionContextFromServerCookies();
@@ -71,15 +76,10 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-1 sm:px-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/resident/news"
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
-        >
-          <ArrowLeft className="h-4 w-4" /> กลับรายการข่าว
-        </Link>
+        <PageBackLink href={backHref} label={fromPublished ? "กลับข่าวที่เผยแพร่" : "กลับข่าวสาร"} />
         <div className="flex w-full items-center gap-2 sm:w-auto">
           {canRequestEdit && (
-            <Link href={`/resident/news/${newsId}/request-edit`} className="text-sm text-green-700 hover:text-green-800">
+            <Link href={newsRequestEditHref(newsId, context)} className="text-sm text-green-700 hover:text-green-800">
               ขอแก้ไขข่าวของฉัน
             </Link>
           )}

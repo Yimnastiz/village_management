@@ -11,6 +11,7 @@ import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/li
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { NewsDeleteRequestButton } from "./news-delete-request-button";
+import { newsDetailHref, newRequestHref, requestDetailHref } from "@/lib/resident-news-navigation";
 
 type Tab = "pending" | "history" | "published";
 
@@ -43,6 +44,7 @@ export default async function ResidentNewsRequestsPage({ searchParams }: { searc
   const query = await searchParams;
   const tab: Tab = query?.tab === "history" || query?.tab === "published" ? query.tab : "pending";
   const keyword = tab === "published" ? query?.q?.trim() ?? "" : "";
+  const listContext = { from: `requests-${tab}` as "requests-pending" | "requests-history" | "requests-published", q: keyword || undefined };
   const requestWhere: Prisma.NewsSubmissionWhereInput = {
     requesterId: session.id,
     villageId: membership.villageId,
@@ -90,7 +92,7 @@ export default async function ResidentNewsRequestsPage({ searchParams }: { searc
       {requests.length === 0 ? <EmptyState icon={FileClock} title={tab === "pending" ? "ไม่มีคำขอที่รอพิจารณา" : "ยังไม่มีประวัติคำขอ"} /> : requests.map((request) => {
         const isDeleteRequest = isDeleteRequestPayload(request.payload);
         return <article key={request.id} className="rounded-xl border border-gray-200 bg-white transition hover:border-gray-300 hover:shadow-sm">
-          <Link href={`/resident/news/requests/${request.id}`} className="block p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600 sm:p-5" aria-label={`ดูรายละเอียดคำขอข่าว: ${requestTitle(request.payload)}`}>
+          <Link href={requestDetailHref(request.id, listContext)} className="block p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-green-600 sm:p-5" aria-label={`ดูรายละเอียดคำขอข่าว: ${requestTitle(request.payload)}`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0"><div className="mb-2 flex flex-wrap items-center gap-2"><Badge variant={statusVariant[request.status] ?? "default"}>{NEWS_SUBMISSION_STATUS_LABELS[request.status]}</Badge><span className="text-sm text-gray-500">{isDeleteRequest ? "คำขอลบข่าว" : NEWS_SUBMISSION_TYPE_LABELS[request.type]}</span></div><p className="truncate font-semibold text-gray-900">{requestTitle(request.payload)}</p>{request.targetNews?.title ? <p className="mt-1 truncate text-sm text-gray-500">อ้างอิงข่าว: {request.targetNews.title}</p> : null}{tab === "history" && request.reviewedAt ? <p className="mt-2 text-sm text-gray-600">พิจารณาเมื่อ {request.reviewedAt.toLocaleDateString("th-TH")}</p> : null}{request.reviewNote ? <p className="mt-1 line-clamp-2 text-sm text-gray-700">{request.status === "REJECTED" ? "เหตุผล: " : "หมายเหตุ: "}{request.reviewNote}</p> : null}</div>
               <p className="shrink-0 text-xs text-gray-400">ส่งเมื่อ {request.createdAt.toLocaleDateString("th-TH")}</p>
@@ -104,8 +106,8 @@ export default async function ResidentNewsRequestsPage({ searchParams }: { searc
         const isPendingDelete = pendingRequest ? isDeleteRequestPayload(pendingRequest.payload) : false;
         return <article key={news.id} className="rounded-xl border border-gray-200 bg-white p-4 transition hover:border-gray-300 hover:shadow-sm sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <Link href={`/resident/news/${news.id}`} className="min-w-0 flex-1 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"><p className="truncate text-base font-semibold leading-tight text-gray-900">{news.title}</p>{news.summary ? <p className="mt-1 line-clamp-2 text-sm text-gray-600">{news.summary}</p> : null}<p className="mt-1.5 text-xs text-gray-400">เผยแพร่เมื่อ {news.publishedAt ? news.publishedAt.toLocaleDateString("th-TH") : "-"}</p></Link>
-            <div className="flex shrink-0 flex-wrap items-center gap-2">{pendingRequest ? <Link href={`/resident/news/requests/${pendingRequest.id}`} className="inline-flex h-9 items-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">{isPendingDelete ? "มีคำขอลบรอพิจารณา" : "มีคำขอรอพิจารณา"}</Link> : <><Link href={`/resident/news/requests/new?newsId=${news.id}`} className="inline-flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">ขอแก้ไข</Link><NewsDeleteRequestButton newsId={news.id} className="h-9 px-3" /></>}</div>
+            <Link href={newsDetailHref(news.id, listContext)} className="min-w-0 flex-1 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"><p className="truncate text-base font-semibold leading-tight text-gray-900">{news.title}</p>{news.summary ? <p className="mt-1 line-clamp-2 text-sm text-gray-600">{news.summary}</p> : null}<p className="mt-1.5 text-xs text-gray-400">เผยแพร่เมื่อ {news.publishedAt ? news.publishedAt.toLocaleDateString("th-TH") : "-"}</p></Link>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{pendingRequest ? <Link href={requestDetailHref(pendingRequest.id, listContext)} className="inline-flex h-9 items-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">{isPendingDelete ? "มีคำขอลบรอพิจารณา" : "มีคำขอรอพิจารณา"}</Link> : <><Link href={newRequestHref(listContext, news.id)} className="inline-flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">ขอแก้ไข</Link><NewsDeleteRequestButton newsId={news.id} className="h-9 px-3" /></>}</div>
           </div>
         </article>;
       })}

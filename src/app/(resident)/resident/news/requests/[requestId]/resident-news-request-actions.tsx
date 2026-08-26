@@ -9,15 +9,17 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { deletePendingNewsSubmissionAction } from "../actions";
 import { NewsDeleteRequestButton } from "../news-delete-request-button";
+import { newRequestHref, requestEditHref, requestListHref, type ResidentNewsContext } from "@/lib/resident-news-navigation";
 
 type ResidentNewsRequestActionsProps = {
   requestId: string;
   editable: boolean;
   deletable: boolean;
   liveNewsId?: string;
+  context: ResidentNewsContext | null;
 };
 
-export function ResidentNewsRequestActions({ requestId, editable, deletable, liveNewsId }: ResidentNewsRequestActionsProps) {
+export function ResidentNewsRequestActions({ requestId, editable, deletable, liveNewsId, context }: ResidentNewsRequestActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const router = useRouter();
@@ -34,7 +36,7 @@ export function ResidentNewsRequestActions({ requestId, editable, deletable, liv
       }
 
       pushToast({ tone: "success", title: "ลบคำขอเรียบร้อยแล้ว" });
-      router.push("/resident/news/requests");
+      router.push(requestListHref(context));
     } catch (error) {
       pushToast({
         tone: "error",
@@ -51,13 +53,13 @@ export function ResidentNewsRequestActions({ requestId, editable, deletable, liv
   return (
     <div className="flex flex-wrap justify-end gap-2" aria-label="การดำเนินการคำขอ">
       {liveNewsId ? <>
-        <Link href={`/resident/news/requests/new?newsId=${liveNewsId}`}>
+        <Link href={newRequestHref(context, liveNewsId)}>
           <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />ขอแก้ไขข่าว</Button>
         </Link>
         <NewsDeleteRequestButton newsId={liveNewsId} />
       </> : <>
         {editable ? (
-          <Link href={`/resident/news/requests/${requestId}/edit`}>
+          <Link href={requestEditHref(requestId, context)}>
             <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />แก้ไขคำขอ</Button>
           </Link>
         ) : null}
