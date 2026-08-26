@@ -20,6 +20,8 @@ const requestSchema = z.object({
   isPinned: z.boolean().optional(),
 });
 
+const deleteRequestReasonSchema = z.string().trim().min(5, "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
+
 type RequestInput = z.infer<typeof requestSchema>;
 
 const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
@@ -272,10 +274,14 @@ export async function deletePendingNewsSubmissionAction(
 }
 
 export async function createNewsDeleteRequestAction(
-  targetNewsId: string
+  targetNewsId: string,
+  reason: string
 ): Promise<{ success: true; requestId?: string } | { success: false; error: string }> {
   const ctx = await requireResidentVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+
+  const parsedReason = deleteRequestReasonSchema.safeParse(reason);
+  if (!parsedReason.success) return { success: false, error: parsedReason.error.issues[0]?.message ?? "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
 
   const targetNews = await prisma.news.findFirst({
     where: {
@@ -307,6 +313,7 @@ export async function createNewsDeleteRequestAction(
   const existingPending = await prisma.newsSubmission.findFirst({
     where: {
       targetNewsId,
+      villageId: ctx.villageId,
       status: "PENDING",
     },
   });
@@ -329,6 +336,7 @@ export async function createNewsDeleteRequestAction(
         stage: targetNews.stage,
         isPinned: targetNews.isPinned,
         isDeleteRequest: true,
+        deleteReason: parsedReason.data,
       },
     },
     select: { id: true },

@@ -10,7 +10,7 @@ import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar
 import { NEWS_SUBMISSION_STATUS_LABELS, NEWS_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { createNewsDeleteRequestAction } from "./actions";
+import { NewsDeleteRequestButton } from "./news-delete-request-button";
 
 type Tab = "pending" | "history";
 
@@ -76,7 +76,7 @@ export default async function ResidentNewsRequestsPage({ searchParams }: { searc
           const pendingSubmissions = news.submissions;
           const hasPendingRequest = pendingSubmissions.length > 0;
           const isPendingDelete = pendingSubmissions[0] ? isDeleteRequestPayload(pendingSubmissions[0].payload) : false;
-          return <article key={news.id} className="rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-sm"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate text-base font-semibold leading-tight text-gray-900">{news.title}</p><p className="mt-1.5 text-xs text-gray-400">เผยแพร่เมื่อ: {news.publishedAt ? news.publishedAt.toLocaleDateString("th-TH") : "-"}</p></div><div className="flex shrink-0 flex-wrap items-center gap-2">{hasPendingRequest ? <Badge variant="warning">{isPendingDelete ? "อยู่ระหว่างรออนุมัติลบข่าว" : "อยู่ระหว่างรออนุมัติแก้ไขข่าว"}</Badge> : <><Link href={`/resident/news/requests/new?newsId=${news.id}`}><button type="button" className="inline-flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">ขอแก้ไขข่าว</button></Link><form action={async () => { "use server"; await createNewsDeleteRequestAction(news.id); }}><button type="submit" className="inline-flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-red-600 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">ขอลบข่าว</button></form></>}</div></div></article>;
+          return <article key={news.id} className="rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-sm"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate text-base font-semibold leading-tight text-gray-900">{news.title}</p><p className="mt-1.5 text-xs text-gray-400">เผยแพร่เมื่อ: {news.publishedAt ? news.publishedAt.toLocaleDateString("th-TH") : "-"}</p></div><div className="flex shrink-0 flex-wrap items-center gap-2">{hasPendingRequest ? <Badge variant="warning">{isPendingDelete ? "อยู่ระหว่างรออนุมัติลบข่าว" : "อยู่ระหว่างรออนุมัติแก้ไขข่าว"}</Badge> : <><Link href={`/resident/news/requests/new?newsId=${news.id}`}><button type="button" className="inline-flex h-9 items-center rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">ขอแก้ไขข่าว</button></Link><NewsDeleteRequestButton newsId={news.id} className="h-9 px-3" /></>}</div></div></article>;
         })}
       </div>}
     </section>

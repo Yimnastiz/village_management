@@ -107,11 +107,13 @@ export function ResidentPageToolbar({
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
+  const [isComposingSearch, setIsComposingSearch] = useState(false);
   const [, startTransition] = useTransition();
   const router = useRouter();
   const pathname = usePathname();
   const currentSearchParams = useSearchParams();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastAppliedSearchRef = useRef((search?.keyword ?? "").trim());
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchPanelId = `${namespace}-search-panel`;
@@ -125,7 +127,14 @@ export function ResidentPageToolbar({
   const shouldHideHeading = hideHeading ?? (registerHeader || Boolean(residentPageHeader));
   const backLink = backHref ? <Link href={backHref} className="inline-flex min-h-9 items-center gap-1.5 px-1 text-sm text-gray-500 transition-colors hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"><ArrowLeft className="h-4 w-4" aria-hidden="true" />{backLabel}</Link> : null;
 
-  useEffect(() => setSearchValue(search?.keyword ?? ""), [search?.keyword]);
+  useEffect(() => {
+    const externalValue = search?.keyword ?? "";
+    // A URL response can arrive after the resident has already typed more
+    // characters. Keep that newer local text instead of rolling it back.
+    if (externalValue.trim() !== lastAppliedSearchRef.current) {
+      setSearchValue(externalValue);
+    }
+  }, [search?.keyword]);
   useEffect(() => {
     if (!filters || !sessionStorage.getItem(filterPersistenceKey)) return;
     sessionStorage.removeItem(filterPersistenceKey);
@@ -136,6 +145,7 @@ export function ResidentPageToolbar({
   const applySearch = (value: string) => {
     const params = new URLSearchParams(currentSearchParams.toString());
     const normalized = value.trim();
+    lastAppliedSearchRef.current = normalized;
     if (normalized) params.set("q", normalized); else params.delete("q");
     params.delete("page");
     const query = params.toString();
@@ -143,13 +153,13 @@ export function ResidentPageToolbar({
   };
 
   useEffect(() => {
-    if (!search || searchValue.trim() === search.keyword.trim()) return;
+    if (!search || isComposingSearch || searchValue.trim() === search.keyword.trim()) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => applySearch(searchValue), 350);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
     // URL state is intentionally read when the debounced update runs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, searchValue]);
+  }, [isComposingSearch, search, searchValue]);
 
   const closeFilter = () => {
     setExpandedPanel(null);
@@ -183,7 +193,7 @@ export function ResidentPageToolbar({
       {search ? <form id={searchPanelId} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className="relative flex min-w-0 w-full shrink-0 items-center sm:w-[clamp(14rem,28vw,24rem)]">
         <label htmlFor={searchInputId} className="sr-only">{searchLabel}</label>
         <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" />
-        <input ref={searchInputRef} id={searchInputId} name="q" type="search" value={searchValue} onChange={(event) => setSearchValue(event.target.value)} list={search.suggestions?.length ? suggestionsId : undefined} placeholder={search.placeholder} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none" />
+        <input ref={searchInputRef} id={searchInputId} name="q" type="search" value={searchValue} onChange={(event) => setSearchValue(event.target.value)} onCompositionStart={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setIsComposingSearch(true); }} onCompositionEnd={() => setIsComposingSearch(false)} list={search.suggestions?.length ? suggestionsId : undefined} placeholder={search.placeholder} className="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white pl-9 pr-10 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none" />
         {searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label={`ล้าง${searchLabel}`} className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       </form> : null}
       {filters ? <>

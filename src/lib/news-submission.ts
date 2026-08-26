@@ -10,6 +10,7 @@ export type NewsSubmissionPayload = {
   stage: string;
   isPinned: boolean;
   isDeleteRequest: boolean;
+  deleteReason: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -32,6 +33,7 @@ export function parseNewsSubmissionPayload(value: Prisma.JsonValue | unknown): N
     stage: typeof payload.stage === "string" ? payload.stage : "DRAFT",
     isPinned: payload.isPinned === true,
     isDeleteRequest: payload.isDeleteRequest === true,
+    deleteReason: typeof payload.deleteReason === "string" ? payload.deleteReason.trim() : "",
   };
 }
 

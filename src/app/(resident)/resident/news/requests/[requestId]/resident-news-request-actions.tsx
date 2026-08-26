@@ -8,14 +8,16 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { deletePendingNewsSubmissionAction } from "../actions";
+import { NewsDeleteRequestButton } from "../news-delete-request-button";
 
 type ResidentNewsRequestActionsProps = {
   requestId: string;
   editable: boolean;
   deletable: boolean;
+  liveNewsId?: string;
 };
 
-export function ResidentNewsRequestActions({ requestId, editable, deletable }: ResidentNewsRequestActionsProps) {
+export function ResidentNewsRequestActions({ requestId, editable, deletable, liveNewsId }: ResidentNewsRequestActionsProps) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const router = useRouter();
@@ -44,11 +46,16 @@ export function ResidentNewsRequestActions({ requestId, editable, deletable }: R
     }
   };
 
-  if (!editable && !deletable) return null;
+  if (!editable && !deletable && !liveNewsId) return null;
 
   return (
-    <section className="border-t border-gray-100 pt-4" aria-label="การดำเนินการคำขอ">
-      <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap justify-end gap-2" aria-label="การดำเนินการคำขอ">
+      {liveNewsId ? <>
+        <Link href={`/resident/news/requests/new?newsId=${liveNewsId}`}>
+          <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />ขอแก้ไขข่าว</Button>
+        </Link>
+        <NewsDeleteRequestButton newsId={liveNewsId} />
+      </> : <>
         {editable ? (
           <Link href={`/resident/news/requests/${requestId}/edit`}>
             <Button variant="outline"><Pencil className="mr-1.5 h-4 w-4" />แก้ไขคำขอ</Button>
@@ -59,7 +66,7 @@ export function ResidentNewsRequestActions({ requestId, editable, deletable }: R
             <Trash2 className="mr-1.5 h-4 w-4" />ลบคำขอ
           </Button>
         ) : null}
-      </div>
+      </>}
       <ConfirmDialog
         open={confirmOpen}
         onClose={() => { if (!pending) setConfirmOpen(false); }}
@@ -70,6 +77,6 @@ export function ResidentNewsRequestActions({ requestId, editable, deletable }: R
         description="คุณต้องการลบคำขอนี้หรือไม่ การดำเนินการนี้ไม่สามารถย้อนกลับได้"
         confirmLabel="ลบคำขอ"
       />
-    </section>
+    </div>
   );
 }
