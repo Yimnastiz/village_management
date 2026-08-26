@@ -45,7 +45,7 @@ export default async function ResidentCreateNewsRequestPage({ searchParams }: Pa
     : undefined;
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <NewsRequestForm
         mode={targetNews ? "update" : "create"}
         targetNewsId={targetNews?.id}

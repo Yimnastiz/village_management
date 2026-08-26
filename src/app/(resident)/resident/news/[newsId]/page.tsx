@@ -108,7 +108,7 @@ export default async function ResidentNewsDetailPage({ params }: PageProps) {
 
         {imageUrls.length > 0 && (
           <div className="mb-6">
-            <ImageCarousel images={imageUrls} altPrefix={news.title} />
+            <ImageCarousel images={imageUrls} altPrefix={news.title} thumbnailBehavior="select" />
           </div>
         )}
 
