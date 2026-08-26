@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ChevronDown, ChevronUp, Info } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +46,8 @@ function normalizeExistingImageUrls(imageUrls: string[]) {
 
 export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValues }: RequestFormProps) {
   const router = useRouter();
+  const [isGuidanceOpen, setIsGuidanceOpen] = useState(false);
+  const guidanceId = useId();
   const [imageUrls, setImageUrls] = useState<string[]>(
     normalizeExistingImageUrls(defaultValues?.imageUrls ?? [])
   );
@@ -103,10 +106,17 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, defaultValue
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
-      <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">ข่าวที่ส่งจะเข้าสู่คิวรอตรวจสอบ ผู้ดูแลหมู่บ้านจะเป็นผู้อนุมัติก่อนเผยแพร่</p>
-      <Input label="หัวข้อข่าว" {...register("title")} error={errors.title?.message} />
+      <div className="rounded-lg border border-slate-200 bg-slate-50/70">
+        <button type="button" aria-expanded={isGuidanceOpen} aria-controls={guidanceId} onClick={() => setIsGuidanceOpen((open) => !open)} className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-inset">
+          <Info className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+          <span className="min-w-0 flex-1">เกี่ยวกับการส่งคำขอ</span>
+          {isGuidanceOpen ? <ChevronUp className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" />}
+        </button>
+        {isGuidanceOpen ? <p id={guidanceId} className="border-t border-slate-200 px-3 py-2.5 text-sm leading-6 text-slate-600">ข่าวที่ส่งจะเข้าสู่คิวรอตรวจสอบ ผู้ดูแลหมู่บ้านจะเป็นผู้อนุมัติก่อนเผยแพร่</p> : null}
+      </div>
+      <Input label="หัวข้อข่าว" required {...register("title")} error={errors.title?.message} />
       <Input label="สรุปข่าว" {...register("summary")} error={errors.summary?.message} />
-      <Textarea label="เนื้อหา" {...register("content")} error={errors.content?.message} rows={10} />
+      <Textarea label="เนื้อหา" required {...register("content")} error={errors.content?.message} rows={10} />
 
       <NewsImageManager value={imageUrls.map((url, sortOrder) => ({ url, sortOrder, isCover: coverUrl ? url === coverUrl : sortOrder === 0 }))} onChange={(items) => { const urls = items.map((item) => item.url); setImageUrls(urls); setCoverUrl(items.find((item) => item.isCover)?.url ?? urls[0] ?? null); }} />
 
