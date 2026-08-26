@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { createResidentEventChangeRequestAction, deleteResidentVillageEventSubmissionAction } from "../actions";
 
-export function ResidentRequestActions({ requestId, status }: { requestId: string; status: string }) {
+export function ResidentRequestActions({ requestId, status, type }: { requestId: string; status: string; type: string }) {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteRequestOpen, setDeleteRequestOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -40,13 +40,13 @@ export function ResidentRequestActions({ requestId, status }: { requestId: strin
     router.push("/resident/calendar/requests");
   };
 
-  if (status !== "PENDING" && status !== "APPROVED") return null;
+  if ((status !== "PENDING" && status !== "APPROVED") || (status === "APPROVED" && type !== "CREATE")) return null;
 
   return <div className="space-y-3 border-t border-gray-100 pt-4">
     {status === "APPROVED" ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">กิจกรรมนี้เผยแพร่แล้ว การแก้ไขหรือลบจะมีผลหลังผู้ใหญ่บ้านอนุมัติเท่านั้น</p> : null}
     {changeRequested ? <p className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-sm font-medium text-amber-900">รอผู้ใหญ่บ้านอนุมัติคำขอลบ</p> : <div className="flex flex-col gap-2 sm:flex-row">
-      <Link href={`/resident/calendar/requests/${requestId}/edit`} className="w-full sm:w-auto"><Button variant="outline" className="w-full"><Pencil className="mr-1.5 h-4 w-4" />แก้ไข</Button></Link>
-      <Button variant="danger" className="w-full sm:w-auto" onClick={() => status === "PENDING" ? setConfirmDeleteOpen(true) : setDeleteRequestOpen(true)}><Trash2 className="mr-1.5 h-4 w-4" />{status === "PENDING" ? "ลบคำขอ" : "ขอลบ"}</Button>
+      {type === "CREATE" ? <Link href={`/resident/calendar/requests/${requestId}/edit`} className="w-full sm:w-auto"><Button variant="outline" className="w-full"><Pencil className="mr-1.5 h-4 w-4" />{status === "APPROVED" ? "ขอแก้ไขกิจกรรม" : "แก้ไข"}</Button></Link> : null}
+      <Button variant="danger" className="w-full sm:w-auto" onClick={() => status === "PENDING" ? setConfirmDeleteOpen(true) : setDeleteRequestOpen(true)}><Trash2 className="mr-1.5 h-4 w-4" />{status === "PENDING" ? "ลบคำขอ" : "ขอลบกิจกรรม"}</Button>
     </div>}
     <ConfirmDialog open={confirmDeleteOpen} onClose={() => !pending && setConfirmDeleteOpen(false)} onConfirm={removePending} pending={pending} tone="danger" title="ลบคำขอนี้?" description="คำขอที่ยังรอพิจารณาจะถูกลบ โดยไม่กระทบกิจกรรมที่เผยแพร่แล้ว" confirmLabel="ลบคำขอ" />
     {deleteRequestOpen ? <div className="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-request-title">

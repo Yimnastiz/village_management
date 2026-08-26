@@ -1,16 +1,15 @@
-import Link from "next/link";
-import { FileClock, Plus } from "lucide-react";
+import { FileClock } from "lucide-react";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { RequestViewTabs } from "@/components/ui/request-view-tabs";
-import { Button } from "@/components/ui/button";
 import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { resolveApprovedSubmissionEvent } from "@/lib/calendar-submission-event";
 import { prisma } from "@/lib/prisma";
 import { ResidentCalendarRequestCard, ResidentPublishedCalendarCard } from "./resident-calendar-request-cards";
+import { ResidentEventRequestModal } from "../resident-event-request-modal";
 
 type Tab = "pending" | "history" | "published";
 
@@ -82,7 +81,7 @@ export default async function ResidentCalendarRequestsPage({ searchParams }: { s
       namespace="resident-calendar-requests"
       title="คำขอกิจกรรม"
       hideHeading
-      actions={<div className="flex min-w-0 flex-wrap items-center gap-2"><PageBackLink href="/resident/calendar" label="กลับปฏิทิน" />{tabs}<Link href="/resident/calendar/requests/new"><Button size="sm"><Plus className="h-4 w-4" /><span className="hidden sm:ml-1 sm:inline">ส่งคำขอ</span></Button></Link></div>}
+      actions={<div className="flex min-w-0 flex-wrap items-center gap-2"><PageBackLink href="/resident/calendar" label="กลับปฏิทิน" />{tabs}<ResidentEventRequestModal triggerLabel="ส่งคำขอ" /></div>}
     />
 
     {tab !== "published" ? <section className="space-y-3" aria-label={tab === "pending" ? "คำขอที่รอพิจารณา" : "ประวัติคำขอ"}>

@@ -19,6 +19,7 @@ const requestSchema = z.object({
 });
 
 type RequestInput = z.infer<typeof requestSchema>;
+const pendingChangeConflictMessage = "มีคำขอเกี่ยวกับกิจกรรมนี้รอการพิจารณาอยู่แล้ว";
 
 function normalizeInput(data: RequestInput) {
   const parsed = requestSchema.safeParse(data);
@@ -114,6 +115,7 @@ export async function createVillageEventSubmissionAction(
       });
     }
 
+    revalidatePath("/resident/calendar");
     revalidatePath("/resident/calendar/requests");
     revalidatePath("/admin/calendar/requests");
     revalidateAdminSidebar();
@@ -151,17 +153,18 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
   try {
     if (source.status === "PENDING") {
       await prisma.villageEventSubmission.update({ where: { id: source.id }, data: normalized.value });
-      revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
+      revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
       return { success: true, requestId: source.id };
     } else {
       const event = await resolveApprovedSubmissionEvent(source);
       if (!event) return { success: false, error: "ไม่พบกิจกรรมที่ต้องการแก้ไข กรุณาติดต่อผู้ใหญ่บ้าน" };
-      const duplicate = await prisma.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: VillageEventSubmissionType.EDIT, status: "PENDING" }, select: { id: true } });
-      if (duplicate) return { success: false, error: "มีคำขอแก้ไขกิจกรรมนี้รอพิจารณาอยู่แล้ว" };
-      const created = await prisma.$transaction([
-        prisma.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } }),
-        prisma.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: VillageEventSubmissionType.EDIT, ...normalized.value }, select: { id: true } }),
-      ]);
+      const created = await prisma.$transaction(async (tx) => {
+        const duplicate = await tx.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: { in: [VillageEventSubmissionType.EDIT, VillageEventSubmissionType.DELETE] }, status: "PENDING" }, select: { id: true } });
+        if (duplicate) return null;
+        await tx.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } });
+        return tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: VillageEventSubmissionType.EDIT, ...normalized.value }, select: { id: true } });
+      }, { isolationLevel: "Serializable" });
+      if (!created) return { success: false, error: pendingChangeConflictMessage };
       const admins = await prisma.villageMembership.findMany({
         where: { villageId: membership.villageId, status: "ACTIVE", role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } },
         distinct: ["userId"],
@@ -175,13 +178,13 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
             type: NotificationType.SYSTEM,
             title: "มีคำขอแก้ไขกิจกรรมใหม่",
             body: `${session.name} ขอแก้ไขกิจกรรม \"${normalized.value.title}\"`,
-            metadata: notificationMetadata("CALENDAR", { actionUrl: `/admin/calendar/requests/${created[1].id}`, actionLabel: "ตรวจสอบคำขอ", requestId: created[1].id, eventId: event.id }),
+            metadata: notificationMetadata("CALENDAR", { actionUrl: `/admin/calendar/requests/${created.id}`, actionLabel: "ตรวจสอบคำขอ", requestId: created.id, eventId: event.id }),
           })),
         });
       }
       revalidatePath("/admin/notifications");
-      revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
-      return { success: true, requestId: created[1].id };
+      revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
+      return { success: true, requestId: created.id };
     }
   } catch { return { success: false, error: "บันทึกคำขอไม่สำเร็จ" }; }
 }
@@ -191,7 +194,7 @@ export async function deleteResidentVillageEventSubmissionAction(requestId: stri
   if (!context.ok) return { success: false, error: context.error };
   try {
     await prisma.villageEventSubmission.delete({ where: { id: context.request.id } });
-    revalidatePath("/resident/calendar/requests"); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
+    revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
     return { success: true };
   } catch { return { success: false, error: "ลบคำขอไม่สำเร็จ" }; }
 }
@@ -205,16 +208,17 @@ export async function createResidentEventChangeRequestAction(requestId: string, 
   if (!source) return { success: false, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   const event = await resolveApprovedSubmissionEvent(source);
   if (!event) return { success: false, error: "ไม่พบกิจกรรมที่เกี่ยวข้องอย่างชัดเจน กรุณาติดต่อผู้ใหญ่บ้าน" };
-  const existing = await prisma.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, status: "PENDING" }, select: { id: true } });
-  if (existing) return { success: false, error: "มีคำขอประเภทนี้รอพิจารณาอยู่แล้ว" };
   const detail = reason.trim();
   if (!detail) return { success: false, error: "กรุณาระบุรายละเอียดหรือเหตุผล" };
   try {
-    await prisma.$transaction([
-      prisma.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } }),
-      prisma.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, title: event.title, description: detail, location: event.location, startsAt: event.startsAt, endsAt: event.endsAt, isPublic: event.isPublic, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, eventId: event.id }, select: { id: true } }),
-    ]);
-    revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
+    const created = await prisma.$transaction(async (tx) => {
+      const existing = await tx.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: { in: [VillageEventSubmissionType.EDIT, VillageEventSubmissionType.DELETE] }, status: "PENDING" }, select: { id: true } });
+      if (existing) return null;
+      await tx.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } });
+      return tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, title: event.title, description: detail, location: event.location, startsAt: event.startsAt, endsAt: event.endsAt, isPublic: event.isPublic, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, eventId: event.id }, select: { id: true } });
+    }, { isolationLevel: "Serializable" });
+    if (!created) return { success: false, error: pendingChangeConflictMessage };
+    revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
     return { success: true };
   } catch { return { success: false, error: "ส่งคำขอไม่สำเร็จ" }; }
 }

@@ -39,6 +39,6 @@ export default async function EditResidentCalendarRequestPage({ params }: { para
       <h1 className="text-2xl font-bold text-gray-900">แก้ไขคำขอกิจกรรม</h1>
       <p className="mt-1 text-sm text-gray-500">{approved ? "รายการนี้ได้รับอนุมัติแล้ว การแก้ไขจะมีผลหลังผู้ใหญ่บ้านอนุมัติคำขอแก้ไข" : "แก้ไขคำขอกิจกรรมของคุณ"}</p>
     </div>
-    <CalendarRequestForm requestId={request.id} approved={approved} initialValues={{ title: values.title, description: values.description ?? "", location: values.location ?? "", startsAt: toInput(values.startsAt), endsAt: toInput(values.endsAt), visibility: values.isPublic ? "PUBLIC" : "RESIDENT" }} />
+    <CalendarRequestForm requestId={request.id} approved={approved} cancelHref={`/resident/calendar/requests/${request.id}`} initialValues={{ title: values.title, description: values.description ?? "", location: values.location ?? "", startsAt: toInput(values.startsAt), endsAt: toInput(values.endsAt), visibility: values.isPublic ? "PUBLIC" : "RESIDENT" }} />
   </main>;
 }

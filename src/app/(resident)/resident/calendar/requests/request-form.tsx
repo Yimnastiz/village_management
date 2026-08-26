@@ -28,10 +28,10 @@ const schema = z.object({
 export type CalendarRequestFormData = z.infer<typeof schema>;
 
 type CalendarRequestFormProps = {
-  requestId?: string; initialValues?: Partial<CalendarRequestFormData>; approved?: boolean; embedded?: boolean; formId?: string; hideActions?: boolean; onSuccess?: () => void; onCancel?: () => void; onSubmittingChange?: (isSubmitting: boolean) => void;
+  requestId?: string; initialValues?: Partial<CalendarRequestFormData>; approved?: boolean; embedded?: boolean; formId?: string; hideActions?: boolean; onSuccess?: () => void; onCancel?: () => void; cancelHref?: string; onSubmittingChange?: (isSubmitting: boolean) => void;
 };
 
-export function CalendarRequestForm({ requestId, initialValues, approved = false, embedded = false, formId, hideActions = false, onSuccess, onCancel, onSubmittingChange }: CalendarRequestFormProps = {}) {
+export function CalendarRequestForm({ requestId, initialValues, approved = false, embedded = false, formId, hideActions = false, onSuccess, onCancel, cancelHref = "/resident/calendar/requests", onSubmittingChange }: CalendarRequestFormProps = {}) {
   const router = useRouter();
   const { pushToast } = useToast();
   const { register, handleSubmit, setError, clearErrors, reset, formState: { errors, isSubmitting } } = useForm<CalendarRequestFormData>({
@@ -41,19 +41,22 @@ export function CalendarRequestForm({ requestId, initialValues, approved = false
   useEffect(() => { onSubmittingChange?.(isSubmitting); }, [isSubmitting, onSubmittingChange]);
   const onSubmit = async (data: CalendarRequestFormData) => {
     clearErrors("root");
+    let mutationSucceeded = false;
     try {
       const result = requestId ? await updateResidentVillageEventSubmissionAction(requestId, data) : await createVillageEventSubmissionAction(data);
       if (!result.success) { setError("root", { message: result.error }); pushToast({ tone: "error", title: requestId ? "บันทึกคำขอไม่สำเร็จ" : "ส่งคำขอกิจกรรมไม่สำเร็จ", description: result.error }); return; }
+      mutationSucceeded = true;
       if (!requestId) reset();
       pushToast({ tone: "success", title: requestId ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "ส่งคำขอกิจกรรมเรียบร้อยแล้ว", description: requestId ? undefined : "รอผู้ดูแลหมู่บ้านตรวจสอบและอนุมัติ" });
       if (onSuccess) { onSuccess(); router.refresh(); return; }
       router.push(requestId ? `/resident/calendar/requests/${result.requestId}?updated=1` : "/resident/calendar/requests");
     } catch (error) {
+      if (mutationSucceeded) return;
       const message = error instanceof Error ? error.message : "กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง";
       setError("root", { message }); pushToast({ tone: "error", title: requestId ? "บันทึกคำขอไม่สำเร็จ" : "ส่งคำขอกิจกรรมไม่สำเร็จ", description: message });
     }
   };
-  const actions = <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={onCancel ?? (() => router.back())} disabled={isSubmitting}>ยกเลิก</Button><Button type="submit" form={formId} isLoading={isSubmitting} disabled={isSubmitting}>{requestId ? "บันทึกการแก้ไข" : "ส่งคำขอกิจกรรม"}</Button></div>;
+  const actions = <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={onCancel ?? (() => router.push(cancelHref))} disabled={isSubmitting}>ยกเลิก</Button><Button type="submit" form={formId} isLoading={isSubmitting} disabled={isSubmitting}>{requestId ? "บันทึกการแก้ไข" : "ส่งคำขอกิจกรรม"}</Button></div>;
   return <form id={formId} onSubmit={handleSubmit(onSubmit)} className={embedded ? "space-y-4" : "space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"}>
     <Input label="ชื่อกิจกรรม" required {...register("title")} error={errors.title?.message} />
     <Textarea label="รายละเอียด" {...register("description")} error={errors.description?.message} rows={embedded ? 3 : 4} />
