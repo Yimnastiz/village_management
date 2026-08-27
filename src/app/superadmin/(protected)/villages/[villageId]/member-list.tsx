@@ -10,8 +10,8 @@ const roleLabel: Record<string, string> = { HEADMAN: "ผู้ใหญ่บ�
 const statusLabel: Record<string, string> = { ACTIVE: "ใช้งานอยู่", PENDING: "รอตรวจสอบ", SUSPENDED: "ระงับ", REJECTED: "ไม่อนุมัติ", LEFT: "ออกแล้ว" };
 
 function ActionForm({ row, villageId, villageName, houses, returnTo }: { row: Row; villageId: string; villageName: string; houses: { id: string; houseNumber: string }[]; returnTo: "users" | "admins" }) {
-  return <details className="relative"><summary className="cursor-pointer list-none rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">จัดการ</summary><form action={changeMembershipSupportAction} className="mt-2 grid min-w-64 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:min-w-80">
-    <input type="hidden" name="targetVillageId" value={villageId} /><input type="hidden" name="membershipId" value={row.id} /><input type="hidden" name="returnTo" value={returnTo} />
+  return <details className="relative"><summary className="cursor-pointer list-none rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">จัดการ</summary><form action={changeMembershipSupportAction.bind(null, villageId)} className="mt-2 grid min-w-64 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:min-w-80">
+    <input type="hidden" name="membershipId" value={row.id} /><input type="hidden" name="returnTo" value={returnTo} />
     <select name="operation" className="min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"><option value="ACTIVATE">เปิดใช้งาน</option><option value="SUSPEND">ระงับสมาชิก</option><option value="RESIDENT">เปลี่ยนเป็นลูกบ้าน</option></select>
     <select name="houseId" className="min-h-10 rounded-lg border border-slate-300 bg-white px-2 text-sm"><option value="">เลือกบ้านเมื่อเปลี่ยนเป็นลูกบ้าน</option>{houses.map((house) => <option key={house.id} value={house.id}>บ้านเลขที่ {house.houseNumber}</option>)}</select>
     <input name="reason" required minLength={5} placeholder="เหตุผลอย่างน้อย 5 ตัวอักษร" className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm" />

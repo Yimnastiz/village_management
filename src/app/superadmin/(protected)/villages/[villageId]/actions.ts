@@ -35,7 +35,7 @@ function requireReason(formData: FormData) {
 export type BindingReviewActionState = { success: boolean; message?: string };
 class BindingReviewValidationError extends Error {}
 
-export async function reviewBindingSupportAction(
+async function reviewBindingSupportAction(
   _previousState: BindingReviewActionState,
   formData: FormData,
 ): Promise<BindingReviewActionState> {
@@ -129,10 +129,9 @@ export async function reviewBindingForWorkspaceAction(
   return reviewBindingSupportAction(previousState, formData);
 }
 
-export async function setVillageAdminSupportAction(formData: FormData) {
-  // Kept below the village-bound binding wrapper so workspace routes never trust a hidden village id.
+export async function setVillageAdminSupportAction(targetVillageId: string, formData: FormData) {
   const actor = await requireSuperAdminActionSession();
-  const targetVillageId = value(formData, "targetVillageId"); const userId = value(formData, "userId"); const roleValue = value(formData, "role"); const reason = requireReason(formData);
+  const userId = value(formData, "userId"); const roleValue = value(formData, "role"); const reason = requireReason(formData);
   await requireVillage(targetVillageId);
   if (roleValue !== VillageMembershipRole.HEADMAN && roleValue !== VillageMembershipRole.ASSISTANT_HEADMAN) throw new Error("บทบาทไม่ถูกต้อง");
   const role = roleValue === VillageMembershipRole.HEADMAN ? VillageMembershipRole.HEADMAN : VillageMembershipRole.ASSISTANT_HEADMAN;
@@ -158,9 +157,9 @@ export async function setVillageAdminSupportAction(formData: FormData) {
   redirect(`/superadmin/villages/${targetVillageId}/admins?success=${encodeURIComponent("แต่งตั้งผู้ดูแลเรียบร้อยแล้ว")}`);
 }
 
-export async function changeMembershipSupportAction(formData: FormData) {
+export async function changeMembershipSupportAction(targetVillageId: string, formData: FormData) {
   const actor = await requireSuperAdminActionSession();
-  const targetVillageId = value(formData, "targetVillageId"); const membershipId = value(formData, "membershipId"); const operation = value(formData, "operation"); const houseId = value(formData, "houseId") || null; const reason = requireReason(formData);
+  const membershipId = value(formData, "membershipId"); const operation = value(formData, "operation"); const houseId = value(formData, "houseId") || null; const reason = requireReason(formData);
   await requireVillage(targetVillageId);
   if (!["SUSPEND", "ACTIVATE", "RESIDENT"].includes(operation)) throw new Error("รายการดำเนินการไม่ถูกต้อง");
   await prisma.$transaction(async (tx) => {
