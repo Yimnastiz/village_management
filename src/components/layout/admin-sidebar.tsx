@@ -11,37 +11,40 @@ import {
 import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-badge";
 import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
 import type { AdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
+import { hasVillagePermission, type VillagePermission } from "@/lib/village-permissions";
 import { cn } from "@/lib/utils";
 
 export type AdminMenuItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  permission: VillagePermission;
 };
 
 export const adminMenuItems: AdminMenuItem[] = [
-  { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard },
-  { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: CircleAlert },
-  { href: "/admin/appointments", label: "นัดหมาย", icon: CalendarClock },
-  { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper },
-  { href: "/admin/calendar", label: "ปฏิทิน", icon: CalendarDays },
-  { href: "/admin/gallery", label: "แกลเลอรี", icon: Images },
-  { href: "/admin/places", label: "สถานที่", icon: MapPin },
-  { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone },
-  { href: "/admin/transparency", label: "ความโปร่งใส", icon: FileSearch },
-  { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown },
-  { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound },
-  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardCheck },
-  { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House },
-  { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users },
-  { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp },
-  { href: "/admin/notifications", label: "การแจ้งเตือน", icon: Bell },
-  { href: "/admin/security", label: "ความปลอดภัย", icon: ShieldCheck },
-  { href: "/admin/settings", label: "ตั้งค่า", icon: Settings },
+  { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard, permission: "dashboard.view" },
+  { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: CircleAlert, permission: "issues.manage" },
+  { href: "/admin/appointments", label: "นัดหมาย", icon: CalendarClock, permission: "appointments.manage" },
+  { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper, permission: "news.manage" },
+  { href: "/admin/calendar", label: "ปฏิทิน", icon: CalendarDays, permission: "calendar.manage" },
+  { href: "/admin/gallery", label: "แกลเลอรี", icon: Images, permission: "gallery.manage" },
+  { href: "/admin/places", label: "สถานที่", icon: MapPin, permission: "places.manage" },
+  { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone, permission: "contacts.manage" },
+  { href: "/admin/transparency", label: "ความโปร่งใส", icon: FileSearch, permission: "transparency.manage" },
+  { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown, permission: "downloads.manage" },
+  { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound, permission: "population.view" },
+  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardCheck, permission: "binding.review" },
+  { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House, permission: "population.house.manage" },
+  { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users, permission: "population.person.manage" },
+  { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp, permission: "population.import" },
+  { href: "/admin/notifications", label: "การแจ้งเตือน", icon: Bell, permission: "dashboard.view" },
+  { href: "/admin/security", label: "ความปลอดภัย", icon: ShieldCheck, permission: "audit.view" },
+  { href: "/admin/settings", label: "ตั้งค่า", icon: Settings, permission: "members.view" },
 ];
 
-const populationMenuItems = adminMenuItems.filter((item) => item.href.startsWith("/admin/population/"));
-const primaryMenuItems = adminMenuItems.filter((item) => !item.href.startsWith("/admin/population/"));
+export function getAdminMenuItems(role: string): AdminMenuItem[] {
+  return adminMenuItems.filter((item) => hasVillagePermission(role, item.permission));
+}
 const isItemActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 const getActiveHref = (pathname: string) => [...adminMenuItems]
   .filter((item) => isItemActive(pathname, item.href))
@@ -79,14 +82,16 @@ function NavigationIcon({
   );
 }
 
-export function AdminSidebar({ actionCounts }: { actionCounts: AdminSidebarActionCounts }) {
+export function AdminSidebar({ actionCounts, role }: { actionCounts: AdminSidebarActionCounts; role: string }) {
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
-  const [populationOpen, setPopulationOpen] = useState(false);
+  const visibleItems = getAdminMenuItems(role);
+  const populationMenuItems = visibleItems.filter((item) => item.href.startsWith("/admin/population/"));
+  const primaryMenuItems = visibleItems.filter((item) => !item.href.startsWith("/admin/population/"));
   const populationActive = pathname === "/admin/population" || pathname.startsWith("/admin/population/");
+  const [collapsed, setCollapsed] = useState(false);
+  const [populationOpen, setPopulationOpen] = useState(populationActive);
   const populationMenuId = "admin-sidebar-population-menu";
 
-  useEffect(() => { if (populationActive) setPopulationOpen(true); }, [populationActive]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-admin-sidebar-collapsed") === "true"));
     return () => cancelAnimationFrame(frame);

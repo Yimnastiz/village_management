@@ -45,7 +45,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="flex min-h-screen bg-gray-100 [--app-sticky-top:var(--app-topbar-visible-offset,4rem)]">
-      <AdminSidebar actionCounts={sidebarActionCounts} />
+      <AdminSidebar actionCounts={sidebarActionCounts} role={adminMembership.role} />
       <AdminPageHeaderProvider>
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
@@ -54,6 +54,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           userImageUrl={userProfile?.image ?? null}
           unreadNotificationCount={unreadNotificationCount}
           adminActionCounts={sidebarActionCounts}
+          adminRole={adminMembership.role}
           villageName={villageProfile?.name ?? null}
           villageMoo={villageProfile?.moo ?? null}
           adminRoleLabel={MEMBERSHIP_ROLE_LABELS[adminMembership.role] ?? "ผู้ใหญ่บ้าน"}

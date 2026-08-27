@@ -206,20 +206,21 @@ export function BindingReviewForm({
         description={houseMismatch ? `${applicantName}\nจากบ้านเลขที่ ${personHouseNumber ?? "-"}\nไปบ้านเลขที่ ${displayTargetHouse}\n\nระบบจะบันทึกประวัติการย้ายบ้าน` : `บัญชี: ${applicantName}\nบ้านเลขที่: ${displayTargetHouse}\n\nหลังอนุมัติ ผู้ใช้จะได้รับสิทธิ์ลูกบ้านของหมู่บ้านนี้`}
         confirmLabel={houseMismatch ? "ยืนยันและอนุมัติ" : "ยืนยันอนุมัติ"}
         pending={pending}
+        confirmDisabled={houseMismatch && reviewNote.trim().length < 5}
         onClose={() => setApproveOpen(false)}
         onConfirm={approve}
       >
-        <label className="block text-sm font-medium text-slate-700">หมายเหตุการอนุมัติ (ไม่บังคับ)<textarea rows={3} value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
+        <label className="block text-sm font-medium text-slate-700">{houseMismatch ? <>เหตุผลการอนุมัติข้ามความไม่ตรงกัน <span className="text-rose-600">*</span></> : "หมายเหตุการอนุมัติ (ไม่บังคับ)"}<textarea rows={3} value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />{houseMismatch ? <span className="mt-1 block text-xs text-slate-500">อย่างน้อย 5 ตัวอักษร</span> : null}</label>
       </ConfirmDialog>
 
-      <ConfirmDialog open={rejectOpen} title="ปฏิเสธคำขอผูกเลขบ้าน" confirmLabel="ยืนยันการปฏิเสธ" tone="danger" pending={pending} confirmDisabled={!rejectReason.trim()} onClose={() => setRejectOpen(false)} onConfirm={() => {
+      <ConfirmDialog open={rejectOpen} title="ปฏิเสธคำขอผูกเลขบ้าน" confirmLabel="ยืนยันการปฏิเสธ" tone="danger" pending={pending} confirmDisabled={rejectReason.trim().length < 5} onClose={() => setRejectOpen(false)} onConfirm={() => {
         const data = new FormData();
         data.set("requestId", requestId);
         data.set("action", "reject");
         data.set("reviewNote", rejectReason.trim());
         run(reviewAction, data, "ปฏิเสธคำขอเรียบร้อยแล้ว", () => setRejectOpen(false));
       }}>
-        <label className="block text-sm font-medium text-slate-700">กรุณาระบุเหตุผล <span className="text-rose-600">*</span><textarea autoFocus required rows={4} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
+        <label className="block text-sm font-medium text-slate-700">กรุณาระบุเหตุผล <span className="text-rose-600">*</span><textarea autoFocus required rows={4} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /><span className="mt-1 block text-xs text-slate-500">อย่างน้อย 5 ตัวอักษร</span></label>
       </ConfirmDialog>
     </section>
   );

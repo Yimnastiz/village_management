@@ -9,7 +9,7 @@ import {
   LockedResidentMenuDialog,
   type ResidentNavigationState,
 } from "./resident-sidebar";
-import { adminMenuItems, getAdminSidebarActionBadge } from "./admin-sidebar";
+import { adminMenuItems, getAdminMenuItems, getAdminSidebarActionBadge } from "./admin-sidebar";
 import { cn } from "@/lib/utils";
 import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-badge";
 import type { AdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
@@ -26,6 +26,7 @@ interface TopBarProps {
   villageMoo?: string | number | null;
   adminRoleLabel?: string;
   adminActionCounts?: AdminSidebarActionCounts;
+  adminRole?: string;
   residentNavigationState?: ResidentNavigationState;
 }
 
@@ -39,6 +40,7 @@ export function TopBar({
   adminRoleLabel = "ผู้ใหญ่บ้าน",
   residentNavigationState,
   adminActionCounts,
+  adminRole,
 }: TopBarProps) {
   const adminPageHeader = useOptionalAdminPageHeader();
   const residentPageHeader = useOptionalResidentPageHeader();
@@ -54,13 +56,13 @@ export function TopBar({
   const profileHref = userArea === "admin" ? "/admin/settings/profile" : "/resident/profile";
   const mobileNavItems = useMemo(() => {
     if (userArea === "admin") {
-      return adminMenuItems;
+      return adminRole ? getAdminMenuItems(adminRole) : [];
     }
 
     return getResidentNavigationItems(
       residentNavigationState ?? { hasMembership: true }
     ).sort((left, right) => left.mobilePriority - right.mobilePriority);
-  }, [residentNavigationState, userArea]);
+  }, [adminRole, residentNavigationState, userArea]);
   const displayCount = unreadNotificationCount > 99 ? "99+" : `${unreadNotificationCount}`;
   const isAdminArea = userArea === "admin";
   const pageHeader = isAdminArea ? adminPageHeader : residentPageHeader;

@@ -20,6 +20,7 @@ import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
 import { parsePopulationEvent, parsePopulationImportDate } from "@/features/population/server/import-value-parsers";
+import { requireVillagePermission } from "@/lib/village-permissions";
 import {
   POPULATION_IMPORT_COLUMNS,
   POPULATION_IMPORT_HEADER_ALIASES,
@@ -34,12 +35,6 @@ const MAX_IMPORT_ERRORS = 50;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_IMPORT_ROWS = 10_000;
 const MAX_IMPORT_COLUMNS = 40;
-
-function requestedActorRole(formData: FormData) {
-  return typeof formData.get("targetVillageId") === "string" && String(formData.get("targetVillageId")).trim()
-    ? "SUPERADMIN"
-    : "ADMIN";
-}
 
 type CanonicalColumnKey =
   | "house_number"
@@ -113,6 +108,7 @@ type RowImportResult = {
 
 type AdminVillageContext = {
   userId: string;
+  role: string;
   villageId: string;
   importJobId?: string;
   villageName: string;
@@ -542,6 +538,8 @@ async function getAdminVillageContext(formData?: FormData): Promise<AdminVillage
     throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");
   }
 
+  if (!isSuperAdminUser(session)) requireVillagePermission(adminMembership!, "population.import");
+
   const village = await prisma.village.findUnique({
     where: { id: targetVillageId },
     select: {
@@ -559,6 +557,7 @@ async function getAdminVillageContext(formData?: FormData): Promise<AdminVillage
 
   return {
     userId: session.id,
+    role: adminMembership?.role ?? "SUPERADMIN",
     villageId: village.id,
     villageName: village.name,
     province: village.province,
@@ -960,7 +959,7 @@ export async function importPopulationWorkbookAction(
       select: { id: true },
     });
     jobId = job.id;
-    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: requestedActorRole(formData), jobId, fileName: fileEntry.name } } });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, jobId, fileName: fileEntry.name } } });
 
     const buffer = Buffer.from(await fileEntry.arrayBuffer());
     const isCsv = /\.csv$/i.test(fileEntry.name);
@@ -1017,7 +1016,7 @@ export async function importPopulationWorkbookAction(
         errors: buildImportJobDetailsPayload({ rows: spreadsheetRows, sourceHeaders, errors: previewErrors, rowDetails: preview.details }),
       },
     });
-    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: requestedActorRole(formData), jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
     revalidatePath("/admin/population/import");
     return { success: true, message: `ตรวจสอบไฟล์แล้ว กรุณาเปิดงาน ${jobId} เพื่อดู Preview และยืนยัน`, summary: { fileName: fileEntry.name, totalRows: spreadsheetRows.length, importedRows: 0, failedRows: preview.failedRows + preview.conflictRows, stage: PopulationImportStage.PENDING }, errors: previewErrors };
 

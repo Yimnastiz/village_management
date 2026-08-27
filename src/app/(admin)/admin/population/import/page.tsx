@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { hasVillagePermission } from "@/lib/village-permissions";
 import { PopulationImportForm } from "./import-form";
 import { ImportPreparationDisclosure } from "./import-preparation-disclosure";
 
@@ -98,6 +99,7 @@ export default async function Page({ searchParams }: PageProps) {
   if (!adminMembership) {
     redirect(computeLandingPath(session));
   }
+  if (!hasVillagePermission(adminMembership.role, "population.import")) redirect("/admin/population");
 
   const keyword = params.q?.trim() ?? "";
   const status = params.status ?? "ALL";
@@ -162,9 +164,9 @@ export default async function Page({ searchParams }: PageProps) {
             <a href="/api/admin/population/import-template" download className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
               ดาวน์โหลดไฟล์ตัวอย่าง
             </a>
-            <a href="/admin/population/export" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
+            <Link href="/admin/population/export" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700">
               ส่งออกข้อมูล
-            </a>
+            </Link>
           </>
         }
       />

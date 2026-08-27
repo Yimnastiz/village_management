@@ -6,6 +6,7 @@ import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { POPULATION_IMPORT_HEADER_ALIASES } from "@/features/population/server/import-template";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { hasVillagePermission } from "@/lib/village-permissions";
 import { ImportJobActions } from "./import-confirm-form";
 import { getImportCleanupPreflightAction } from "./actions";
 
@@ -57,6 +58,7 @@ export default async function Page({ params }: PageProps) {
   if (!session) redirect("/auth/login?callbackUrl=/admin/population/import");
   if (!isAdminUser(session)) redirect(computeLandingPath(session));
   const adminMembership = session.memberships.find((membership) => membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role));
+  if (adminMembership && !hasVillagePermission(adminMembership.role, "population.import")) redirect("/admin/population");
   if (!adminMembership) redirect(computeLandingPath(session));
   const job = await prisma.populationImportJob.findFirst({
     where: { id: jobId, villageId: adminMembership.villageId },

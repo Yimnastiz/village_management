@@ -1,12 +1,15 @@
 "use server";
 
-import { AuditAction, MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isSafeImageSource } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
 import { isAccessMembershipStatus } from "@/lib/settings-access";
+import { writeVillagePolicyAuditLog } from "@/lib/audit-log";
+import { requireActionReason } from "@/lib/sensitive-action-policy";
+import { canManageVillageRole, requireVillagePermission } from "@/lib/village-permissions";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
@@ -26,6 +29,7 @@ async function requireAdminVillageContext() {
 
   return {
     session,
+    membership,
     villageId: membership.villageId,
   };
 }
@@ -38,7 +42,8 @@ function cleanString(formData: FormData, name: string) {
 }
 
 export async function updateVillageSettingsAction(formData: FormData): Promise<{ success: true } | { success: false; error: string }> {
-  const { villageId } = await requireAdminVillageContext();
+  const { session, membership, villageId } = await requireAdminVillageContext();
+  requireVillagePermission(membership, "village.settings.manage");
 
   const email = cleanString(formData, "email");
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
@@ -63,6 +68,7 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
     },
     select: { slug: true },
   });
+  await writeVillagePolicyAuditLog(prisma, { villageId, actorUserId: session.id, actorRole: membership.role, action: AuditAction.UPDATE, policyAction: "village.settings.update", targetType: "Village", targetId: villageId });
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin/settings/village");
@@ -92,12 +98,12 @@ export async function updatePersonalSettingsAction(data: { email: string; image:
 }
 
 export async function updateVillageMemberAccessAction(formData: FormData): Promise<{ success: true } | { success: false; error: string }> {
-  const { session, villageId } = await requireAdminVillageContext();
+  const { session, membership, villageId } = await requireAdminVillageContext();
 
   const membershipId = cleanString(formData, "membershipId");
   const nextRole = cleanString(formData, "role") as VillageMembershipRole | null;
   const nextStatus = cleanString(formData, "status") as MembershipStatus | null;
-  const reason = cleanString(formData, "reason");
+  const reasonInput = formData.get("reason");
 
   if (!membershipId || !nextRole || !nextStatus) {
     return { success: false, error: "ข้อมูลการปรับสิทธิ์ไม่ครบถ้วน" };
@@ -124,6 +130,31 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
     return { success: false, error: "ผู้ใช้นี้ยังไม่ใช่สมาชิกที่จัดการสิทธิ์ได้" };
   }
 
+  const roleChanged = target.role !== nextRole;
+  const statusChanged = target.status !== nextStatus;
+  if (!roleChanged && !statusChanged) return { success: true };
+
+  if (roleChanged) {
+    requireVillagePermission(membership, "members.roles.manage");
+    if (!canManageVillageRole(membership.role, target.role, nextRole)) {
+      return { success: false, error: "ผู้ใหญ่บ้านจัดการได้เฉพาะบทบาทผู้ช่วยผู้ใหญ่บ้าน และการจัดการผู้ใหญ่บ้านเป็นหน้าที่ของผู้ดูแลระบบส่วนกลางเท่านั้น" };
+    }
+  }
+
+  if (statusChanged) {
+    requireVillagePermission(membership, "members.status.manage");
+    if (target.role !== VillageMembershipRole.RESIDENT || nextRole !== VillageMembershipRole.RESIDENT) {
+      return { success: false, error: "การจัดการสถานะในพื้นที่นี้ใช้ได้กับลูกบ้านทั่วไปเท่านั้น" };
+    }
+  }
+
+  const policyAction = roleChanged
+    ? (nextRole === VillageMembershipRole.ASSISTANT_HEADMAN ? "member.role.assign" : "member.role.remove")
+    : (nextStatus === MembershipStatus.SUSPENDED ? "member.suspend" : "member.reactivate");
+  let reason: string;
+  try { reason = requireActionReason(policyAction, reasonInput); }
+  catch { return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; }
+
   const isEditingSelf = target.userId === session.id;
   if (isEditingSelf) {
     if (!ADMIN_MEMBERSHIP_ROLES.has(nextRole) || nextStatus !== MembershipStatus.ACTIVE) {
@@ -142,7 +173,7 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
         joinedAt: nextStatus === MembershipStatus.ACTIVE && !target.joinedAt ? new Date() : undefined,
       },
     });
-    if (target.role !== nextRole || target.status !== nextStatus) {
+    if (roleChanged || statusChanged) {
       await tx.auditLog.create({
         data: {
           userId: session.id,
@@ -151,12 +182,24 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
           resource: "VillageMembership",
           resourceId: membershipId,
           metadata: {
+            actorRole: membership.role,
+            policyAction,
             actionName: target.status !== nextStatus ? (nextStatus === MembershipStatus.SUSPENDED ? "MEMBER_SUSPENDED" : "MEMBER_REACTIVATED") : "MEMBER_ROLE_CHANGED",
             name: targetUser?.name ?? "สมาชิก",
             reason,
             oldValue: { role: target.role, status: target.status },
             newValue: { role: nextRole, status: nextStatus },
           },
+        },
+      });
+      await tx.notification.create({
+        data: {
+          userId: target.userId,
+          villageId,
+          type: NotificationType.SYSTEM,
+          title: roleChanged ? "บทบาทในหมู่บ้านของคุณมีการเปลี่ยนแปลง" : nextStatus === MembershipStatus.SUSPENDED ? "บัญชีลูกบ้านถูกระงับ" : "บัญชีลูกบ้านเปิดใช้งานอีกครั้ง",
+          body: `เหตุผล: ${reason}`,
+          metadata: { source: "VILLAGE_MEMBER_ACCESS", policyAction, membershipId, reason },
         },
       });
     }

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { PopulationExportForm } from "@/features/population/components/population-export-form";
 import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
@@ -21,7 +22,7 @@ export default async function Page() {
       membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role),
   );
   if (!adminMembership) redirect(computeLandingPath(session));
-  const canExportFullRegistry = adminMembership.role === VillageMembershipRole.HEADMAN;
+  const canExportFullRegistry = hasVillagePermission(adminMembership.role, "population.export_sensitive");
 
   const [village, houseCount, peopleCount, accountCount, zones] = await Promise.all([
     prisma.village.findUnique({ where: { id: adminMembership.villageId }, select: { name: true } }),

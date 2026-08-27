@@ -5,13 +5,15 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, PersonStatus, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
-import { getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isRequestPlaceholderStatus } from "@/lib/settings-access";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
 import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, getNationalIdForUser, lockNationalIdClaim } from "@/lib/identity";
 import { BindingReviewForm } from "./binding-review-form";
+import { requireActionReason } from "@/lib/sensitive-action-policy";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
   VillageMembershipRole.HEADMAN,
@@ -184,11 +186,10 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
   const requestId = formData.get("requestId");
   const action = formData.get("action");
-  const reviewNote = (formData.get("reviewNote") ?? "").toString().trim();
+  let reviewNote = (formData.get("reviewNote") ?? "").toString().trim();
 
   if (!requestId || typeof requestId !== "string") return { success: false, message: "ไม่พบรหัสคำขอ" };
   if (!action || (action !== "approve" && action !== "reject")) return { success: false, message: "ประเภทการดำเนินการไม่ถูกต้อง" };
-  if (action === "reject" && reviewNote.length < 1) return { success: false, message: "กรุณาระบุเหตุผลการปฏิเสธ" };
 
   const binding = await prisma.bindingRequest.findUnique({
     where: { id: requestId },
@@ -198,21 +199,17 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
 
   if (binding.status !== BindingRequestStatus.PENDING) return { success: false, message: "คำขอนี้ได้รับการดำเนินการแล้ว" };
 
-  const canManage =
-    session.systemRole !== SystemRole.SUPERADMIN &&
-    session.memberships.some(
-      (membership) =>
-        (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN) &&
-        membership.status === MembershipStatus.ACTIVE &&
-        membership.villageId === binding.villageId
-    );
-  if (!canManage) {
+  const adminMembership = getAdminMembership(session, { villageId: binding.villageId });
+  if (!adminMembership || !hasVillagePermission(adminMembership.role, "binding.review")) {
     return { success: false, message: "คุณไม่มีสิทธิ์จัดการคำขอนี้" };
   }
 
   const now = new Date();
   const status = action === "approve" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED;
   const confirmPersonHouseChange = formData.get("confirmPersonHouseChange") === "true";
+  const policyAction = action === "reject" ? "binding.reject" : confirmPersonHouseChange ? "binding.override_mismatch" : "binding.approve";
+  try { reviewNote = requireActionReason(policyAction, reviewNote); }
+  catch { return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; }
   let releasedDuplicateCount = 0;
 
   try { await prisma.$transaction(async (tx) => {
@@ -245,7 +242,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
     });
     if (reviewedRequest.count !== 1) throw new BindingReviewValidationError("คำขอนี้ได้รับการพิจารณาแล้ว กรุณารีเฟรชหน้า");
 
-    await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: action === "approve" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequest", resourceId: requestId, metadata: { actionName: action === "approve" ? "BINDING_APPROVED_TO_EXISTING_HOUSE" : "BINDING_REJECTED", houseId: resolvedHouseId, reviewNote: reviewNote || null } } });
+    await tx.auditLog.create({ data: { userId: session.id, villageId: binding.villageId, action: action === "approve" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequest", resourceId: requestId, metadata: { actorRole: adminMembership.role, policyAction, actionName: action === "approve" ? "BINDING_APPROVED_TO_EXISTING_HOUSE" : "BINDING_REJECTED", houseId: resolvedHouseId, reason: reviewNote || null } } });
 
     if (action === "approve") {
       await tx.villageMembership.upsert({
