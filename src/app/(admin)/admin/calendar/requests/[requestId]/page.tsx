@@ -7,7 +7,7 @@ import {
   VILLAGE_EVENT_VISIBILITY_LABELS,
 } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, getHeadmanMembership, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatCalendarPerson } from "@/lib/calendar-person";
 import { CalendarRequestReviewButtons } from "../request-review-buttons";
 import { CalendarRequestManagementActions } from "../request-management-actions";
@@ -25,11 +25,8 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
 export default async function AdminCalendarRequestDetailPage({ params }: AdminCalendarRequestDetailPageProps) {
   const { requestId } = await params;
 
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = getHeadmanMembership(session);
+  const context = await getVillagePermissionContext("calendar.requests.review");
+  const membership = context?.membership;
   if (!membership) redirect("/auth/login");
 
   const request = await prisma.villageEventSubmission.findFirst({

@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getHeadmanMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { CalendarRequestEditForm } from "../../request-edit-form";
 
@@ -10,11 +10,8 @@ function toDatetimeLocalValue(date: Date) {
 
 export default async function EditCalendarRequestPage({ params }: { params: Promise<{ requestId: string }> }) {
   const { requestId } = await params;
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = getHeadmanMembership(session);
+  const context = await getVillagePermissionContext("calendar.requests.review");
+  const membership = context?.membership;
   if (!membership) redirect("/admin/calendar/requests");
 
   const request = await prisma.villageEventSubmission.findFirst({

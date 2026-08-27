@@ -1,12 +1,14 @@
 "use server";
 
-import { NotificationType } from "@prisma/client";
+import { AuditAction, NotificationType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const villageEventSubmission = prisma.villageEventSubmission;
 
@@ -30,8 +32,9 @@ async function requireAdminVillage() {
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", villageId: "", userId: "" };
   }
+  if (!hasVillagePermission(membership.role, "calendar.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการปฏิทิน", villageId: "", userId: "" };
 
-  return { ok: true as const, error: null, villageId: membership.villageId, userId: session.id };
+  return { ok: true as const, error: null, villageId: membership.villageId, userId: session.id, actorRole: membership.role };
 }
 
 function normalizeInput(data: EventInput) {
@@ -145,7 +148,8 @@ export async function updateVillageEventAction(
 }
 
 export async function deleteVillageEventAction(
-  id: string
+  id: string,
+  reason: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
@@ -158,8 +162,15 @@ export async function deleteVillageEventAction(
     return { success: false, error: "ไม่พบกิจกรรมนี้หรือไม่มีสิทธิ์ลบ" };
   }
 
+  let normalizedReason: string;
+  try { normalizedReason = requireActionReason("content.delete", reason); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+
   try {
-    await prisma.villageEvent.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.villageEvent.delete({ where: { id } });
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillageEvent", resourceId: id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason: normalizedReason } } });
+    });
     revalidatePath("/admin/calendar");
     revalidatePath("/resident/calendar");
     return { success: true };
@@ -270,6 +281,9 @@ export async function adminRejectVillageEventSubmissionAction(
     return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   }
 
+  try { reviewNote = requireActionReason("content.request.reject", reviewNote); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.villageEventSubmission.update({
@@ -297,6 +311,7 @@ export async function adminRejectVillageEventSubmissionAction(
           }),
         },
       });
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.request.reject", reason: reviewNote, requesterId: request.requesterId } } });
     });
 
     revalidatePath("/admin/calendar/requests");

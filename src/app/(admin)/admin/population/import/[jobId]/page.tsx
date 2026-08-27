@@ -1,16 +1,15 @@
-import { AuditAction, MembershipStatus, PopulationImportStage, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, PopulationImportStage } from "@prisma/client";
 import { Archive, CheckCircle2, CircleAlert, Clock3, LoaderCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { POPULATION_IMPORT_HEADER_ALIASES } from "@/features/population/server/import-template";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ImportJobActions } from "./import-confirm-form";
 import { getImportCleanupPreflightAction } from "./actions";
 
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN]);
 type RowDetail = { rowNumber: number; action: string; status: string; errorCode?: string | null; errorMessage?: string | null; confidenceLevel?: string; matchedRecordId?: string | null };
 type CleanupHistory = { cleanedAt: string; actorId: string; actorName?: string | null; actorRole?: string | null; reason: string; deletedPeople: number; deletedHouses: number; skippedCount: number; skippedReasonCounts: Record<string, number>; deletedItems?: Array<{ kind: "person" | "house"; label: string }>; retainedItems?: Array<{ kind: "person" | "house"; label: string; reason: string }> };
 type ImportJobDetailsPayload = { errors?: string[]; sourceHeaders?: string[]; previewRows?: Array<Record<string, string>>; createdPersonIds?: string[]; createdHouseIds?: string[]; createdPeople?: Array<{ id: string; label: string; houseNumber: string }>; createdHouses?: Array<{ id: string; label: string }>; rowDetails?: RowDetail[]; cleanupHistory?: CleanupHistory[] };
@@ -57,7 +56,7 @@ export default async function Page({ params }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session) redirect("/auth/login?callbackUrl=/admin/population/import");
   if (!isAdminUser(session)) redirect(computeLandingPath(session));
-  const adminMembership = session.memberships.find((membership) => membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role));
+  const adminMembership = getAdminMembership(session);
   if (adminMembership && !hasVillagePermission(adminMembership.role, "population.import")) redirect("/admin/population");
   if (!adminMembership) redirect(computeLandingPath(session));
   const job = await prisma.populationImportJob.findFirst({

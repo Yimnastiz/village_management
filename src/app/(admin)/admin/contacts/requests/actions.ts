@@ -3,7 +3,8 @@
 import { AuditAction, ContactRequestType, NotificationStatus, NotificationType, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 import { getNextContactSortOrder } from "@/features/contact-ordering/server/order";
 
 type RequestPayload = { name: string; role: string | null; phone: string; email: string | null; address: string | null; category: string | null; note: string | null };
@@ -40,13 +41,7 @@ function snapshotMatchesContact(snapshot: ContactSnapshot, contact: { name: stri
 }
 
 async function requireAdminContext() {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id || !isAdminUser(session)) return null;
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } },
-    select: { villageId: true },
-  });
-  return membership ? { session, villageId: membership.villageId } : null;
+  return getVillagePermissionContext("contacts.requests.review");
 }
 
 function getResidentCreateSource(
@@ -232,10 +227,15 @@ export async function approveResidentContactRequestAction(formData: FormData): P
 export async function rejectResidentContactRequestAction(formData: FormData): Promise<ActionResult> {
   const ctx = await requireAdminContext();
   const requestId = readText(formData, "requestId");
-  const reason = readText(formData, "reason");
+  let reason: string;
+  try {
+    reason = requireActionReason("content.request.reject", readText(formData, "reason"));
+  } catch (error) {
+    if (error instanceof ActionReasonError) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+    throw error;
+  }
   if (!ctx) return { success: false, message: "ไม่มีสิทธิ์ดำเนินการคำขอนี้" };
   if (!requestId) return { success: false, message: "ไม่พบคำขอ" };
-  if (reason.length < 5) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
 
   try {
     const result = await runSerializable(async (tx) => {

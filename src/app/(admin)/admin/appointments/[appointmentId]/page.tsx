@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import type { Prisma, VillageMembershipRole } from "@prisma/client";
 import { Clock } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { Badge } from "@/components/ui/badge";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate, formatThaiDateTime } from "@/lib/utils";
@@ -44,9 +44,10 @@ function stringValue(metadata: Record<string, Prisma.JsonValue>, key: string) {
 }
 
 export default async function AdminAppointmentDetailPage({ params }: { params: Promise<{ appointmentId: string }> }) {
-  const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) redirect("/auth/login");
+  const context = await getVillagePermissionContext("appointments.manage"); if (!context) redirect("/auth/login");
+  const session = context.session;
   const { appointmentId } = await params;
-  const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, village: { memberships: { some: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } } } } }, include: { user: { select: { name: true, email: true, phoneNumber: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
+  const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId: context.villageId }, include: { user: { select: { name: true, email: true, phoneNumber: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
   if (!appointment) redirect("/admin/appointments");
   const stageLabel = appointment.stage === "TIME_SUGGESTED" ? "รอลูกบ้านยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[appointment.stage];
   const isConfirmed = ["APPROVED", "COMPLETED"].includes(appointment.stage);

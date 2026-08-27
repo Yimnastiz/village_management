@@ -1,4 +1,5 @@
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { hasVillagePermission } from "@/lib/village-permissions";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -38,7 +39,8 @@ export async function GET(
     }
 
     // Verify user has access (is admin of the village or is the appointment requester)
-    const isAdmin = getAdminMembership(session, { villageId: appointment.villageId });
+    const adminMembership = getAdminMembership(session, { villageId: appointment.villageId });
+    const isAdmin = Boolean(adminMembership && hasVillagePermission(adminMembership.role, "appointments.manage"));
 
     const isOwner = appointment.userId === session.id;
 

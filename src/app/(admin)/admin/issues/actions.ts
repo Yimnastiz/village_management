@@ -17,6 +17,8 @@ import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/ac
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -94,6 +96,7 @@ async function requireAdminCtx() {
   const membership = getAdminMembership(session);
   if (!membership)
     return { error: "ไม่พบหมู่บ้านของคุณ" as const, session: null, villageId: "" };
+  if (!hasVillagePermission(membership.role, "issues.manage")) return { error: "ไม่มีสิทธิ์จัดการปัญหา" as const, session: null, villageId: "" };
   return { error: null, session, villageId: membership.villageId };
 }
 
@@ -206,9 +209,11 @@ export async function adminUpdateStageAction(
   if (!ISSUE_ALLOWED_TRANSITIONS[currentStatus].includes(nextStatus)) {
     return { success: false, error: "ไม่สามารถเปลี่ยนสถานะตามลำดับงานนี้ได้" };
   }
-  const trimmedNote = note?.trim() || "";
-  if ((nextStatus === "RESOLVED" || nextStatus === "REJECTED") && (trimmedNote.length < 5 || trimmedNote.length > 500)) {
-    return { success: false, error: nextStatus === "RESOLVED" ? "สรุปการดำเนินการต้องมี 5–500 ตัวอักษร" : "เหตุผลต้องมี 5–500 ตัวอักษร" };
+  let trimmedNote = note?.trim() || "";
+  if (nextStatus === "RESOLVED" || nextStatus === "REJECTED") {
+    try { trimmedNote = requireActionReason(nextStatus === "RESOLVED" ? "issue.close" : "issue.reject", trimmedNote); }
+    catch (error) { if (error instanceof ActionReasonError) return { success: false, error: nextStatus === "RESOLVED" ? "สรุปการดำเนินการต้องมี 5–500 ตัวอักษร" : "เหตุผลต้องมี 5–500 ตัวอักษร" }; throw error; }
+    if (trimmedNote.length > 500) return { success: false, error: "ข้อความต้องไม่เกิน 500 ตัวอักษร" };
   }
   const persistedStage = ISSUE_USER_STATUS_TO_STAGE[nextStatus] as IssueStage;
 
@@ -237,7 +242,7 @@ export async function adminUpdateStageAction(
     actorUserId: ctx.session!.id,
     reporterId: issue.reporterId,
     includeReporter: true,
-    includeAdmins: true,
+    includeAdmins: false,
     title: "สถานะคำร้องถูกอัปเดต",
     body: `${issue.title} • ${ISSUE_STATUS_META[nextStatus].label}`,
     metadata: {
@@ -264,10 +269,10 @@ export async function adminDeleteIssueAction(
   const ctx = await requireAdminCtx();
   if (ctx.error) return { success: false, error: ctx.error };
 
-  const trimmedReason = reason.trim();
-  if (trimmedReason.length < 5 || trimmedReason.length > 500) {
-    return { success: false, error: "เหตุผลในการลบต้องมี 5–500 ตัวอักษร" };
-  }
+  let trimmedReason: string;
+  try { trimmedReason = requireActionReason("issue.cancel", reason); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "เหตุผลในการลบต้องมี 5–500 ตัวอักษร" }; throw error; }
+  if (trimmedReason.length > 500) return { success: false, error: "เหตุผลในการลบต้องมี 5–500 ตัวอักษร" };
 
   const issue = await prisma.issue.findFirst({
     where: { id: issueId, villageId: ctx.villageId },

@@ -1,19 +1,14 @@
-import { MembershipStatus, PopulationImportStage, Prisma, VillageMembershipRole } from "@prisma/client";
+import { PopulationImportStage, Prisma } from "@prisma/client";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { PopulationImportForm } from "./import-form";
 import { ImportPreparationDisclosure } from "./import-preparation-disclosure";
-
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
 
 function getStageBadgeVariant(stage: PopulationImportStage) {
   switch (stage) {
@@ -90,11 +85,7 @@ export default async function Page({ searchParams }: PageProps) {
     redirect(computeLandingPath(session));
   }
 
-  const adminMembership = session.memberships.find(
-    (membership) =>
-      membership.status === MembershipStatus.ACTIVE &&
-      ADMIN_MEMBERSHIP_ROLES.has(membership.role),
-  );
+  const adminMembership = getAdminMembership(session);
 
   if (!adminMembership) {
     redirect(computeLandingPath(session));

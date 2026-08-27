@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 const transparencyInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อ"),
@@ -25,6 +26,7 @@ async function requireAdminVillage() {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน" };
+  if (!hasVillagePermission(membership.role, "transparency.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข้อมูลความโปร่งใส" };
   return { ok: true as const, userId: session.id, villageId: membership.villageId };
 }
 

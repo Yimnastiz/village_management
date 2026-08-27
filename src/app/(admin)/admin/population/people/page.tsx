@@ -4,9 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { PERSON_STATUS_LABELS } from "@/lib/constants";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
-import { MembershipStatus, PersonStatus, Prisma, VillageMembershipRole } from "@prisma/client";
+import { PersonStatus, Prisma } from "@prisma/client";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; status?: string; history?: string; page?: string }>;
@@ -19,19 +19,9 @@ function personStatusBadgeVariant(status: PersonStatus): "success" | "warning" |
 }
 
 export default async function PopulationPeoplePage({ searchParams }: PageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session) redirect("/auth/login?callbackUrl=/admin/population/people");
-  if (!isAdminUser(session)) redirect(computeLandingPath(session));
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      status: MembershipStatus.ACTIVE,
-      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] },
-    },
-    select: { villageId: true },
-  });
-  if (!membership) redirect(computeLandingPath(session));
+  const context = await getVillagePermissionContext("population.person.manage");
+  if (!context) redirect("/auth/login?callbackUrl=/admin/population/people");
+  const membership = context.membership;
 
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();

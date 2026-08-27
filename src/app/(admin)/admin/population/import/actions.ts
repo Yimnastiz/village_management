@@ -15,7 +15,7 @@ import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
 import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
 import { isValidPersonName, normalizePersonGender, normalizePersonName } from "@/lib/person-validation";
-import { getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
@@ -25,11 +25,6 @@ import {
   POPULATION_IMPORT_COLUMNS,
   POPULATION_IMPORT_HEADER_ALIASES,
 } from "@/features/population/server/import-template";
-
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
 
 const MAX_IMPORT_ERRORS = 50;
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -527,11 +522,7 @@ async function getAdminVillageContext(formData?: FormData): Promise<AdminVillage
   }
 
   const requestedVillageId = typeof formData?.get("targetVillageId") === "string" ? String(formData.get("targetVillageId")).trim() : "";
-  const adminMembership = session.memberships.find(
-    (membership) =>
-      membership.status === MembershipStatus.ACTIVE &&
-      ADMIN_MEMBERSHIP_ROLES.has(membership.role),
-  );
+  const adminMembership = getAdminMembership(session);
 
   const targetVillageId = isSuperAdminUser(session) ? requestedVillageId : adminMembership?.villageId;
   if (!targetVillageId) {

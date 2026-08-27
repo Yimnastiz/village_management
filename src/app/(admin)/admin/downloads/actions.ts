@@ -9,6 +9,7 @@ import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/ac
 import { downloadFormSchema } from "@/lib/downloads/schema";
 import type { DownloadActionResult, DownloadFormInput } from "@/lib/downloads/types";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
 
@@ -17,6 +18,7 @@ async function requireAdminVillage() {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน", session: null, villageId: "" };
+  if (!hasVillagePermission(membership.role, "downloads.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการเอกสาร", session: null, villageId: "" };
   return { ok: true as const, error: null, session, villageId: membership.villageId };
 }
 

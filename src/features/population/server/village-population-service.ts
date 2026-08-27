@@ -21,8 +21,9 @@ import {
   validateOptionalPersonDate,
 } from "@/lib/person-validation";
 import { prisma } from "@/lib/prisma";
+import { ActionReasonError, requireActionReason, type SensitiveAction } from "@/lib/sensitive-action-policy";
 
-export type PopulationActor = { id: string | null; role: "ADMIN" | "SUPERADMIN" };
+export type PopulationActor = { id: string | null; role: "HEADMAN" | "ASSISTANT_HEADMAN" | "ADMIN" | "SUPERADMIN" };
 export type VillagePersonInput = {
   firstName: string; lastName: string; nationalId: string; dateOfBirth: string;
   gender: string; phone: string; email: string; status?: string; houseId: string; reason?: string;
@@ -36,6 +37,15 @@ export class PopulationBatchValidationError extends Error {
 }
 
 export class PopulationValidationError extends Error {}
+
+function normalizedActionReason(action: SensitiveAction, input: unknown) {
+  try {
+    return requireActionReason(action, input);
+  } catch (error) {
+    if (error instanceof ActionReasonError) throw new PopulationValidationError("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
+    throw error;
+  }
+}
 
 export async function assertTargetVillage(villageId: string) {
   if (!villageId) throw new PopulationValidationError("ต้องระบุหมู่บ้านเป้าหมาย");
@@ -175,14 +185,14 @@ export async function updateVillageHouse(villageId: string, houseId: string, inp
 }
 
 export async function deleteVillageHouse(villageId: string, houseId: string, reason: string, actor: PopulationActor) {
-  if (reason.trim().length < 3) throw new PopulationValidationError("กรุณาระบุเหตุผลการลบบ้าน");
+  const normalizedReason = normalizedActionReason("population.house.delete", reason);
   await prisma.$transaction(async (tx) => {
     const house = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, _count: { select: { persons: true, memberships: true, bindingRequests: true, correctionRequests: true, movementHistory: true } } } });
     if (!house) throw new PopulationValidationError("ไม่พบบ้านในหมู่บ้านนี้");
     const counts = house._count;
     if (counts.persons || counts.memberships || counts.bindingRequests || counts.correctionRequests || counts.movementHistory) throw new PopulationValidationError("ไม่สามารถลบบ้านนี้ได้ เนื่องจากมีประชากร สมาชิก หรือประวัติที่เชื่อมโยงอยู่");
     await tx.house.delete({ where: { id: house.id } });
-    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.DELETE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actionName: "HOUSE_DELETED", houseNumber: house.houseNumber, reason: reason.trim() } } });
+    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.DELETE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actionName: "HOUSE_DELETED", houseNumber: house.houseNumber, reason: normalizedReason } } });
   });
 }
 
@@ -227,7 +237,7 @@ export async function updateVillagePerson(villageId: string, personId: string, d
     const genderChanged = oldGender !== resolvedValue.gender;
     const dateOfBirthChanged = comparableValue(person.dateOfBirth) !== comparableValue(resolvedValue.dateOfBirth);
     const requiresReason = houseChanged || (Boolean(person.userId) && nameChanged) || (Boolean(person.gender) && genderChanged) || (Boolean(person.dateOfBirth) && dateOfBirthChanged);
-    if (requiresReason && reason.length < 5) throw new PopulationValidationError("กรุณาระบุเหตุผลการแก้ไขข้อมูลสำคัญอย่างน้อย 5 ตัวอักษร");
+    const normalizedReason = requiresReason ? normalizedActionReason("population.person.move_out", reason) : reason;
     const changedFields = (Object.keys(resolvedValue) as Array<keyof typeof resolvedValue>).filter((key) => comparableValue(person[key as keyof typeof person]) !== comparableValue(resolvedValue[key]));
     const oldValue = Object.fromEntries(changedFields.map((key) => [key, comparableValue(person[key as keyof typeof person]) ?? null]));
     const newValue = Object.fromEntries(changedFields.map((key) => [key, comparableValue(resolvedValue[key]) ?? null]));
@@ -235,21 +245,20 @@ export async function updateVillagePerson(villageId: string, personId: string, d
     const result = await tx.person.updateMany({ where: { id: personId, villageId }, data: resolvedValue });
     if (result.count !== 1) throw new PopulationValidationError("ไม่สามารถแก้ไขบุคคลข้ามหมู่บ้านได้");
     if (houseChanged) {
-      if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: reason } });
-      if (resolvedValue.houseId) await tx.personMovement.create({ data: { personId, houseId: resolvedValue.houseId, movementType: MovementType.MOVE_IN, date: new Date(), note: reason } });
+      if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: normalizedReason } });
+      if (resolvedValue.houseId) await tx.personMovement.create({ data: { personId, houseId: resolvedValue.houseId, movementType: MovementType.MOVE_IN, date: new Date(), note: normalizedReason } });
       if (person.userId) {
         await tx.villageMembership.updateMany({ where: { userId: person.userId, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE }, data: { houseId: resolvedValue.houseId } });
       }
     }
     if (person.userId && nameChanged) await tx.user.update({ where: { id: person.userId }, data: { name: `${resolvedValue.firstName} ${resolvedValue.lastName}` } });
-    if (changedFields.length) await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: houseChanged ? "PERSON_MOVED_HOUSE" : "PERSON_UPDATED", subject: `${resolvedValue.firstName} ${resolvedValue.lastName}`, reason: reason || null, changedFields, oldValue: { ...oldValue, ...(houseChanged ? { houseNumber: person.house?.houseNumber ?? null } : {}) }, newValue: { ...newValue, ...(houseChanged ? { houseNumber: newHouse?.houseNumber ?? null } : {}) } } } });
+    if (changedFields.length) await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: houseChanged ? "PERSON_MOVED_HOUSE" : "PERSON_UPDATED", subject: `${resolvedValue.firstName} ${resolvedValue.lastName}`, reason: normalizedReason || null, changedFields, oldValue: { ...oldValue, ...(houseChanged ? { houseNumber: person.house?.houseNumber ?? null } : {}) }, newValue: { ...newValue, ...(houseChanged ? { houseNumber: newHouse?.houseNumber ?? null } : {}) } } } });
     return { moved: houseChanged };
   });
 }
 
 export async function moveOutVillagePerson(villageId: string, personId: string, reason: string, actor: PopulationActor) {
-  const normalizedReason = typeof reason === "string" ? reason.trim() : "";
-  if (normalizedReason.length < 5) throw new PopulationValidationError("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
+  const normalizedReason = normalizedActionReason("population.person.move_out", reason);
   await prisma.$transaction(async (tx) => {
     const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");
@@ -270,11 +279,10 @@ export async function moveOutVillagePerson(villageId: string, personId: string, 
 
 export async function markVillagePersonDeceased(villageId: string, personId: string, date: string, reason: string, actor: PopulationActor) {
   const normalizedDate = typeof date === "string" ? date.trim() : "";
-  const normalizedReason = typeof reason === "string" ? reason.trim() : "";
+  const normalizedReason = normalizedActionReason("population.person.deactivate", reason);
   const parsedDate = validateOptionalPersonDate(normalizedDate);
   if (!normalizedDate || !parsedDate.valid || !parsedDate.value) throw new PopulationValidationError(!parsedDate.valid && parsedDate.reason === "FUTURE" ? "วันที่เสียชีวิตต้องไม่เป็นวันในอนาคต" : "วันที่เสียชีวิตไม่ถูกต้อง");
   const deceasedAt = parsedDate.value;
-  if (normalizedReason.length < 5) throw new PopulationValidationError("กรุณาระบุเหตุผลหรือหมายเหตุอย่างน้อย 5 ตัวอักษร");
   await prisma.$transaction(async (tx) => {
     const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true, firstName: true, lastName: true, dateOfBirth: true } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");

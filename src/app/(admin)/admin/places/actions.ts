@@ -9,6 +9,8 @@ import { normalizeVillagePlaceInput, parseVillagePlacePayload } from "@/lib/vill
 import type { PlaceImageInput } from "@/lib/place-image";
 import { materializePlaceImages, replacePlaceImages } from "@/lib/place-image.server";
 import { deletePlaceUploads } from "@/lib/place-upload.server";
+import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 type PlaceInput = {
   name: string; category: string; description?: string; address?: string; openingHours?: string;
@@ -25,6 +27,7 @@ async function requireAdminVillage() {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน" };
+  if (!hasVillagePermission(membership.role, "places.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการสถานที่" };
   return { ok: true as const, session, villageId: membership.villageId };
 }
 
@@ -149,8 +152,9 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
 export async function adminRejectVillagePlaceSubmissionAction(submissionId: string, reviewNote: string): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
-  const reason = reviewNote.trim();
-  if (reason.length < 5) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  let reason: string;
+  try { reason = requireActionReason("content.request.reject", reviewNote); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
   const submission = await findPendingSubmission(submissionId, ctx.villageId);
   if (!submission) return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   try {

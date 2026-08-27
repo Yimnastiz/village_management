@@ -1,2 +1,3 @@
 import { AdminRouteHeader } from "@/components/admin/admin-route-header";
-export default function Layout({ children }: { children: React.ReactNode }) { return <AdminRouteHeader title="จัดการนัดหมาย">{children}</AdminRouteHeader>; }
+import { requireVillagePagePermission } from "@/lib/admin-permission.server";
+export default async function Layout({ children }: { children: React.ReactNode }) { await requireVillagePagePermission("appointments.manage"); return <AdminRouteHeader title="จัดการนัดหมาย">{children}</AdminRouteHeader>; }

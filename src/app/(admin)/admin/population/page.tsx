@@ -15,11 +15,6 @@ import { BindingReviewForm } from "./binding-review-form";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { hasVillagePermission } from "@/lib/village-permissions";
 
-const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
-
 type PendingBindingRequest = {
   id: string;
   villageId: string | null;
@@ -396,8 +391,8 @@ export async function verifyHouseForBindingAction(_previousState: BindingReviewA
   try { await prisma.$transaction(async (tx) => {
     const request = await tx.bindingRequest.findFirst({ where: { id: requestId, status: BindingRequestStatus.PENDING } });
     if (!request?.villageId) throw new BindingReviewValidationError("ไม่พบคำขอที่รอตรวจสอบ");
-    const canManage = session.memberships.some((m) => m.villageId === request.villageId && m.status === MembershipStatus.ACTIVE && (m.role === VillageMembershipRole.HEADMAN || m.role === VillageMembershipRole.ASSISTANT_HEADMAN));
-    if (!canManage) throw new BindingReviewValidationError("คุณไม่มีสิทธิ์จัดการคำขอนี้");
+    const reviewerMembership = getAdminMembership(session, { villageId: request.villageId });
+    if (!reviewerMembership || !hasVillagePermission(reviewerMembership.role, "binding.review")) throw new BindingReviewValidationError("คุณไม่มีสิทธิ์จัดการคำขอนี้");
     if (request.houseId) {
       const alreadyResolved = await tx.house.findFirst({ where: { id: request.houseId, villageId: request.villageId }, select: { id: true } });
       if (alreadyResolved) throw new BindingReviewValidationError("คำขอนี้จับคู่กับบ้านในทะเบียนแล้ว กรุณารีเฟรชหน้า");
@@ -408,7 +403,10 @@ export async function verifyHouseForBindingAction(_previousState: BindingReviewA
       const house = await tx.house.findFirst({ where: { id: houseId, villageId: request.villageId }, select: { id: true, houseNumber: true, normalizedHouseNumber: true } });
       if (!house) throw new BindingReviewValidationError("บ้านที่เลือกไม่อยู่ในหมู่บ้านนี้");
       const requestedNormalized = normalizeHouseNumber(request.houseNumber ?? "");
-      if (house.normalizedHouseNumber !== requestedNormalized && matchReason.length < 5) throw new BindingReviewValidationError("เลขบ้านที่เลือกไม่ตรงกับคำขอ กรุณาระบุเหตุผลการจับคู่อย่างน้อย 5 ตัวอักษร");
+      if (house.normalizedHouseNumber !== requestedNormalized) {
+        try { requireActionReason("binding.override_mismatch", matchReason); }
+        catch { throw new BindingReviewValidationError("เลขบ้านที่เลือกไม่ตรงกับคำขอ กรุณาระบุเหตุผลการจับคู่อย่างน้อย 5 ตัวอักษร"); }
+      }
     } else {
       const normalized = normalizeHouseNumber(request.houseNumber ?? "");
       if (!isValidHouseNumber(normalized)) throw new BindingReviewValidationError("เลขบ้านที่ลูกบ้านแจ้งไม่ถูกต้อง");
@@ -451,7 +449,7 @@ export default async function Page({ searchParams }: PageProps) {
   // This route is deliberately an overview.  Binding review and house management
   // have their own routes so a review cannot be confused with household data.
   const manageableVillageIds = session.memberships
-    .filter((membership) => membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role))
+    .filter((membership) => membership.status === MembershipStatus.ACTIVE && hasVillagePermission(membership.role, "population.view"))
     .map((membership) => membership.villageId);
   const overviewWhere = session.systemRole === SystemRole.SUPERADMIN ? {} : { villageId: { in: manageableVillageIds } };
   const [overviewHouses, overviewPeople, overviewBoundMembers, overviewPendingBindings] = await Promise.all([
@@ -467,11 +465,14 @@ export default async function Page({ searchParams }: PageProps) {
     ["สมาชิกที่ผูกบ้านแล้ว", overviewBoundMembers],
     ["คำขอผูกบ้านรอพิจารณา", overviewPendingBindings],
   ] as const;
+  const adminMembership = getAdminMembership(session);
   const modules = [
     { title: "ทะเบียนบ้าน", description: "ดู เพิ่ม และจัดการบ้านเลขที่", href: "/admin/population/houses", action: "เปิดทะเบียนบ้าน" },
     { title: "ทะเบียนประชากร", description: "ดู เพิ่ม และแก้ไขข้อมูลประชากร", href: "/admin/population/people", action: "เปิดทะเบียนประชากร" },
     { title: "คำขอผูกเลขบ้าน", description: "ตรวจสอบคำขอจากลูกบ้าน", href: "/admin/population/binding-requests", action: overviewPendingBindings ? `${overviewPendingBindings.toLocaleString("th-TH")} รายการรอพิจารณา` : "ตรวจสอบคำขอ" },
-    { title: "นำเข้า/ส่งออก", description: "จัดการข้อมูลจำนวนมาก", href: "/admin/population/import", action: "จัดการข้อมูล" },
+    ...(adminMembership && hasVillagePermission(adminMembership.role, "population.import")
+      ? [{ title: "นำเข้า/ส่งออก", description: "จัดการข้อมูลจำนวนมาก", href: "/admin/population/import", action: "จัดการข้อมูล" }]
+      : []),
   ] as const;
 
   return <div className="space-y-6">
@@ -498,7 +499,7 @@ export default async function Page({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
 
   const villageIds = session!.memberships
-    .filter((m) => ADMIN_MEMBERSHIP_ROLES.has(m.role))
+    .filter((m) => hasVillagePermission(m.role, "population.view"))
     .map((m) => m.villageId);
 
   const isSuperAdmin = session!.systemRole === SystemRole.SUPERADMIN;
@@ -759,7 +760,7 @@ export default async function Page({ searchParams }: PageProps) {
                 {session!.memberships.some((membership) =>
                   membership.villageId === request.villageId &&
                   membership.status === MembershipStatus.ACTIVE &&
-                  (membership.role === VillageMembershipRole.HEADMAN || membership.role === VillageMembershipRole.ASSISTANT_HEADMAN)
+                  hasVillagePermission(membership.role, "binding.review")
                 ) ? <BindingReviewForm reviewAction={handleBindingRequestAction} verifyAction={verifyHouseForBindingAction} requestId={request.id} applicantName={request.user.name} houseId={request.houseId} requestedHouseNumber={request.houseNumber ?? request.house?.houseNumber ?? null} resolvedHouseNumber={request.house?.houseNumber ?? null} houses={houses} personHouseNumber={request.person?.houseNumber} houseMismatch={Boolean(request.person?.houseId && request.houseId && request.person.houseId !== request.houseId)} nationalIdClaimed={request.nationalIdClaimed} /> : <p className="mt-4 text-sm text-gray-500">คุณมีสิทธิ์ดูคำขอนี้ แต่การอนุมัติหรือปฏิเสธต้องดำเนินการโดยผู้ใหญ่บ้านหรือผู้ช่วยผู้ใหญ่บ้าน</p>}
               </div>
             ))}

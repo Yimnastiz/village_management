@@ -13,6 +13,8 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { revalidatePath } from "next/cache";
+import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const newsInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -50,6 +52,7 @@ async function requireAdminVillage() {
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", session: null, villageId: "" };
   }
+  if (!hasVillagePermission(membership.role, "news.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข่าวสาร", session: null, villageId: "" };
 
   return {
     ok: true as const,
@@ -417,8 +420,10 @@ export async function adminRejectNewsSubmissionAction(
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
 
-  const normalizedReviewNote = reviewNote?.trim() ?? "";
-  if (normalizedReviewNote.length < 5 || normalizedReviewNote.length > 500) return { success: false, error: "กรุณาระบุเหตุผล 5–500 ตัวอักษร" };
+  let normalizedReviewNote: string;
+  try { normalizedReviewNote = requireActionReason("content.request.reject", reviewNote); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผล 5–500 ตัวอักษร" }; throw error; }
+  if (normalizedReviewNote.length > 500) return { success: false, error: "กรุณาระบุเหตุผล 5–500 ตัวอักษร" };
 
   const existing = await prisma.newsSubmission.findFirst({
     where: { id: submissionId, villageId: ctx.villageId, status: "PENDING" },

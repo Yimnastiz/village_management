@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { MembershipStatus, PersonStatus, VillageMembershipRole } from "@prisma/client";
+import { MembershipStatus, PersonStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { normalizeHouseNumber } from "@/lib/house-number";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { HouseBatchCreateDialog } from "@/features/population/components/house-batch-create-dialog";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
@@ -11,11 +11,9 @@ type PageProps = { searchParams?: Promise<{ q?: string; occupancy?: string; sort
 
 export default async function Page({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
-  const session = await getSessionContextFromServerCookies();
-  if (!session) redirect("/auth/login?callbackUrl=/admin/population/houses");
-  if (!isAdminUser(session)) redirect(computeLandingPath(session));
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } }, select: { villageId: true } });
-  if (!membership) redirect(computeLandingPath(session));
+  const context = await getVillagePermissionContext("population.house.manage");
+  if (!context) redirect("/auth/login?callbackUrl=/admin/population/houses");
+  const membership = context.membership;
 
   const keyword = params.q?.trim() ?? "";
   const normalizedKeyword = normalizeHouseNumber(keyword);

@@ -1,8 +1,8 @@
 "use server";
 
-import { AuditAction, MembershipStatus, PopulationImportStage, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, MembershipStatus, PopulationImportStage, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { applyStoredImportRow, type StoredImportRow } from "../actions";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
@@ -38,11 +38,6 @@ export type ImportCleanupPreflight = {
   skippedReasonCounts: Record<string, number>;
 };
 
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
-
 function parsePayload(value: unknown): ImportJobDetailsPayload {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     return value as ImportJobDetailsPayload;
@@ -57,11 +52,7 @@ async function requireImportJobForAdmin(jobId: string, targetVillageId = "", per
     throw new Error("ไม่มีสิทธิ์ใช้งาน");
   }
 
-  const adminMembership = session.memberships.find(
-    (membership) =>
-      membership.status === MembershipStatus.ACTIVE &&
-      ADMIN_MEMBERSHIP_ROLES.has(membership.role),
-  );
+  const adminMembership = getAdminMembership(session);
   const villageId = isSuperAdminUser(session) ? targetVillageId : adminMembership?.villageId;
   if (!villageId) {
     throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");

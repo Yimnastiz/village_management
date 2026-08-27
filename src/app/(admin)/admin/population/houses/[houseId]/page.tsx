@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { MembershipStatus, PersonStatus, VillageMembershipRole } from "@prisma/client";
+import { MembershipStatus, PersonStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
 import { DeleteHouseButton } from "../delete-house-button";
@@ -11,11 +11,9 @@ import { DeleteHouseButton } from "../delete-house-button";
 export default async function Page({ params, searchParams }: { params: Promise<{ houseId: string }>; searchParams?: Promise<{ history?: string }> }) {
   const { houseId } = await params;
   const historyEnabled = (await searchParams)?.history === "1";
-  const session = await getSessionContextFromServerCookies();
-  if (!session) redirect("/auth/login?callbackUrl=/admin/population/houses");
-  if (!isAdminUser(session)) redirect(computeLandingPath(session));
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } }, select: { villageId: true } });
-  if (!membership) redirect(computeLandingPath(session));
+  const context = await getVillagePermissionContext("population.house.manage");
+  if (!context) redirect("/auth/login?callbackUrl=/admin/population/houses");
+  const membership = context.membership;
 
   const house = await prisma.house.findFirst({
     where: { id: houseId, villageId: membership.villageId },

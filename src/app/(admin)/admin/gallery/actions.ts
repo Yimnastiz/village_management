@@ -9,6 +9,8 @@ import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/ac
 import { isSafeImageSource } from "@/lib/image-input";
 import { deletePlaceUploads, verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const db = prisma;
 
@@ -40,6 +42,7 @@ async function requireAdminVillage() {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", villageId: "", userId: "" };
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", villageId: "", userId: "" };
+  if (!hasVillagePermission(membership.role, "gallery.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการแกลเลอรี", villageId: "", userId: "" };
 
   return { ok: true as const, error: null, villageId: membership.villageId, userId: session.id };
 }
@@ -536,8 +539,9 @@ export async function adminRejectGalleryItemSubmissionAction(
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
-  const reason = reviewNote?.trim() ?? "";
-  if (reason.length < 5) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  let reason: string;
+  try { reason = requireActionReason("content.request.reject", reviewNote); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
   const submission = await db.galleryItemSubmission.findFirst({
     where: {

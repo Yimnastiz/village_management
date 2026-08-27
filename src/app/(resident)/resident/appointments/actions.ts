@@ -1,15 +1,17 @@
 "use server";
 
-import { NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getAdminMembership, getResidentMembership, getSessionContextFromServerCookies, type SessionContext } from "@/lib/access-control";
 import { isAdminUser } from "@/lib/access-control";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { formatThaiDate, formatThaiShortDate } from "@/lib/utils";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const appointmentSchema = z.object({
   title: z.string().min(3, "ชื่อนัดหมายต้องมีความยาวอย่างน้อย 3 ตัวอักษร"),
@@ -40,6 +42,11 @@ const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   "HEADMAN",
   "ASSISTANT_HEADMAN",
 ];
+
+function getAppointmentAdminMembership(session: SessionContext, villageId?: string) {
+  const membership = getAdminMembership(session, { villageId });
+  return membership && hasVillagePermission(membership.role, "appointments.manage") ? membership : null;
+}
 
 function formatAppointmentStart(date: Date, startTime: string): string {
   return `${formatThaiDate(date)} เวลา ${startTime}`;
@@ -250,7 +257,7 @@ export async function proposeAppointmentTimeAction(input: z.input<typeof manualS
   if (!parsed.success) return { success: false, error: "กรุณาระบุวันและเวลาที่ถูกต้อง" };
   const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } });
   if (!appointment) return { success: false, error: "ไม่พบคำขอนัดหมาย" };
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, villageId: appointment.villageId, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } });
+  const membership = getAppointmentAdminMembership(session, appointment.villageId);
   const source = await getAppointmentCreationSource(appointment.id);
   if (!membership || source.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") return { success: false, error: "ไม่สามารถเสนอเวลาในสถานะนี้ได้" };
   const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime);
@@ -303,7 +310,7 @@ export async function adminCreateAppointmentAction(input: z.input<typeof adminCr
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
   const parsed = adminCreatedSchema.safeParse(input); if (!parsed.success) return { success: false, error: "กรอกข้อมูลนัดหมายให้ครบถ้วน" };
   const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime); if (!endTime) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
-  const admin = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } }); if (!admin) return { success: false, error: "ไม่พบหมู่บ้านที่คุณดูแล" };
+  const admin = getAppointmentAdminMembership(session); if (!admin) return { success: false, error: "ไม่พบหมู่บ้านที่คุณดูแล" };
   const resident = await prisma.villageMembership.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" } }); if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านของคุณ" };
   const date = new Date(`${parsed.data.date}T00:00:00.000Z`); const slot = await prisma.appointmentSlot.create({ data: { villageId: admin.villageId, date, startTime: parsed.data.startTime, endTime, maxCapacity: 1, note: "นัดหมายที่ผู้ใหญ่บ้านสร้าง" } });
   const appointment = await prisma.appointment.create({ data: { villageId: admin.villageId, userId: resident.userId, title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: session.id, reviewedAt: new Date() } });
@@ -321,7 +328,7 @@ export async function adminUpdateAppointmentAction(input: z.input<typeof adminUp
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) return { success: false, error: "ไม่มีสิทธิ์ใช้งาน" };
   const parsed = adminUpdateSchema.safeParse(input); if (!parsed.success) return { success: false, error: "ข้อมูลนัดหมายไม่ถูกต้อง" };
   const appointment = await prisma.appointment.findUnique({ where: { id: parsed.data.appointmentId } }); if (!appointment) return { success: false, error: "ไม่พบนัดหมาย" };
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, villageId: appointment.villageId, status: "ACTIVE", role: { in: ADMIN_MEMBERSHIP_ROLES } } }); if (!membership) return { success: false, error: "ไม่มีสิทธิ์จัดการนัดหมายนี้" };
+  const membership = getAppointmentAdminMembership(session, appointment.villageId); if (!membership) return { success: false, error: "ไม่มีสิทธิ์จัดการนัดหมายนี้" };
   const source = await getAppointmentCreationSource(appointment.id);
   const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime); if (!endTime) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
 
@@ -534,14 +541,7 @@ export async function approveAppointmentAction(
     return { success: false, error: "ไม่พบนัดหมาย" };
   }
 
-  const adminMembership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
-      status: "ACTIVE",
-    },
-  });
+  const adminMembership = getAppointmentAdminMembership(session, appointment.villageId);
 
   if (!adminMembership) {
     return { success: false, error: "ไม่มีสิทธิ์อนุมัตินัดหมายนี้" };
@@ -642,6 +642,10 @@ export async function rejectAppointmentAction(
     };
   }
 
+  let normalizedReason: string;
+  try { normalizedReason = requireActionReason("appointment.reject_time", parsed.data.reviewNote); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+
   const appointment = await prisma.appointment.findUnique({
     where: { id: parsed.data.appointmentId },
   });
@@ -650,14 +654,7 @@ export async function rejectAppointmentAction(
     return { success: false, error: "ไม่พบนัดหมาย" };
   }
 
-  const adminMembership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
-      status: "ACTIVE",
-    },
-  });
+  const adminMembership = getAppointmentAdminMembership(session, appointment.villageId);
 
   if (!adminMembership) {
     return { success: false, error: "ไม่มีสิทธิ์ปฏิเสธนัดหมายนี้" };
@@ -694,6 +691,7 @@ export async function rejectAppointmentAction(
       },
     },
   });
+  await prisma.auditLog.create({ data: { userId: session.id, villageId: appointment.villageId, action: AuditAction.REJECT, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: adminMembership.role, policyAction: "appointment.reject_time", reason: normalizedReason, affectedUserId: appointment.userId } } });
 
   await notifyUser(
     appointment.userId,
@@ -739,14 +737,7 @@ export async function suggestTimeAction(
     return { success: false, error: "ไม่พบนัดหมาย" };
   }
 
-  const adminMembership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
-      status: "ACTIVE",
-    },
-  });
+  const adminMembership = getAppointmentAdminMembership(session, appointment.villageId);
 
   if (!adminMembership) {
     return { success: false, error: "ไม่มีสิทธิ์แนะนำเวลาสำหรับนัดหมายนี้" };
@@ -939,7 +930,10 @@ export async function adminCancelAppointmentAction(
   const reason = (formData.get("reason") as string) || "";
 
   if (!appointmentId) return { success: false, error: "ข้อมูลไม่ถูกต้อง" };
-  if (reason.trim().length < 5 || reason.trim().length > 500) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  let normalizedReason: string;
+  try { normalizedReason = requireActionReason("appointment.cancel", reason); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+  if (normalizedReason.length > 500) return { success: false, error: "เหตุผลต้องไม่เกิน 500 ตัวอักษร" };
 
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -947,14 +941,7 @@ export async function adminCancelAppointmentAction(
 
   if (!appointment) return { success: false, error: "ไม่พบนัดหมาย" };
 
-  const adminMembership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
-      status: "ACTIVE",
-    },
-  });
+  const adminMembership = getAppointmentAdminMembership(session, appointment.villageId);
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์ยกเลิกนัดหมายนี้" };
 
@@ -965,7 +952,7 @@ export async function adminCancelAppointmentAction(
 
   await prisma.appointment.update({
     where: { id: appointmentId },
-    data: { stage: "CANCELLED", reviewNote: reason.trim(), reviewedBy: session.id, reviewedAt: new Date() },
+    data: { stage: "CANCELLED", reviewNote: normalizedReason, reviewedBy: session.id, reviewedAt: new Date() },
   });
 
   await prisma.appointmentTimeline.create({
@@ -973,8 +960,8 @@ export async function adminCancelAppointmentAction(
       appointmentId,
       actorId: session.id,
       action: "CANCELLED",
-      description: `ยกเลิกนัดหมาย | เหตุผล: ${reason.trim()}`,
-      metadata: { reason: reason.trim() },
+      description: `ยกเลิกนัดหมาย | เหตุผล: ${normalizedReason}`,
+      metadata: { reason: normalizedReason },
     },
   });
 
@@ -983,9 +970,10 @@ export async function adminCancelAppointmentAction(
     appointment.userId,
     appointment.villageId,
     "นัดหมายถูกยกเลิก",
-    `นัดหมาย “${appointment.title}” ถูกยกเลิก เหตุผล: ${reason.trim()}`,
+    `นัดหมาย “${appointment.title}” ถูกยกเลิก เหตุผล: ${normalizedReason}`,
     { appointmentId }
   );
+  await prisma.auditLog.create({ data: { userId: session.id, villageId: appointment.villageId, action: AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: adminMembership.role, policyAction: "appointment.cancel", reason: normalizedReason, affectedUserId: appointment.userId } } });
 
   revalidateAppointmentViews(appointmentId);
 
@@ -1016,14 +1004,7 @@ export async function adminEditAppointmentAction(
 
   if (!appointment) return { success: false, error: "ไม่พบนัดหมาย" };
 
-  const adminMembership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
-      status: "ACTIVE",
-    },
-  });
+  const adminMembership = getAppointmentAdminMembership(session, appointment.villageId);
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์แก้ไขนัดหมายนี้" };
 

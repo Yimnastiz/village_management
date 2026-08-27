@@ -1,26 +1,17 @@
-import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { FileSpreadsheet, Home, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { PopulationExportForm } from "@/features/population/components/population-export-form";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { hasVillagePermission } from "@/lib/village-permissions";
-
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
 
 export default async function Page() {
   const session = await getSessionContextFromServerCookies();
   if (!session) redirect("/auth/login?callbackUrl=/admin/population/export");
   if (!isAdminUser(session)) redirect(computeLandingPath(session));
 
-  const adminMembership = session.memberships.find(
-    (membership) =>
-      membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLES.has(membership.role),
-  );
+  const adminMembership = getAdminMembership(session);
   if (!adminMembership) redirect(computeLandingPath(session));
   const canExportFullRegistry = hasVillagePermission(adminMembership.role, "population.export_sensitive");
 

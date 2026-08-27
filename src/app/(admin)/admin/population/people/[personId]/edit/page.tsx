@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
-import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { PersonForm } from "../../person-form";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
@@ -21,19 +20,9 @@ function toInputDate(value: Date | null): string {
 
 export default async function EditPersonPage({ params }: PageProps) {
   const { personId } = await params;
-  const session = await getSessionContextFromServerCookies();
-  if (!session) redirect("/auth/login?callbackUrl=/admin/population/people");
-  if (!isAdminUser(session)) redirect(computeLandingPath(session));
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: {
-      userId: session.id,
-      status: MembershipStatus.ACTIVE,
-      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] },
-    },
-    select: { villageId: true },
-  });
-  if (!membership) redirect(computeLandingPath(session));
+  const context = await getVillagePermissionContext("population.person.manage");
+  if (!context) redirect("/auth/login?callbackUrl=/admin/population/people");
+  const membership = context.membership;
 
   const [person, houses] = await Promise.all([
     prisma.person.findFirst({

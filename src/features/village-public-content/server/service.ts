@@ -206,9 +206,9 @@ async function auditSuperAdmin(
     resourceId: string;
     oldValue?: Prisma.InputJsonValue;
     newValue?: Prisma.InputJsonValue;
+    reason?: string;
   }
 ) {
-  if (context.actorRole !== "SUPERADMIN") return;
   await tx.auditLog.create({
     data: {
       userId: context.actorUserId,
@@ -217,9 +217,10 @@ async function auditSuperAdmin(
       resource: input.resource,
       resourceId: input.resourceId,
       metadata: {
-        actorRole: "SUPERADMIN",
+        actorRole: context.actorRole,
         targetVillageId: context.villageId,
-        actionName: input.actionName,
+        actionName: context.actorRole === "SUPERADMIN" ? input.actionName : input.actionName.replace(/^SUPERADMIN_/, "ADMIN_"),
+        reason: input.reason ?? null,
         supportReason: context.supportReason,
         oldValue: input.oldValue,
         newValue: input.newValue,
@@ -393,7 +394,7 @@ export async function updateContact(context: VillageActorContext, id: string, in
     const isPublic = value.isPublic === "PUBLIC";
     await prisma.$transaction(async (tx) => {
       await tx.contactDirectory.update({ where: { id }, data: { isPublic } });
-      if (context.actorRole === "ADMIN" && context.actorUserId) {
+      if (context.actorRole !== "SUPERADMIN" && context.actorUserId) {
         await tx.auditLog.create({
           data: {
             userId: context.actorUserId,
@@ -438,7 +439,7 @@ export async function updateContact(context: VillageActorContext, id: string, in
       existing.category !== normalized.value.category ? "category" : null,
       existing.isPublic !== normalized.value.isPublic ? "isPublic" : null,
     ].filter((field): field is string => Boolean(field));
-    if (context.actorRole === "ADMIN" && context.actorUserId) {
+    if (context.actorRole !== "SUPERADMIN" && context.actorUserId) {
       await tx.auditLog.create({ data: { userId: context.actorUserId, villageId: context.villageId, action: AuditAction.UPDATE, resource: "ContactDirectory", resourceId: id, metadata: { actionName: existing.isPublic !== normalized.value.isPublic ? "ADMIN_CONTACT_VISIBILITY_CHANGED" : "ADMIN_CONTACT_UPDATED", provenance: "ADMIN_MANUAL", changedFields } } });
     } else {
       await auditSuperAdmin(tx, context, {
@@ -455,13 +456,13 @@ export async function updateContact(context: VillageActorContext, id: string, in
   return { success: true };
 }
 
-export async function deleteContact(context: VillageActorContext, id: string): Promise<ActionResult> {
+export async function deleteContact(context: VillageActorContext, id: string, reason?: string): Promise<ActionResult> {
   const existing = await prisma.contactDirectory.findFirst({ where: { id, villageId: context.villageId }, select: { id: true, name: true } });
   if (!existing) return { success: false, error: "ไม่พบผู้ติดต่อหรือไม่มีสิทธิ์ลบ" };
   await prisma.$transaction(async (tx) => {
     await tx.savedItem.deleteMany({ where: { contactId: id } });
     await tx.contactDirectory.delete({ where: { id } });
-    await auditSuperAdmin(tx, context, { action: AuditAction.DELETE, actionName: "SUPERADMIN_CONTACT_DELETED", resource: "ContactDirectory", resourceId: id, oldValue: { name: existing.name } });
+    await auditSuperAdmin(tx, context, { action: AuditAction.DELETE, actionName: "SUPERADMIN_CONTACT_DELETED", resource: "ContactDirectory", resourceId: id, oldValue: { name: existing.name }, reason });
   });
   revalidateVillagePublicContent(context, "contacts", id);
   return { success: true };

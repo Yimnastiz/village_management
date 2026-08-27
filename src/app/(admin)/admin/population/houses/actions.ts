@@ -1,8 +1,7 @@
 "use server";
 
-import { MembershipStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { canManagePopulation, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { createVillageHouse, createVillageHouses, deleteVillageHouse, PopulationBatchValidationError, PopulationValidationError } from "@/features/population/server/village-population-service";
 
 export type HouseActionResult =
@@ -11,10 +10,8 @@ export type HouseActionResult =
 export type HouseBatchActionResult = { success: true; count: number; message: string } | { success: false; error?: string; errors?: Array<{ index: number; field: "houseNumber" | "address"; message: string }> };
 
 async function getPopulationContext() {
-  const session = await getSessionContextFromServerCookies();
-  if (!session || !isAdminUser(session)) return null;
-  const membership = session.memberships.find((item) => item.status === MembershipStatus.ACTIVE && canManagePopulation(item.role));
-  return membership ? { villageId: membership.villageId, actor: { id: session.id, role: "ADMIN" as const } } : null;
+  const context = await getVillagePermissionContext("population.house.manage");
+  return context ? { villageId: context.villageId, actor: { id: context.session.id, role: context.membership.role as "HEADMAN" | "ASSISTANT_HEADMAN" } } : null;
 }
 
 export async function createHouseAction(formData: FormData): Promise<HouseActionResult> {

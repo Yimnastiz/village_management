@@ -2,17 +2,18 @@ import { notFound } from "next/navigation";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
+import { hasVillagePermission, type VillagePermission } from "@/lib/village-permissions";
 
 export type VillageActorContext = {
   actorUserId: string | null;
-  actorRole: "ADMIN" | "SUPERADMIN";
+  actorRole: "HEADMAN" | "ASSISTANT_HEADMAN" | "SUPERADMIN";
   villageId: string;
   villageName?: string;
   villageSlug?: string;
   supportReason?: string;
 };
 
-export async function requireAdminVillageContext(): Promise<
+export async function requireAdminVillageContext(permission: VillagePermission = "dashboard.view"): Promise<
   { ok: true; context: VillageActorContext } | { ok: false; error: string }
 > {
   const session = await getSessionContextFromServerCookies();
@@ -20,12 +21,13 @@ export async function requireAdminVillageContext(): Promise<
 
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false, error: "ไม่พบหมู่บ้านที่คุณดูแล" };
+  if (!hasVillagePermission(membership.role, permission)) return { ok: false, error: "ไม่มีสิทธิ์ดำเนินการ" };
 
   return {
     ok: true,
     context: {
       actorUserId: session.id,
-      actorRole: "ADMIN",
+      actorRole: membership.role as "HEADMAN" | "ASSISTANT_HEADMAN",
       villageId: membership.villageId,
       villageSlug: membership.villageSlug ?? undefined,
     },

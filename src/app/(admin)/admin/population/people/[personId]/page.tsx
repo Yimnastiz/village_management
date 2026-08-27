@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { MembershipStatus, MovementType, VillageMembershipRole } from "@prisma/client";
+import { MovementType } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
-import { computeLandingPath, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
 import { normalizePersonGender } from "@/lib/person-validation";
@@ -33,15 +33,9 @@ function maskLoginPhone(value: string) {
 
 export default async function Page({ params }: PageProps) {
   const { personId } = await params;
-  const session = await getSessionContextFromServerCookies();
-  if (!session) redirect("/auth/login?callbackUrl=/admin/population/people");
-  if (!isAdminUser(session)) redirect(computeLandingPath(session));
-
-  const adminMembership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } },
-    select: { villageId: true },
-  });
-  if (!adminMembership) redirect(computeLandingPath(session));
+  const context = await getVillagePermissionContext("population.person.manage");
+  if (!context) redirect("/auth/login?callbackUrl=/admin/population/people");
+  const adminMembership = context.membership;
 
   const person = await prisma.person.findFirst({
     where: { id: personId, villageId: adminMembership.villageId },

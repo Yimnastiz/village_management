@@ -1,17 +1,14 @@
 "use server";
 
-import { MembershipStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { canManagePopulation, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { createVillagePerson, markVillagePersonDeceased, moveOutVillagePerson, PopulationValidationError, updateVillagePerson, type VillagePersonInput } from "@/features/population/server/village-population-service";
 
 type PersonActionResult = { success: true; id?: string } | { success: false; error: string };
 
 async function context() {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id || !isAdminUser(session)) return null;
-  const membership = session.memberships.find((item) => item.status === MembershipStatus.ACTIVE && canManagePopulation(item.role));
-  return membership ? { actor: { id: session.id, role: "ADMIN" as const }, villageId: membership.villageId } : null;
+  const current = await getVillagePermissionContext("population.person.manage");
+  return current ? { actor: { id: current.session.id, role: current.membership.role as "HEADMAN" | "ASSISTANT_HEADMAN" }, villageId: current.villageId } : null;
 }
 
 function toActionError(error: unknown) {

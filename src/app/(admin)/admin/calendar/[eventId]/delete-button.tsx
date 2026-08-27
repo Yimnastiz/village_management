@@ -3,19 +3,19 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { deleteVillageEventAction } from "../actions";
 
 export function DeleteVillageEventButton({ eventId }: { eventId: string }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
-  const onDelete = async () => {
-    if (!confirm("ต้องการลบกิจกรรมนี้ใช่หรือไม่?")) return;
-
+  const onDelete = async (reason: string) => {
     setIsSubmitting(true);
     setError(null);
-    const result = await deleteVillageEventAction(eventId);
+    const result = await deleteVillageEventAction(eventId, reason);
     setIsSubmitting(false);
 
     if (!result.success) {
@@ -25,14 +25,16 @@ export function DeleteVillageEventButton({ eventId }: { eventId: string }) {
 
     router.push("/admin/calendar");
     router.refresh();
+    setOpen(false);
   };
 
   return (
     <div className="space-y-2">
-      <Button variant="danger" onClick={onDelete} isLoading={isSubmitting}>
+      <Button variant="danger" onClick={() => setOpen(true)} isLoading={isSubmitting}>
         ลบกิจกรรม
       </Button>
       {error && <p className="text-sm text-red-600">{error}</p>}
+      <ActionReasonDialog open={open} action="content.delete" title="ลบกิจกรรม" description="กิจกรรมจะถูกลบออกจากปฏิทินและบันทึกเหตุผลใน Audit Log" submitLabel="ยืนยันการลบ" loading={isSubmitting} onCancel={() => setOpen(false)} onSubmit={onDelete} />
     </div>
   );
 }

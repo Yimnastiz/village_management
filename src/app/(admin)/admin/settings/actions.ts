@@ -11,11 +11,6 @@ import { writeVillagePolicyAuditLog } from "@/lib/audit-log";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { canManageVillageRole, requireVillagePermission } from "@/lib/village-permissions";
 
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
-
 async function requireAdminVillageContext() {
   const session = await getSessionContextFromServerCookies();
   if (!session) {
@@ -156,11 +151,7 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
   catch { return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; }
 
   const isEditingSelf = target.userId === session.id;
-  if (isEditingSelf) {
-    if (!ADMIN_MEMBERSHIP_ROLES.has(nextRole) || nextStatus !== MembershipStatus.ACTIVE) {
-      return { success: false, error: "ไม่สามารถลดสิทธิ์หรือระงับการใช้งานของตนเองได้" };
-    }
-  }
+  if (isEditingSelf) return { success: false, error: "ไม่สามารถเปลี่ยนบทบาทหรือสถานะของตนเองได้" };
 
   const targetUser = await prisma.user.findUnique({ where: { id: target.userId }, select: { name: true } });
   await prisma.$transaction(async (tx) => {

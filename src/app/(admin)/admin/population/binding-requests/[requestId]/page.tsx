@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { maskNationalId } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import { hasVillagePermission } from "@/lib/village-permissions";
 import { findBoundIdentityByNationalId, getNationalIdForUser } from "@/lib/identity";
 import { BindingReviewForm } from "../../binding-review-form";
 import { handleBindingRequestAction, verifyHouseForBindingAction } from "../../page";
@@ -32,7 +33,7 @@ export default async function Page({ params }: { params: Promise<{ requestId: st
   const canReview = request.status === BindingRequestStatus.PENDING && session.memberships.some((item) =>
     item.villageId === request.villageId
     && item.status === MembershipStatus.ACTIVE
-    && (item.role === VillageMembershipRole.HEADMAN || item.role === VillageMembershipRole.ASSISTANT_HEADMAN));
+    && hasVillagePermission(item.role, "binding.review"));
   const nationalId = request.villageId ? await getNationalIdForUser(prisma, request.userId, request.villageId) : null;
   const [houses, claimedIdentity, reviewer] = await Promise.all([
     request.villageId ? prisma.house.findMany({ where: { villageId: request.villageId }, select: { id: true, houseNumber: true }, orderBy: { houseNumber: "asc" } }) : [],

@@ -12,13 +12,14 @@ import {
   type ContactUpdateInput,
 } from "@/features/village-public-content/server/service";
 import { prisma } from "@/lib/prisma";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const reorderSchema = z.object({ contactIds: z.array(z.string().min(1)).min(1) });
 
 export async function createContactAction(
   data: ContactInput
 ): Promise<{ success: true; id: string } | { success: false; error: string }> {
-  const ctx = await requireAdminVillageContext();
+  const ctx = await requireAdminVillageContext("contacts.manage");
   if (!ctx.ok) return { success: false, error: ctx.error };
   return createContact(ctx.context, data);
 }
@@ -27,21 +28,23 @@ export async function updateContactAction(
   id: string,
   data: ContactUpdateInput
 ): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillageContext();
+  const ctx = await requireAdminVillageContext("contacts.manage");
   if (!ctx.ok) return { success: false, error: ctx.error };
   return updateContact(ctx.context, id, data);
 }
 
 export async function deleteContactAction(
-  id: string
+  id: string,
+  reason: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillageContext();
+  const ctx = await requireAdminVillageContext("contacts.manage");
   if (!ctx.ok) return { success: false, error: ctx.error };
-  return deleteContact(ctx.context, id);
+  try { return deleteContact(ctx.context, id, requireActionReason("content.delete", reason)); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 }
 
 export async function reorderContactsAction(contactIds: string[]): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillageContext();
+  const ctx = await requireAdminVillageContext("contacts.manage");
   if (!ctx.ok) return { success: false, error: ctx.error };
   const parsed = reorderSchema.safeParse({ contactIds });
   if (!parsed.success) return { success: false, error: "ลำดับผู้ติดต่อไม่ถูกต้อง" };
