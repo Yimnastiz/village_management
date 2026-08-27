@@ -9,7 +9,7 @@ The shared `/admin` workspace uses `src/lib/village-permissions.ts` as its autho
 | Downloads, Transparency and Calendar | Yes | Yes |
 | Issues and Appointments | Yes | Yes |
 | View/manage houses and people; normal population workflows | Yes | Yes |
-| Binding and population-correction review | Yes | Yes |
+| Review house-binding requests; directly manage House/Person registry data according to operational permissions | Yes | Yes |
 | View members; suspend/reactivate ordinary Residents | Yes | Yes |
 | View append-only Audit Log | Yes | Yes |
 | Bulk population import | Yes | No |

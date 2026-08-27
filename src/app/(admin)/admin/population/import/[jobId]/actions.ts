@@ -179,7 +179,7 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
       houseNumber: true,
       sourceType: true,
       createdAt: true,
-      _count: { select: { memberships: true, bindingRequests: true, correctionRequests: true } },
+      _count: { select: { memberships: true, bindingRequests: true } },
       movementHistory: { select: { personId: true, populationImportJobId: true } },
     },
   }) : [];
@@ -191,7 +191,6 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
     if (remainingPeople > 0) skipped.push({ kind: "house", label, reason: "ยังมีประชากรอยู่" });
     else if (house._count.memberships > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลสมาชิกหมู่บ้านที่เกี่ยวข้อง" });
     else if (house._count.bindingRequests > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลการผูกบ้านที่เกี่ยวข้อง" });
-    else if (house._count.correctionRequests > 0) skipped.push({ kind: "house", label, reason: "มีคำขอแก้ไขข้อมูลบ้านที่เกี่ยวข้อง" });
     else if (house.movementHistory.some((movement) => movement.populationImportJobId !== jobId || !deletablePersonIds.includes(movement.personId))) skipped.push({ kind: "house", label, reason: "มีประวัติการเปลี่ยนแปลงหลังนำเข้า" });
     else deletableHouseIds.push(house.id);
   }
@@ -247,7 +246,7 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     const houseLabels = new Map((await tx.house.findMany({ where: { id: { in: afterPeople.deletableHouseIds } }, select: { id: true, houseNumber: true } })).map((house) => [house.id, `บ้าน ${house.houseNumber}`]));
     let deletedHouses = 0;
     for (const houseId of afterPeople.deletableHouseIds) {
-      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, bindingRequests: { none: {} }, correctionRequests: { none: {} }, movementHistory: { none: {} } } });
+      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, bindingRequests: { none: {} }, movementHistory: { none: {} } } });
       deletedHouses += deleted.count;
     }
     if (deletedPeople === 0 && deletedHouses === 0 && assessment.skipped.length === 0) {

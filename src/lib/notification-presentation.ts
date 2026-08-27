@@ -48,7 +48,7 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   if (hasString(metadata, "placeId") || source.includes("PLACE") || actionUrl.includes("/places")) return PRESENTATIONS.places;
   if (hasString(metadata, "fileId") || source.includes("DOWNLOAD") || actionUrl.includes("/downloads")) return PRESENTATIONS.downloads;
   if (hasString(metadata, "transparencyId") || source.includes("TRANSPARENCY") || actionUrl.includes("/transparency")) return PRESENTATIONS.transparency;
-  if (notification.type === "BINDING_REQUEST" || notification.type === "CORRECTION_REQUEST" || hasString(metadata, "bindingRequestId") || hasString(metadata, "correctionRequestId") || actionUrl.includes("/binding") || actionUrl.includes("/household")) return PRESENTATIONS.household;
+  if (notification.type === "BINDING_REQUEST" || hasString(metadata, "bindingRequestId") || actionUrl.includes("/binding") || actionUrl.includes("/household")) return PRESENTATIONS.household;
   if (source === "SUPERADMIN_BROADCAST") return PRESENTATIONS.broadcast;
   if (notification.type === "SYSTEM" && hasString(metadata, "personId")) return PRESENTATIONS.household;
   return DEFAULT_PRESENTATION;

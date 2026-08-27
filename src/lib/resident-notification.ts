@@ -44,7 +44,6 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   const fileId = stringValue(metadata, "fileId");
   const albumId = stringValue(metadata, "albumId");
   const transparencyId = stringValue(metadata, "transparencyId");
-  const correctionRequestId = stringValue(metadata, "correctionRequestId");
   const contactId = stringValue(metadata, "approvedContactId") ?? stringValue(metadata, "targetContactId");
   if (appointmentId) return `/resident/appointments/${appointmentId}`;
   if (issueId) return `/resident/issues/${issueId}`;
@@ -52,12 +51,10 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   if (fileId) return `/resident/downloads/${fileId}`;
   if (albumId) return `/resident/gallery/${albumId}`;
   if (transparencyId) return `/resident/transparency/${transparencyId}`;
-  if (correctionRequestId) return `/resident/household/corrections/${correctionRequestId}`;
   if (source?.includes("CONTACT")) return workflowStatus === "APPROVED" && requestType !== "DELETE" && contactId ? `/resident/contacts/${contactId}` : requestId ? `/resident/contacts/requests/${requestId}` : "/resident/contacts";
   if (source?.includes("CALENDAR") && requestId) return `/resident/calendar/requests/${requestId}`;
   if (notification.type === "APPOINTMENT_UPDATE") return "/resident/appointments";
   if (notification.type === "ISSUE_UPDATE") return "/resident/issues";
   if (notification.type === "NEWS") return requestId ? `/resident/news/requests/${requestId}` : "/resident/news";
-  if (notification.type === "CORRECTION_REQUEST") return "/resident/household/corrections";
   return null;
 }

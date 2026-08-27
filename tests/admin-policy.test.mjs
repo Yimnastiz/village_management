@@ -24,7 +24,7 @@ test("both village admin roles receive operational permissions", () => {
     "dashboard.view", "news.manage", "news.requests.review", "gallery.manage", "gallery.requests.review",
     "places.manage", "places.requests.review", "contacts.manage", "contacts.requests.review", "downloads.manage",
     "transparency.manage", "calendar.manage", "calendar.requests.review", "issues.manage", "appointments.manage",
-    "population.view", "population.person.manage", "population.house.manage", "population.corrections.review",
+    "population.view", "population.person.manage", "population.house.manage",
     "binding.review", "members.view", "members.status.manage", "audit.view",
   ]) {
     assert.equal(hasVillagePermission(HEADMAN, permission), true);

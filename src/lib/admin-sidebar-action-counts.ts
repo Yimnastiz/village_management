@@ -15,7 +15,6 @@ export type AdminSidebarActionCounts = {
   population: {
     total: number;
     bindingRequests: number;
-    corrections: number;
   };
   news: number;
   gallery: number;
@@ -61,9 +60,6 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
     population: {
       total: bindingRequests,
       bindingRequests,
-      // The schema has correction requests, but this admin sidebar has no
-      // review route/workflow for them yet, so they are deliberately excluded.
-      corrections: 0,
     },
     news,
     gallery,

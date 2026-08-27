@@ -46,7 +46,6 @@ export const villageWorkspaceMenuGroups: VillageWorkspaceMenuGroup[] = [
       { slug: "binding-requests", label: "คำขอผูกบ้าน", icon: ClipboardCheck },
       { slug: "population/import", label: "นำเข้าข้อมูล", icon: Upload },
       { slug: "population/export", label: "ส่งออกข้อมูล", icon: Download },
-      { slug: "population/corrections", label: "คำขอแก้ไขข้อมูล", icon: FileCheck },
     ],
   },
   {

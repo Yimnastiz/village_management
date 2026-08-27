@@ -155,13 +155,6 @@ enum AppointmentStage {
   COMPLETED
 }
 
-enum CorrectionRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
 enum DownloadStage {
   DRAFT
   PUBLISHED
@@ -206,7 +199,6 @@ enum NotificationType {
   APPOINTMENT_UPDATE
   NEWS
   BINDING_REQUEST
-  CORRECTION_REQUEST
   SYSTEM
 }
 
@@ -214,7 +206,6 @@ enum FileOwnerType {
   ISSUE
   ISSUE_MESSAGE
   APPOINTMENT
-  CORRECTION_REQUEST
   BINDING_REQUEST
   DOWNLOAD
   TRANSPARENCY
@@ -428,7 +419,6 @@ model Village {
   faqItems                FAQItem[]
   notifications           Notification[]
   authSessions            AuthSession[]
-  correctionRequests      HouseholdCorrectionRequest[]
   importJobs              PopulationImportJob[]
   auditLogs               AuditLog[]
   registeredUsers         User[]                       @relation("UserRegistrationVillage")
@@ -538,7 +528,6 @@ model House {
   persons            Person[]
   memberships        VillageMembership[]
   bindingRequests    BindingRequest[]
-  correctionRequests HouseholdCorrectionRequest[]
   movementHistory    PersonMovement[]
 
   @@unique([villageId, normalizedHouseNumber])
@@ -803,28 +792,6 @@ model AppointmentTimeline {
   actor       User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([appointmentId])
-}
-
-model HouseholdCorrectionRequest {
-  id          String                  @id @default(cuid())
-  villageId   String
-  userId      String
-  houseId     String?
-  subject     String
-  description String                  @db.Text
-  status      CorrectionRequestStatus @default(PENDING)
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  reviewNote  String?
-  createdAt   DateTime                @default(now())
-  updatedAt   DateTime                @updatedAt
-
-  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  house   House?  @relation(fields: [houseId], references: [id])
-
-  @@index([villageId])
-  @@index([userId])
-  @@index([status])
 }
 
 model DownloadFile {

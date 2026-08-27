@@ -533,10 +533,10 @@ export async function updateVillageHouse(
 export async function deleteVillageHouse(villageId: string, houseId: string, reason: string, actor: PopulationActor) {
   const normalizedReason = normalizedActionReason("population.house.delete", reason);
   await prisma.$transaction(async (tx) => {
-    const house = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, _count: { select: { persons: true, memberships: true, bindingRequests: true, correctionRequests: true, movementHistory: true } } } });
+    const house = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, _count: { select: { persons: true, memberships: true, bindingRequests: true, movementHistory: true } } } });
     if (!house) throw new PopulationValidationError("ไม่พบบ้านในหมู่บ้านนี้");
     const counts = house._count;
-    if (counts.persons || counts.memberships || counts.bindingRequests || counts.correctionRequests || counts.movementHistory) throw new PopulationValidationError("ไม่สามารถลบบ้านนี้ได้ เนื่องจากมีประชากร สมาชิก หรือประวัติที่เชื่อมโยงอยู่");
+    if (counts.persons || counts.memberships || counts.bindingRequests || counts.movementHistory) throw new PopulationValidationError("ไม่สามารถลบบ้านนี้ได้ เนื่องจากมีประชากร สมาชิก หรือประวัติที่เชื่อมโยงอยู่");
     await tx.house.delete({ where: { id: house.id } });
     await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.DELETE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actionName: "HOUSE_DELETED", houseNumber: house.houseNumber, reason: normalizedReason } } });
   });

@@ -18,4 +18,6 @@ Removed from the current system scope:
 
 Registration creates an account after OTP verification. Headman and Assistant Headman review subsequent house-binding requests; they do not approve user registration.
 
-The final permission differences between Headman and Assistant Headman are intentionally deferred to Phase 2.
+Residents cannot submit population or household correction requests through the system. If registry information is incorrect, the Resident contacts the Headman or Assistant Headman, who performs authorized corrections directly through the Admin population-management functions.
+
+Headman and Assistant Headman permissions are defined by the current Admin Permission Matrix.

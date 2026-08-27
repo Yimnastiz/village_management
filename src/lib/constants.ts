@@ -99,13 +99,6 @@ export const MEMBERSHIP_STATUS_LABELS: Record<string, string> = {
   REJECTED: "ปฏิเสธ",
 };
 
-export const CORRECTION_STATUS_LABELS: Record<string, string> = {
-  PENDING: "รอการพิจารณา",
-  APPROVED: "อนุมัติแล้ว",
-  REJECTED: "ปฏิเสธ",
-  CANCELLED: "ยกเลิก",
-};
-
 export const TRANSPARENCY_STAGE_LABELS: Record<string, string> = {
   DRAFT: "ร่าง",
   PUBLISHED: "เผยแพร่แล้ว",
