@@ -2,76 +2,231 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 
-type Result = { success: true; id?: string; message: string } | { success: false; error: string; field?: "houseNumber" | "address" };
-type Props = { action: (formData: FormData) => Promise<Result>; mode?: "create" | "edit"; defaults?: { houseNumber: string; address: string; reason?: string }; onSuccess?: (id?: string) => void; showReason?: boolean };
+type Result =
+  | {
+      success: true;
+      id?: string;
+      message: string;
+    }
+  | {
+      success: false;
+      error: string;
+      field?: "houseNumber" | "address" | "reason";
+    };
 
-export function HouseForm({ action, mode = "create", defaults, onSuccess, showReason = mode === "edit" }: Props) {
+type Props = {
+  action: (formData: FormData) => Promise<Result>;
+  mode?: "create" | "edit";
+  defaults?: {
+    houseNumber: string;
+    address: string;
+  };
+  onSuccess?: (id?: string) => void;
+
+  /**
+   * Use this for Super Admin village operations.
+   *
+   * Super Admin mutations must provide a fresh support reason
+   * for every create/update operation.
+   */
+  requireReason?: boolean;
+};
+
+const SUPPORT_REASON_MIN_LENGTH = 10;
+const SUPPORT_REASON_MAX_LENGTH = 500;
+
+export function HouseForm({
+  action,
+  mode = "create",
+  defaults,
+  onSuccess,
+  requireReason = false,
+}: Props) {
   const toast = useToast();
   const router = useRouter();
+
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"houseNumber" | "address", string>>>({});
-  const houseNumberRef = useRef<HTMLInputElement>(null);
 
-  return <form className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 md:grid-cols-2 md:grid-rows-[auto_auto_auto] md:gap-y-1 xl:grid-cols-[minmax(160px,0.7fr)_minmax(280px,1.5fr)_auto]" onSubmit={(event) => {
-    event.preventDefault();
-    setError(""); setFieldErrors({});
-    const form = event.currentTarget;
-    startTransition(async () => {
-      const result = await action(new FormData(form));
-      if (!result.success) {
-        setError(result.error);
-        if (result.field) {
-          setFieldErrors({ [result.field]: result.field === "houseNumber" && result.error.includes("มีอยู่") ? "บ้านเลขที่นี้มีอยู่แล้ว" : result.error });
-          if (result.field === "houseNumber") requestAnimationFrame(() => houseNumberRef.current?.focus());
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<"houseNumber" | "address" | "reason", string>>
+  >({});
+
+  const houseNumberRef = useRef<HTMLInputElement>(null);
+  const reasonRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <form
+      className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 md:grid-cols-2 xl:grid-cols-[minmax(160px,0.7fr)_minmax(280px,1.5fr)_auto]"
+      onSubmit={(event) => {
+        event.preventDefault();
+
+        setError("");
+        setFieldErrors({});
+
+        const form = event.currentTarget;
+        const formData = new FormData(form);
+
+        if (requireReason) {
+          const supportReason = String(formData.get("reason") ?? "").trim();
+
+          if (supportReason.length < SUPPORT_REASON_MIN_LENGTH) {
+            const message = `กรุณาระบุเหตุผลในการดำเนินการอย่างน้อย ${SUPPORT_REASON_MIN_LENGTH} ตัวอักษร`;
+
+            setFieldErrors({
+              reason: message,
+            });
+
+            requestAnimationFrame(() => {
+              reasonRef.current?.focus();
+            });
+
+            return;
+          }
+
+          if (supportReason.length > SUPPORT_REASON_MAX_LENGTH) {
+            const message = `เหตุผลในการดำเนินการต้องไม่เกิน ${SUPPORT_REASON_MAX_LENGTH} ตัวอักษร`;
+
+            setFieldErrors({
+              reason: message,
+            });
+
+            requestAnimationFrame(() => {
+              reasonRef.current?.focus();
+            });
+
+            return;
+          }
+
+          formData.set("reason", supportReason);
         }
-        toast.error(mode === "create" ? "เพิ่มบ้านไม่สำเร็จ" : "แก้ไขบ้านไม่สำเร็จ", result.error);
-        return;
-      }
-      toast.success(result.message);
-      if (mode === "create") form.reset();
-      onSuccess?.(result.id);
-      router.refresh();
-    });
-  }}>
-    <div className="w-full md:row-span-3 md:grid md:grid-rows-subgrid">
-      <Input
-        ref={houseNumberRef}
-        id="house-number"
-        name="houseNumber"
-        label="บ้านเลขที่"
-        required
-        maxLength={50}
-        defaultValue={defaults?.houseNumber}
-        placeholder="เช่น 99/1"
-        error={fieldErrors.houseNumber}
-        className="h-10"
-        wrapperClassName="md:contents"
-      />
-    </div>
-    <div className="w-full md:row-span-3 md:grid md:grid-rows-subgrid">
-      <Input
-        id="house-address"
-        name="address"
-        label="ที่อยู่เพิ่มเติม"
-        placeholder="ซอย จุดสังเกต หรือรายละเอียดที่ช่วยระบุตำแหน่งบ้าน"
-        defaultValue={defaults?.address}
-        maxLength={300}
-        error={fieldErrors.address}
-        className="h-10"
-        wrapperClassName="md:contents"
-      />
-    </div>
-    <div className="w-full md:col-span-2 xl:col-span-1 xl:row-span-3 xl:grid xl:grid-rows-subgrid">
-      <Button className="h-10 w-full xl:row-start-2 xl:w-auto" type="submit" disabled={pending} isLoading={pending}>
-        {mode === "create" ? "เพิ่มบ้าน" : "บันทึกการแก้ไข"}
-      </Button>
-    </div>
-    {showReason ? <Input wrapperClassName="md:col-span-2 xl:col-span-3" name="reason" label="เหตุผล/หมายเหตุการแก้ไข" defaultValue={defaults?.reason} maxLength={300} helperText="ข้อความนี้จะถูกบันทึกใน Audit Log" /> : null}
-    {error && !fieldErrors.houseNumber && !fieldErrors.address ? <p className="text-sm text-rose-600 md:col-span-full">{error}</p> : null}
-  </form>;
+
+        startTransition(async () => {
+          const result = await action(formData);
+
+          if (!result.success) {
+            setError(result.error);
+
+            if (result.field) {
+              const fieldMessage =
+                result.field === "houseNumber" &&
+                result.error.includes("มีอยู่")
+                  ? "บ้านเลขที่นี้มีอยู่แล้ว"
+                  : result.error;
+
+              setFieldErrors({
+                [result.field]: fieldMessage,
+              });
+
+              if (result.field === "houseNumber") {
+                requestAnimationFrame(() => {
+                  houseNumberRef.current?.focus();
+                });
+              }
+
+              if (result.field === "reason") {
+                requestAnimationFrame(() => {
+                  reasonRef.current?.focus();
+                });
+              }
+            }
+
+            toast.error(
+              mode === "create"
+                ? "เพิ่มบ้านไม่สำเร็จ"
+                : "แก้ไขบ้านไม่สำเร็จ",
+              result.error,
+            );
+
+            return;
+          }
+
+          toast.success(result.message);
+
+          if (mode === "create") {
+            form.reset();
+          }
+
+          onSuccess?.(result.id);
+          router.refresh();
+        });
+      }}
+    >
+      <div className="w-full">
+        <Input
+          ref={houseNumberRef}
+          id="house-number"
+          name="houseNumber"
+          label="บ้านเลขที่"
+          required
+          maxLength={50}
+          defaultValue={defaults?.houseNumber}
+          placeholder="เช่น 99/1"
+          error={fieldErrors.houseNumber}
+          className="h-10"
+        />
+      </div>
+
+      <div className="w-full">
+        <Input
+          id="house-address"
+          name="address"
+          label="ที่อยู่เพิ่มเติม"
+          placeholder="ซอย จุดสังเกต หรือรายละเอียดที่ช่วยระบุตำแหน่งบ้าน"
+          defaultValue={defaults?.address}
+          maxLength={300}
+          error={fieldErrors.address}
+          className="h-10"
+        />
+      </div>
+
+      <div className="flex items-end">
+        <Button
+          className="h-10 w-full xl:w-auto"
+          type="submit"
+          disabled={pending}
+          isLoading={pending}
+        >
+          {mode === "create"
+            ? "เพิ่มบ้าน"
+            : "บันทึกการแก้ไข"}
+        </Button>
+      </div>
+
+      {requireReason ? (
+        <div className="md:col-span-2 xl:col-span-3">
+          <Input
+            ref={reasonRef}
+            id="support-reason"
+            name="reason"
+            label="เหตุผลประกอบการดำเนินการ"
+            required
+            minLength={SUPPORT_REASON_MIN_LENGTH}
+            maxLength={SUPPORT_REASON_MAX_LENGTH}
+            placeholder={
+              mode === "create"
+                ? "ระบุเหตุผลที่ผู้ดูแลระบบระดับสูงเพิ่มบ้านแทนผู้ดูแลหมู่บ้าน"
+                : "ระบุเหตุผลที่ผู้ดูแลระบบระดับสูงแก้ไขข้อมูลบ้านแทนผู้ดูแลหมู่บ้าน"
+            }
+            error={fieldErrors.reason}
+            helperText={`เหตุผลนี้ใช้สำหรับ Audit Log โดยต้องมีอย่างน้อย ${SUPPORT_REASON_MIN_LENGTH} ตัวอักษร และไม่เกิน ${SUPPORT_REASON_MAX_LENGTH} ตัวอักษร`}
+          />
+        </div>
+      ) : null}
+
+      {error &&
+      !fieldErrors.houseNumber &&
+      !fieldErrors.address &&
+      !fieldErrors.reason ? (
+        <p className="text-sm text-rose-600 md:col-span-full">
+          {error}
+        </p>
+      ) : null}
+    </form>
+  );
 }

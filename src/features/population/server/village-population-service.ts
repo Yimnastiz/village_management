@@ -30,7 +30,15 @@ export type VillagePersonInput = {
 };
 // occupancyStatus remains required by the current schema, but is deliberately
 // not part of the population-management workflow or UI.
-export type VillageHouseInput = { houseNumber: string; address?: string; sourceNote?: string };
+export type VillageHouseInput = {
+  houseNumber: string;
+  address?: string;
+  sourceNote?: string;
+};
+
+export type VillageHouseMutationOptions = {
+  supportReason?: string;
+};
 export type VillageHouseBatchError = { index: number; field: "houseNumber" | "address"; message: string };
 export class PopulationBatchValidationError extends Error {
   constructor(public readonly errors: VillageHouseBatchError[]) { super("ข้อมูลบ้านไม่ถูกต้อง"); }
@@ -91,52 +99,255 @@ async function assertHouseInVillage(tx: Prisma.TransactionClient, villageId: str
   if (!house) throw new PopulationValidationError("บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้");
 }
 
-export async function createVillageHouse(villageId: string, input: VillageHouseInput, actor: PopulationActor) {
+export async function createVillageHouse(
+  villageId: string,
+  input: VillageHouseInput,
+  actor: PopulationActor,
+  options?: VillageHouseMutationOptions,
+) {
   await assertTargetVillage(villageId);
+
   const houseNumber = input.houseNumber.trim();
   const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
-  if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1");
+
+  if (!isValidHouseNumber(normalizedHouseNumber)) {
+    throw new PopulationValidationError(
+      "กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1",
+    );
+  }
+
   const occupancyStatus = HouseholdOccupancyStatus.OCCUPIED;
+  const sourceNote = input.sourceNote?.trim() || null;
+  const supportReason = options?.supportReason?.trim() || null;
+
   try {
     return await prisma.$transaction(async (tx) => {
-      const house = await tx.house.create({ data: { villageId, houseNumber, normalizedHouseNumber, address: input.address?.trim() || null, occupancyStatus, sourceType: actor.role === "SUPERADMIN" ? HouseSourceType.SUPERADMIN_CREATED : HouseSourceType.ADMIN_CREATED, sourceNote: input.sourceNote?.trim() || null, verifiedByUserId: actor.id, verifiedAt: new Date() }, select: { id: true } });
-      await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.CREATE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actorType: actor.role === "SUPERADMIN" ? "SUPERADMIN_ENV" : undefined, actionName: "HOUSE_CREATED", houseNumber, normalizedHouseNumber, reason: input.sourceNote?.trim() || null } } });
+      const house = await tx.house.create({
+        data: {
+          villageId,
+          houseNumber,
+          normalizedHouseNumber,
+          address: input.address?.trim() || null,
+          occupancyStatus,
+          sourceType:
+            actor.role === "SUPERADMIN"
+              ? HouseSourceType.SUPERADMIN_CREATED
+              : HouseSourceType.ADMIN_CREATED,
+          sourceNote,
+          verifiedByUserId: actor.id,
+          verifiedAt: new Date(),
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          villageId,
+          action: AuditAction.CREATE,
+          resource: "House",
+          resourceId: house.id,
+          metadata: {
+            actorRole: actor.role,
+            actorType:
+              actor.role === "SUPERADMIN"
+                ? "SUPERADMIN_ENV"
+                : undefined,
+            actionName: "HOUSE_CREATED",
+            houseNumber,
+            normalizedHouseNumber,
+            reason: supportReason,
+          },
+        },
+      });
+
       return house;
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new PopulationValidationError("เลขที่บ้านนี้มีอยู่แล้วในหมู่บ้าน");
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new PopulationValidationError(
+        "เลขที่บ้านนี้มีอยู่แล้วในหมู่บ้าน",
+      );
+    }
+
     throw error;
   }
 }
 
-export async function createVillageHouses(villageId: string, inputs: VillageHouseInput[], actor: PopulationActor, options?: { reason?: string }) {
+export async function createVillageHouses(
+  villageId: string,
+  inputs: VillageHouseInput[],
+  actor: PopulationActor,
+  options?: VillageHouseMutationOptions,
+) {
   await assertTargetVillage(villageId);
+
   const errors: VillageHouseBatchError[] = [];
-  if (!Array.isArray(inputs) || !inputs.length) errors.push({ index: 0, field: "houseNumber", message: "กรุณาระบุบ้านเลขที่" });
-  if (inputs.length > 50) errors.push({ index: 0, field: "houseNumber", message: "เพิ่มได้สูงสุด 50 หลังต่อครั้ง" });
+
+  if (!Array.isArray(inputs) || !inputs.length) {
+    errors.push({
+      index: 0,
+      field: "houseNumber",
+      message: "กรุณาระบุบ้านเลขที่",
+    });
+  }
+
+  if (inputs.length > 50) {
+    errors.push({
+      index: 0,
+      field: "houseNumber",
+      message: "เพิ่มได้สูงสุด 50 หลังต่อครั้ง",
+    });
+  }
+
   const values = inputs.slice(0, 50).map((input, index) => {
-    const houseNumber = typeof input?.houseNumber === "string" ? input.houseNumber.trim() : "";
-    const address = typeof input?.address === "string" ? input.address.trim() : "";
-    const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
-    if (!houseNumber) errors.push({ index, field: "houseNumber", message: "กรุณาระบุบ้านเลขที่" });
-    else if (!isValidHouseNumber(normalizedHouseNumber)) errors.push({ index, field: "houseNumber", message: "กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1" });
-    if (address.length > 300) errors.push({ index, field: "address", message: "ที่อยู่เพิ่มเติมต้องไม่เกิน 300 ตัวอักษร" });
-    return { houseNumber, address, normalizedHouseNumber };
+    const houseNumber =
+      typeof input?.houseNumber === "string"
+        ? input.houseNumber.trim()
+        : "";
+
+    const address =
+      typeof input?.address === "string"
+        ? input.address.trim()
+        : "";
+
+    const normalizedHouseNumber =
+      normalizeHouseNumber(houseNumber);
+
+    if (!houseNumber) {
+      errors.push({
+        index,
+        field: "houseNumber",
+        message: "กรุณาระบุบ้านเลขที่",
+      });
+    } else if (
+      !isValidHouseNumber(normalizedHouseNumber)
+    ) {
+      errors.push({
+        index,
+        field: "houseNumber",
+        message:
+          "กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1",
+      });
+    }
+
+    if (address.length > 300) {
+      errors.push({
+        index,
+        field: "address",
+        message:
+          "ที่อยู่เพิ่มเติมต้องไม่เกิน 300 ตัวอักษร",
+      });
+    }
+
+    return {
+      houseNumber,
+      address,
+      normalizedHouseNumber,
+    };
   });
+
   const seen = new Set<string>();
+
   values.forEach((value, index) => {
-    if (!value.normalizedHouseNumber || seen.has(value.normalizedHouseNumber)) errors.push({ index, field: "houseNumber", message: "บ้านเลขที่นี้ซ้ำกับรายการด้านบน" });
-    else seen.add(value.normalizedHouseNumber);
+    if (
+      !value.normalizedHouseNumber ||
+      seen.has(value.normalizedHouseNumber)
+    ) {
+      errors.push({
+        index,
+        field: "houseNumber",
+        message:
+          "บ้านเลขที่นี้ซ้ำกับรายการด้านบน",
+      });
+    } else {
+      seen.add(value.normalizedHouseNumber);
+    }
   });
-  if (errors.length) throw new PopulationBatchValidationError(errors);
+
+  if (errors.length) {
+    throw new PopulationBatchValidationError(errors);
+  }
+
+  const supportReason =
+    options?.supportReason?.trim() || null;
 
   try {
     return await prisma.$transaction(async (tx) => {
-      const existing = await tx.house.findMany({ where: { villageId, normalizedHouseNumber: { in: values.map((value) => value.normalizedHouseNumber) } }, select: { normalizedHouseNumber: true } });
-      const existingNumbers = new Set(existing.map((house) => house.normalizedHouseNumber));
-      const duplicateErrors = values.flatMap((value, index): VillageHouseBatchError[] => existingNumbers.has(value.normalizedHouseNumber) ? [{ index, field: "houseNumber", message: "บ้านเลขที่นี้มีอยู่ในทะเบียนแล้ว" }] : []);
-      if (duplicateErrors.length) throw new PopulationBatchValidationError(duplicateErrors);
-      const houses = await Promise.all(values.map((value) => tx.house.create({ data: { villageId, houseNumber: value.houseNumber, normalizedHouseNumber: value.normalizedHouseNumber, address: value.address || null, occupancyStatus: HouseholdOccupancyStatus.OCCUPIED, sourceType: actor.role === "SUPERADMIN" ? HouseSourceType.SUPERADMIN_CREATED : HouseSourceType.ADMIN_CREATED, verifiedByUserId: actor.id, verifiedAt: new Date() }, select: { id: true, houseNumber: true } })));
+      const existing = await tx.house.findMany({
+        where: {
+          villageId,
+          normalizedHouseNumber: {
+            in: values.map(
+              (value) => value.normalizedHouseNumber,
+            ),
+          },
+        },
+        select: {
+          normalizedHouseNumber: true,
+        },
+      });
+
+      const existingNumbers = new Set(
+        existing.map(
+          (house) => house.normalizedHouseNumber,
+        ),
+      );
+
+      const duplicateErrors = values.flatMap(
+        (
+          value,
+          index,
+        ): VillageHouseBatchError[] =>
+          existingNumbers.has(value.normalizedHouseNumber)
+            ? [
+                {
+                  index,
+                  field: "houseNumber",
+                  message:
+                    "บ้านเลขที่นี้มีอยู่ในทะเบียนแล้ว",
+                },
+              ]
+            : [],
+      );
+
+      if (duplicateErrors.length) {
+        throw new PopulationBatchValidationError(
+          duplicateErrors,
+        );
+      }
+
+      const houses = await Promise.all(
+        values.map((value) =>
+          tx.house.create({
+            data: {
+              villageId,
+              houseNumber: value.houseNumber,
+              normalizedHouseNumber:
+                value.normalizedHouseNumber,
+              address: value.address || null,
+              occupancyStatus:
+                HouseholdOccupancyStatus.OCCUPIED,
+              sourceType:
+                actor.role === "SUPERADMIN"
+                  ? HouseSourceType.SUPERADMIN_CREATED
+                  : HouseSourceType.ADMIN_CREATED,
+              verifiedByUserId: actor.id,
+              verifiedAt: new Date(),
+            },
+            select: {
+              id: true,
+              houseNumber: true,
+            },
+          }),
+        ),
+      );
+
       await tx.auditLog.create({
         data: {
           userId: actor.id,
@@ -146,40 +357,175 @@ export async function createVillageHouses(villageId: string, inputs: VillageHous
           resourceId: houses[0]?.id,
           metadata: {
             actorRole: actor.role,
-            actorType: actor.role === "SUPERADMIN" ? "SUPERADMIN_ENV" : undefined,
+            actorType:
+              actor.role === "SUPERADMIN"
+                ? "SUPERADMIN_ENV"
+                : undefined,
             actionName: "HOUSE_BATCH_CREATED",
             count: houses.length,
-            houseIds: houses.map((house) => house.id),
-            houseNumbers: houses.map((house) => house.houseNumber),
-            newValue: { houseNumbers: houses.map((house) => house.houseNumber).join(", ") },
-            reason: options?.reason?.trim() || null,
+            houseIds: houses.map(
+              (house) => house.id,
+            ),
+            houseNumbers: houses.map(
+              (house) => house.houseNumber,
+            ),
+            newValue: {
+              houseNumbers: houses
+                .map((house) => house.houseNumber)
+                .join(", "),
+            },
+            reason: supportReason,
           },
         },
       });
+
       return houses;
     });
   } catch (error) {
-    if (error instanceof PopulationBatchValidationError) throw error;
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new PopulationBatchValidationError([{ index: 0, field: "houseNumber", message: "มีเลขที่บ้านซ้ำในทะเบียน กรุณาลองใหม่อีกครั้ง" }]);
+    if (
+      error instanceof
+      PopulationBatchValidationError
+    ) {
+      throw error;
+    }
+
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new PopulationBatchValidationError([
+        {
+          index: 0,
+          field: "houseNumber",
+          message:
+            "มีเลขที่บ้านซ้ำในทะเบียน กรุณาลองใหม่อีกครั้ง",
+        },
+      ]);
+    }
+
     throw error;
   }
 }
 
-export async function updateVillageHouse(villageId: string, houseId: string, input: VillageHouseInput, actor: PopulationActor) {
+export async function updateVillageHouse(
+  villageId: string,
+  houseId: string,
+  input: VillageHouseInput,
+  actor: PopulationActor,
+  options?: VillageHouseMutationOptions,
+) {
   const houseNumber = input.houseNumber.trim();
-  const normalizedHouseNumber = normalizeHouseNumber(houseNumber);
-  if (!isValidHouseNumber(normalizedHouseNumber)) throw new PopulationValidationError("กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1");
+  const normalizedHouseNumber =
+    normalizeHouseNumber(houseNumber);
+
+  if (!isValidHouseNumber(normalizedHouseNumber)) {
+    throw new PopulationValidationError(
+      "กรุณากรอกบ้านเลขที่ให้ถูกต้อง เช่น 99 หรือ 99/1",
+    );
+  }
+
+  const sourceNote =
+    input.sourceNote?.trim() || null;
+
+  const supportReason =
+    options?.supportReason?.trim() || null;
+
   try {
     return await prisma.$transaction(async (tx) => {
-      const current = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, address: true } });
-      if (!current) throw new PopulationValidationError("ไม่พบบ้านในหมู่บ้านนี้");
-      const result = await tx.house.updateMany({ where: { id: houseId, villageId }, data: { houseNumber, normalizedHouseNumber, address: input.address?.trim() || null, sourceNote: input.sourceNote?.trim() || null } });
-      if (result.count !== 1) throw new PopulationValidationError("ไม่สามารถแก้ไขบ้านข้ามหมู่บ้านได้");
-      await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "House", resourceId: houseId, metadata: { actorRole: actor.role, actionName: "HOUSE_UPDATED", reason: input.sourceNote?.trim() || null, oldValue: current, newValue: { houseNumber, address: input.address?.trim() || null } } } });
-      return { statusChanged: false };
+      const current = await tx.house.findFirst({
+        where: {
+          id: houseId,
+          villageId,
+        },
+        select: {
+          id: true,
+          houseNumber: true,
+          address: true,
+          sourceNote: true,
+        },
+      });
+
+      if (!current) {
+        throw new PopulationValidationError(
+          "ไม่พบบ้านในหมู่บ้านนี้",
+        );
+      }
+
+      const result = await tx.house.updateMany({
+        where: {
+          id: houseId,
+          villageId,
+        },
+        data: {
+          houseNumber,
+          normalizedHouseNumber,
+          address: input.address?.trim() || null,
+
+          // Only update sourceNote when explicitly supplied.
+          // Support Reason is NOT stored here.
+          ...(input.sourceNote !== undefined
+            ? {
+                sourceNote,
+              }
+            : {}),
+        },
+      });
+
+      if (result.count !== 1) {
+        throw new PopulationValidationError(
+          "ไม่สามารถแก้ไขบ้านข้ามหมู่บ้านได้",
+        );
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: actor.id,
+          villageId,
+          action: AuditAction.UPDATE,
+          resource: "House",
+          resourceId: houseId,
+          metadata: {
+            actorRole: actor.role,
+            actorType:
+              actor.role === "SUPERADMIN"
+                ? "SUPERADMIN_ENV"
+                : undefined,
+            actionName: "HOUSE_UPDATED",
+            reason: supportReason,
+            oldValue: {
+              houseNumber: current.houseNumber,
+              address: current.address,
+              sourceNote: current.sourceNote,
+            },
+            newValue: {
+              houseNumber,
+              address:
+                input.address?.trim() || null,
+              sourceNote:
+                input.sourceNote !== undefined
+                  ? sourceNote
+                  : current.sourceNote,
+            },
+          },
+        },
+      });
+
+      return {
+        statusChanged: false,
+      };
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new PopulationValidationError("เลขที่บ้านนี้มีอยู่แล้วในหมู่บ้าน");
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new PopulationValidationError(
+        "เลขที่บ้านนี้มีอยู่แล้วในหมู่บ้าน",
+      );
+    }
+
     throw error;
   }
 }
