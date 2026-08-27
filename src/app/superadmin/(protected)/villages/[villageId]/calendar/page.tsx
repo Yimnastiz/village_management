@@ -47,6 +47,7 @@ export default async function SuperAdminVillageCalendarPage({
   return (
     <div className="space-y-4">
       <PageHeader title="ปฏิทินกิจกรรม" description="จัดการกิจกรรมแบบ list view พร้อม validation เวลาเริ่มและสิ้นสุด" villageId={villageId} module="calendar" />
+      <Link href={`/superadmin/villages/${villageId}/calendar/requests`} className="inline-flex rounded-md border px-3 py-2 text-sm">พิจารณาคำขอกิจกรรม</Link>
       <SupportNotice villageName={village?.name ?? "-"} />
       <SearchBar action={`/superadmin/villages/${villageId}/calendar`} search={search}>
         <Select name="filter" label="Filter" defaultValue={filter} options={[
@@ -97,4 +98,3 @@ export default async function SuperAdminVillageCalendarPage({
     </div>
   );
 }
-
