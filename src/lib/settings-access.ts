@@ -1,7 +1,7 @@
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 
 export const ACCESS_MEMBERSHIP_STATUSES = [MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED] as const;
-export const ACCESS_MEMBERSHIP_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE, VillageMembershipRole.RESIDENT] as const;
+export const ACCESS_MEMBERSHIP_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.RESIDENT] as const;
 
 export function isAccessMembershipStatus(status: MembershipStatus): status is typeof ACCESS_MEMBERSHIP_STATUSES[number] {
   return status === MembershipStatus.ACTIVE || status === MembershipStatus.SUSPENDED;

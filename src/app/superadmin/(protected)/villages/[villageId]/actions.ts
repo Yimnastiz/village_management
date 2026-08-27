@@ -132,9 +132,10 @@ export async function reviewBindingForWorkspaceAction(
 export async function setVillageAdminSupportAction(formData: FormData) {
   // Kept below the village-bound binding wrapper so workspace routes never trust a hidden village id.
   const actor = await requireSuperAdminActionSession();
-  const targetVillageId = value(formData, "targetVillageId"); const userId = value(formData, "userId"); const role = value(formData, "role") as VillageMembershipRole; const reason = requireReason(formData);
+  const targetVillageId = value(formData, "targetVillageId"); const userId = value(formData, "userId"); const roleValue = value(formData, "role"); const reason = requireReason(formData);
   await requireVillage(targetVillageId);
-  if (role !== VillageMembershipRole.HEADMAN && role !== VillageMembershipRole.ASSISTANT_HEADMAN && role !== VillageMembershipRole.COMMITTEE) throw new Error("บทบาทไม่ถูกต้อง");
+  if (roleValue !== VillageMembershipRole.HEADMAN && roleValue !== VillageMembershipRole.ASSISTANT_HEADMAN) throw new Error("บทบาทไม่ถูกต้อง");
+  const role = roleValue === VillageMembershipRole.HEADMAN ? VillageMembershipRole.HEADMAN : VillageMembershipRole.ASSISTANT_HEADMAN;
   await prisma.$transaction(async (tx) => {
     const user = await tx.user.findFirst({
       where: {

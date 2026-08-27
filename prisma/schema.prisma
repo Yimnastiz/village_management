@@ -16,7 +16,6 @@ enum SystemRole {
 enum VillageMembershipRole {
   HEADMAN
   ASSISTANT_HEADMAN
-  COMMITTEE
   RESIDENT
 }
 
@@ -208,8 +207,6 @@ enum NotificationType {
   NEWS
   BINDING_REQUEST
   CORRECTION_REQUEST
-  EMERGENCY
-  SOS
   SYSTEM
 }
 
@@ -256,33 +253,10 @@ enum MovementType {
   TRANSFER
 }
 
-enum FeedbackRating {
-  VERY_SATISFIED
-  SATISFIED
-  NEUTRAL
-  DISSATISFIED
-  VERY_DISSATISFIED
-}
-
 enum GalleryItemSubmissionStatus {
   PENDING
   APPROVED
   REJECTED
-}
-
-enum EmergencyType {
-  FIRE
-  FLOOD
-  ACCIDENT
-  MEDICAL
-  CRIME
-  OTHER
-}
-
-enum EmergencyBroadcastStatus {
-  ACTIVE
-  RESOLVED
-  CANCELLED
 }
 
 enum AuditAction {
@@ -359,7 +333,6 @@ model User {
   contactRequests         ContactRequest[]
   notifications           Notification[]
   auditLogs               AuditLog[]
-  sosCases                EmergencySOS[]
   savedItems              SavedItem[]
   authoredNews            News[]
   newsSubmissions         NewsSubmission[]
@@ -454,8 +427,6 @@ model Village {
   contactRequests         ContactRequest[]
   faqItems                FAQItem[]
   notifications           Notification[]
-  emergencyBroadcasts     EmergencyBroadcast[]
-  emergencyLocations      EmergencyLocation[]
   authSessions            AuthSession[]
   correctionRequests      HouseholdCorrectionRequest[]
   importJobs              PopulationImportJob[]
@@ -610,7 +581,7 @@ model PersonMovement {
   createdAt             DateTime     @default(now())
 
   person              Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
-  house               House?                @relation(fields: [houseId], references: [id])
+  house               House?               @relation(fields: [houseId], references: [id])
   populationImportJob PopulationImportJob? @relation(fields: [populationImportJobId], references: [id], onDelete: SetNull)
 
   @@index([personId])
@@ -738,7 +709,6 @@ model Issue {
   village    Village         @relation(fields: [villageId], references: [id], onDelete: Cascade)
   messages   IssueMessage[]
   timeline   IssueTimeline[]
-  feedback   IssueFeedback?
   savedItems SavedItem[]
 
   @@index([villageId])
@@ -774,19 +744,6 @@ model IssueTimeline {
   issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
 
   @@index([issueId])
-}
-
-model IssueFeedback {
-  id        String         @id @default(cuid())
-  issueId   String         @unique
-  userId    String
-  rating    FeedbackRating
-  comment   String?
-  createdAt DateTime       @default(now())
-
-  issue Issue @relation(fields: [issueId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
 }
 
 model AppointmentSlot {
@@ -888,8 +845,8 @@ model DownloadFile {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
-  village    Village     @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  savedItems SavedItem[]
+  village     Village              @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  savedItems  SavedItem[]
   attachments DownloadAttachment[]
 
   @@index([villageId])
@@ -899,15 +856,15 @@ model DownloadFile {
 }
 
 model DownloadAttachment {
-  id            String   @id @default(cuid())
-  downloadId    String
-  fileName      String
-  fileKey       String?
-  fileUrl       String
-  fileSize      Int
-  mimeType      String?
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
+  id         String   @id @default(cuid())
+  downloadId String
+  fileName   String
+  fileKey    String?
+  fileUrl    String
+  fileSize   Int
+  mimeType   String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
 
   download DownloadFile @relation(fields: [downloadId], references: [id], onDelete: Cascade)
 
@@ -1090,7 +1047,7 @@ model GalleryItem {
   sourceSubmissionId String?  @unique
   createdAt          DateTime @default(now())
 
-  album            GalleryAlbum          @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  album            GalleryAlbum           @relation(fields: [albumId], references: [id], onDelete: Cascade)
   sourceSubmission GalleryItemSubmission? @relation("GalleryItemSourceSubmission", fields: [sourceSubmissionId], references: [id], onDelete: SetNull)
 
   @@index([albumId])
@@ -1098,22 +1055,22 @@ model GalleryItem {
 }
 
 model GalleryItemSubmission {
-  id           String                      @id @default(cuid())
-  albumId      String
-  requesterId  String
-  batchId      String?
-  batchOrder   Int?
-  title        String?
-  fileUrl      String
-  fileKey      String?
-  mimeType     String?
-  note         String?
-  status       GalleryItemSubmissionStatus @default(PENDING)
-  reviewedBy   String?
-  reviewedAt   DateTime?
-  reviewNote   String?
-  createdAt    DateTime                    @default(now())
-  updatedAt    DateTime                    @updatedAt
+  id          String                      @id @default(cuid())
+  albumId     String
+  requesterId String
+  batchId     String?
+  batchOrder  Int?
+  title       String?
+  fileUrl     String
+  fileKey     String?
+  mimeType    String?
+  note        String?
+  status      GalleryItemSubmissionStatus @default(PENDING)
+  reviewedBy  String?
+  reviewedAt  DateTime?
+  reviewNote  String?
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
 
   album        GalleryAlbum @relation(fields: [albumId], references: [id], onDelete: Cascade)
   requester    User         @relation(fields: [requesterId], references: [id], onDelete: Cascade)
@@ -1127,20 +1084,20 @@ model GalleryItemSubmission {
 }
 
 model ContactDirectory {
-  id         String      @id @default(cuid())
-  savedItems SavedItem[]
+  id             String           @id @default(cuid())
+  savedItems     SavedItem[]
   updateRequests ContactRequest[] @relation("ContactRequestTarget")
-  villageId  String
-  name       String
-  role       String?
-  phone      String?
-  email      String?
-  address    String?
-  category   String?
-  sortOrder  Int         @default(0)
-  isPublic   Boolean     @default(true)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  villageId      String
+  name           String
+  role           String?
+  phone          String?
+  email          String?
+  address        String?
+  category       String?
+  sortOrder      Int              @default(0)
+  isPublic       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
 
@@ -1160,7 +1117,7 @@ model ContactRequest {
   address           String?
   category          String?
   note              String?
-  type              ContactRequestType @default(CREATE)
+  type              ContactRequestType   @default(CREATE)
   targetContactId   String?
   targetSnapshot    Json?
   status            ContactRequestStatus @default(PENDING)
@@ -1173,8 +1130,8 @@ model ContactRequest {
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
-  village   Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  requester User    @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  village       Village           @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  requester     User              @relation(fields: [requesterId], references: [id], onDelete: Cascade)
   targetContact ContactDirectory? @relation("ContactRequestTarget", fields: [targetContactId], references: [id], onDelete: SetNull)
 
   @@index([villageId, status])
@@ -1264,58 +1221,6 @@ model Notification {
 
   @@index([userId])
   @@index([status])
-}
-
-model EmergencyBroadcast {
-  id         String                   @id @default(cuid())
-  villageId  String
-  title      String
-  content    String                   @db.Text
-  type       EmergencyType            @default(OTHER)
-  status     EmergencyBroadcastStatus @default(ACTIVE)
-  createdBy  String?
-  resolvedAt DateTime?
-  createdAt  DateTime                 @default(now())
-  updatedAt  DateTime                 @updatedAt
-
-  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
-
-  @@index([villageId])
-  @@index([status])
-}
-
-model EmergencySOS {
-  id         String        @id @default(cuid())
-  villageId  String?
-  userId     String
-  message    String?
-  latitude   Float?
-  longitude  Float?
-  type       EmergencyType @default(OTHER)
-  isResolved Boolean       @default(false)
-  resolvedAt DateTime?
-  createdAt  DateTime      @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([villageId])
-}
-
-model EmergencyLocation {
-  id          String   @id @default(cuid())
-  villageId   String
-  name        String
-  description String?
-  type        String
-  latitude    Float?
-  longitude   Float?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  village Village @relation(fields: [villageId], references: [id], onDelete: Cascade)
-
-  @@index([villageId])
 }
 
 model AuditLog {
@@ -1409,7 +1314,7 @@ model RegistrationTemp {
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
 
-  user             User?                  @relation("RegistrationTempOwner", fields: [userId], references: [id], onDelete: SetNull)
+  user             User?                         @relation("RegistrationTempOwner", fields: [userId], references: [id], onDelete: SetNull)
   verifierSessions RegistrationVerifierSession[]
 
   @@index([userId])

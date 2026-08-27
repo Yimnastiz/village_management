@@ -10,7 +10,7 @@ import { AuditEventList, type AuditListEvent } from "./audit-event-list";
 import { AuditCustomDateFilter } from "./audit-custom-date-filter";
 
 const PAGE_SIZE = 25;
-const ADMIN_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE];
+const ADMIN_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN];
 const MODULE_RESOURCES: Record<string, string[]> = { NEWS: ["News", "NewsSubmission"], POPULATION: ["Person", "House", "BindingRequest", "PopulationImportJob", "PopulationExport"], PLACE: ["VillagePlace", "VillagePlaceSubmission"], GALLERY: ["GalleryAlbum", "GalleryItemSubmission"], DOWNLOAD: ["DownloadFile"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], ISSUE: ["Issue"], SETTINGS: ["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord"] };
 const EVENT_ACTIONS: Record<string, Array<"CREATE" | "UPDATE" | "DELETE" | "APPROVE" | "REJECT" | "LOGIN" | "LOGOUT" | "VIEW_SENSITIVE" | "APPROVE_RESIDENT_WITH_NATIONAL_ID" | "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT" | "RELEASE_PHONE_FROM_REVOKED_ACCOUNT">> = { CREATE: ["CREATE"], UPDATE: ["UPDATE"], DELETE: ["DELETE"], REVIEW: ["APPROVE", "REJECT"], AUTH_SECURITY: ["LOGIN", "LOGOUT", "VIEW_SENSITIVE", "APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT"] };
 type PageProps = { searchParams?: Promise<{ q?: string; period?: string; from?: string; to?: string; event?: string; actor?: string; module?: string; page?: string }> };

@@ -49,7 +49,7 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   if (hasString(metadata, "fileId") || source.includes("DOWNLOAD") || actionUrl.includes("/downloads")) return PRESENTATIONS.downloads;
   if (hasString(metadata, "transparencyId") || source.includes("TRANSPARENCY") || actionUrl.includes("/transparency")) return PRESENTATIONS.transparency;
   if (notification.type === "BINDING_REQUEST" || notification.type === "CORRECTION_REQUEST" || hasString(metadata, "bindingRequestId") || hasString(metadata, "correctionRequestId") || actionUrl.includes("/binding") || actionUrl.includes("/household")) return PRESENTATIONS.household;
-  if (source === "SUPERADMIN_BROADCAST" || notification.type === "EMERGENCY" || notification.type === "SOS") return PRESENTATIONS.broadcast;
+  if (source === "SUPERADMIN_BROADCAST") return PRESENTATIONS.broadcast;
   if (notification.type === "SYSTEM" && hasString(metadata, "personId")) return PRESENTATIONS.household;
   return DEFAULT_PRESENTATION;
 }

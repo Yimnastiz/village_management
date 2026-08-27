@@ -16,7 +16,6 @@ import { BindingReviewForm } from "./binding-review-form";
 const ADMIN_MEMBERSHIP_ROLES: Set<VillageMembershipRole> = new Set([
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ]);
 
 type PendingBindingRequest = {

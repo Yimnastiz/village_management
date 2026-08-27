@@ -11,7 +11,6 @@ import { isAccessMembershipStatus } from "@/lib/settings-access";
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ]);
 
 async function requireAdminVillageContext() {

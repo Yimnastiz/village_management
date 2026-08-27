@@ -6,7 +6,7 @@ import { SupportSubmitButton } from "./support-submit-button";
 import { maskPhone } from "@/features/village-workspace/server/queries";
 
 type Row = { id: string; role: VillageMembershipRole; status: MembershipStatus; joinedAt: Date | null; houseId: string | null; house: { houseNumber: string } | null; user: { id: string; name: string; phoneNumber: string; accountStatus: string } };
-const roleLabel: Record<string, string> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการ", RESIDENT: "ลูกบ้าน" };
+const roleLabel: Record<string, string> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", RESIDENT: "ลูกบ้าน" };
 const statusLabel: Record<string, string> = { ACTIVE: "ใช้งานอยู่", PENDING: "รอตรวจสอบ", SUSPENDED: "ระงับ", REJECTED: "ไม่อนุมัติ", LEFT: "ออกแล้ว" };
 
 function ActionForm({ row, villageId, villageName, houses, returnTo }: { row: Row; villageId: string; villageName: string; houses: { id: string; houseNumber: string }[]; returnTo: "users" | "admins" }) {

@@ -4,6 +4,14 @@ import { prisma } from "@/lib/prisma";
 
 export const WORKSPACE_PAGE_SIZE = 20;
 
+function parseActiveMembershipRole(value?: string): VillageMembershipRole | undefined {
+  if (!value || value === "ALL") return undefined;
+  if (value === VillageMembershipRole.HEADMAN) return VillageMembershipRole.HEADMAN;
+  if (value === VillageMembershipRole.ASSISTANT_HEADMAN) return VillageMembershipRole.ASSISTANT_HEADMAN;
+  if (value === VillageMembershipRole.RESIDENT) return VillageMembershipRole.RESIDENT;
+  throw new Error("Invalid village membership role filter.");
+}
+
 export async function getWorkspaceVillage(villageId: string) {
   const village = await prisma.village.findUnique({
     where: { id: villageId },
@@ -53,13 +61,17 @@ export async function getVillageMembers(
 ) {
   const page = Math.max(1, input.page ?? 1);
   const query = input.query?.trim() ?? "";
+  const role = parseActiveMembershipRole(input.role);
   const roles = input.adminOnly
-    ? [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE]
+    ? [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN]
     : undefined;
+  if (input.adminOnly && role === VillageMembershipRole.RESIDENT) {
+    throw new Error("Invalid village administrator role filter.");
+  }
   const where: Prisma.VillageMembershipWhereInput = {
     villageId,
     ...(roles ? { role: { in: roles } } : {}),
-    ...(input.role && input.role !== "ALL" ? { role: input.role as VillageMembershipRole } : {}),
+    ...(role ? { role } : {}),
     ...(input.status && input.status !== "ALL" ? { status: input.status as MembershipStatus } : {}),
     ...(query
       ? {
@@ -93,7 +105,7 @@ export async function getVillageMembers(
 }
 
 export async function getVillageDashboard(villageId: string) {
-  const adminRoles = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE];
+  const adminRoles = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN];
   const [activeMembers, houses, people, pendingBindings, openIssues, pendingAppointments, admins, recentIssues, recentAppointments, recentAudit] = await Promise.all([
     prisma.villageMembership.count({ where: { villageId, status: MembershipStatus.ACTIVE } }),
     prisma.house.count({ where: { villageId } }),

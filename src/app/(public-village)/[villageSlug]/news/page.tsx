@@ -35,7 +35,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const source = query.source === "admin" || query.source === "resident" ? query.source : "all";
-  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
+  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN"] as const;
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },

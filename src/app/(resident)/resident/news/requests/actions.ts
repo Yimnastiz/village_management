@@ -29,7 +29,6 @@ const VALID_STAGE: NewsStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ];
 
 async function requireResidentVillage() {

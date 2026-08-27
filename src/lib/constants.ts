@@ -89,7 +89,6 @@ export const VILLAGE_PLACE_SUBMISSION_TYPE_LABELS: Record<string, string> = {
 export const MEMBERSHIP_ROLE_LABELS: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
   ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
-  COMMITTEE: "คณะกรรมการหมู่บ้าน",
   RESIDENT: "ลูกบ้าน",
 };
 
@@ -111,23 +110,6 @@ export const TRANSPARENCY_STAGE_LABELS: Record<string, string> = {
   DRAFT: "ร่าง",
   PUBLISHED: "เผยแพร่แล้ว",
   ARCHIVED: "จัดเก็บแล้ว",
-};
-
-export const FEEDBACK_RATING_LABELS: Record<string, string> = {
-  VERY_SATISFIED: "พึงพอใจมาก",
-  SATISFIED: "พึงพอใจ",
-  NEUTRAL: "เฉยๆ",
-  DISSATISFIED: "ไม่พึงพอใจ",
-  VERY_DISSATISFIED: "ไม่พึงพอใจมาก",
-};
-
-export const EMERGENCY_TYPE_LABELS: Record<string, string> = {
-  FIRE: "ไฟไหม้",
-  FLOOD: "น้ำท่วม",
-  ACCIDENT: "อุบัติเหตุ",
-  MEDICAL: "ฉุกเฉินทางการแพทย์",
-  CRIME: "อาชญากรรม",
-  OTHER: "อื่นๆ",
 };
 
 export const PERSON_STATUS_LABELS: Record<string, string> = {

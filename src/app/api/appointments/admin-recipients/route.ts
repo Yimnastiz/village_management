@@ -19,7 +19,7 @@ export async function GET() {
       where: {
         villageId: membership.villageId,
         status: "ACTIVE",
-        role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+        role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
       },
       include: {
         user: {

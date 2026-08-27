@@ -91,7 +91,7 @@ export async function createVillageEventSubmissionAction(
         villageId: membership.villageId,
         status: "ACTIVE",
         role: {
-          in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE],
+          in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN],
         },
       },
       distinct: ["userId"],
@@ -166,7 +166,7 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
       }, { isolationLevel: "Serializable" });
       if (!created) return { success: false, error: pendingChangeConflictMessage };
       const admins = await prisma.villageMembership.findMany({
-        where: { villageId: membership.villageId, status: "ACTIVE", role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } },
+        where: { villageId: membership.villageId, status: "ACTIVE", role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } },
         distinct: ["userId"],
         select: { userId: true },
       });

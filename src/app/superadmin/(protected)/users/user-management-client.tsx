@@ -38,7 +38,7 @@ type DialogState = {
   action: () => Promise<void>;
 } | null;
 
-const ADMIN_ROLES = new Set(["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"]);
+const ADMIN_ROLES = new Set(["HEADMAN", "ASSISTANT_HEADMAN"]);
 
 export function UserManagementCard({ user, villages }: { user: UserRow; villages: VillageOption[] }) {
   const router = useRouter();
@@ -144,7 +144,6 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
             <select name="membershipRole" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
               <option value="HEADMAN">HEADMAN</option>
               <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
-              <option value="COMMITTEE">COMMITTEE</option>
             </select>
             <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500">แต่งตั้ง</Button>
           </div>
@@ -154,7 +153,7 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
       <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
         <p className="mb-2 text-sm font-medium text-slate-800">บทบาทผู้บริหารที่มีอยู่</p>
         {adminMemberships.length === 0 ? (
-          <p className="text-xs text-slate-500">ยังไม่มีบทบาท Headman/Assistant/Committee</p>
+          <p className="text-xs text-slate-500">ยังไม่มีบทบาท Headman/Assistant Headman</p>
         ) : (
           <div className="space-y-2">
             {adminMemberships.map((membership) => (

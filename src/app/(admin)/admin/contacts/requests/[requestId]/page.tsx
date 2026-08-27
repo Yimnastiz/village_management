@@ -17,7 +17,7 @@ const value = (input: string | null | undefined) => input || "ไม่ได้
 export default async function AdminContactRequestDetailPage({ params, searchParams }: PageProps) {
   const { requestId } = await params; const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login"); if (!isAdminUser(session)) redirect("/resident");
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } }, select: { villageId: true } });
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } }, select: { villageId: true } });
   if (!membership) redirect("/resident");
   const request = await prisma.contactRequest.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true } }, targetContact: { select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } } } });
   if (!request) notFound();

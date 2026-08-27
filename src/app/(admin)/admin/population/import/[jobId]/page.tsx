@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { ImportJobActions } from "./import-confirm-form";
 import { getImportCleanupPreflightAction } from "./actions";
 
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE]);
+const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN]);
 type RowDetail = { rowNumber: number; action: string; status: string; errorCode?: string | null; errorMessage?: string | null; confidenceLevel?: string; matchedRecordId?: string | null };
 type CleanupHistory = { cleanedAt: string; actorId: string; actorName?: string | null; actorRole?: string | null; reason: string; deletedPeople: number; deletedHouses: number; skippedCount: number; skippedReasonCounts: Record<string, number>; deletedItems?: Array<{ kind: "person" | "house"; label: string }>; retainedItems?: Array<{ kind: "person" | "house"; label: string; reason: string }> };
 type ImportJobDetailsPayload = { errors?: string[]; sourceHeaders?: string[]; previewRows?: Array<Record<string, string>>; createdPersonIds?: string[]; createdHouseIds?: string[]; createdPeople?: Array<{ id: string; label: string; houseNumber: string }>; createdHouses?: Array<{ id: string; label: string }>; rowDetails?: RowDetail[]; cleanupHistory?: CleanupHistory[] };
@@ -42,7 +42,7 @@ function statusPresentation(stage: PopulationImportStage) {
   return { title: "รอตรวจสอบก่อนนำเข้า", Icon: Clock3, tone: "text-amber-700" };
 }
 function formatDateTime(value: Date) { return value.toLocaleString("th-TH", { dateStyle: "long", timeStyle: "short" }); }
-function actorRoleLabel(role?: string | null) { return ({ HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการหมู่บ้าน", SUPERADMIN: "ผู้ดูแลระบบ", ADMIN: "ผู้ดูแลหมู่บ้าน" } as Record<string, string>)[role ?? ""] ?? role ?? "ผู้ดูแลหมู่บ้าน"; }
+function actorRoleLabel(role?: string | null) { return ({ HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", SUPERADMIN: "ผู้ดูแลระบบ", ADMIN: "ผู้ดูแลหมู่บ้าน" } as Record<string, string>)[role ?? ""] ?? role ?? "ผู้ดูแลหมู่บ้าน"; }
 function headerKey(header: string) { return header.normalize("NFKC").trim().toLowerCase().replace(/[\s_\-./()]+/g, "").replace(/[:;]/g, ""); }
 function canonicalHeader(header: string) {
   const normalized = headerKey(header);

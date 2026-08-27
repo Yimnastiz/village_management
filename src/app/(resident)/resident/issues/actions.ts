@@ -43,7 +43,6 @@ type IssueInput = {
 const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ];
 
 async function resolveIssueImageUrls(

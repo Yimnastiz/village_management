@@ -5,7 +5,7 @@ import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { UserManagementCard } from "./user-management-client";
 import { finalizeDueAccountDeletions } from "@/lib/account-deletion";
 
-const ADMIN_ROLES = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
+const ADMIN_ROLES = ["HEADMAN", "ASSISTANT_HEADMAN"] as const;
 
 function maskPhone(phone: string) {
   const digits = phone.replace(/\D/g, "");
@@ -98,7 +98,6 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
           <option value="admin">ผู้บริหารหมู่บ้านทั้งหมด</option>
           <option value="HEADMAN">HEADMAN</option>
           <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
-          <option value="COMMITTEE">COMMITTEE</option>
         </select>
         <div className="md:col-span-4 flex flex-wrap gap-2">
           <button type="submit" className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">ค้นหา</button>

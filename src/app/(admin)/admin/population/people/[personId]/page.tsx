@@ -38,7 +38,7 @@ export default async function Page({ params }: PageProps) {
   if (!isAdminUser(session)) redirect(computeLandingPath(session));
 
   const adminMembership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } },
+    where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } },
     select: { villageId: true },
   });
   if (!adminMembership) redirect(computeLandingPath(session));

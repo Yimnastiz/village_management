@@ -28,7 +28,6 @@ import {
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ]);
 
 const MAX_IMPORT_ERRORS = 50;

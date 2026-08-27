@@ -99,7 +99,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   return { appointments, totalCount };
 }
 
-const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการหมู่บ้าน", RESIDENT: "ลูกบ้าน" };
+const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", RESIDENT: "ลูกบ้าน" };
 
 function getAppointmentSource(appointment: { timeline: Array<{ action: string; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }> }) {
   const entry = appointment.timeline[0];

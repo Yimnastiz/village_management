@@ -133,7 +133,7 @@ export async function submitBindingRequestAction(
             id: true,
             name: true,
             memberships: {
-              where: { role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } },
+              where: { role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } },
               select: { userId: true },
             },
           },

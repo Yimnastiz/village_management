@@ -14,7 +14,7 @@ interface PageProps {
 export default async function VillageNewsDetailPage({ params }: PageProps) {
   const { villageSlug: rawVillageSlug, newsId } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
-  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
+  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN"] as const;
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) } },

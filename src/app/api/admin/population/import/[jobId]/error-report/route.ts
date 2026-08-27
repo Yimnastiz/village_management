@@ -10,7 +10,6 @@ type ImportJobDetailsPayload = {
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ]);
 
 function parsePayload(value: unknown): ImportJobDetailsPayload {

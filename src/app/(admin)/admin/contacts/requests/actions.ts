@@ -43,7 +43,7 @@ async function requireAdminContext() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id || !isAdminUser(session)) return null;
   const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } },
+    where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } },
     select: { villageId: true },
   });
   return membership ? { session, villageId: membership.villageId } : null;

@@ -37,7 +37,6 @@ type IssueInput = {
 const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ];
 
 async function notifyIssueStakeholders(params: {
@@ -275,7 +274,7 @@ export async function adminDeleteIssueAction(
   });
   if (!issue) return { success: false, error: "ไม่พบคำร้อง" };
 
-  // Timeline/messages/feedback cascade from Issue. SavedItem has a restrictive relation, so remove it explicitly.
+  // Timeline/messages cascade from Issue. SavedItem has a restrictive relation, so remove it explicitly.
   // The notification and audit are independent records and intentionally survive the issue deletion.
   await prisma.$transaction(async (tx) => {
     if (issue.reporterId !== ctx.session!.id) {

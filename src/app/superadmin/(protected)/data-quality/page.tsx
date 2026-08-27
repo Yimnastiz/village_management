@@ -11,7 +11,7 @@ export default async function DataQualityPage() {
     prisma.user.findMany({ where: { accountStatus: "ACTIVE", memberships: { none: {} } }, take: 100, select: { id: true, name: true } }),
     prisma.house.findMany({ where: { memberships: { none: {} }, persons: { none: {} } }, take: 100, select: { id: true, houseNumber: true, village: { select: { name: true } } } }),
     prisma.bindingRequest.findMany({ where: { status: "PENDING", createdAt: { lt: staleBefore } }, take: 100, select: { id: true, createdAt: true, village: { select: { name: true } } } }),
-    prisma.villageMembership.findMany({ where: { role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] }, status: { not: "ACTIVE" } }, take: 100, select: { id: true, role: true, status: true, user: { select: { name: true } }, village: { select: { name: true } } } }),
+    prisma.villageMembership.findMany({ where: { role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] }, status: { not: "ACTIVE" } }, take: 100, select: { id: true, role: true, status: true, user: { select: { name: true } }, village: { select: { name: true } } } }),
     prisma.village.findMany({ where: { OR: [{ province: null }, { district: null }, { subdistrict: null }] }, select: { id: true, name: true } }),
   ]);
   const groups = [

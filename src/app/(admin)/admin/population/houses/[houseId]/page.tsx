@@ -14,7 +14,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const session = await getSessionContextFromServerCookies();
   if (!session) redirect("/auth/login?callbackUrl=/admin/population/houses");
   if (!isAdminUser(session)) redirect(computeLandingPath(session));
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } }, select: { villageId: true } });
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } }, select: { villageId: true } });
   if (!membership) redirect(computeLandingPath(session));
 
   const house = await prisma.house.findFirst({

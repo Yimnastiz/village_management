@@ -14,7 +14,7 @@ export default async function AdminContactRequestsPage({ searchParams }: PagePro
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } }, select: { villageId: true } });
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } }, select: { villageId: true } });
   if (!membership) redirect("/resident");
 
   const params = (await searchParams) ?? {};

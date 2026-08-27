@@ -29,7 +29,7 @@ export default async function EditPersonPage({ params }: PageProps) {
     where: {
       userId: session.id,
       status: MembershipStatus.ACTIVE,
-      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] },
+      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] },
     },
     select: { villageId: true },
   });

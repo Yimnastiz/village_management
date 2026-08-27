@@ -8,7 +8,6 @@ const privilegedRoleLabels: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
   ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
   DEPUTY_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
-  COMMITTEE: "คณะกรรมการหมู่บ้าน",
   ADMIN: "เจ้าหน้าที่",
   STAFF: "เจ้าหน้าที่",
   SUPERADMIN: "ผู้ดูแลระบบสูงสุด",

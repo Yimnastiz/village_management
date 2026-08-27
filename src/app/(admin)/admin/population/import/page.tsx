@@ -12,7 +12,6 @@ import { ImportPreparationDisclosure } from "./import-preparation-disclosure";
 const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ]);
 
 function getStageBadgeVariant(stage: PopulationImportStage) {

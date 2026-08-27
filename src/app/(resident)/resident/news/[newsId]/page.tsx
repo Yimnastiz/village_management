@@ -20,7 +20,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
   const context = readResidentNewsContext(await searchParams);
   const fromPublished = context?.from === "requests-published";
   const backHref = fromPublished ? requestListHref(context) : newsListHref(context);
-  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] as const;
+  const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN"] as const;
 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");

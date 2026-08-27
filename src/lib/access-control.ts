@@ -6,7 +6,6 @@ import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFro
 export const ADMIN_MEMBERSHIP_ROLES = [
   VillageMembershipRole.HEADMAN,
   VillageMembershipRole.ASSISTANT_HEADMAN,
-  VillageMembershipRole.COMMITTEE,
 ] as const;
 
 const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHIP_ROLES);

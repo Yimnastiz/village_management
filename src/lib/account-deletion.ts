@@ -16,7 +16,7 @@ export function createRecoveryToken() {
 export async function assertSelfDeletionAllowed(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { systemRole: true, memberships: { where: { status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] } }, select: { role: true } } },
+    select: { systemRole: true, memberships: { where: { status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } }, select: { role: true } } },
   });
   if (!user) throw new Error("Account not found.");
   if (user.systemRole === SystemRole.SUPERADMIN) throw new Error("ต้องถอดสิทธิ์ Super Admin ก่อนปิดบัญชี");

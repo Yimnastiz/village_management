@@ -39,7 +39,6 @@ const suggestTimeSchema = z.object({
 const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   "HEADMAN",
   "ASSISTANT_HEADMAN",
-  "COMMITTEE",
 ];
 
 function formatAppointmentStart(date: Date, startTime: string): string {
@@ -539,7 +538,7 @@ export async function approveAppointmentAction(
     where: {
       userId: session.id,
       villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
       status: "ACTIVE",
     },
   });
@@ -655,7 +654,7 @@ export async function rejectAppointmentAction(
     where: {
       userId: session.id,
       villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
       status: "ACTIVE",
     },
   });
@@ -744,7 +743,7 @@ export async function suggestTimeAction(
     where: {
       userId: session.id,
       villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
       status: "ACTIVE",
     },
   });
@@ -952,7 +951,7 @@ export async function adminCancelAppointmentAction(
     where: {
       userId: session.id,
       villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
       status: "ACTIVE",
     },
   });
@@ -1021,7 +1020,7 @@ export async function adminEditAppointmentAction(
     where: {
       userId: session.id,
       villageId: appointment.villageId,
-      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] },
+      role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] },
       status: "ACTIVE",
     },
   });

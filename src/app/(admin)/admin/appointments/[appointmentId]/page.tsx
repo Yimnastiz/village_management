@@ -11,7 +11,7 @@ import { ProposeTimeForm } from "./propose-time-form";
 import { AppointmentStatusActions } from "./appointment-status-actions";
 import { AppointmentTimeline } from "@/components/appointments/appointment-timeline";
 
-const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", COMMITTEE: "คณะกรรมการหมู่บ้าน", RESIDENT: "ลูกบ้าน" };
+const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", RESIDENT: "ลูกบ้าน" };
 
 function getAppointmentSource(timeline: Array<{ action: string; actorId: string | null; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }>) {
   const entry = timeline[0]; const actor = entry?.actor;
@@ -46,7 +46,7 @@ function stringValue(metadata: Record<string, Prisma.JsonValue>, key: string) {
 export default async function AdminAppointmentDetailPage({ params }: { params: Promise<{ appointmentId: string }> }) {
   const session = await getSessionContextFromServerCookies(); if (!session?.id || !isAdminUser(session)) redirect("/auth/login");
   const { appointmentId } = await params;
-  const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, village: { memberships: { some: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } } } } }, include: { user: { select: { name: true, email: true, phoneNumber: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
+  const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, village: { memberships: { some: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } } } } }, include: { user: { select: { name: true, email: true, phoneNumber: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
   if (!appointment) redirect("/admin/appointments");
   const stageLabel = appointment.stage === "TIME_SUGGESTED" ? "รอลูกบ้านยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[appointment.stage];
   const isConfirmed = ["APPROVED", "COMPLETED"].includes(appointment.stage);

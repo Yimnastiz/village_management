@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     // Only record a successful sign-in for an administrator's active village.
     // Failed OTP attempts remain intentionally out of the village activity feed.
     const adminMembership = await prisma.villageMembership.findFirst({
-      where: { userId: payload.user!.id!, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN", "COMMITTEE"] } },
+      where: { userId: payload.user!.id!, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } },
       select: { villageId: true },
     });
     if (adminMembership) await writeVillageAuditLog(prisma, { villageId: adminMembership.villageId, userId: payload.user!.id!, action: "LOGIN", resource: "AuthSession", resourceId: session!.id });

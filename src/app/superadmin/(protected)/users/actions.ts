@@ -17,7 +17,7 @@ function parseSystemRole(value: string): SystemRole {
 function parseVillageRole(value: string): VillageMembershipRole {
   if (value === "HEADMAN") return VillageMembershipRole.HEADMAN;
   if (value === "ASSISTANT_HEADMAN") return VillageMembershipRole.ASSISTANT_HEADMAN;
-  return VillageMembershipRole.COMMITTEE;
+  throw new Error("บทบาทผู้ดูแลหมู่บ้านไม่ถูกต้อง");
 }
 
 export async function updateUserSystemRoleAction(formData: FormData) {

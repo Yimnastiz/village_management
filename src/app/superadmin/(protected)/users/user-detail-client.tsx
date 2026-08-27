@@ -188,7 +188,6 @@ export function UserDetailClient({
           </select>
           <select name="role" defaultValue="RESIDENT" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
             <option value="RESIDENT">RESIDENT</option>
-            <option value="COMMITTEE">COMMITTEE</option>
             <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
             <option value="HEADMAN">HEADMAN</option>
           </select>
@@ -227,7 +226,6 @@ export function UserDetailClient({
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
                   <select name="role" defaultValue={membership.role} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
                     <option value="RESIDENT">RESIDENT</option>
-                    <option value="COMMITTEE">COMMITTEE</option>
                     <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
                     <option value="HEADMAN">HEADMAN</option>
                   </select>

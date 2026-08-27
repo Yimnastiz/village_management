@@ -9,7 +9,7 @@ import type { PlaceImageInput } from "@/lib/place-image";
 import { sanitizeSubmissionImages } from "@/lib/place-image.server";
 
 type PlaceRequestInput = { name: string; category: string; description?: string; address?: string; openingHours?: string; contactPhone?: string; mapUrl?: string; latitude?: number | string | null; longitude?: number | string | null; images?: PlaceImageInput[] };
-const REVIEWER_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN, VillageMembershipRole.COMMITTEE] as const;
+const REVIEWER_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] as const;
 
 async function getResidentContext() {
   const session = await getSessionContextFromServerCookies();
