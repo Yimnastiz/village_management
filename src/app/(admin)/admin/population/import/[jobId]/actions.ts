@@ -95,10 +95,10 @@ async function requireImportJobForAdmin(jobId: string, targetVillageId = "", per
 }
 export async function confirmPopulationImportAction(formData: FormData) {
   const jobId = typeof formData.get("jobId") === "string" ? formData.get("jobId")!.toString().trim() : "";
-  const reason = requireActionReason("population.import", formData.get("supportReason"));
   const targetVillageId = typeof formData.get("targetVillageId") === "string" ? formData.get("targetVillageId")!.toString().trim() : "";
   if (!jobId) throw new Error("กรุณาระบุงานนำเข้า");
   const access = await requireImportJobForAdmin(jobId, targetVillageId);
+  const reason = requireActionReason("population.import", formData.get("supportReason"));
   if (access.stage !== PopulationImportStage.PENDING) throw new Error("งานนี้ถูกยืนยันหรือดำเนินการไปแล้ว");
   const claimed = await prisma.populationImportJob.updateMany({ where: { id: jobId, villageId: access.villageId, stage: PopulationImportStage.PENDING }, data: { stage: PopulationImportStage.PROCESSING, confirmedBy: access.userId, confirmedAt: new Date(), supportReason: reason } });
   if (claimed.count !== 1) throw new Error("งานนี้ถูกยืนยันไปแล้ว กรุณารีเฟรชหน้า");
@@ -212,8 +212,8 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   }
 
   const jobId = jobIdValue.trim();
-  const reason = requireActionReason("population.import.rollback", formData.get("supportReason"));
   const { villageId, createdAt, payload, stage, userId, actorRole } = await requireImportJobForAdmin(jobId, "", "population.import.rollback");
+  const reason = requireActionReason("population.import.rollback", formData.get("supportReason"));
   if (stage !== PopulationImportStage.COMPLETED && stage !== PopulationImportStage.PARTIAL) {
     throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
   }

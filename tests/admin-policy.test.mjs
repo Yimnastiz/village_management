@@ -20,7 +20,13 @@ test("governance permissions belong only to HEADMAN", () => {
 });
 
 test("both village admin roles receive operational permissions", () => {
-  for (const permission of ["news.manage", "calendar.manage", "issues.manage", "appointments.manage", "binding.review", "population.person.manage", "population.house.manage", "audit.view"]) {
+  for (const permission of [
+    "dashboard.view", "news.manage", "news.requests.review", "gallery.manage", "gallery.requests.review",
+    "places.manage", "places.requests.review", "contacts.manage", "contacts.requests.review", "downloads.manage",
+    "transparency.manage", "calendar.manage", "calendar.requests.review", "issues.manage", "appointments.manage",
+    "population.view", "population.person.manage", "population.house.manage", "population.corrections.review",
+    "binding.review", "members.view", "members.status.manage", "audit.view",
+  ]) {
     assert.equal(hasVillagePermission(HEADMAN, permission), true);
     assert.equal(hasVillagePermission(ASSISTANT, permission), true);
   }
@@ -44,7 +50,7 @@ test("binding approval policy distinguishes routine and override decisions", () 
 });
 
 test("member suspension, import, rollback, and sensitive export require five characters", () => {
-  for (const action of ["member.suspend", "population.import", "population.import.rollback", "population.export_sensitive"]) {
+  for (const action of ["member.suspend", "member.reactivate", "member.role.assign", "member.role.remove", "population.import", "population.import.rollback", "population.export_sensitive", "content.delete", "content.archive", "appointment.cancel", "issue.close"]) {
     const policy = getActionPolicy(action);
     assert.equal(policy.requiresReason, true);
     assert.equal(policy.minReasonLength, 5);
@@ -57,7 +63,8 @@ test("member suspension, import, rollback, and sensitive export require five cha
 test("shared ActionReasonDialog carries the consistent sensitive-form contract", async () => {
   const source = await readFile(new URL("../src/components/admin/action-reason-dialog.tsx", import.meta.url), "utf8");
   assert.match(source, /closeOnBackdrop=\{false\}/);
-  assert.match(source, /label="เหตุผล" required/);
+  assert.match(source, /reasonLabel = "เหตุผล"/);
+  assert.match(source, /label=\{reasonLabel\} required/);
   assert.match(source, /อย่างน้อย/);
   assert.match(source, /disabled=\{!valid \|\| busy\}/);
 });

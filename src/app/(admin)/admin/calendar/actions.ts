@@ -244,6 +244,7 @@ export async function adminApproveVillageEventSubmissionAction(
           }),
         },
       });
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: ctx.actorRole, policyAction: "calendar.requests.review", eventId, requesterId: request.requesterId, finalVisibility } } });
 
       return { id: eventId };
     });
@@ -360,10 +361,14 @@ export async function updateVillageEventSubmissionAction(
 }
 
 export async function deleteVillageEventSubmissionAction(
-  requestId: string
+  requestId: string,
+  reasonInput: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
   const request = await villageEventSubmission.findFirst({
     where: { id: requestId, villageId: ctx.villageId, status: "PENDING" },
@@ -373,7 +378,11 @@ export async function deleteVillageEventSubmissionAction(
   }
 
   try {
-    await villageEventSubmission.delete({ where: { id: request.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.villageEventSubmission.delete({ where: { id: request.id } });
+      await tx.notification.create({ data: { userId: request.requesterId, villageId: request.villageId, type: NotificationType.SYSTEM, title: "คำขอกิจกรรมถูกนำออก", body: `คำขอ “${request.title}” ถูกนำออก เหตุผล: ${reason}`, metadata: notificationMetadata("CALENDAR", { requestId: request.id, status: "DELETED", reason, actionUrl: "/resident/calendar/requests" }) } });
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, requesterId: request.requesterId, title: request.title } } });
+    });
     revalidatePath("/admin/calendar/requests");
     revalidateAdminSidebar();
     revalidatePath(`/admin/calendar/requests/${requestId}`);

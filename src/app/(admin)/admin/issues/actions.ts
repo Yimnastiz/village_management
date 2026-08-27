@@ -97,7 +97,7 @@ async function requireAdminCtx() {
   if (!membership)
     return { error: "ไม่พบหมู่บ้านของคุณ" as const, session: null, villageId: "" };
   if (!hasVillagePermission(membership.role, "issues.manage")) return { error: "ไม่มีสิทธิ์จัดการปัญหา" as const, session: null, villageId: "" };
-  return { error: null, session, villageId: membership.villageId };
+  return { error: null, session, villageId: membership.villageId, actorRole: membership.role };
 }
 
 export async function adminCreateIssueAction(
@@ -234,6 +234,21 @@ export async function adminUpdateStageAction(
         metadata: { eventType: "STATUS_CHANGE", fromStatus: currentStatus, toStatus: nextStatus, stage: nextStatus },
       },
     }),
+    prisma.auditLog.create({ data: {
+      userId: ctx.session!.id,
+      villageId: issue.villageId,
+      action: AuditAction.UPDATE,
+      resource: "Issue",
+      resourceId: issue.id,
+      metadata: {
+        actorRole: ctx.actorRole,
+        ...(nextStatus === "RESOLVED" ? { policyAction: "issue.close" } : nextStatus === "REJECTED" ? { policyAction: "issue.reject" } : {}),
+        actionName: "ISSUE_STATUS_CHANGED",
+        reason: trimmedNote || null,
+        oldStatus: currentStatus,
+        newStatus: nextStatus,
+      },
+    } }),
   ]);
 
   await notifyIssueStakeholders({
@@ -300,7 +315,7 @@ export async function adminDeleteIssueAction(
       action: AuditAction.DELETE,
       resource: "Issue",
       resourceId: issue.id,
-      metadata: { actionName: "ISSUE_DELETED_BY_ADMIN", issueTitle: issue.title, reporterId: issue.reporterId, actorRole: "ADMIN", reason: trimmedReason },
+      metadata: { actorRole: ctx.actorRole, policyAction: "issue.cancel", actionName: "ISSUE_DELETED_BY_ADMIN", issueTitle: issue.title, reporterId: issue.reporterId, reason: trimmedReason },
     });
     await tx.savedItem.deleteMany({ where: { issueId } });
     await tx.issue.delete({ where: { id: issueId } });

@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
-import { getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
 import { buildPopulationImportTemplateXlsx } from "@/features/population/server/import-template";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 export async function GET(request: Request) {
   const session = await getSessionContextFromRequest(request);
 
   if (!session || !isAdminUser(session)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const membership = getAdminMembership(session);
+  if (!membership || !hasVillagePermission(membership.role, "population.import")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const xlsxBuffer = buildPopulationImportTemplateXlsx();

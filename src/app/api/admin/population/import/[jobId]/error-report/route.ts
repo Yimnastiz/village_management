@@ -1,16 +1,11 @@
-import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { NextResponse } from "next/server";
-import { getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromRequest, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 type ImportJobDetailsPayload = {
   errors?: string[];
 };
-
-const ADMIN_MEMBERSHIP_ROLES = new Set<VillageMembershipRole>([
-  VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
-]);
 
 function parsePayload(value: unknown): ImportJobDetailsPayload {
   if (value && typeof value === "object" && !Array.isArray(value)) {
@@ -41,12 +36,8 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const adminMembership = session.memberships.find(
-    (membership) =>
-      membership.status === MembershipStatus.ACTIVE &&
-      ADMIN_MEMBERSHIP_ROLES.has(membership.role),
-  );
-  if (!adminMembership) {
+  const adminMembership = getAdminMembership(session);
+  if (!adminMembership || !hasVillagePermission(adminMembership.role, "population.import")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

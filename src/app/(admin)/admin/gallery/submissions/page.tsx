@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { RequestViewTabs } from "@/components/ui/request-view-tabs";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatThaiDateTime } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { GallerySubmissionReviewButtons } from "./request-review-buttons";
@@ -17,11 +17,9 @@ type Query = { albumId?: string; batchId?: string; tab?: string };
 export default async function AdminGallerySubmissionsPage({ searchParams }: { searchParams?: Promise<Query> }) {
   const params = (searchParams ? await searchParams : {}) ?? {};
   const tab = params.tab === "history" ? "history" : "pending";
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-  const membership = getAdminMembership(session);
-  if (!membership) redirect("/resident");
+  const context = await getVillagePermissionContext("gallery.requests.review");
+  if (!context) redirect("/admin/gallery");
+  const membership = context.membership;
   const scope = { album: { villageId: membership.villageId }, ...(params.albumId ? { albumId: params.albumId } : {}), ...(params.batchId ? { batchId: params.batchId } : {}) };
   const [pendingCount, submissions, batchCounts] = await Promise.all([
     prisma.galleryItemSubmission.count({ where: { ...scope, status: "PENDING" } }),

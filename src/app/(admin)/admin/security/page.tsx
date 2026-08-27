@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { ClipboardList } from "lucide-react";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { auditCategoryMatches, auditModuleForResource, formatAuditEvent } from "@/lib/audit-event";
 import { formatNewsAuthor } from "@/lib/news-author";
 import { prisma } from "@/lib/prisma";
@@ -49,7 +49,7 @@ async function resolveTargetNames(villageId: string, logs: Array<{ resource: str
 }
 
 export default async function SecurityPage({ searchParams }: PageProps) {
-  const params = (searchParams ? await searchParams : {}) ?? {}; const session = await getSessionContextFromServerCookies(); const membership = session ? getAdminMembership(session) : null;
+  const params = (searchParams ? await searchParams : {}) ?? {}; const context = await getVillagePermissionContext("audit.view"); const membership = context?.membership;
   if (!membership) return null;
   const q = params.q?.trim() ?? ""; const period = ["ALL", "TODAY", "7D", "30D", "CUSTOM"].includes(params.period ?? "") ? params.period! : "30D"; const from = params.from ?? ""; const to = params.to ?? ""; const eventFilter = ["ALL", "CREATE", "UPDATE", "DELETE", "REVIEW", "AUTH_SECURITY"].includes(params.event ?? "") ? params.event! : "ALL"; const moduleFilter = ["ALL", "NEWS", "POPULATION", "PLACE", "GALLERY", "DOWNLOAD", "CALENDAR", "ISSUE", "SETTINGS"].includes(params.module ?? "") ? params.module! : "ALL"; const actorFilter = params.actor ?? "ALL"; const page = Math.max(1, Number(params.page) || 1); const createdAt = dateBounds(period, from, to);
   const [actors, rawLogs] = await Promise.all([

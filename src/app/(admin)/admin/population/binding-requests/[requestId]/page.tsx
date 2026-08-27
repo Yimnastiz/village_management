@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { BindingRequestStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { BindingRequestStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { maskNationalId } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
-import { hasVillagePermission } from "@/lib/village-permissions";
 import { findBoundIdentityByNationalId, getNationalIdForUser } from "@/lib/identity";
 import { BindingReviewForm } from "../../binding-review-form";
 import { handleBindingRequestAction, verifyHouseForBindingAction } from "../../page";
@@ -14,14 +13,10 @@ const labels = { APPROVED: "อนุมัติแล้ว", REJECTED: "ป�
 
 export default async function Page({ params }: { params: Promise<{ requestId: string }> }) {
   const { requestId } = await params;
-  const session = await getSessionContextFromServerCookies();
-  if (!session || !isAdminUser(session)) redirect("/admin/population");
-
-  const villageIds = session.memberships
-    .filter((item) => item.status === MembershipStatus.ACTIVE && item.role !== VillageMembershipRole.RESIDENT)
-    .map((item) => item.villageId);
+  const context = await getVillagePermissionContext("binding.review");
+  if (!context) redirect("/admin/population");
   const request = await prisma.bindingRequest.findFirst({
-    where: { id: requestId, villageId: { in: villageIds } },
+    where: { id: requestId, villageId: context.villageId },
     include: {
       user: { select: { name: true, phoneNumber: true, person: { select: { nationalId: true, houseId: true, house: { select: { houseNumber: true } } } } } },
       house: { select: { id: true, villageId: true, houseNumber: true } },
@@ -30,10 +25,7 @@ export default async function Page({ params }: { params: Promise<{ requestId: st
   });
   if (!request) redirect("/admin/population/binding-requests");
 
-  const canReview = request.status === BindingRequestStatus.PENDING && session.memberships.some((item) =>
-    item.villageId === request.villageId
-    && item.status === MembershipStatus.ACTIVE
-    && hasVillagePermission(item.role, "binding.review"));
+  const canReview = request.status === BindingRequestStatus.PENDING;
   const nationalId = request.villageId ? await getNationalIdForUser(prisma, request.userId, request.villageId) : null;
   const [houses, claimedIdentity, reviewer] = await Promise.all([
     request.villageId ? prisma.house.findMany({ where: { villageId: request.villageId }, select: { id: true, houseNumber: true }, orderBy: { houseNumber: "asc" } }) : [],

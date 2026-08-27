@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const transparencyInputSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อ"),
@@ -27,7 +28,7 @@ async function requireAdminVillage() {
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน" };
   if (!hasVillagePermission(membership.role, "transparency.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข้อมูลความโปร่งใส" };
-  return { ok: true as const, userId: session.id, villageId: membership.villageId };
+  return { ok: true as const, userId: session.id, villageId: membership.villageId, actorRole: membership.role };
 }
 
 function normalizeInput(data: TransparencyInput) {
@@ -112,15 +113,18 @@ export async function publishTransparencyAction(id: string): Promise<ActionResul
   return { success: true };
 }
 
-export async function archiveTransparencyAction(id: string): Promise<ActionResult> {
+export async function archiveTransparencyAction(id: string, reasonInput: string): Promise<ActionResult> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.archive", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
   const result = await prisma.$transaction(async (tx) => {
     const record = await tx.transparencyRecord.findFirst({ where: { id, villageId: ctx.villageId } });
     if (!record || record.stage !== TransparencyStage.PUBLISHED) return false;
     const archived = await tx.transparencyRecord.updateMany({ where: { id, villageId: ctx.villageId, stage: TransparencyStage.PUBLISHED }, data: { stage: TransparencyStage.ARCHIVED } });
     if (archived.count !== 1) return false;
-    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "TransparencyRecord", resourceId: id, metadata: { actionName: "TRANSPARENCY_ARCHIVED", oldValue: { stage: record.stage }, newValue: { stage: TransparencyStage.ARCHIVED } } } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "TransparencyRecord", resourceId: id, metadata: { actorRole: ctx.actorRole, policyAction: "content.archive", reason, actionName: "TRANSPARENCY_ARCHIVED", oldValue: { stage: record.stage }, newValue: { stage: TransparencyStage.ARCHIVED } } } });
     return true;
   });
   if (!result) return { success: false, error: "ไม่พบรายการที่เผยแพร่นี้หรือรายการถูกเก็บถาวรแล้ว" };
@@ -149,15 +153,18 @@ export async function republishTransparencyAction(id: string): Promise<ActionRes
   return { success: true };
 }
 
-export async function deleteTransparencyAction(id: string): Promise<ActionResult> {
+export async function deleteTransparencyAction(id: string, reasonInput: string): Promise<ActionResult> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
   const result = await prisma.$transaction(async (tx) => {
     const record = await tx.transparencyRecord.findFirst({ where: { id, villageId: ctx.villageId } });
     if (!record || record.stage !== TransparencyStage.DRAFT) return false;
     await tx.savedItem.deleteMany({ where: { transparencyId: id } });
     await tx.transparencyRecord.delete({ where: { id } });
-    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "TransparencyRecord", resourceId: id, metadata: { actionName: "TRANSPARENCY_DRAFT_DELETED", oldValue: { title: record.title, stage: record.stage } } } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "TransparencyRecord", resourceId: id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, actionName: "TRANSPARENCY_DRAFT_DELETED", oldValue: { title: record.title, stage: record.stage } } } });
     return true;
   });
   if (!result) return { success: false, error: "ลบได้เฉพาะฉบับร่างที่ยังไม่เคยเผยแพร่" };

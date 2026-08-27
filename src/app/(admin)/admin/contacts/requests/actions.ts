@@ -161,6 +161,7 @@ function revalidateRequestPaths(requestId: string, contactId?: string | null) {
 export async function approveResidentContactRequestAction(formData: FormData): Promise<ActionResult> {
   const ctx = await requireAdminContext();
   const requestId = readText(formData, "requestId");
+  const reasonInput = formData.get("reason");
   if (!ctx) return { success: false, message: "ไม่มีสิทธิ์ดำเนินการคำขอนี้" };
   if (!requestId) return { success: false, message: "ไม่พบคำขอ" };
 
@@ -173,6 +174,9 @@ export async function approveResidentContactRequestAction(formData: FormData): P
       if (request.status !== "PENDING") return { success: true, already: true, message: request.status === "CANCELLED" ? "คำขอนี้ถูกยกเลิกแล้ว" : "คำขอนี้ได้รับการพิจารณาแล้ว" };
 
       if (request.type === ContactRequestType.DELETE) {
+        let reason: string;
+        try { reason = requireActionReason("content.delete", reasonInput); }
+        catch (error) { if (error instanceof ActionReasonError) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" } as ActionResult; throw error; }
         if (!request.targetContactId) return { success: false, message: "คำขอลบไม่มีข้อมูลผู้ติดต่อปลายทาง" } as ActionResult;
         const source = await getResidentCreateSource(tx, ctx.villageId, request.requesterId, request.targetContactId);
         if (!source) return { success: false, message: "ผู้ส่งคำขอไม่มีสิทธิ์ขอลบผู้ติดต่อนี้" } as ActionResult;
@@ -185,7 +189,7 @@ export async function approveResidentContactRequestAction(formData: FormData): P
         await tx.contactDirectory.delete({ where: { id: target.id } });
         await createReviewResultNotification(tx, { ...request, status: "APPROVED", approvedContactId: null });
         await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
-        await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: "CONTACT_DELETE_REQUEST_APPROVED", requestType: request.type, requestId: request.id, contactId: target.id, requesterId: request.requesterId, reviewerId: ctx.session.id, workflowEvent: "CONTACT_DELETE_APPROVED" } } });
+        await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: ctx.membership.role, policyAction: "content.delete", reason, actionName: "CONTACT_DELETE_REQUEST_APPROVED", requestType: request.type, requestId: request.id, contactId: target.id, requesterId: request.requesterId, reviewerId: ctx.session.id, workflowEvent: "CONTACT_DELETE_APPROVED" } } });
         return { success: true, message: "อนุมัติคำขอลบผู้ติดต่อเรียบร้อยแล้ว", approvedContactId: target.id };
       }
 
@@ -213,7 +217,7 @@ export async function approveResidentContactRequestAction(formData: FormData): P
       await tx.contactRequest.update({ where: { id: request.id }, data: { approvedContactId } });
       await createReviewResultNotification(tx, { ...request, status: "APPROVED", approvedContactId });
       await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_APPROVED" : "CONTACT_REQUEST_APPROVED", requestType: request.type, requestId: request.id, contactId: approvedContactId, requesterId: request.requesterId, reviewerId: ctx.session.id } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: ctx.membership.role, policyAction: "contacts.requests.review", actionName: request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_APPROVED" : "CONTACT_REQUEST_APPROVED", requestType: request.type, requestId: request.id, contactId: approvedContactId, requesterId: request.requesterId, reviewerId: ctx.session.id } } });
       return { success: true, message: request.type === ContactRequestType.UPDATE ? "อนุมัติคำขอแก้ไขผู้ติดต่อเรียบร้อยแล้ว" : "อนุมัติคำขอและเพิ่มผู้ติดต่อเรียบร้อยแล้ว", approvedContactId };
     });
     revalidateRequestPaths(requestId, result.approvedContactId);
@@ -249,7 +253,7 @@ export async function rejectResidentContactRequestAction(formData: FormData): Pr
       if (claimed.count !== 1) return { success: true, already: true, message: "คำขอนี้ได้รับการพิจารณาแล้ว" };
       await createReviewResultNotification(tx, { ...request, status: "REJECTED", rejectReason: reason });
       await archiveReviewNotifications(tx, ctx.villageId, request.id, reviewedAt);
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actionName: request.type === ContactRequestType.DELETE ? "CONTACT_DELETE_REQUEST_REJECTED" : request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_REJECTED" : "CONTACT_REQUEST_REJECTED", requestType: request.type, requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, rejectReason: reason, workflowEvent: request.type === ContactRequestType.DELETE ? "CONTACT_DELETE_REJECTED" : undefined } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: ctx.membership.role, policyAction: "content.request.reject", actionName: request.type === ContactRequestType.DELETE ? "CONTACT_DELETE_REQUEST_REJECTED" : request.type === ContactRequestType.UPDATE ? "CONTACT_UPDATE_REQUEST_REJECTED" : "CONTACT_REQUEST_REJECTED", requestType: request.type, requestId: request.id, requesterId: request.requesterId, reviewerId: ctx.session.id, reason, workflowEvent: request.type === ContactRequestType.DELETE ? "CONTACT_DELETE_REJECTED" : undefined } } });
       return { success: true, message: "บันทึกการไม่อนุมัติเรียบร้อยแล้ว" };
     });
     revalidateRequestPaths(requestId);

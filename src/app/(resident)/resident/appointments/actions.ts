@@ -642,10 +642,6 @@ export async function rejectAppointmentAction(
     };
   }
 
-  let normalizedReason: string;
-  try { normalizedReason = requireActionReason("appointment.reject_time", parsed.data.reviewNote); }
-  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
-
   const appointment = await prisma.appointment.findUnique({
     where: { id: parsed.data.appointmentId },
   });
@@ -659,6 +655,9 @@ export async function rejectAppointmentAction(
   if (!adminMembership) {
     return { success: false, error: "ไม่มีสิทธิ์ปฏิเสธนัดหมายนี้" };
   }
+  let normalizedReason: string;
+  try { normalizedReason = requireActionReason("appointment.reject_time", parsed.data.reviewNote); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
   const source = await getAppointmentCreationSource(appointment.id);
   if (source.isAdminCreated || appointment.stage !== "PENDING_APPROVAL") {
@@ -930,11 +929,6 @@ export async function adminCancelAppointmentAction(
   const reason = (formData.get("reason") as string) || "";
 
   if (!appointmentId) return { success: false, error: "ข้อมูลไม่ถูกต้อง" };
-  let normalizedReason: string;
-  try { normalizedReason = requireActionReason("appointment.cancel", reason); }
-  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
-  if (normalizedReason.length > 500) return { success: false, error: "เหตุผลต้องไม่เกิน 500 ตัวอักษร" };
-
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
   });
@@ -944,6 +938,10 @@ export async function adminCancelAppointmentAction(
   const adminMembership = getAppointmentAdminMembership(session, appointment.villageId);
 
   if (!adminMembership) return { success: false, error: "ไม่มีสิทธิ์ยกเลิกนัดหมายนี้" };
+  let normalizedReason: string;
+  try { normalizedReason = requireActionReason("appointment.cancel", reason); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+  if (normalizedReason.length > 500) return { success: false, error: "เหตุผลต้องไม่เกิน 500 ตัวอักษร" };
 
   const cancellableStages = new Set(["TIME_SUGGESTED", "APPROVED"]);
   if (!cancellableStages.has(appointment.stage)) {

@@ -3,7 +3,7 @@ import { ContactRequestType } from "@prisma/client";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { ContactRequestDecisionActions } from "../contact-request-decision-actions";
 
@@ -15,10 +15,9 @@ const fields = [{ key: "name", label: "ชื่อ" }, { key: "role", label: "�
 const value = (input: string | null | undefined) => input || "ไม่ได้ระบุ";
 
 export default async function AdminContactRequestDetailPage({ params, searchParams }: PageProps) {
-  const { requestId } = await params; const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login"); if (!isAdminUser(session)) redirect("/resident");
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } }, select: { villageId: true } });
-  if (!membership) redirect("/resident");
+  const { requestId } = await params; const context = await getVillagePermissionContext("contacts.requests.review");
+  if (!context) redirect("/auth/login");
+  const membership = context.membership;
   const request = await prisma.contactRequest.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true } }, targetContact: { select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } } } });
   if (!request) notFound();
   const isUpdate = request.type === ContactRequestType.UPDATE;

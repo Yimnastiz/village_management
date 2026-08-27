@@ -7,7 +7,7 @@ import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { formatThaiDateTime } from "@/lib/date-format";
 import { NEWS_SUBMISSION_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { parseNewsSubmissionPayload, newsSubmissionTypeLabel } from "@/lib/news-submission";
 import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 import { getVillageReviewerDisplayMap } from "@/lib/village-reviewer";
@@ -15,11 +15,9 @@ import { getVillageReviewerDisplayMap } from "@/lib/village-reviewer";
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
 
 export default async function AdminNewsRequestListPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-  const membership = getAdminMembership(session);
-  if (!membership) redirect("/auth/login");
+  const context = await getVillagePermissionContext("news.requests.review");
+  if (!context) redirect("/admin/news");
+  const membership = context.membership;
 
   const tab = (await searchParams)?.tab === "history" ? "history" : "pending";
   const where: Prisma.NewsSubmissionWhereInput = { villageId: membership.villageId, ...(tab === "pending" ? { status: "PENDING" } : { status: { in: ["APPROVED", "REJECTED"] } }) };

@@ -59,6 +59,7 @@ async function requireAdminVillage() {
     error: null,
     session,
     villageId: membership.villageId,
+    actorRole: membership.role,
   };
 }
 
@@ -187,10 +188,14 @@ export async function adminUpdateNewsAction(
 }
 
 export async function adminDeleteNewsAction(
-  newsId: string
+  newsId: string,
+  reasonInput: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
   const existing = await prisma.news.findFirst({
     where: { id: newsId, villageId: ctx.villageId },
@@ -204,14 +209,15 @@ export async function adminDeleteNewsAction(
     await tx.savedItem.deleteMany({ where: { newsId } });
     await tx.news.delete({ where: { id: newsId } });
   });
-  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "News", resourceId: newsId, metadata: { actionName: "NEWS_DELETED", title: existing.title } });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "News", resourceId: newsId, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, actionName: "NEWS_DELETED", title: existing.title } });
   revalidateNewsPaths(newsId);
   return { success: true };
 }
 
 export async function adminApproveNewsSubmissionAction(
   submissionId: string,
-  overrides?: { visibility?: string; isPinned?: boolean }
+  overrides?: { visibility?: string; isPinned?: boolean },
+  reasonInput?: string,
 ): Promise<{ success: true; newsId: string } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
@@ -255,6 +261,9 @@ export async function adminApproveNewsSubmissionAction(
   const isDeleteRequest = Boolean(payload.isDeleteRequest);
 
   if (isDeleteRequest) {
+    let reason: string;
+    try { reason = requireActionReason("content.delete", reasonInput); }
+    catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
     if (!submission.targetNewsId) {
       return { success: false, error: "คำขอลบนี้ไม่มีข่าวปลายทาง" };
     }
@@ -289,7 +298,7 @@ export async function adminApproveNewsSubmissionAction(
           },
         },
       });
-      await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "APPROVE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actionName: "NEWS_SUBMISSION_APPROVED", title: parsed.value.title } });
+      await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, actionName: "NEWS_DELETE_SUBMISSION_APPROVED", title: parsed.value.title, newsId: submission.targetNewsId } });
     });
 
     revalidateNewsPaths(submission.targetNewsId);
@@ -468,15 +477,20 @@ function revalidateNewsPaths(newsId?: string) {
   revalidateAdminSidebar();
 }
 
-export async function adminChangeNewsStageAction(newsId: string, nextStage: "PUBLISHED" | "ARCHIVED"): Promise<{ success: true } | { success: false; error: string }> {
+export async function adminChangeNewsStageAction(newsId: string, nextStage: "PUBLISHED" | "ARCHIVED", reasonInput?: string): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason = "";
+  if (nextStage === "ARCHIVED") {
+    try { reason = requireActionReason("content.archive", reasonInput); }
+    catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+  }
   const existing = await prisma.news.findFirst({ where: { id: newsId, villageId: ctx.villageId }, select: { id: true, title: true, stage: true, publishedAt: true, visibility: true } });
   if (!existing) return { success: false, error: "ไม่พบข่าวนี้" };
   const allowed = (existing.stage === "DRAFT" && nextStage === "PUBLISHED") || (existing.stage === "PUBLISHED" && nextStage === "ARCHIVED") || (existing.stage === "ARCHIVED" && nextStage === "PUBLISHED");
   if (!allowed) return { success: false, error: "ไม่สามารถเปลี่ยนสถานะข่าวนี้ได้" };
   const updated = await prisma.news.update({ where: { id: newsId }, data: { stage: nextStage, ...(nextStage === "PUBLISHED" && !existing.publishedAt ? { publishedAt: new Date() } : {}) }, select: { stage: true, publishedAt: true } });
-  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "UPDATE", resource: "News", resourceId: newsId, metadata: { actionName: nextStage === "ARCHIVED" ? "NEWS_ARCHIVED" : existing.stage === "ARCHIVED" ? "NEWS_REPUBLISHED" : "NEWS_PUBLISHED", title: existing.title, oldValue: { stage: existing.stage }, newValue: { stage: updated.stage, publishedAt: updated.publishedAt, visibility: existing.visibility } } });
+  await writeVillageAuditLog(prisma, { villageId: ctx.villageId, userId: ctx.session.id, action: "UPDATE", resource: "News", resourceId: newsId, metadata: { actorRole: ctx.actorRole, policyAction: nextStage === "ARCHIVED" ? "content.archive" : null, reason: reason || null, actionName: nextStage === "ARCHIVED" ? "NEWS_ARCHIVED" : existing.stage === "ARCHIVED" ? "NEWS_REPUBLISHED" : "NEWS_PUBLISHED", title: existing.title, oldValue: { stage: existing.stage }, newValue: { stage: updated.stage, publishedAt: updated.publishedAt, visibility: existing.visibility } } });
   revalidateNewsPaths(newsId);
   return { success: true };
 }

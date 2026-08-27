@@ -1,6 +1,6 @@
 "use server";
 
-import { DownloadStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, DownloadStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { MAX_DOWNLOAD_TOTAL_BYTES } from "@/lib/download-upload";
 import { deleteDownloadUploads, verifyDownloadUploadToken } from "@/lib/download-upload.server";
@@ -10,6 +10,7 @@ import { downloadFormSchema } from "@/lib/downloads/schema";
 import type { DownloadActionResult, DownloadFormInput } from "@/lib/downloads/types";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { hasVillagePermission } from "@/lib/village-permissions";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 
 const RESIDENT_MEMBERSHIP_ROLES: VillageMembershipRole[] = [VillageMembershipRole.RESIDENT];
 
@@ -19,7 +20,7 @@ async function requireAdminVillage() {
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน", session: null, villageId: "" };
   if (!hasVillagePermission(membership.role, "downloads.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการเอกสาร", session: null, villageId: "" };
-  return { ok: true as const, error: null, session, villageId: membership.villageId };
+  return { ok: true as const, error: null, session, villageId: membership.villageId, actorRole: membership.role };
 }
 
 function invalid(error: string, fieldErrors?: Record<string, string>): DownloadActionResult {
@@ -136,34 +137,46 @@ export async function publishDownloadAction(fileId: string): Promise<DownloadAct
   return transitionDownload(fileId, "PUBLISHED", ["DRAFT", "ARCHIVED"]);
 }
 
-export async function archiveDownloadAction(fileId: string): Promise<DownloadActionResult> {
-  return transitionDownload(fileId, "ARCHIVED", ["PUBLISHED"]);
+export async function archiveDownloadAction(fileId: string, reasonInput: string): Promise<DownloadActionResult> {
+  return transitionDownload(fileId, "ARCHIVED", ["PUBLISHED"], reasonInput);
 }
 
 export async function restoreDownloadAction(fileId: string): Promise<DownloadActionResult> {
   return transitionDownload(fileId, "DRAFT", ["ARCHIVED"]);
 }
 
-async function transitionDownload(fileId: string, nextStage: DownloadStage, allowedCurrent: DownloadStage[]): Promise<DownloadActionResult> {
+async function transitionDownload(fileId: string, nextStage: DownloadStage, allowedCurrent: DownloadStage[], reasonInput?: string): Promise<DownloadActionResult> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return invalid(ctx.error);
+  let reason = "";
+  if (nextStage === "ARCHIVED") {
+    try { reason = requireActionReason("content.archive", reasonInput); }
+    catch (error) { if (error instanceof ActionReasonError) return invalid("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"); throw error; }
+  }
   const existing = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: ctx.villageId }, select: { id: true, title: true, stage: true } });
   if (!existing) return invalid("ไม่พบเอกสารนี้หรือไม่มีสิทธิ์ดำเนินการ");
   if (!allowedCurrent.includes(existing.stage)) return invalid("ไม่สามารถเปลี่ยนสถานะเอกสารจากสถานะปัจจุบันได้");
-  await prisma.downloadFile.update({ where: { id: fileId }, data: { stage: nextStage, ...(nextStage === "PUBLISHED" ? { publishedAt: new Date() } : {}) } });
+  await prisma.$transaction(async (tx) => {
+    await tx.downloadFile.update({ where: { id: fileId }, data: { stage: nextStage, ...(nextStage === "PUBLISHED" ? { publishedAt: new Date() } : {}) } });
+    if (nextStage === "ARCHIVED") await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "DownloadFile", resourceId: fileId, metadata: { actorRole: ctx.actorRole, policyAction: "content.archive", reason, oldStage: existing.stage, newStage: nextStage } } });
+  });
   if (nextStage === "PUBLISHED") await notifyResidents(ctx.villageId, existing.stage === "ARCHIVED" ? "เอกสารดาวน์โหลด: เผยแพร่อีกครั้ง" : "เอกสารดาวน์โหลด: เผยแพร่แล้ว", `เอกสาร ${existing.title} พร้อมให้ดาวน์โหลดแล้ว`, { fileId, actionUrl: `/resident/downloads/${fileId}` });
   revalidateDownloadViews(fileId);
   return { success: true };
 }
 
-export async function deleteDownloadAction(fileId: string): Promise<DownloadActionResult> {
+export async function deleteDownloadAction(fileId: string, reasonInput: string): Promise<DownloadActionResult> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return invalid(ctx.error);
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return invalid("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร"); throw error; }
   const existing = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: ctx.villageId }, include: { attachments: { select: { fileKey: true } } } });
   if (!existing) return invalid("ไม่พบเอกสารนี้หรือไม่มีสิทธิ์ลบ");
   await prisma.$transaction(async (tx) => {
     await tx.savedItem.deleteMany({ where: { downloadId: fileId } });
     await tx.downloadFile.delete({ where: { id: fileId } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "DownloadFile", resourceId: fileId, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, title: existing.title } } });
   });
   void deleteDownloadUploads(existing.attachments.map((item) => item.fileKey).filter((value): value is string => Boolean(value)));
   revalidateDownloadViews(fileId);

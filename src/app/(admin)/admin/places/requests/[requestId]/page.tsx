@@ -6,7 +6,7 @@ import { ImageCarousel } from "@/components/ui/image-carousel";
 import { formatThaiDateTime } from "@/lib/date-format";
 import { VILLAGE_PLACE_CATEGORY_LABELS, VILLAGE_PLACE_SUBMISSION_STATUS_LABELS, VILLAGE_PLACE_SUBMISSION_TYPE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { getVillagePlaceEmbedMapUrl, parseVillagePlacePayload } from "@/lib/village-place";
 import { getVillageReviewerDisplay } from "@/lib/village-reviewer";
 import { PlaceRequestReviewButtons } from "../request-review-buttons";
@@ -18,8 +18,8 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
 
 export default async function AdminPlaceRequestDetailPage({ params }: PageProps) {
   const { requestId } = await params;
-  const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login"); if (!isAdminUser(session)) redirect("/resident");
-  const membership = getAdminMembership(session); if (!membership) redirect("/auth/login");
+  const context = await getVillagePermissionContext("places.requests.review"); if (!context) redirect("/admin/places");
+  const membership = context.membership;
   const villagePlaceSubmission = (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDetailDelegate }).villagePlaceSubmission;
   const request = await villagePlaceSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true, phoneNumber: true } } } });
   if (!request) notFound();

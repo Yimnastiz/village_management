@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { useToast } from "@/components/ui/toast";
 import { deleteGalleryAlbumAction } from "../actions";
 
@@ -14,10 +14,10 @@ export function DeleteAlbumButton({ albumId }: { albumId: string }) {
   const [open, setOpen] = useState(false);
   const toast = useToast();
 
-  const onDelete = async () => {
+  const onDelete = async (reason: string) => {
     setIsSubmitting(true);
     setError(null);
-    const result = await deleteGalleryAlbumAction(albumId);
+    const result = await deleteGalleryAlbumAction(albumId, reason);
     setIsSubmitting(false);
 
     if (!result.success) {
@@ -31,7 +31,7 @@ export function DeleteAlbumButton({ albumId }: { albumId: string }) {
   return (
     <div className="space-y-2">
       <Button variant="dangerOutline" size="sm" onClick={() => setOpen(true)} isLoading={isSubmitting}>ลบอัลบั้ม</Button>
-      <ConfirmDialog open={open} title="ลบอัลบั้ม" description="รูปภาพภายในอัลบั้มจะถูกลบทั้งหมด" confirmLabel="ลบอัลบั้ม" tone="danger" pending={isSubmitting} onClose={() => setOpen(false)} onConfirm={onDelete} />
+      <ActionReasonDialog open={open} action="content.delete" title="ลบอัลบั้ม" description="รูปภาพภายในอัลบั้มจะถูกลบทั้งหมดและบันทึกเหตุผลใน Audit Log" submitLabel="ลบอัลบั้ม" loading={isSubmitting} onCancel={() => setOpen(false)} onSubmit={onDelete} />
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>
   );

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = { searchParams?: Promise<{ tab?: string }> };
@@ -11,11 +11,9 @@ const statusVariant = { PENDING: "warning", APPROVED: "success", REJECTED: "dang
 const typeCopy = { CREATE: "เพิ่มผู้ติดต่อ", UPDATE: "แก้ไขผู้ติดต่อ", DELETE: "ลบผู้ติดต่อ" } as const;
 
 export default async function AdminContactRequestsPage({ searchParams }: PageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE", role: { in: ["HEADMAN", "ASSISTANT_HEADMAN"] } }, select: { villageId: true } });
-  if (!membership) redirect("/resident");
+  const context = await getVillagePermissionContext("contacts.requests.review");
+  if (!context) redirect("/auth/login");
+  const membership = context.membership;
 
   const params = (await searchParams) ?? {};
   const history = params.tab === "history";

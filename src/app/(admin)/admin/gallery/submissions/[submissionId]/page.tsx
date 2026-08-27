@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { GallerySubmissionReviewButtons } from "../request-review-buttons";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
@@ -27,15 +27,9 @@ const statusLabel: Record<string, string> = {
 export default async function AdminGallerySubmissionDetailPage({ params }: AdminGallerySubmissionDetailPageProps) {
   const { submissionId } = await params;
 
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
-  if (!membership) redirect("/auth/login");
+  const context = await getVillagePermissionContext("gallery.requests.review");
+  if (!context) redirect("/admin/gallery");
+  const membership = context.membership;
 
   const submission = await db.galleryItemSubmission.findFirst({
     where: {

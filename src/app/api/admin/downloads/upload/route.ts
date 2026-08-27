@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminMembership, getSessionContextFromRequest } from "@/lib/access-control";
 import { MAX_DOWNLOAD_ATTACHMENT_BYTES, isAllowedDownloadFile } from "@/lib/download-upload";
 import { createDownloadUploadToken, saveDownloadUpload } from "@/lib/download-upload.server";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
   const session = await getSessionContextFromRequest(request);
   const membership = session ? getAdminMembership(session) : null;
   if (!session?.id) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
-  if (!membership) return NextResponse.json({ error: "ไม่มีสิทธิ์อัปโหลดเอกสาร" }, { status: 403 });
+  if (!membership || !hasVillagePermission(membership.role, "downloads.manage")) return NextResponse.json({ error: "ไม่มีสิทธิ์อัปโหลดเอกสาร" }, { status: 403 });
   try {
     const form = await request.formData();
     const file = form.get("file");

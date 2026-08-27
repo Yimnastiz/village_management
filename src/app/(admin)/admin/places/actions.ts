@@ -28,7 +28,7 @@ async function requireAdminVillage() {
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน" };
   if (!hasVillagePermission(membership.role, "places.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการสถานที่" };
-  return { ok: true as const, session, villageId: membership.villageId };
+  return { ok: true as const, session, villageId: membership.villageId, actorRole: membership.role };
 }
 
 function revalidatePlacePaths(placeId?: string, requestId?: string) {
@@ -78,15 +78,18 @@ export async function adminUpdateVillagePlaceAction(placeId: string, data: Place
   return { success: true };
 }
 
-export async function adminDeleteVillagePlaceAction(placeId: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function adminDeleteVillagePlaceAction(placeId: string, reasonInput: string): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true, images: { select: { fileKey: true } } } });
     if (!existing) return false;
     await tx.savedItem.deleteMany({ where: { placeId } });
     await tx.villagePlace.delete({ where: { id: placeId } });
-    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillagePlace", resourceId: placeId, metadata: { actionName: "PLACE_DELETED", name: existing.name } } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillagePlace", resourceId: placeId, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, actionName: "PLACE_DELETED", name: existing.name } } });
     return existing.images.flatMap((image) => image.fileKey ? [image.fileKey] : []);
   });
   if (!result) return { success: false, error: "ไม่พบสถานที่ที่ต้องการลบ" };
@@ -135,7 +138,7 @@ export async function adminApproveVillagePlaceSubmissionAction(submissionId: str
       await tx.villagePlaceSubmission.update({ where: { id: submission.id }, data: { approvedPlaceId: place.id } });
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
       await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `สถานที่: ${payload.name}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, placeId: place.id, status: "APPROVED", actionUrl: `/resident/places/${place.id}?from=notifications` } } });
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "places.requests.review", actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
       return place;
     });
     await deletePlaceUploads(removedFileKeys);
@@ -163,7 +166,7 @@ export async function adminRejectVillagePlaceSubmissionAction(submissionId: stri
       if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
       const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณไม่ได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ";
       await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `เหตุผล: ${reason}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, status: "REJECTED", actionUrl: `/resident/places/requests/${submission.id}?from=notifications` } } });
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actionName: "PLACE_REQUEST_REJECTED", requestType: submission.type, requesterId: submission.requesterId, rejectReason: reason } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.request.reject", actionName: "PLACE_REQUEST_REJECTED", requestType: submission.type, requesterId: submission.requesterId, reason } } });
     });
     revalidatePlacePaths(undefined, submissionId);
     return { success: true };

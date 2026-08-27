@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Prisma, type VillageMembershipRole } from "@prisma/client";
@@ -17,15 +17,11 @@ type PageProps = {
 };
 
 async function fetchPendingAppointments(params: { q?: string; stage?: string; sort?: string; page?: string }) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id || !isAdminUser(session)) {
+  const context = await getVillagePermissionContext("appointments.manage");
+  if (!context) {
     redirect("/auth/login?error=unauthorized");
   }
-
-  const membership = getAdminMembership(session);
-  if (!membership) {
-    return { appointments: [], totalCount: 0 };
-  }
+  const membership = context.membership;
 
   const keyword = params.q?.trim() ?? "";
   const activeStage = params.stage ?? "ALL";

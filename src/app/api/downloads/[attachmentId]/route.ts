@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminMembership, getResidentVillageAccess, getSessionContextFromRequest } from "@/lib/access-control";
 import { readDownloadUpload } from "@/lib/download-upload.server";
 import { prisma } from "@/lib/prisma";
+import { hasVillagePermission } from "@/lib/village-permissions";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!session?.id && !publicAllowed) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
   if (session?.id) {
     const admin = getAdminMembership(session, { villageId: attachment.download.villageId });
-    if (!admin && !publicAllowed) {
+    const adminAllowed = Boolean(admin && hasVillagePermission(admin.role, "downloads.manage"));
+    if (!adminAllowed && !publicAllowed) {
       const resident = await getResidentVillageAccess(session);
       const allowed = resident?.villageId === attachment.download.villageId && attachment.download.stage === "PUBLISHED" && resident.hasResidentAccess;
       if (!allowed) return NextResponse.json({ error: "ไม่มีสิทธิ์ดาวน์โหลดไฟล์นี้" }, { status: 403 });

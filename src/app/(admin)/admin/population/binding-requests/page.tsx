@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { BindingRequestStatus, MembershipStatus, Prisma, VillageMembershipRole } from "@prisma/client";
+import { BindingRequestStatus, Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { RequestViewTabs } from "@/components/ui/request-view-tabs";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { maskPhone } from "@/features/village-workspace/server/queries";
 import { prisma } from "@/lib/prisma";
 
@@ -13,17 +13,16 @@ const historyStatuses = [BindingRequestStatus.APPROVED, BindingRequestStatus.REJ
 const statusLabel: Record<(typeof historyStatuses)[number], string> = { APPROVED: "อนุมัติแล้ว", REJECTED: "ปฏิเสธ", CANCELLED: "ยกเลิก" };
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string; q?: string; status?: string; page?: string }> }) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session || !isAdminUser(session)) redirect("/admin/population");
+  const context = await getVillagePermissionContext("binding.review");
+  if (!context) redirect("/admin/population");
   const params = await searchParams;
-  const villageIds = session.memberships.filter((item) => item.status === MembershipStatus.ACTIVE && item.role !== VillageMembershipRole.RESIDENT).map((item) => item.villageId);
   const tab = params.tab === "history" ? "history" : "pending";
   const q = params.q?.trim() ?? "";
   const selectedStatus = historyStatuses.includes(params.status as (typeof historyStatuses)[number]) ? params.status as (typeof historyStatuses)[number] : undefined;
   const page = Math.max(1, Number(params.page) || 1);
   const status = tab === "pending" ? BindingRequestStatus.PENDING : selectedStatus ? selectedStatus : { in: [...historyStatuses] };
   const where: Prisma.BindingRequestWhereInput = {
-    villageId: { in: villageIds }, status,
+    villageId: context.villageId, status,
     ...(q ? { OR: [
       { user: { is: { name: { contains: q, mode: "insensitive" } } } },
       { user: { is: { phoneNumber: { contains: q, mode: "insensitive" } } } },
@@ -32,7 +31,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
     ] } : {}),
   };
   const [pendingCount, total, requests] = await Promise.all([
-    prisma.bindingRequest.count({ where: { villageId: { in: villageIds }, status: BindingRequestStatus.PENDING } }),
+    prisma.bindingRequest.count({ where: { villageId: context.villageId, status: BindingRequestStatus.PENDING } }),
     prisma.bindingRequest.count({ where }),
     prisma.bindingRequest.findMany({ where, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, orderBy: tab === "pending" ? { createdAt: "asc" } : { reviewedAt: "desc" }, include: { user: { select: { name: true, phoneNumber: true } }, house: { select: { houseNumber: true } } } }),
   ]);

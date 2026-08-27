@@ -44,7 +44,7 @@ async function requireAdminVillage() {
   if (!membership) return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", villageId: "", userId: "" };
   if (!hasVillagePermission(membership.role, "gallery.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการแกลเลอรี", villageId: "", userId: "" };
 
-  return { ok: true as const, error: null, villageId: membership.villageId, userId: session.id };
+  return { ok: true as const, error: null, villageId: membership.villageId, userId: session.id, actorRole: membership.role };
 }
 
 function normalizeAlbumInput(data: AlbumInput) {
@@ -309,10 +309,14 @@ export async function saveGalleryAlbumEditAction(
 }
 
 export async function deleteGalleryAlbumAction(
-  id: string
+  id: string,
+  reasonInput: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
   const existing = await prisma.galleryAlbum.findFirst({
     where: { id, villageId: ctx.villageId },
@@ -323,6 +327,7 @@ export async function deleteGalleryAlbumAction(
   await prisma.$transaction(async (tx) => {
     await tx.savedItem.deleteMany({ where: { galleryAlbumId: id } });
     await tx.galleryAlbum.delete({ where: { id } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "GalleryAlbum", resourceId: id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason } } });
   });
   await deletePlaceUploads(existing.items.flatMap((item) => item.fileKey ? [item.fileKey] : []));
   revalidateGalleryViews(id);
@@ -431,10 +436,14 @@ export async function updateGalleryItemAction(
 
 export async function deleteGalleryItemAction(
   albumId: string,
-  itemId: string
+  itemId: string,
+  reasonInput: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
   const item = await prisma.galleryItem.findFirst({
     where: { id: itemId, albumId, album: { villageId: ctx.villageId } },
@@ -449,6 +458,7 @@ export async function deleteGalleryItemAction(
       const next = await tx.galleryItem.findFirst({ where: { albumId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
       if (next) await tx.galleryItem.update({ where: { id: next.id }, data: { isCover: true } });
     }
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "GalleryItem", resourceId: itemId, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, albumId } } });
   });
   revalidateGalleryViews(albumId);
   return { success: true };
@@ -521,6 +531,7 @@ export async function adminApproveGalleryItemSubmissionAction(
         },
       },
     });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "GalleryItemSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "gallery.requests.review", itemId: createdItem.id, requesterId: submission.requesterId } } });
 
     return createdItem;
   }); } catch (error) {
@@ -583,6 +594,7 @@ export async function adminRejectGalleryItemSubmissionAction(
         },
       },
     });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "GalleryItemSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.request.reject", reason, requesterId: submission.requesterId } } });
   }); } catch (error) {
     if (error instanceof Error && error.message === "SUBMISSION_ALREADY_REVIEWED") return { success: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
     throw error;

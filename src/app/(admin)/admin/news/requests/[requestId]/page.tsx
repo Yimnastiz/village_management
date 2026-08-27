@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NEWS_STAGE_LABELS, NEWS_SUBMISSION_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatThaiDateTime } from "@/lib/date-format";
 import { newsSubmissionTypeLabel, parseNewsSubmissionPayload } from "@/lib/news-submission";
 import { getVillageReviewerDisplay } from "@/lib/village-reviewer";
@@ -15,11 +15,9 @@ interface PageProps { params: Promise<{ requestId: string }> }
 
 export default async function AdminNewsRequestDetailPage({ params }: PageProps) {
   const { requestId } = await params;
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  if (!isAdminUser(session)) redirect("/resident");
-  const membership = getAdminMembership(session);
-  if (!membership) redirect("/auth/login");
+  const context = await getVillagePermissionContext("news.requests.review");
+  if (!context) redirect("/admin/news");
+  const membership = context.membership;
 
   const request = await prisma.newsSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true, phoneNumber: true } }, targetNews: { select: { id: true, title: true } } } });
   if (!request) notFound();
