@@ -6,6 +6,8 @@ import {
   createVillageHouse,
   createVillageHouses,
   createVillagePerson,
+  deleteVillageHouse,
+  markVillagePersonDeceased,
   moveOutVillagePerson,
   PopulationBatchValidationError,
   PopulationValidationError,
@@ -335,4 +337,31 @@ export async function moveOutSuperAdminPersonAction(
       error: errorMessage(error),
     };
   }
+}
+
+export async function deleteSuperAdminHouseAction(villageId: string, houseId: string, reason: string): Promise<PopulationActionResult> {
+  try {
+    const actor = await requireSuperAdminActionSession();
+    await deleteVillageHouse(villageId, houseId, requireSupportReason(reason), actor);
+    refresh(villageId, "houses");
+    return { success: true, message: "ลบบ้านสำเร็จ" };
+  } catch (error) { return { success: false, error: errorMessage(error) }; }
+}
+
+export async function markSuperAdminPersonDeceasedAction(villageId: string, personId: string, date: string, reason: string): Promise<PopulationActionResult> {
+  try {
+    const actor = await requireSuperAdminActionSession();
+    await markVillagePersonDeceased(villageId, personId, date, requireSupportReason(reason), actor);
+    refresh(villageId, "people", personId);
+    revalidatePath(`/superadmin/villages/${villageId}/houses`);
+    return { success: true, message: "บันทึกสถานะเสียชีวิตแล้ว" };
+  } catch (error) { return { success: false, error: errorMessage(error) }; }
+}
+
+export async function deleteSuperAdminHouseFormAction(villageId: string, houseId: string, formData: FormData) {
+  return deleteSuperAdminHouseAction(villageId, houseId, String(formData.get("supportReason") ?? ""));
+}
+
+export async function markSuperAdminPersonDeceasedFormAction(villageId: string, personId: string, formData: FormData) {
+  return markSuperAdminPersonDeceasedAction(villageId, personId, String(formData.get("date") ?? ""), String(formData.get("supportReason") ?? ""));
 }

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { maskNationalId } from "@/lib/utils";
 
-import { updateSuperAdminHouseAction } from "../../population-actions";
+import { deleteSuperAdminHouseFormAction, updateSuperAdminHouseAction } from "../../population-actions";
 
 export default async function Page({
   params,
@@ -111,6 +111,15 @@ export default async function Page({
         }}
         requireReason
       />
+
+      <section className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+        <h3 className="font-semibold text-rose-900">ลบบ้าน</h3>
+        <p className="mt-1 text-sm text-rose-800">ลบได้เฉพาะบ้านที่ไม่มีประชากร สมาชิก คำขอผูกบ้าน หรือประวัติที่เชื่อมโยงอยู่</p>
+        <form action={deleteSuperAdminHouseFormAction.bind(null, villageId, houseId)} className="mt-3 flex flex-wrap gap-2">
+          <input name="supportReason" required minLength={5} placeholder="เหตุผลในการดำเนินการ *" className="min-h-10 rounded-lg border px-3" />
+          <button type="submit" className="min-h-10 rounded-lg border border-rose-300 px-4 text-sm text-rose-800">ลบบ้าน</button>
+        </form>
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
