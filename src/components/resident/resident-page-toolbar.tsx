@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/refs -- dropdown hook exposes current state through refs for coordinated menus. */
+
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useId, useRef, useState, useTransition } from "react";
 import Link from "next/link";

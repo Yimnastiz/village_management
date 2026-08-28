@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/refs -- the latest close callback is retained for the window keydown listener. */
+
 import { useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";

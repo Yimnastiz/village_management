@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect -- route changes must expand the active workspace group. */
+
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useMemo, useState } from "react";

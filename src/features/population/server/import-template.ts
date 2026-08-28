@@ -1,5 +1,7 @@
 import { POPULATION_EVENT_THAI_OPTIONS } from "./import-value-parsers";
 
+/* eslint-disable @typescript-eslint/no-require-imports -- CFB is bundled under xlsx and used only to inject spreadsheet validation XML. */
+
 export type PopulationImportColumn = {
   key: string;
   label: string;

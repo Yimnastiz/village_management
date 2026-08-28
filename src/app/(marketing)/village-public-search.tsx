@@ -1,4 +1,6 @@
 "use client";
+
+/* eslint-disable react-hooks/set-state-in-effect -- changing the selected area must clear its asynchronous village results. */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPinned, Search } from "lucide-react";

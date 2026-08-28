@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react-hooks/globals -- catalogSlugLocked is deliberately shared by the single active village form. */
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
