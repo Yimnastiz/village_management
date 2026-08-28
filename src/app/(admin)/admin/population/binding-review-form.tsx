@@ -11,6 +11,10 @@ import { normalizeHouseNumber } from "@/lib/house-number";
 type Result = { success: boolean; message?: string };
 type Action = (previousState: Result, formData: FormData) => Promise<Result>;
 type House = { id: string; houseNumber: string };
+type IdentityReconciliation = {
+  kind: "no_match" | "single_unlinked_match" | "multiple_matches" | "linked_to_another_user" | "already_linked_to_applicant";
+  person?: { name: string; nationalIdMasked: string; dateOfBirth: string | null; phone: string | null; houseNumber: string | null; source: string | null };
+};
 
 type Props = {
   requestId: string;
@@ -24,6 +28,9 @@ type Props = {
   houseMismatch?: boolean;
   nationalIdClaimed?: boolean;
   personHouseNumber?: string | null;
+  identityReconciliation?: IdentityReconciliation;
+  applicantPhone?: string | null;
+  applicantDateOfBirth?: string | null;
 };
 
 export function BindingReviewForm({
@@ -38,6 +45,9 @@ export function BindingReviewForm({
   houseMismatch = false,
   nationalIdClaimed = false,
   personHouseNumber = null,
+  identityReconciliation,
+  applicantPhone = null,
+  applicantDateOfBirth = null,
 }: Props) {
   const router = useRouter();
   const toast = useToast();
@@ -51,9 +61,12 @@ export function BindingReviewForm({
   const [matchReason, setMatchReason] = useState("");
   const [reviewNote, setReviewNote] = useState("");
   const [rejectReason, setRejectReason] = useState("");
+  const [confirmMatchedPerson, setConfirmMatchedPerson] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
-  const ready = Boolean(houseId) && !nationalIdClaimed;
+  const identityBlocked = identityReconciliation?.kind === "multiple_matches" || identityReconciliation?.kind === "linked_to_another_user";
+  const matchedPersonNeedsConfirmation = identityReconciliation?.kind === "single_unlinked_match";
+  const ready = Boolean(houseId) && !nationalIdClaimed && !identityBlocked && (!matchedPersonNeedsConfirmation || confirmMatchedPerson);
   const displayTargetHouse = resolvedHouseNumber ?? requestedHouseNumber ?? "-";
   const selectedNumberDiffers = Boolean(
     selectedHouse && requestedHouseNumber && normalizeHouseNumber(selectedHouse.houseNumber) !== normalizeHouseNumber(requestedHouseNumber),
@@ -110,6 +123,7 @@ export function BindingReviewForm({
     data.set("action", "approve");
     if (reviewNote.trim()) data.set("reviewNote", reviewNote.trim());
     if (houseMismatch) data.set("confirmPersonHouseChange", "true");
+    if (matchedPersonNeedsConfirmation && confirmMatchedPerson) data.set("confirmMatchedPerson", "true");
     run(reviewAction, data, "อนุมัติคำขอเรียบร้อยแล้ว", () => setApproveOpen(false));
   };
 
@@ -135,6 +149,21 @@ export function BindingReviewForm({
           <p className="mt-1 text-sm">เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว</p>
         </div>
       ) : null}
+
+      {identityReconciliation?.kind === "single_unlinked_match" && identityReconciliation.person ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+          <p className="font-semibold">พบข้อมูลบุคคลในทะเบียนที่ตรงกับผู้สมัคร</p>
+          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            <div><p className="text-emerald-800">ผู้สมัคร</p><p className="mt-1 font-medium">{applicantName}</p><p>{applicantPhone ?? "-"}</p><p>วันเกิด: {applicantDateOfBirth ?? "-"}</p></div>
+            <div><p className="text-emerald-800">ข้อมูลในทะเบียน</p><p className="mt-1 font-medium">{identityReconciliation.person.name}</p><p>บัตร: {identityReconciliation.person.nationalIdMasked}</p><p>วันเกิด: {identityReconciliation.person.dateOfBirth ?? "-"}</p><p>ติดต่อ: {identityReconciliation.person.phone ?? "-"}</p><p>บ้านปัจจุบัน: {identityReconciliation.person.houseNumber ?? "-"}</p><p>แหล่งข้อมูล: {identityReconciliation.person.source ?? "-"}</p></div>
+          </div>
+          <p className="mt-3 text-sm">บ้านที่ขอ: {displayTargetHouse}</p>
+          <label className="mt-3 flex items-start gap-2 text-sm font-medium"><input type="checkbox" checked={confirmMatchedPerson} onChange={(event) => setConfirmMatchedPerson(event.target.checked)} className="mt-0.5 size-4" />ยืนยันใช้ข้อมูลบุคคลในทะเบียนนี้และผูกกับผู้สมัคร</label>
+        </div>
+      ) : null}
+
+      {identityReconciliation?.kind === "multiple_matches" ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-950" role="alert">พบข้อมูลบุคคลซ้ำในทะเบียน กรุณาตรวจสอบข้อมูลประชากรก่อนดำเนินการต่อ</div> : null}
+      {identityReconciliation?.kind === "linked_to_another_user" ? <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-950" role="alert">ข้อมูลบุคคลที่ตรงกันถูกผูกกับบัญชีอื่นแล้ว ไม่สามารถผูกทับได้</div> : null}
 
       {houseId && houseMismatch ? (
         <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">

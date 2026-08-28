@@ -6,6 +6,7 @@ import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { maskNationalId } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { findBoundIdentityByNationalId, getNationalIdForUser } from "@/lib/identity";
+import { reconcileBindingPersonIdentity } from "@/lib/binding-identity-reconciliation";
 import { BindingReviewForm } from "../../binding-review-form";
 import { handleBindingRequestAction, verifyHouseForBindingAction } from "../../page";
 
@@ -27,17 +28,34 @@ export default async function Page({ params }: { params: Promise<{ requestId: st
 
   const canReview = request.status === BindingRequestStatus.PENDING;
   const nationalId = request.villageId ? await getNationalIdForUser(prisma, request.userId, request.villageId) : null;
-  const [houses, claimedIdentity, reviewer] = await Promise.all([
+  const [houses, claimedIdentity, reviewer, registration, identityReconciliation] = await Promise.all([
     request.villageId ? prisma.house.findMany({ where: { villageId: request.villageId }, select: { id: true, houseNumber: true }, orderBy: { houseNumber: "asc" } }) : [],
     request.villageId && nationalId ? findBoundIdentityByNationalId(prisma, nationalId, request.userId, request.villageId) : null,
     request.reviewedBy ? prisma.user.findUnique({ where: { id: request.reviewedBy }, select: { name: true } }) : null,
+    request.villageId ? prisma.registrationTemp.findFirst({ where: { userId: request.userId, villageId: request.villageId, status: "VERIFIED" }, orderBy: { updatedAt: "desc" }, select: { dateOfBirth: true } }) : null,
+    request.villageId ? reconcileBindingPersonIdentity(prisma, { villageId: request.villageId, nationalId, applicantUserId: request.userId }) : { kind: "no_match" as const, nationalId: null, matches: [] },
   ]);
 
   // houseNumber is the immutable snapshot of what the resident requested.
   const requestedHouseNumber = request.houseNumber ?? request.house?.houseNumber ?? null;
   const resolvedHouse = request.house?.villageId === request.villageId ? request.house : null;
   const isMissingHouse = !resolvedHouse;
-  const houseMismatch = Boolean(request.user.person?.houseId && resolvedHouse?.id && request.user.person.houseId !== resolvedHouse.id);
+  const reconciledPerson = identityReconciliation.kind === "single_unlinked_match" ? identityReconciliation.person : null;
+  const effectivePerson = reconciledPerson ?? request.user.person;
+  const houseMismatch = Boolean(effectivePerson?.houseId && resolvedHouse?.id && effectivePerson.houseId !== resolvedHouse.id);
+  const identityForReview = identityReconciliation.kind === "single_unlinked_match" || identityReconciliation.kind === "multiple_matches" || identityReconciliation.kind === "linked_to_another_user"
+    ? {
+        kind: identityReconciliation.kind,
+        ...(identityReconciliation.kind === "single_unlinked_match" || identityReconciliation.kind === "linked_to_another_user" ? { person: {
+          name: `${identityReconciliation.person.firstName} ${identityReconciliation.person.lastName}`,
+          nationalIdMasked: identityReconciliation.person.nationalId ? maskNationalId(identityReconciliation.person.nationalId) : "-",
+          dateOfBirth: identityReconciliation.person.dateOfBirth?.toLocaleDateString("th-TH") ?? null,
+          phone: identityReconciliation.person.phone,
+          houseNumber: identityReconciliation.person.house?.houseNumber ?? null,
+          source: identityReconciliation.person.house ? `${identityReconciliation.person.house.sourceType}${identityReconciliation.person.house.sourceNote ? `: ${identityReconciliation.person.house.sourceNote}` : ""}` : null,
+        } } : {}),
+      }
+    : undefined;
 
   return <div className="space-y-5">
     <header className="flex flex-wrap items-start justify-between gap-3">
@@ -74,8 +92,11 @@ export default async function Page({ params }: { params: Promise<{ requestId: st
       reviewAction={handleBindingRequestAction}
       verifyAction={verifyHouseForBindingAction}
       houseMismatch={houseMismatch}
-      personHouseNumber={request.user.person?.house?.houseNumber ?? null}
+      personHouseNumber={reconciledPerson?.house?.houseNumber ?? request.user.person?.house?.houseNumber ?? null}
       nationalIdClaimed={Boolean(claimedIdentity)}
+      identityReconciliation={identityForReview}
+      applicantPhone={request.user.phoneNumber}
+      applicantDateOfBirth={registration?.dateOfBirth?.toLocaleDateString("th-TH") ?? null}
     /> : request.status === BindingRequestStatus.PENDING ? <section className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600 sm:p-5">คำขอนี้ดูได้ แต่ต้องให้ผู้ใหญ่บ้านหรือผู้ช่วยผู้ใหญ่บ้านเป็นผู้พิจารณา</section> : <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
       <h2 className="font-semibold text-gray-900">ผลการพิจารณา</h2>
       <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-gray-500">ผู้พิจารณา</dt><dd className="mt-1 font-medium">{reviewer?.name ?? "-"}</dd></div><div><dt className="text-gray-500">วันเวลา</dt><dd className="mt-1 font-medium">{request.reviewedAt?.toLocaleString("th-TH") ?? "-"}</dd></div><div className="sm:col-span-2"><dt className="text-gray-500">เหตุผล / หมายเหตุ</dt><dd className="mt-1 break-words font-medium">{request.reviewNote ?? "-"}</dd></div></dl>

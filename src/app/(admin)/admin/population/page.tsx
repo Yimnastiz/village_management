@@ -11,6 +11,7 @@ import { isRequestPlaceholderStatus } from "@/lib/settings-access";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
 import { cleanupDuplicateUnboundUsersByNationalId, findBoundIdentityByNationalId, getNationalIdForUser, lockNationalIdClaim } from "@/lib/identity";
+import { BINDING_DUPLICATE_PERSON_MESSAGE, BINDING_LINKED_PERSON_MESSAGE, reconcileBindingPersonIdentity } from "@/lib/binding-identity-reconciliation";
 import { BindingReviewForm } from "./binding-review-form";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { hasVillagePermission } from "@/lib/village-permissions";
@@ -202,6 +203,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   const now = new Date();
   const status = action === "approve" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED;
   const confirmPersonHouseChange = formData.get("confirmPersonHouseChange") === "true";
+  const confirmMatchedPerson = formData.get("confirmMatchedPerson") === "true";
   const policyAction = action === "reject" ? "binding.reject" : confirmPersonHouseChange ? "binding.override_mismatch" : "binding.approve";
   try { reviewNote = requireActionReason(policyAction, reviewNote); }
   catch { return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; }
@@ -210,6 +212,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
   try { await prisma.$transaction(async (tx) => {
     let resolvedHouseId: string | null = null;
     let nationalIdForBinding: string | null = null;
+    let identityReconciliation: Awaited<ReturnType<typeof reconcileBindingPersonIdentity>> | null = null;
 
     if (action === "approve") {
       if (binding.houseId) {
@@ -222,6 +225,12 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
       if (nationalIdForBinding) await lockNationalIdClaim(tx, nationalIdForBinding);
       if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId, binding.villageId)) {
         throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
+      }
+      identityReconciliation = await reconcileBindingPersonIdentity(tx, { villageId: binding.villageId, nationalId: nationalIdForBinding, applicantUserId: binding.userId });
+      if (identityReconciliation.kind === "multiple_matches") throw new BindingReviewValidationError(BINDING_DUPLICATE_PERSON_MESSAGE);
+      if (identityReconciliation.kind === "linked_to_another_user") throw new BindingReviewValidationError(BINDING_LINKED_PERSON_MESSAGE);
+      if (identityReconciliation.kind === "single_unlinked_match" && !confirmMatchedPerson) {
+        throw new BindingReviewValidationError("กรุณายืนยันการใช้ข้อมูลบุคคลในทะเบียนที่ตรงกับผู้สมัครก่อนอนุมัติ");
       }
     }
 
@@ -281,24 +290,29 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
             select: { nationalId: true, firstName: true, lastName: true, dateOfBirth: true, gender: true },
           });
           const linkedPerson = await tx.person.findUnique({ where: { userId: binding.userId }, select: { id: true, userId: true, houseId: true, villageId: true, dateOfBirth: true, gender: true } });
+          const reconciledPerson = identityReconciliation?.kind === "single_unlinked_match"
+            ? await tx.person.findUnique({ where: { id: identityReconciliation.person.id }, select: { id: true, userId: true, houseId: true, villageId: true, dateOfBirth: true, gender: true } })
+            : null;
           if (linkedPerson && linkedPerson.villageId !== binding.villageId) throw new BindingReviewValidationError("ข้อมูลบุคคลของผู้ใช้อยู่คนละหมู่บ้านกับคำขอ");
-          // A duplicate national ID must never select another applicant's Person row.
-          // The account-owned record is the sole profile record eligible for approval.
-          const existingPerson = linkedPerson;
+          if (identityReconciliation?.kind === "single_unlinked_match" && !reconciledPerson) throw new BindingReviewValidationError("ไม่พบข้อมูลบุคคลในทะเบียนที่เลือก กรุณารีเฟรชและตรวจสอบอีกครั้ง");
+          const existingPerson = reconciledPerson ?? linkedPerson;
           if (existingPerson?.userId && existingPerson.userId !== binding.userId) throw new BindingReviewValidationError("ข้อมูลบุคคลนี้ถูกผูกกับบัญชีอื่นแล้ว ไม่สามารถผูกทับได้");
           if (existingPerson?.houseId && existingPerson.houseId !== resolvedHouseId && !confirmPersonHouseChange) throw new BindingReviewValidationError("บ้านที่คำขอเลือกไม่ตรงกับข้อมูลทะเบียนประชากร กรุณายืนยันการแก้ไขข้อมูลทะเบียนก่อนอนุมัติ");
 
           if (existingPerson) {
+            const reusingRegistryPerson = identityReconciliation?.kind === "single_unlinked_match";
             await tx.person.update({
               where: { id: existingPerson.id },
               data: {
                 villageId: binding.villageId,
                 houseId: resolvedHouseId,
                 userId: binding.userId,
-                status: PersonStatus.ACTIVE,
-                phone: residentUser.phoneNumber,
-                ...(existingPerson.dateOfBirth || !registration?.dateOfBirth ? {} : { dateOfBirth: registration.dateOfBirth }),
-                ...(existingPerson.gender || !registration?.gender ? {} : { gender: registration.gender }),
+                ...(reusingRegistryPerson ? {} : {
+                  status: PersonStatus.ACTIVE,
+                  phone: residentUser.phoneNumber,
+                  ...(existingPerson.dateOfBirth || !registration?.dateOfBirth ? {} : { dateOfBirth: registration.dateOfBirth }),
+                  ...(existingPerson.gender || !registration?.gender ? {} : { gender: registration.gender }),
+                }),
               },
             });
             if (existingPerson.houseId !== resolvedHouseId) {
