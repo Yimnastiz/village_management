@@ -54,7 +54,7 @@ function refreshWorkspace(villageId: string, module: string, id?: string) {
   }
 }
 
-export async function saveSuperAdminGalleryAlbumAction(villageId: string, formData: FormData): Promise<Result> {
+async function saveSuperAdminGalleryAlbumResultAction(villageId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
@@ -76,7 +76,7 @@ export async function saveSuperAdminGalleryAlbumAction(villageId: string, formDa
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถบันทึกอัลบั้มได้" }; }
 }
 
-export async function deleteSuperAdminGalleryAlbumAction(villageId: string, albumId: string, formData: FormData): Promise<Result> {
+async function deleteSuperAdminGalleryAlbumResultAction(villageId: string, albumId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId); const supportReason = reason(formData.get("supportReason"));
     const album = await prisma.galleryAlbum.findFirst({ where: { id: albumId, villageId }, select: { id: true, title: true } });
@@ -90,7 +90,7 @@ export async function deleteSuperAdminGalleryAlbumAction(villageId: string, albu
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถลบอัลบั้มได้" }; }
 }
 
-export async function reviewSuperAdminGallerySubmissionAction(villageId: string, submissionId: string, formData: FormData): Promise<Result> {
+async function reviewSuperAdminGallerySubmissionResultAction(villageId: string, submissionId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId); const supportReason = reason(formData.get("supportReason"));
     const decision = String(formData.get("decision") ?? "");
@@ -112,7 +112,7 @@ export async function reviewSuperAdminGallerySubmissionAction(villageId: string,
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถพิจารณาคำขอได้" }; }
 }
 
-export async function transitionSuperAdminDownloadAction(villageId: string, downloadId: string, formData: FormData): Promise<Result> {
+async function transitionSuperAdminDownloadResultAction(villageId: string, downloadId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId); const supportReason = reason(formData.get("supportReason"));
     const stage = String(formData.get("stage") ?? "");
@@ -129,7 +129,7 @@ export async function transitionSuperAdminDownloadAction(villageId: string, down
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถเปลี่ยนสถานะเอกสารได้" }; }
 }
 
-export async function reviewSuperAdminCalendarRequestAction(villageId: string, requestId: string, formData: FormData): Promise<Result> {
+async function reviewSuperAdminCalendarRequestResultAction(villageId: string, requestId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId); const supportReason = reason(formData.get("supportReason"));
     const decision = String(formData.get("decision") ?? "");
@@ -162,7 +162,7 @@ export async function reviewSuperAdminCalendarRequestAction(villageId: string, r
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถพิจารณาคำขอได้" }; }
 }
 
-export async function updateSuperAdminIssueAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
+async function updateSuperAdminIssueResultAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
@@ -185,7 +185,7 @@ export async function updateSuperAdminIssueAction(villageId: string, issueId: st
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถอัปเดตปัญหาได้" }; }
 }
 
-export async function addSuperAdminIssueMessageAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
+async function addSuperAdminIssueMessageResultAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
@@ -204,7 +204,7 @@ export async function addSuperAdminIssueMessageAction(villageId: string, issueId
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถเพิ่มข้อความได้" }; }
 }
 
-export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
+async function proposeSuperAdminAppointmentTimeResultAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
@@ -227,7 +227,7 @@ export async function proposeSuperAdminAppointmentTimeAction(villageId: string, 
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถเสนอวันเวลาได้" }; }
 }
 
-export async function changeSuperAdminAppointmentStageAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
+async function changeSuperAdminAppointmentStageResultAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
@@ -248,4 +248,40 @@ export async function changeSuperAdminAppointmentStageAction(villageId: string, 
     refresh(villageId, "appointments", appointment.id);
     return { success: true, message: action === "REJECT" ? "ปฏิเสธนัดหมายแล้ว" : "ยกเลิกนัดหมายแล้ว" };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถดำเนินการกับนัดหมายได้" }; }
+}
+
+export async function saveSuperAdminGalleryAlbumAction(villageId: string, formData: FormData): Promise<void> {
+  await saveSuperAdminGalleryAlbumResultAction(villageId, formData);
+}
+
+export async function deleteSuperAdminGalleryAlbumAction(villageId: string, albumId: string, formData: FormData): Promise<void> {
+  await deleteSuperAdminGalleryAlbumResultAction(villageId, albumId, formData);
+}
+
+export async function reviewSuperAdminGallerySubmissionAction(villageId: string, submissionId: string, formData: FormData): Promise<void> {
+  await reviewSuperAdminGallerySubmissionResultAction(villageId, submissionId, formData);
+}
+
+export async function transitionSuperAdminDownloadAction(villageId: string, downloadId: string, formData: FormData): Promise<void> {
+  await transitionSuperAdminDownloadResultAction(villageId, downloadId, formData);
+}
+
+export async function reviewSuperAdminCalendarRequestAction(villageId: string, requestId: string, formData: FormData): Promise<void> {
+  await reviewSuperAdminCalendarRequestResultAction(villageId, requestId, formData);
+}
+
+export async function updateSuperAdminIssueAction(villageId: string, issueId: string, formData: FormData): Promise<void> {
+  await updateSuperAdminIssueResultAction(villageId, issueId, formData);
+}
+
+export async function addSuperAdminIssueMessageAction(villageId: string, issueId: string, formData: FormData): Promise<void> {
+  await addSuperAdminIssueMessageResultAction(villageId, issueId, formData);
+}
+
+export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<void> {
+  await proposeSuperAdminAppointmentTimeResultAction(villageId, appointmentId, formData);
+}
+
+export async function changeSuperAdminAppointmentStageAction(villageId: string, appointmentId: string, formData: FormData): Promise<void> {
+  await changeSuperAdminAppointmentStageResultAction(villageId, appointmentId, formData);
 }

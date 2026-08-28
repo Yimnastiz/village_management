@@ -358,8 +358,8 @@ export async function markSuperAdminPersonDeceasedAction(villageId: string, pers
   } catch (error) { return { success: false, error: errorMessage(error) }; }
 }
 
-export async function deleteSuperAdminHouseFormAction(villageId: string, houseId: string, formData: FormData) {
-  return deleteSuperAdminHouseAction(villageId, houseId, String(formData.get("supportReason") ?? ""));
+export async function deleteSuperAdminHouseFormAction(villageId: string, houseId: string, formData: FormData): Promise<void> {
+  await deleteSuperAdminHouseAction(villageId, houseId, String(formData.get("supportReason") ?? ""));
 }
 
 export async function markSuperAdminPersonDeceasedFormAction(villageId: string, personId: string, formData: FormData) {

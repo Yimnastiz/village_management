@@ -226,7 +226,7 @@ export async function handleBindingRequestAction(_previousState: BindingReviewAc
       if (nationalIdForBinding && await findBoundIdentityByNationalId(tx, nationalIdForBinding, binding.userId, binding.villageId)) {
         throw new BindingReviewValidationError("เลขบัตรประชาชนนี้ถูกใช้กับบัญชีที่ผูกบ้านแล้ว ไม่สามารถอนุมัติคำขอได้");
       }
-      identityReconciliation = await reconcileBindingPersonIdentity(tx, { villageId: binding.villageId, nationalId: nationalIdForBinding, applicantUserId: binding.userId });
+      identityReconciliation = await reconcileBindingPersonIdentity(tx, { villageId: binding.villageId!, nationalId: nationalIdForBinding, applicantUserId: binding.userId });
       if (identityReconciliation.kind === "multiple_matches") throw new BindingReviewValidationError(BINDING_DUPLICATE_PERSON_MESSAGE);
       if (identityReconciliation.kind === "linked_to_another_user") throw new BindingReviewValidationError(BINDING_LINKED_PERSON_MESSAGE);
       if (identityReconciliation.kind === "single_unlinked_match" && !confirmMatchedPerson) {
