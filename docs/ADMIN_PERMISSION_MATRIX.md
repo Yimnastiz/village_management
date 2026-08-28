@@ -1,5 +1,7 @@
 # Village Admin Permission Matrix
 
+For system scope, actor definitions, Binding reconciliation, and Super Admin rules, read [DOCUMENTATION_SOURCE_OF_TRUTH.md](DOCUMENTATION_SOURCE_OF_TRUTH.md) first. This document is the focused `/admin` role matrix.
+
 The shared `/admin` workspace uses `src/lib/village-permissions.ts` as its authorization source of truth. Server checks are authoritative; hidden UI is only a convenience.
 
 | Capability | HEADMAN | ASSISTANT_HEADMAN |
