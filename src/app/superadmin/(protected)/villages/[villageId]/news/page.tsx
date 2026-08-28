@@ -127,13 +127,13 @@ export default async function SuperAdminVillageNewsPage({
                     <form key={target} action={stageAction} className="space-y-2">
                       <input type="hidden" name="resourceId" value={item.id} />
                       <input type="hidden" name="stage" value={target} />
-                      <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={10} maxLength={500} />
+                      <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={5} maxLength={500} />
                       <Button className="w-full" type="submit" variant="outline">{target === "PUBLISHED" ? "Publish" : target === "DRAFT" ? "Unpublish" : "Archive"}</Button>
                     </form>
                   ))}
                   <form action={deleteAction} className="space-y-2">
                     <input type="hidden" name="resourceId" value={item.id} />
-                    <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={10} maxLength={500} />
+                    <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={5} maxLength={500} />
                     <Button className="w-full" type="submit" variant="danger">Delete</Button>
                   </form>
                 </div>

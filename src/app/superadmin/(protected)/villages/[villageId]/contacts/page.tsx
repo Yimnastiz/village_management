@@ -68,7 +68,7 @@ export default async function SuperAdminVillageContactsPage({
               <Link className="rounded-md border px-3 py-2 text-sm" href={`/superadmin/villages/${villageId}/contacts?edit=${item.id}`}>แก้ไข</Link>
               <form action={deleteAction} className="flex gap-2">
                 <input type="hidden" name="resourceId" value={item.id} />
-                <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={10} maxLength={500} />
+                <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={5} maxLength={500} />
                 <Button type="submit" variant="danger">Delete</Button>
               </form>
             </div>
@@ -79,4 +79,3 @@ export default async function SuperAdminVillageContactsPage({
     </div>
   );
 }
-

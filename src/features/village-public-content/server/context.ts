@@ -55,8 +55,8 @@ export async function requireSuperAdminVillageContext(villageId: string): Promis
 
 export function requireSupportReason(reason: string | null | undefined): string {
   const value = (reason ?? "").trim();
-  if (value.length < 10) {
-    throw new Error("กรุณาระบุเหตุผลอย่างน้อย 10 ตัวอักษร");
+  if (value.length < 5) {
+    throw new Error("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
   }
   if (value.length > 500) {
     throw new Error("เหตุผลต้องไม่เกิน 500 ตัวอักษร");

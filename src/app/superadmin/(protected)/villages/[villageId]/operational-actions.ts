@@ -4,6 +4,7 @@ import { AuditAction, IssueStage, NotificationType, Prisma } from "@prisma/clien
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
+import { SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/superadmin-auth";
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 
 type Result = { success: true; message: string } | { success: false; error: string };
@@ -194,8 +195,8 @@ async function addSuperAdminIssueMessageResultAction(villageId: string, issueId:
     const issue = await prisma.issue.findFirst({ where: { id: issueId, villageId } });
     if (!issue) return { success: false, error: "ไม่พบปัญหาในหมู่บ้านนี้" };
     await prisma.$transaction(async (tx) => {
-      await tx.issueMessage.create({ data: { issueId: issue.id, senderId: "", content, isInternal: false } });
-      await tx.issueTimeline.create({ data: { issueId: issue.id, actorId: null, action: "แสดงความคิดเห็น", description: content, metadata: { eventType: "COMMENT", supportReason } } });
+      await tx.issueMessage.create({ data: { issueId: issue.id, senderId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, content, isInternal: false } });
+      await tx.issueTimeline.create({ data: { issueId: issue.id, actorId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, action: "แสดงความคิดเห็น", description: content, metadata: { eventType: "COMMENT", actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Issue", resourceId: issue.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "ISSUE_MESSAGE_ADDED", supportReason } } });
       await tx.notification.create({ data: { villageId, userId: issue.reporterId, type: NotificationType.ISSUE_UPDATE, title: "มีข้อความใหม่ในคำร้อง", body: content, metadata: { source: "ISSUE", issueId: issue.id } } });
     });

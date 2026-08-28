@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
+import { SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/superadmin-auth";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
 import {
@@ -59,13 +60,14 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
     },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
+  const superAdminDisplay = { name: "Super Admin", phoneNumber: "", systemRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const initialTimeline = issue.timeline[0];
   const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
   const isAdminCreated = wasCreatedByAdmin;
   const imageUrls = Array.isArray(issue.imageUrls) ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0) : [];
   const timelineItems = issue.timeline.map((item) => {
-    const actor = item.actorId ? userById.get(item.actorId) : undefined;
+    const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
     return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
@@ -152,7 +154,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความสาธารณะ</p>
             ) : (
               <div className="space-y-3 mb-4">
-                {publicMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId)} />)}
+                {publicMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId) ?? (msg.senderId === SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined)} />)}
               </div>
             )}
             {internalMessages.length > 0 && (
@@ -162,7 +164,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
                   <p className="text-xs font-medium text-amber-700">บันทึกภายใน (ลูกบ้านไม่เห็น)</p>
                 </div>
                 <div className="space-y-3 mb-4">
-                  {internalMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId)} internal />)}
+                  {internalMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId) ?? (msg.senderId === SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined)} internal />)}
                 </div>
               </>
             )}

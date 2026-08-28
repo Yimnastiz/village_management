@@ -33,7 +33,7 @@ type VillagePersonFormProps = {
   successHref: (id?: string) => string;
 };
 
-const SUPPORT_REASON_MIN_LENGTH = 10;
+const SUPPORT_REASON_MIN_LENGTH = 5;
 const SUPPORT_REASON_MAX_LENGTH = 500;
 
 export function VillagePersonForm({

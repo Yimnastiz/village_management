@@ -63,10 +63,10 @@ export function ReasonField() {
       name="supportReason"
       label="เหตุผลการดำเนินการ"
       rows={2}
-      minLength={10}
+      minLength={5}
       maxLength={500}
       required
-      placeholder="ระบุเหตุผลอย่างน้อย 10 ตัวอักษร"
+      placeholder="ระบุเหตุผลอย่างน้อย 5 ตัวอักษร"
     />
   );
 }

@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 
 export const SUPERADMIN_SESSION_COOKIE = "village_superadmin_session";
 export const SUPERADMIN_SESSION_MAX_AGE_SECONDS = 12 * 60 * 60;
+/** Non-User actor identity persisted for Super Admin issue messages and timelines. */
+export const SUPERADMIN_ISSUE_MESSAGE_SENDER_ID = "SUPERADMIN_ENV";
 
 export type SuperAdminSession = {
   /** Never a User id; retained temporarily for legacy audit call sites. */
