@@ -35,6 +35,8 @@ export function resolveAdminNotificationDestination(
   const action = stringValue(metadata, "action");
 
   const fromNotifications = (path: string) => `${path}${path.includes("?") ? "&" : "?"}from=notifications`;
+  const actionUrl = stringValue(metadata, "actionUrl");
+  if (source === "SUPERADMIN_INTERVENTION" && actionUrl?.startsWith("/admin/")) return fromNotifications(actionUrl);
   if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
   if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);
   if (appointmentId) return fromNotifications(`/admin/appointments/${appointmentId}`);
@@ -67,7 +69,6 @@ export function resolveAdminNotificationDestination(
 
   // actionUrl is retained for existing structured notifications, but never
   // sends an administrator out of the admin area.
-  const actionUrl = stringValue(metadata, "actionUrl");
   return actionUrl?.startsWith("/admin/") ? actionUrl : null;
 }
 

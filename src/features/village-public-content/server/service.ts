@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { areSafeImageSources } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
+import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
 import { isContactCategory, validateContactPhone } from "@/lib/contact";
 import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
@@ -227,6 +228,37 @@ async function auditSuperAdmin(
       },
     },
   });
+
+  if (context.actorRole === "SUPERADMIN" && context.supportReason) {
+    const resourceLabel: Record<string, string> = {
+      News: "ข่าวสาร",
+      ContactDirectory: "ข้อมูลติดต่อ",
+      VillagePlace: "สถานที่",
+      VillageEvent: "กิจกรรม",
+      TransparencyRecord: "ข้อมูลความโปร่งใส",
+    };
+    const resource = resourceLabel[input.resource] ?? "ข้อมูลหมู่บ้าน";
+    const verb = input.action === AuditAction.CREATE ? "เพิ่ม" : input.action === AuditAction.DELETE ? "ลบ" : "แก้ไข";
+    const actionLabel = input.actionName.includes("PUBLISHED") ? `เผยแพร่${resource}` : `${verb}${resource}`;
+    const actionUrl: Record<string, string> = {
+      News: `/admin/news/${input.resourceId}`,
+      ContactDirectory: `/admin/contacts/${input.resourceId}`,
+      VillagePlace: `/admin/places/${input.resourceId}`,
+      VillageEvent: `/admin/calendar/${input.resourceId}`,
+      TransparencyRecord: "/admin/transparency",
+    };
+    const value = (input.newValue ?? input.oldValue) as Record<string, unknown> | undefined;
+    const name = typeof value?.title === "string" ? value.title : typeof value?.name === "string" ? value.name : null;
+    await notifyVillageAdministrationOfSuperAdminIntervention(tx, {
+      villageId: context.villageId,
+      actionLabel,
+      supportReason: context.supportReason,
+      targetType: input.resource,
+      targetId: input.resourceId,
+      targetName: name,
+      actionUrl: actionUrl[input.resource] ?? "/admin",
+    });
+  }
 }
 
 function revalidateVillagePublicContent(context: VillageActorContext, module: string, resourceId?: string) {

@@ -1,6 +1,6 @@
 import type { Notification, Prisma } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, Images, MapPin, Megaphone, Newspaper, Phone, UsersRound } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, Images, MapPin, Megaphone, Newspaper, Phone, ShieldCheck, UsersRound } from "lucide-react";
 
 type NotificationMetadata = Record<string, Prisma.JsonValue | undefined>;
 
@@ -19,6 +19,7 @@ const PRESENTATIONS = {
   transparency: { icon: FileSearch, iconClassName: "text-teal-700", iconContainerClassName: "bg-teal-50" },
   household: { icon: UsersRound, iconClassName: "text-orange-700", iconContainerClassName: "bg-orange-50" },
   broadcast: { icon: Megaphone, iconClassName: "text-rose-700", iconContainerClassName: "bg-rose-50" },
+  superadmin: { icon: ShieldCheck, iconClassName: "text-violet-700", iconContainerClassName: "bg-violet-50" },
 } satisfies Record<string, NotificationPresentation>;
 
 function metadataOf(notification: Pick<Notification, "metadata">): NotificationMetadata {
@@ -75,3 +76,4 @@ export function formatNotificationTimestamp(value: Date) {
   if (group === "yesterday") return `เมื่อวาน ${time}`;
   return `${new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" }).format(value)} เวลา ${time}`;
 }
+  if (source === "SUPERADMIN_INTERVENTION") return PRESENTATIONS.superadmin;

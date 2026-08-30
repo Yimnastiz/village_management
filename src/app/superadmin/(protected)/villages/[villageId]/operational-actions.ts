@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/superadmin-auth";
+import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 
 type Result = { success: true; message: string } | { success: false; error: string };
@@ -71,6 +72,7 @@ async function saveSuperAdminGalleryAlbumResultAction(villageId: string, formDat
       ? await prisma.galleryAlbum.update({ where: { id: existing.id }, data })
       : await prisma.galleryAlbum.create({ data: { villageId, ...data } });
     await prisma.auditLog.create({ data: { userId: null, villageId, action: id ? AuditAction.UPDATE : AuditAction.CREATE, resource: "GalleryAlbum", resourceId: album.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: id ? "GALLERY_ALBUM_UPDATED" : "GALLERY_ALBUM_CREATED", supportReason } } });
+    await prisma.$transaction((tx) => notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: id ? "แก้ไขอัลบั้มภาพ" : "เพิ่มอัลบั้มภาพ", supportReason, targetType: "GalleryAlbum", targetId: album.id, targetName: title, actionUrl: `/admin/gallery/${album.id}`, metadata: { albumId: album.id } }));
     if (!id) await notifyResidents(villageId, "แกลเลอรีหมู่บ้าน: มีอัลบั้มใหม่", `อัลบั้ม ${title} พร้อมให้รับชมแล้ว`, { source: "GALLERY", albumId: album.id, actionUrl: `/resident/gallery/${album.id}` });
     refreshWorkspace(villageId, "gallery", album.id);
     return { success: true, message: "บันทึกอัลบั้มแล้ว" };
@@ -86,6 +88,7 @@ async function deleteSuperAdminGalleryAlbumResultAction(villageId: string, album
       await tx.savedItem.deleteMany({ where: { galleryAlbumId: album.id } });
       await tx.galleryAlbum.delete({ where: { id: album.id } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.DELETE, resource: "GalleryAlbum", resourceId: album.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "GALLERY_ALBUM_DELETED", supportReason, title: album.title } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "ลบอัลบั้มภาพ", supportReason, targetType: "GalleryAlbum", targetId: album.id, targetName: album.title, actionUrl: "/admin/gallery", metadata: { albumId: album.id } });
     });
     refreshWorkspace(villageId, "gallery"); return { success: true, message: "ลบอัลบั้มแล้ว" };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถลบอัลบั้มได้" }; }
@@ -108,6 +111,7 @@ async function reviewSuperAdminGallerySubmissionResultAction(villageId: string, 
       await tx.galleryItemSubmission.update({ where: { id: submission.id }, data: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? supportReason : null } });
       await tx.notification.create({ data: { villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title: decision === "APPROVE" ? "รูปภาพได้รับการอนุมัติ" : "รูปภาพไม่ได้รับการอนุมัติ", body: decision === "APPROVE" ? `รูปภาพถูกเพิ่มในอัลบั้ม ${submission.album.title}` : `เหตุผล: ${supportReason}`, metadata: { source: "GALLERY", submissionId: submission.id, albumId: submission.albumId, itemId, status: decision === "APPROVE" ? "APPROVED" : "REJECTED" } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "GalleryItemSubmission", resourceId: submission.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `GALLERY_SUBMISSION_${decision}D`, supportReason, albumId: submission.albumId, requesterId: submission.requesterId, itemId } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: decision === "APPROVE" ? "อนุมัติรูปภาพที่ส่งเข้าร่วม" : "ปฏิเสธรูปภาพที่ส่งเข้าร่วม", supportReason, targetType: "GalleryItemSubmission", targetId: submission.id, targetName: submission.album.title, actionUrl: `/admin/gallery/submissions/${submission.id}`, metadata: { submissionId: submission.id, albumId: submission.albumId } });
     });
     refreshWorkspace(villageId, "gallery", submission.albumId); return { success: true, message: "บันทึกผลการพิจารณาแล้ว" };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถพิจารณาคำขอได้" }; }
@@ -124,6 +128,7 @@ async function transitionSuperAdminDownloadResultAction(villageId: string, downl
     await prisma.$transaction(async (tx) => {
       await tx.downloadFile.update({ where: { id: file.id }, data: { stage: stage as "DRAFT" | "PUBLISHED" | "ARCHIVED", ...(stage === "PUBLISHED" ? { publishedAt: new Date() } : {}) } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "DownloadFile", resourceId: file.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "DOWNLOAD_STAGE_CHANGED", supportReason, oldStage: file.stage, newStage: stage } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "เปลี่ยนสถานะเอกสารดาวน์โหลด", supportReason, targetType: "DownloadFile", targetId: file.id, targetName: file.title, actionUrl: "/admin/downloads", metadata: { fileId: file.id } });
     });
     if (stage === "PUBLISHED") await notifyResidents(villageId, "เอกสารดาวน์โหลด: เผยแพร่แล้ว", `เอกสาร ${file.title} พร้อมให้ดาวน์โหลดแล้ว`, { source: "DOWNLOAD", fileId: file.id, actionUrl: `/resident/downloads/${file.id}` });
     refreshWorkspace(villageId, "downloads", file.id); return { success: true, message: "เปลี่ยนสถานะเอกสารแล้ว" };
@@ -158,6 +163,7 @@ async function reviewSuperAdminCalendarRequestResultAction(villageId: string, re
       await tx.villageEventSubmission.update({ where: { id: request.id }, data: { status: approved ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: approved ? null : supportReason, ...(approved ? { eventId } : {}) } });
       await tx.notification.create({ data: { userId: request.requesterId, villageId, type: NotificationType.SYSTEM, title: approved ? "คำขอกิจกรรมได้รับการอนุมัติ" : "คำขอกิจกรรมไม่ได้รับการอนุมัติ", body: approved ? `“${request.title}” ถูกดำเนินการแล้ว` : `เหตุผล: ${supportReason}`, metadata: { source: "CALENDAR", requestId: request.id, eventId: eventId || null, status: approved ? "APPROVED" : "REJECTED", actionUrl: eventId ? `/resident/calendar/${eventId}` : "/resident/calendar/requests" } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: approved ? AuditAction.APPROVE : AuditAction.REJECT, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `CALENDAR_REQUEST_${approved ? "APPROVED" : "REJECTED"}`, supportReason, requesterId: request.requesterId, eventId, finalVisibility: approved ? visibility : null } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: approved ? "อนุมัติคำขอกิจกรรม" : "ปฏิเสธคำขอกิจกรรม", supportReason, targetType: "VillageEventSubmission", targetId: request.id, targetName: request.title, actionUrl: eventId ? `/admin/calendar/${eventId}` : "/admin/calendar/requests", metadata: { requestId: request.id, eventId: eventId || null } });
     });
     refreshWorkspace(villageId, "calendar"); return { success: true, message: "บันทึกผลการพิจารณาแล้ว" };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถพิจารณาคำขอได้" }; }
@@ -179,6 +185,7 @@ async function updateSuperAdminIssueResultAction(villageId: string, issueId: str
       await tx.issue.update({ where: { id: issue.id }, data: { stage, ...(nextStatus === "RESOLVED" ? { resolvedAt: new Date() } : {}) } });
       await tx.issueTimeline.create({ data: { issueId: issue.id, actorId: null, action: "อัปเดตสถานะ", description: note || null, metadata: { eventType: "STATUS_CHANGE", fromStatus: current, toStatus: nextStatus, supportReason } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Issue", resourceId: issue.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "ISSUE_STATUS_CHANGED", supportReason, domainNote: note || null, oldStatus: current, newStatus: nextStatus } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "อัปเดตสถานะคำร้อง", supportReason, targetType: "Issue", targetId: issue.id, targetName: issue.title, actionUrl: `/admin/issues/${issue.id}`, metadata: { issueId: issue.id } });
       await tx.notification.create({ data: { villageId, userId: issue.reporterId, type: NotificationType.ISSUE_UPDATE, title: "สถานะคำร้องถูกอัปเดต", body: `${issue.title} · ${ISSUE_STATUS_META[nextStatus].label}`, metadata: { source: "ISSUE", issueId: issue.id, stage: nextStatus, note: note || undefined } } });
     });
     refresh(villageId, "issues", issue.id);
@@ -198,6 +205,7 @@ async function addSuperAdminIssueMessageResultAction(villageId: string, issueId:
       await tx.issueMessage.create({ data: { issueId: issue.id, senderId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, content, isInternal: false } });
       await tx.issueTimeline.create({ data: { issueId: issue.id, actorId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, action: "แสดงความคิดเห็น", description: content, metadata: { eventType: "COMMENT", actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Issue", resourceId: issue.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "ISSUE_MESSAGE_ADDED", supportReason } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "เพิ่มข้อความในคำร้อง", supportReason, targetType: "Issue", targetId: issue.id, targetName: issue.title, actionUrl: `/admin/issues/${issue.id}`, metadata: { issueId: issue.id } });
       await tx.notification.create({ data: { villageId, userId: issue.reporterId, type: NotificationType.ISSUE_UPDATE, title: "มีข้อความใหม่ในคำร้อง", body: content, metadata: { source: "ISSUE", issueId: issue.id } } });
     });
     refresh(villageId, "issues", issue.id);
@@ -221,6 +229,7 @@ async function proposeSuperAdminAppointmentTimeResultAction(villageId: string, a
       await tx.appointment.update({ where: { id: appointment.id }, data: { slotId: slot.id, scheduledAt: date, stage: "TIME_SUGGESTED", reviewedAt: new Date() } });
       await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: "TIME_SUGGESTED", description: "ผู้ดูแลระบบเสนอวันเวลาให้ลูกบ้านยืนยัน", metadata: { slotDate: date, slotTime: startTime, supportReason } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "APPOINTMENT_TIME_SUGGESTED", supportReason, date: dateText, startTime } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "เสนอเวลานัดหมาย", supportReason, targetType: "Appointment", targetId: appointment.id, targetName: appointment.title, actionUrl: `/admin/appointments/${appointment.id}`, metadata: { appointmentId: appointment.id } });
       await tx.notification.create({ data: { villageId, userId: appointment.userId, type: NotificationType.APPOINTMENT_UPDATE, title: "มีการเสนอเวลานัดหมาย", body: `นัดหมาย “${appointment.title}” มีวันเวลาใหม่ให้ยืนยัน`, metadata: { appointmentId: appointment.id } } });
     });
     refresh(villageId, "appointments", appointment.id);
@@ -244,6 +253,7 @@ async function changeSuperAdminAppointmentStageResultAction(villageId: string, a
       await tx.appointment.update({ where: { id: appointment.id }, data: { stage: next, reviewedAt: new Date(), reviewNote: supportReason } });
       await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: next, description: `${next === "REJECTED" ? "ปฏิเสธ" : "ยกเลิก"}นัดหมาย | เหตุผล: ${supportReason}`, metadata: { reason: supportReason } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: next === "REJECTED" ? AuditAction.REJECT : AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `APPOINTMENT_${next}`, supportReason, affectedUserId: appointment.userId } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: next === "REJECTED" ? "ปฏิเสธนัดหมาย" : "ยกเลิกนัดหมาย", supportReason, targetType: "Appointment", targetId: appointment.id, targetName: appointment.title, actionUrl: `/admin/appointments/${appointment.id}`, metadata: { appointmentId: appointment.id } });
       await tx.notification.create({ data: { villageId, userId: appointment.userId, type: NotificationType.APPOINTMENT_UPDATE, title: next === "REJECTED" ? "นัดหมายไม่ได้รับการยืนยัน" : "นัดหมายถูกยกเลิก", body: `นัดหมาย “${appointment.title}” ${next === "REJECTED" ? "ไม่ได้รับการยืนยัน" : "ถูกยกเลิก"} เหตุผล: ${supportReason}`, metadata: { appointmentId: appointment.id } } });
     });
     refresh(villageId, "appointments", appointment.id);

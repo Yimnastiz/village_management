@@ -4,6 +4,7 @@ import { AuditAction, MembershipStatus, PopulationImportStage, Prisma } from "@p
 import { revalidatePath } from "next/cache";
 import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { applyStoredImportRow, type StoredImportRow } from "../actions";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { requireVillagePermission, type VillagePermission } from "@/lib/village-permissions";
@@ -131,6 +132,9 @@ export async function confirmPopulationImportAction(formData: FormData) {
     const actorRole = targetVillageId ? "SUPERADMIN" : "ADMIN";
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, supportReason: reason } } });
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
+    if (actorRole === "SUPERADMIN") {
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: access.villageId, actionLabel: "นำเข้าทะเบียนประชากร", supportReason: reason, targetType: "PopulationImportJob", targetId: jobId, targetName: access.fileName, actionUrl: "/admin/population/import", metadata: { importJobId: jobId } });
+    }
   });
   revalidatePath(`/admin/population/import/${jobId}`);
   revalidatePath("/admin/population/import");
@@ -263,6 +267,9 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     }].slice(-10);
     await tx.populationImportJob.update({ where: { id: jobId }, data: { errors: { ...payload, cleanupHistory } } });
     await tx.auditLog.create({ data: { userId, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, policyAction: "population.import.rollback", jobId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts } } });
+    if (actorRole === "SUPERADMIN") {
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "ย้อนกลับข้อมูลจากการนำเข้าทะเบียนประชากร", supportReason: reason, targetType: "PopulationImportJob", targetId: jobId, actionUrl: "/admin/population/import", metadata: { importJobId: jobId } });
+    }
     return { deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts };
   });
   revalidatePath("/admin/population/import");

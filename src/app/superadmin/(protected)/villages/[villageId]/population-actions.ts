@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
+import { prisma } from "@/lib/prisma";
+import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import {
   createVillageHouse,
   createVillageHouses,
@@ -95,6 +97,10 @@ function refresh(
   revalidatePath(`${villageBase}/audit`);
 }
 
+async function notifyIntervention(input: Parameters<typeof notifyVillageAdministrationOfSuperAdminIntervention>[1]) {
+  await prisma.$transaction((tx) => notifyVillageAdministrationOfSuperAdminIntervention(tx, input));
+}
+
 /**
  * Super Admin mutations inside a village workspace must always include
  * an explicit support reason.
@@ -126,6 +132,8 @@ export async function createSuperAdminHouseAction(
     supportReason,
   },
 );
+
+    await notifyIntervention({ villageId, actionLabel: "เพิ่มข้อมูลบ้าน", supportReason, targetType: "House", targetId: row.id, targetName: `บ้านเลขที่ ${String(formData.get("houseNumber") ?? "").trim()}`, actionUrl: `/admin/population/houses/${row.id}`, metadata: { houseId: row.id } });
 
     refresh(villageId, "houses", row.id);
 
@@ -162,6 +170,8 @@ export async function createSuperAdminHousesAction(
         supportReason,
       },
 );
+
+    await notifyIntervention({ villageId, actionLabel: `เพิ่มข้อมูลบ้านจำนวน ${houses.length} หลัง`, supportReason, targetType: "House", actionUrl: "/admin/population/houses", metadata: { batchCount: houses.length } });
 
     refresh(villageId, "houses");
 
@@ -226,6 +236,8 @@ export async function updateSuperAdminHouseAction(
       },
 );
 
+    await notifyIntervention({ villageId, actionLabel: result.statusChanged ? "เปลี่ยนสถานะบ้าน" : "แก้ไขข้อมูลบ้าน", supportReason, targetType: "House", targetId: houseId, targetName: `บ้านเลขที่ ${String(formData.get("houseNumber") ?? "").trim()}`, actionUrl: `/admin/population/houses/${houseId}`, metadata: { houseId } });
+
     refresh(villageId, "houses", houseId);
 
     return {
@@ -259,6 +271,8 @@ export async function createSuperAdminPersonAction(
       actor,
       { supportReason },
     );
+
+    await notifyIntervention({ villageId, actionLabel: "เพิ่มข้อมูลบุคคล", supportReason, targetType: "Person", targetId: row.id, targetName: `${data.firstName} ${data.lastName}`.trim(), actionUrl: `/admin/population/people/${row.id}`, metadata: { personId: row.id } });
 
     refresh(villageId, "people", row.id);
 
@@ -294,6 +308,8 @@ export async function updateSuperAdminPersonAction(
       actor,
     );
 
+    await notifyIntervention({ villageId, actionLabel: result.moved ? "ย้ายบ้านของบุคคล" : "แก้ไขข้อมูลบุคคล", supportReason, targetType: "Person", targetId: personId, targetName: `${data.firstName} ${data.lastName}`.trim(), actionUrl: `/admin/population/people/${personId}`, metadata: { personId } });
+
     refresh(villageId, "people", personId);
 
     return {
@@ -326,6 +342,8 @@ export async function moveOutSuperAdminPersonAction(
       actor,
     );
 
+    await notifyIntervention({ villageId, actionLabel: "บันทึกการย้ายออกของบุคคล", supportReason, targetType: "Person", targetId: personId, actionUrl: `/admin/population/people/${personId}`, metadata: { personId } });
+
     refresh(villageId, "people", personId);
 
     return {
@@ -343,7 +361,9 @@ export async function moveOutSuperAdminPersonAction(
 export async function deleteSuperAdminHouseAction(villageId: string, houseId: string, reason: string): Promise<PopulationActionResult> {
   try {
     const actor = await requireSuperAdminActionSession();
-    await deleteVillageHouse(villageId, houseId, requireSupportReason(reason), actor);
+    const supportReason = requireSupportReason(reason);
+    await deleteVillageHouse(villageId, houseId, supportReason, actor);
+    await notifyIntervention({ villageId, actionLabel: "ลบข้อมูลบ้าน", supportReason, targetType: "House", targetId: houseId, actionUrl: "/admin/population/houses", metadata: { houseId } });
     refresh(villageId, "houses");
     return { success: true, message: "ลบบ้านสำเร็จ" };
   } catch (error) { return { success: false, error: errorMessage(error) }; }
@@ -352,7 +372,9 @@ export async function deleteSuperAdminHouseAction(villageId: string, houseId: st
 export async function markSuperAdminPersonDeceasedAction(villageId: string, personId: string, date: string, reason: string): Promise<PopulationActionResult> {
   try {
     const actor = await requireSuperAdminActionSession();
-    await markVillagePersonDeceased(villageId, personId, date, requireSupportReason(reason), actor);
+    const supportReason = requireSupportReason(reason);
+    await markVillagePersonDeceased(villageId, personId, date, supportReason, actor);
+    await notifyIntervention({ villageId, actionLabel: "บันทึกการเสียชีวิตของบุคคล", supportReason, targetType: "Person", targetId: personId, actionUrl: `/admin/population/people/${personId}`, metadata: { personId } });
     refresh(villageId, "people", personId);
     revalidatePath(`/superadmin/villages/${villageId}/houses`);
     return { success: true, message: "บันทึกสถานะเสียชีวิตแล้ว" };
