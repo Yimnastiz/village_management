@@ -62,31 +62,33 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-base font-semibold text-slate-900">{user.name}</p>
-          <p className="text-xs text-slate-500">{user.phoneNumber} • {user.id}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">{user.accountStatus}</span>
-          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.systemRole === "SUPERADMIN" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
-            {user.systemRole}
-          </span>
-          <Link href={`/superadmin/users/${user.id}`} className="inline-flex items-center rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">
-            ดูรายละเอียด
-          </Link>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
+      <div className="border-b border-slate-100 bg-gradient-to-r from-white to-slate-50/80 px-4 py-4 sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold text-slate-950 sm:text-lg">{user.name}</p>
+            <p className="mt-0.5 truncate text-xs text-slate-500">{user.phoneNumber} <span className="mx-1 text-slate-300">•</span> ID: {user.id}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{user.accountStatus}</span>
+            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${user.systemRole === "SUPERADMIN" ? "bg-violet-100 text-violet-700" : "bg-slate-200 text-slate-700"}`}>
+              {user.systemRole}
+            </span>
+            <Link href={`/superadmin/users/${user.id}`} className="ml-1 inline-flex h-9 items-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-cyan-500/10">
+              ดูรายละเอียด <span className="ml-1" aria-hidden="true">→</span>
+            </Link>
+          </div>
         </div>
       </div>
 
-      <div className="mb-3 grid gap-3 text-sm md:grid-cols-2">
-        <div className="rounded-lg border border-slate-200 p-3"><p className="font-medium text-slate-800">พื้นที่ที่ระบุตอนสมัคร</p><p className="mt-1 text-slate-600">{user.registrationVillage?.name ?? "ไม่ระบุหมู่บ้าน"}</p><p className="text-xs text-slate-500">ต.{user.registrationSubdistrict ?? "-"} อ.{user.registrationDistrict ?? "-"} จ.{user.registrationProvince ?? "-"}</p></div>
-        <div className="rounded-lg border border-slate-200 p-3"><p className="font-medium text-slate-800">หมู่บ้านที่สังกัดจริง</p>{user.memberships.length === 0 ? <p className="mt-1 text-slate-500">ยังไม่ได้สังกัดหมู่บ้าน</p> : user.memberships.map((membership) => <div key={membership.id} className="mt-1 text-slate-600"><p>{membership.village.name} · {membership.role} · {membership.status}{membership.house ? ` · บ้านเลขที่ ${membership.house.houseNumber}` : ""}</p><p className="text-xs text-slate-500">ต.{membership.village.subdistrict ?? "-"} อ.{membership.village.district ?? "-"} จ.{membership.village.province ?? "-"}</p></div>)}</div>
+      <div className="grid gap-3 px-4 py-4 text-sm sm:px-5 md:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">พื้นที่ที่ระบุตอนสมัคร</p><p className="mt-2 font-medium text-slate-800">{user.registrationVillage?.name ?? "ไม่ระบุหมู่บ้าน"}</p><p className="mt-0.5 text-xs text-slate-500">ต.{user.registrationSubdistrict ?? "-"} อ.{user.registrationDistrict ?? "-"} จ.{user.registrationProvince ?? "-"}</p></div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3.5"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">หมู่บ้านที่สังกัดจริง</p>{user.memberships.length === 0 ? <p className="mt-2 text-slate-500">ยังไม่ได้สังกัดหมู่บ้าน</p> : user.memberships.map((membership) => <div key={membership.id} className="mt-2 text-slate-600"><p className="font-medium text-slate-800">{membership.village.name}</p><p className="text-xs text-slate-500">{membership.role} · {membership.status}{membership.house ? ` · บ้านเลขที่ ${membership.house.houseNumber}` : ""}</p><p className="text-xs text-slate-500">ต.{membership.village.subdistrict ?? "-"} อ.{membership.village.district ?? "-"} จ.{membership.village.province ?? "-"}</p></div>)}</div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 px-4 pb-4 sm:px-5 lg:grid-cols-2">
         <form
-          className="rounded-lg border border-slate-200 p-3"
+          className="rounded-xl border border-slate-200 bg-white p-3.5"
           onSubmit={async (event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
@@ -102,19 +104,19 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
           }}
         >
           <input type="hidden" name="userId" value={user.id} />
-          <p className="mb-2 text-sm font-medium text-slate-800">บทบาทระดับระบบ</p>
+          <p className="mb-2 text-sm font-semibold text-slate-800">บทบาทระดับระบบ</p>
           <div className="flex gap-2">
-            <select name="systemRole" defaultValue={user.systemRole} className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm">
+            <select name="systemRole" defaultValue={user.systemRole} className="h-10 min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm outline-none focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-500/10">
               <option value="USER">USER</option>
               <option value="SUPERADMIN">SUPERADMIN</option>
             </select>
             <Button type="submit" variant="secondary">บันทึก</Button>
           </div>
-          <input name="reason" required minLength={5} placeholder="เหตุผลในการเปลี่ยนสิทธิ์" className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" />
+          <input name="reason" required minLength={5} placeholder="เหตุผลในการเปลี่ยนสิทธิ์" className="mt-2 h-10 w-full rounded-lg border border-slate-300 bg-slate-50 px-3 text-sm outline-none focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-500/10" />
         </form>
 
         <form
-          className="rounded-lg border border-slate-200 p-3"
+          className="rounded-xl border border-cyan-100 bg-cyan-50/40 p-3.5"
           onSubmit={async (event) => {
             event.preventDefault();
             const formData = new FormData(event.currentTarget);
@@ -133,15 +135,15 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
           }}
         >
           <input type="hidden" name="userId" value={user.id} />
-          <p className="mb-2 text-sm font-medium text-slate-800">แต่งตั้งบทบาทผู้บริหารหมู่บ้าน</p>
+          <p className="mb-2 text-sm font-semibold text-slate-800">แต่งตั้งบทบาทผู้บริหารหมู่บ้าน</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <select name="villageId" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
+            <select name="villageId" className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10" required>
               <option value="">เลือกหมู่บ้าน</option>
               {villages.map((village) => (
                 <option key={village.id} value={village.id}>{village.name}</option>
               ))}
             </select>
-            <select name="membershipRole" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
+            <select name="membershipRole" className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10" required>
               <option value="HEADMAN">HEADMAN</option>
               <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
             </select>
@@ -150,15 +152,15 @@ export function UserManagementCard({ user, villages }: { user: UserRow; villages
         </form>
       </div>
 
-      <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
-        <p className="mb-2 text-sm font-medium text-slate-800">บทบาทผู้บริหารที่มีอยู่</p>
+      <div className="mx-4 mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5 sm:mx-5">
+        <p className="mb-2 text-sm font-semibold text-slate-800">บทบาทผู้บริหารที่มีอยู่</p>
         {adminMemberships.length === 0 ? (
           <p className="text-xs text-slate-500">ยังไม่มีบทบาท Headman/Assistant Headman</p>
         ) : (
           <div className="space-y-2">
             {adminMemberships.map((membership) => (
-              <div key={membership.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-                <span>{membership.village.name} • {membership.role} • {membership.status}</span>
+              <div key={membership.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                <span className="font-medium text-slate-700">{membership.village.name} <span className="font-normal text-slate-500">• {membership.role} • {membership.status}</span></span>
                 <Button
                   type="button"
                   variant="outline"
