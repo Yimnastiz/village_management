@@ -2,7 +2,6 @@ import Link from "next/link";
 import { MembershipStatus, PersonStatus } from "@prisma/client";
 import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { QueryPagination } from "@/components/ui/query-pagination";
 import { HouseBatchCreateDialog } from "@/features/population/components/house-batch-create-dialog";
 import { getWorkspaceVillage } from "@/features/village-workspace/server/queries";
 import { WorkspaceListPage } from "../workspace-list-page";
@@ -11,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { createSuperAdminHousesAction } from "../population-actions";
 
-type PageProps = { params: Promise<{ villageId: string }>; searchParams: Promise<{ q?: string; occupancy?: string; sort?: string; page?: string }> };
+type PageProps = { params: Promise<{ villageId: string }>; searchParams: Promise<{ q?: string; occupancy?: string; sort?: string }> };
 
 export default async function Page({ params, searchParams }: PageProps) {
   await requireSuperAdminPageSession();
@@ -22,8 +21,6 @@ export default async function Page({ params, searchParams }: PageProps) {
   const normalizedKeyword = normalizeHouseNumber(keyword);
   const occupancy = search.occupancy === "withPeople" || search.occupancy === "withoutPeople" ? search.occupancy : "all";
   const sort = search.sort === "desc" ? "desc" : "asc";
-  const page = Math.max(1, Number(search.page ?? "1") || 1);
-  const pageSize = 25;
   const base = `/superadmin/villages/${villageId}/houses`;
   const where = {
     villageId,
@@ -32,7 +29,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     ...(occupancy === "withoutPeople" ? { persons: { none: { status: PersonStatus.ACTIVE } } } : {}),
   };
   const [houses, total, houseSuggestions] = await Promise.all([
-    prisma.house.findMany({ where, include: { _count: { select: { persons: { where: { status: PersonStatus.ACTIVE } }, memberships: { where: { status: MembershipStatus.ACTIVE } } } } }, orderBy: [{ normalizedHouseNumber: sort }], skip: (page - 1) * pageSize, take: pageSize }),
+    prisma.house.findMany({ where, include: { _count: { select: { persons: { where: { status: PersonStatus.ACTIVE } }, memberships: { where: { status: MembershipStatus.ACTIVE } } } } }, orderBy: [{ normalizedHouseNumber: sort }] }),
     prisma.house.count({ where }),
     prisma.house.findMany({ where: { villageId }, select: { houseNumber: true }, orderBy: [{ normalizedHouseNumber: "asc" }], take: 20 }),
   ]);
@@ -59,6 +56,5 @@ export default async function Page({ params, searchParams }: PageProps) {
         <tbody>{houses.map((house) => <tr key={house.id} className="group border-t border-gray-100 transition-colors hover:bg-blue-50/60 focus-within:bg-blue-50/60"><td className="break-words px-4 py-3 font-medium text-gray-900">{house.houseNumber}{house.address ? <p className="mt-0.5 text-xs font-normal text-gray-500">{house.address}</p> : null}</td><td className="px-4 py-3 text-gray-700">{house._count.persons.toLocaleString("th-TH")} คน</td><td className="px-4 py-3 text-gray-700">{house._count.memberships.toLocaleString("th-TH")} บัญชี</td><td className="px-4 py-3"><Link href={`${base}/${house.id}`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2">ดูรายละเอียด</Link></td></tr>)}</tbody>
       </table></div> : <div className="px-4 py-10 text-center text-sm text-gray-500">{keyword ? <><p className="font-medium text-gray-700">ไม่พบบ้านเลขที่ที่ตรงกับคำค้นหา</p><p className="mt-1">ลองตรวจสอบเลขบ้านหรือใช้คำค้นหาที่สั้นลง</p></> : <><p className="font-medium text-gray-700">ยังไม่มีข้อมูลทะเบียนบ้าน</p><p className="mt-1">เพิ่มบ้านเลขที่เพื่อเริ่มจัดทำทะเบียนครัวเรือน</p><div className="mt-4 flex justify-center"><HouseBatchCreateDialog createAction={createSuperAdminHousesAction.bind(null, villageId)} requireReason /></div></>}</div>}
     </section>
-    <QueryPagination pathname={base} page={page} totalPages={Math.max(1, Math.ceil(total / pageSize))} params={{ q: keyword || undefined, occupancy: occupancy === "all" ? undefined : occupancy, sort: sort === "asc" ? undefined : sort }} />
   </div></WorkspaceListPage>;
 }

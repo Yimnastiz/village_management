@@ -42,15 +42,18 @@ async function reviewBindingSupportAction(
   formData: FormData,
 ): Promise<BindingReviewActionState> {
   const actor = await requireSuperAdminActionSession();
-  const targetVillageId = value(formData, "targetVillageId");
   const requestId = value(formData, "requestId");
   const decision = value(formData, "decision");
   const selectedHouseId = value(formData, "selectedHouseId");
   const reason = value(formData, "reason");
   const confirmMatchedPerson = value(formData, "confirmMatchedPerson") === "true";
 
-  if (!targetVillageId || !requestId || !["APPROVE", "REJECT"].includes(decision)) return { success: false, message: "ข้อมูลคำขอไม่ครบถ้วน" };
+  if (!requestId || !["APPROVE", "REJECT"].includes(decision)) return { success: false, message: "ข้อมูลคำขอไม่ครบถ้วน" };
   if (reason.length < 5) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  // The request is the authoritative scope; never accept a village id from the browser.
+  const requestScope = await prisma.bindingRequest.findUnique({ where: { id: requestId }, select: { villageId: true } });
+  if (!requestScope) return { success: false, message: "ไม่พบคำขอผูกบ้าน" };
+  const targetVillageId = requestScope.villageId;
   const village = await prisma.village.findUnique({ where: { id: targetVillageId }, select: { id: true, name: true } });
   if (!village) return { success: false, message: "ไม่พบหมู่บ้านเป้าหมาย" };
 
@@ -129,7 +132,7 @@ async function reviewBindingSupportAction(
     });
   } catch (error) {
     if (error instanceof BindingReviewValidationError) return { success: false, message: error.message };
-    throw error;
+    return { success: false, message: "ไม่สามารถบันทึกผลการพิจารณาได้ โปรดลองอีกครั้ง" };
   }
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
   revalidatePath("/superadmin/data-quality");
@@ -137,11 +140,9 @@ async function reviewBindingSupportAction(
 }
 
 export async function reviewBindingForWorkspaceAction(
-  targetVillageId: string,
   previousState: BindingReviewActionState,
   formData: FormData,
 ): Promise<BindingReviewActionState> {
-  formData.set("targetVillageId", targetVillageId);
   return reviewBindingSupportAction(previousState, formData);
 }
 

@@ -112,6 +112,13 @@ export const PERSON_STATUS_LABELS: Record<string, string> = {
   UNKNOWN: "ไม่ทราบสถานะ",
 };
 
+export const BINDING_REQUEST_STATUS_LABELS: Record<string, string> = {
+  PENDING: "รอพิจารณา",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ปฏิเสธ",
+  CANCELLED: "ยกเลิก",
+};
+
 export const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   MOVE_IN: "ย้ายเข้า",
   MOVE_OUT: "ย้ายออก",
