@@ -18,6 +18,8 @@ export type FormattedAuditEvent = {
   resourceLabel: string;
   targetFromMetadata: string | null;
   changes: Array<{ label: string; before: string | null; after: string | null }>;
+  reason: string | null;
+  isSuperAdminIntervention: boolean;
 };
 
 const resourceLabels: Record<string, string> = {
@@ -41,6 +43,9 @@ const resourceLabels: Record<string, string> = {
   UserAccount: "บัญชีผู้ใช้",
   VillageMembership: "สมาชิกหมู่บ้าน",
   MembershipSupport: "สิทธิ์สมาชิก",
+  VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน",
+  BindingRequestSupport: "คำขอผูกเลขบ้าน",
+  Appointment: "นัดหมาย",
   NationalIdClaim: "การยืนยันตัวตน",
   PopulationImportJob: "การนำเข้าข้อมูลประชากร",
   PopulationExport: "การส่งออกข้อมูลประชากร",
@@ -104,15 +109,26 @@ const fieldLabels: Record<string, string> = {
   dateOfDeath: "วันที่เสียชีวิต",
   phone: "เบอร์โทรสำหรับติดต่อ",
   email: "อีเมลสำหรับติดต่อ",
+  accountStatus: "สถานะบัญชี",
 };
 
 const valueLabels: Record<string, string> = {
-  ACTIVE: "อยู่ในทะเบียน",
+  ACTIVE: "ใช้งานอยู่",
+  SUSPENDED: "ระงับการใช้งาน",
+  PENDING: "รอดำเนินการ",
+  APPROVED: "อนุมัติแล้ว",
+  REJECTED: "ไม่อนุมัติ",
   MOVED_OUT: "ย้ายออก",
   DECEASED: "เสียชีวิต",
   UNKNOWN: "ไม่ทราบสถานะ",
   MALE: "ชาย",
   FEMALE: "หญิง",
+  HEADMAN: "ผู้ใหญ่บ้าน",
+  ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
+  RESIDENT: "ลูกบ้าน",
+  SUPERADMIN: "ผู้ดูแลระบบระดับสูง",
+  SUSPEND: "ระงับสมาชิก",
+  ACTIVATE: "เปิดใช้งาน",
 };
 
 function asObject(value: Prisma.JsonValue | null | undefined): Record<string, Prisma.JsonValue> {
@@ -128,6 +144,13 @@ function text(value: Prisma.JsonValue | undefined): string | null {
 function displayValue(value: Prisma.JsonValue | undefined): string | null {
   const raw = text(value);
   return raw === null ? null : valueLabels[raw] ?? raw;
+}
+
+function displayFieldValue(field: string, value: Prisma.JsonValue | undefined): string | null {
+  const displayed = displayValue(value);
+  if (!displayed || !["dateOfBirth", "dateOfDeath"].includes(field) || !/^\d{4}-\d{2}-\d{2}/.test(displayed)) return displayed;
+  const date = new Date(displayed);
+  return Number.isNaN(date.getTime()) ? displayed : new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "long", year: "numeric" }).format(date);
 }
 
 function classify(action: AuditAction, resource: string): Pick<FormattedAuditEvent, "category" | "tone" | "icon"> {
@@ -164,8 +187,8 @@ function usefulChanges(metadata: Record<string, Prisma.JsonValue>) {
   const before = asObject(metadata.oldValue);
   const after = asObject(metadata.newValue);
   return Object.keys(fieldLabels).flatMap((key) => {
-    const previous = displayValue(before[key]);
-    const next = displayValue(after[key]);
+    const previous = displayFieldValue(key, before[key]);
+    const next = displayFieldValue(key, after[key]);
     return previous === null && next === null ? [] : [{ label: fieldLabels[key], before: previous, after: next }];
   });
 }
@@ -175,15 +198,21 @@ export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
   const metadata = asObject(input.metadata);
   const resourceLabel = resourceLabels[input.resource] ?? "รายการ";
   const actionName = text(metadata.actionName);
-  const targetFromMetadata = [metadata.title, metadata.name, metadata.subject, metadata.houseNumber, metadata.fileName]
+  const targetFromMetadata = [metadata.targetName, metadata.title, metadata.name, metadata.subject, metadata.houseNumber, metadata.fileName]
     .map(text)
     .find((value): value is string => Boolean(value && value.trim()));
+  const isSuperAdminIntervention = text(metadata.actorRole) === "SUPERADMIN" || text(metadata.actorType) === "SUPERADMIN_ENV" || Boolean(text(metadata.supportReason));
+  const reason = [metadata.supportReason, metadata.reason]
+    .map(text)
+    .find((value): value is string => Boolean(value && value.trim())) ?? null;
   return {
     label: actionName === "HOUSE_BATCH_CREATED" && typeof metadata.count === "number" ? `เพิ่มบ้าน ${metadata.count} หลัง` : actionName && actionNameLabels[actionName] ? actionNameLabels[actionName] : fallbackLabel(input.action, resourceLabel),
     ...classify(input.action, input.resource),
     resourceLabel,
     targetFromMetadata: targetFromMetadata ?? null,
     changes: usefulChanges(metadata),
+    reason,
+    isSuperAdminIntervention,
   };
 }
 

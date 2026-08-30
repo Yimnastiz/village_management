@@ -23,17 +23,27 @@ function dateBounds(period: string, from?: string, to?: string) {
   if (period === "30D") start.setDate(start.getDate() - 29);
   return period === "ALL" ? undefined : { gte: start };
 }
+function bangkokDayKey(value: Date) { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(value); }
 function groupDate(value: Date) {
-  const now = new Date(); const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(); const date = new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
-  if (date === today) return "วันนี้"; if (date === today - 86_400_000) return "เมื่อวาน";
-  return value.toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" });
+  const now = new Date(); const yesterday = new Date(now); yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  if (bangkokDayKey(value) === bangkokDayKey(now)) return "วันนี้"; if (bangkokDayKey(value) === bangkokDayKey(yesterday)) return "เมื่อวาน";
+  return new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" }).format(value);
 }
-function shortTime(value: Date) { return new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit" }).format(value) + " น."; }
+function shortTime(value: Date) { return `${new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false }).format(value)} น.`; }
+function fullAuditTime(value: Date) { return `${new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "long", year: "numeric" }).format(value)} เวลา ${shortTime(value)}`; }
 function href(params: Record<string, string | number | undefined>) { const query = new URLSearchParams(); Object.entries(params).forEach(([key, value]) => { if (value && value !== "ALL" && value !== "1") query.set(key, String(value)); }); const suffix = query.toString(); return suffix ? `/admin/security?${suffix}` : "/admin/security"; }
 
-async function resolveTargetNames(villageId: string, logs: Array<{ resource: string; resourceId: string | null }>) {
+function metadataUserIds(metadata: unknown) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return [];
+  const record = metadata as Record<string, unknown>;
+  return [record.targetUserId, record.affectedUserId, record.userId, record.requesterId].filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+async function resolveTargetNames(villageId: string, logs: Array<{ id: string; resource: string; resourceId: string | null; metadata: unknown }>) {
   const ids = (resource: string) => logs.filter((log) => log.resource === resource && log.resourceId).map((log) => log.resourceId!);
-  const [news, places, houses, people, galleries, downloads, events, issues, transparency, contacts] = await Promise.all([
+  const membershipIds = logs.filter((log) => ["VillageMembership", "MembershipSupport", "VillageAdminSupport"].includes(log.resource) && log.resourceId).map((log) => log.resourceId!);
+  const userIds = [...new Set([...ids("UserAccount"), ...logs.flatMap((log) => metadataUserIds(log.metadata))])];
+  const [news, places, houses, people, galleries, downloads, events, issues, transparency, contacts, memberships, users, appointments, bindingRequests] = await Promise.all([
     prisma.news.findMany({ where: { villageId, id: { in: ids("News") } }, select: { id: true, title: true } }),
     prisma.villagePlace.findMany({ where: { villageId, id: { in: ids("VillagePlace") } }, select: { id: true, name: true } }),
     prisma.house.findMany({ where: { villageId, id: { in: ids("House") } }, select: { id: true, houseNumber: true } }),
@@ -44,8 +54,18 @@ async function resolveTargetNames(villageId: string, logs: Array<{ resource: str
     prisma.issue.findMany({ where: { villageId, id: { in: ids("Issue") } }, select: { id: true, title: true } }),
     prisma.transparencyRecord.findMany({ where: { villageId, id: { in: ids("TransparencyRecord") } }, select: { id: true, title: true } }),
     prisma.contactDirectory.findMany({ where: { villageId, id: { in: ids("ContactDirectory") } }, select: { id: true, name: true } }),
+    prisma.villageMembership.findMany({ where: { villageId, id: { in: membershipIds } }, select: { id: true, user: { select: { name: true } } } }),
+    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }),
+    prisma.appointment.findMany({ where: { villageId, id: { in: ids("Appointment") } }, select: { id: true, title: true, user: { select: { name: true } } } }),
+    prisma.bindingRequest.findMany({ where: { villageId, id: { in: [...ids("BindingRequest"), ...ids("BindingRequestSupport")] } }, select: { id: true, user: { select: { name: true } } } }),
   ]);
-  return new Map<string, string>([...news.map((row) => [row.id, row.title] as const), ...places.map((row) => [row.id, row.name] as const), ...houses.map((row) => [row.id, `บ้านเลขที่ ${row.houseNumber}`] as const), ...people.map((row) => [row.id, `${row.firstName} ${row.lastName}`.trim()] as const), ...galleries.map((row) => [row.id, row.title] as const), ...downloads.map((row) => [row.id, row.title] as const), ...events.map((row) => [row.id, row.title] as const), ...issues.map((row) => [row.id, row.title] as const), ...transparency.map((row) => [row.id, row.title] as const), ...contacts.map((row) => [row.id, row.name] as const)]);
+  const byResourceId = new Map<string, string>([...news.map((row) => [row.id, row.title] as const), ...places.map((row) => [row.id, row.name] as const), ...houses.map((row) => [row.id, `บ้านเลขที่ ${row.houseNumber}`] as const), ...people.map((row) => [row.id, `${row.firstName} ${row.lastName}`.trim()] as const), ...galleries.map((row) => [row.id, row.title] as const), ...downloads.map((row) => [row.id, row.title] as const), ...events.map((row) => [row.id, row.title] as const), ...issues.map((row) => [row.id, row.title] as const), ...transparency.map((row) => [row.id, row.title] as const), ...contacts.map((row) => [row.id, row.name] as const), ...memberships.map((row) => [row.id, row.user.name] as const), ...users.map((row) => [row.id, row.name] as const), ...appointments.map((row) => [row.id, `${row.title} · ${row.user.name}`] as const), ...bindingRequests.map((row) => [row.id, row.user.name] as const)]);
+  const usersById = new Map(users.map((row) => [row.id, row.name] as const));
+  return new Map(logs.flatMap((log) => {
+    const name = log.resourceId ? byResourceId.get(log.resourceId) : undefined;
+    const metadataName = metadataUserIds(log.metadata).map((id) => usersById.get(id)).find(Boolean);
+    return name || metadataName ? [[log.id, name ?? metadataName!] as const] : [];
+  }));
 }
 
 export default async function SecurityPage({ searchParams }: PageProps) {
@@ -59,10 +79,11 @@ export default async function SecurityPage({ searchParams }: PageProps) {
   const names = await resolveTargetNames(membership.villageId, rawLogs);
   const loweredQuery = q.toLocaleLowerCase("th-TH");
   const filtered = rawLogs.flatMap((log) => {
-    const event = formatAuditEvent(log); const target = log.resourceId ? names.get(log.resourceId) ?? event.targetFromMetadata : event.targetFromMetadata; const searchable = `${log.user?.name ?? ""} ${event.label} ${event.resourceLabel} ${target ?? ""}`.toLocaleLowerCase("th-TH");
+    const event = formatAuditEvent(log); const target = names.get(log.id) ?? event.targetFromMetadata; const searchable = `${log.user?.name ?? ""} ${event.label} ${event.resourceLabel} ${target ?? ""}`.toLocaleLowerCase("th-TH");
     if (!auditCategoryMatches(event, eventFilter) || (moduleFilter !== "ALL" && auditModuleForResource(log.resource) !== moduleFilter) || (q && !searchable.includes(loweredQuery))) return [];
-    const actor = log.user ? formatNewsAuthor(log.user.name, log.user.systemRole, log.user.memberships[0]?.role) : "ผู้ดูแลหมู่บ้านเดิม";
-    return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes } satisfies AuditListEvent];
+    const isSuperAdmin = event.isSuperAdminIntervention || log.user?.systemRole === "SUPERADMIN";
+    const actor = isSuperAdmin ? (log.user?.name?.trim() ? `${log.user.name.trim()} (ผู้ดูแลระบบระดับสูง)` : "ผู้ดูแลระบบระดับสูง") : log.user ? formatNewsAuthor(log.user.name, log.user.systemRole, log.user.memberships[0]?.role) : "ผู้ดูแลหมู่บ้านเดิม";
+    return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), formattedTime: fullAuditTime(log.createdAt), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes, reason: event.reason, reasonLabel: isSuperAdmin ? "เหตุผลในการดำเนินการ" : "เหตุผล" } satisfies AuditListEvent];
   });
   const visibleEvents = q ? filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : filtered.slice(0, PAGE_SIZE); const hasNext = q ? filtered.length > page * PAGE_SIZE : rawLogs.length > PAGE_SIZE; const activeFilters = period !== "30D" || eventFilter !== "ALL" || moduleFilter !== "ALL" || actorFilter !== "ALL"; const base = { q: q || undefined, period: period === "30D" ? undefined : period, from: period === "CUSTOM" ? from || undefined : undefined, to: period === "CUSTOM" ? to || undefined : undefined, event: eventFilter === "ALL" ? undefined : eventFilter, actor: actorFilter === "ALL" ? undefined : actorFilter, module: moduleFilter === "ALL" ? undefined : moduleFilter };
   const actorOptions = [{ label: "ทุกคน", value: "ALL" }, ...actors.map((actor) => ({ label: formatNewsAuthor(actor.user.name, actor.user.systemRole, actor.role), value: actor.userId }))];

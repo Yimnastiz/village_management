@@ -128,7 +128,7 @@ async function reviewBindingSupportAction(
 
       await tx.bindingRequest.update({ where: { id: request.id }, data: { status: decision === "APPROVE" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED, houseId: decision === "APPROVE" ? resolvedHouseId : null, reviewedBy: actor.id, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? reviewReason : null } });
       await tx.notification.create({ data: { userId: request.userId, villageId: targetVillageId, type: NotificationType.BINDING_REQUEST, title: decision === "APPROVE" ? "คำขอผูกบ้านได้รับการอนุมัติ" : "คำขอผูกบ้านถูกปฏิเสธ", body: decision === "APPROVE" ? `คำขอผูกบ้านของคุณใน ${village.name} ได้รับการอนุมัติแล้ว` : `คำขอผูกบ้านถูกปฏิเสธ: ${reviewReason}`, metadata: { bindingRequestId: request.id, action: decision.toLowerCase(), actionUrl: decision === "APPROVE" ? "/resident/dashboard" : "/resident/binding/pending" } } });
-      await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequestSupport", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, supportReason, oldValue: { status: "PENDING" }, newValue: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", houseId: resolvedHouseId } } } });
+      await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequestSupport", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, targetName: request.user.name, targetUserId: request.userId, phone: request.user.phoneNumber, supportReason, oldValue: { status: "PENDING" }, newValue: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", houseId: resolvedHouseId } } } });
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: decision === "APPROVE" ? "อนุมัติคำขอผูกเลขบ้าน" : "ปฏิเสธคำขอผูกเลขบ้าน", supportReason, targetType: "BindingRequest", targetId: request.id, targetName: request.user.name, actionUrl: `/admin/population/binding-requests/${request.id}`, metadata: { bindingRequestId: request.id } });
     });
   } catch (error) {
@@ -164,13 +164,13 @@ export async function setVillageAdminSupportAction(targetVillageId: string, form
           { registrationVillageId: targetVillageId },
         ],
       },
-      select: { id: true, systemRole: true, accountStatus: true },
+      select: { id: true, name: true, phoneNumber: true, systemRole: true, accountStatus: true },
     });
     if (!user || user.systemRole === "SUPERADMIN" || user.accountStatus !== "ACTIVE") throw new Error("ไม่สามารถแต่งตั้งบัญชีนี้ได้");
     if (role === VillageMembershipRole.HEADMAN) await tx.villageMembership.updateMany({ where: { villageId: targetVillageId, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, userId: { not: userId } }, data: { status: MembershipStatus.SUSPENDED } });
     const membership = await tx.villageMembership.upsert({ where: { userId_villageId: { userId, villageId: targetVillageId } }, update: { role, status: MembershipStatus.ACTIVE, houseId: null, joinedAt: new Date() }, create: { userId, villageId: targetVillageId, role, status: MembershipStatus.ACTIVE, joinedAt: new Date() } });
-    await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.APPROVE, resource: "VillageAdminSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, reason, newValue: { userId, role } } } });
-    await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: "กำหนดบทบาทผู้ดูแลหมู่บ้าน", supportReason: reason, targetType: "VillageMembership", targetId: membership.id, actionUrl: "/admin", metadata: { membershipId: membership.id } });
+    await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.APPROVE, resource: "VillageAdminSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetName: user.name, targetUserId: user.id, membershipId: membership.id, phone: user.phoneNumber, targetVillageId, supportReason: reason, newValue: { role, status: MembershipStatus.ACTIVE } } } });
+    await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: "กำหนดบทบาทผู้ดูแลหมู่บ้าน", supportReason: reason, targetType: "VillageMembership", targetId: membership.id, targetName: user.name, actionUrl: "/admin", metadata: { membershipId: membership.id } });
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
   return { success: true, message: "แต่งตั้งผู้ดูแลเรียบร้อยแล้ว" };
@@ -182,16 +182,17 @@ export async function changeMembershipSupportAction(targetVillageId: string, for
   await requireVillage(targetVillageId);
   if (!["SUSPEND", "ACTIVATE", "RESIDENT"].includes(operation)) throw new Error("รายการดำเนินการไม่ถูกต้อง");
   await prisma.$transaction(async (tx) => {
-    const membership = await tx.villageMembership.findFirst({ where: { id: membershipId, villageId: targetVillageId } });
+    const membership = await tx.villageMembership.findFirst({ where: { id: membershipId, villageId: targetVillageId }, select: { id: true, userId: true, role: true, status: true, houseId: true, user: { select: { name: true, phoneNumber: true } } } });
     if (!membership) throw new Error("Membership ไม่อยู่ในหมู่บ้านเป้าหมาย");
     if (membership.role === VillageMembershipRole.HEADMAN && operation === "SUSPEND" && value(formData, "confirmVacant") !== "true") throw new Error("การระงับ Headman ต้องยืนยันว่าหมู่บ้านจะอยู่ในสถานะยังไม่มีผู้ใหญ่บ้าน หรือแต่งตั้งผู้ใหม่ก่อน");
+    const nextRole = operation === "RESIDENT" ? VillageMembershipRole.RESIDENT : membership.role;
+    const nextStatus = operation === "SUSPEND" ? MembershipStatus.SUSPENDED : MembershipStatus.ACTIVE;
     if (operation === "RESIDENT") {
       if (!houseId || !await tx.house.findFirst({ where: { id: houseId, villageId: targetVillageId } })) throw new Error("ต้องเลือกบ้านที่อยู่ในหมู่บ้านนี้ก่อนเปลี่ยนเป็น Resident");
-      await tx.villageMembership.update({ where: { id: membership.id }, data: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId } });
-    } else if (operation === "ACTIVATE") await tx.villageMembership.update({ where: { id: membership.id }, data: { status: MembershipStatus.ACTIVE } });
-    else await tx.villageMembership.update({ where: { id: membership.id }, data: { status: MembershipStatus.SUSPENDED } });
-    await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.UPDATE, resource: "MembershipSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, reason, oldValue: { role: membership.role, status: membership.status, houseId: membership.houseId }, newValue: { operation, houseId }, confirmedVacantHeadman: value(formData, "confirmVacant") === "true" } } });
-    await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: "เปลี่ยนสถานะสมาชิกหมู่บ้าน", supportReason: reason, targetType: "VillageMembership", targetId: membership.id, actionUrl: "/admin", metadata: { membershipId: membership.id, operation } });
+      await tx.villageMembership.update({ where: { id: membership.id }, data: { role: nextRole, status: nextStatus, houseId } });
+    } else await tx.villageMembership.update({ where: { id: membership.id }, data: { status: nextStatus } });
+    await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.UPDATE, resource: "MembershipSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetName: membership.user.name, targetUserId: membership.userId, membershipId: membership.id, phone: membership.user.phoneNumber, targetVillageId, supportReason: reason, oldValue: { role: membership.role, status: membership.status }, newValue: { role: nextRole, status: nextStatus }, confirmedVacantHeadman: value(formData, "confirmVacant") === "true" } } });
+    await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: "เปลี่ยนสถานะสมาชิกหมู่บ้าน", supportReason: reason, targetType: "VillageMembership", targetId: membership.id, targetName: membership.user.name, actionUrl: "/admin", metadata: { membershipId: membership.id, operation } });
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
   const returnTo = value(formData, "returnTo") === "admins" ? "admins" : "users";
