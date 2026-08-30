@@ -26,7 +26,8 @@ type Props = {
     houseNumber: string;
     address: string;
   };
-  onSuccess?: (id?: string) => void;
+  /** Serializable detail URL to return to after a successful edit. */
+  successHref?: string;
 
   /**
    * Use this for Super Admin village operations.
@@ -44,7 +45,7 @@ export function HouseForm({
   action,
   mode = "create",
   defaults,
-  onSuccess,
+  successHref,
   requireReason = false,
 }: Props) {
   const toast = useToast();
@@ -152,7 +153,7 @@ export function HouseForm({
             form.reset();
           }
 
-          onSuccess?.(result.id);
+          if (successHref) router.push(successHref);
           router.refresh();
         });
       }}

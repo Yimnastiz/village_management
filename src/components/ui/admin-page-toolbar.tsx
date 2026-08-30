@@ -88,6 +88,7 @@ export function AdminPageToolbar({
   const pathname = usePathname();
   const currentSearchParams = useSearchParams();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isComposingRef = useRef(false);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -129,7 +130,7 @@ export function AdminPageToolbar({
   };
 
   useEffect(() => {
-    if (!search || searchValue.trim() === search.keyword.trim()) return;
+    if (!search || isComposingRef.current || searchValue.trim() === search.keyword.trim()) return;
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => applySearch(searchValue), 350);
     return () => {
@@ -157,7 +158,7 @@ export function AdminPageToolbar({
     <section
       className={cn(
         "relative z-30 -mx-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 sm:py-4",
-        sticky && "sticky top-[var(--app-sticky-top)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",
+        sticky && "sticky top-[var(--app-sticky-top,4rem)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",
         className,
       )}
       aria-label={`เครื่องมือ${title}`}
@@ -205,7 +206,7 @@ export function AdminPageToolbar({
           {searchExpanded ? <form id={searchPanelId} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className={cn("relative flex min-w-0 items-center", searchAlwaysVisible ? "w-full shrink-0 sm:w-[clamp(14rem,28vw,24rem)]" : "flex-1 gap-1.5")}>
             <label htmlFor={searchInputId} className="sr-only">{searchLabel}</label>
             {searchAlwaysVisible ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
-            <input ref={searchInputRef} id={searchInputId} name="q" type="search" value={searchValue} onChange={(event) => setSearchValue(event.target.value)} list={search.suggestions?.length ? suggestionsId : undefined} placeholder={search.placeholder} className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", searchAlwaysVisible ? "w-full pl-9 pr-10" : "px-3")} />
+            <input ref={searchInputRef} id={searchInputId} name="q" type="search" value={searchValue} onCompositionStart={() => { isComposingRef.current = true; if (debounceRef.current) clearTimeout(debounceRef.current); }} onCompositionEnd={(event) => { isComposingRef.current = false; const value = event.currentTarget.value; if (debounceRef.current) clearTimeout(debounceRef.current); if (value.trim() !== search.keyword.trim()) debounceRef.current = setTimeout(() => applySearch(value), 350); }} onChange={(event) => setSearchValue(event.target.value)} list={search.suggestions?.length ? suggestionsId : undefined} placeholder={search.placeholder} className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", searchAlwaysVisible ? "w-full pl-9 pr-10" : "px-3")} />
             {searchAlwaysVisible && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label={`ล้าง${searchLabel}`} className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500">
               <X className="h-4 w-4" aria-hidden="true" />
             </button> : null}

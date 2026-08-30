@@ -29,7 +29,8 @@ type VillagePersonFormProps = {
     label: string;
   }>;
   defaultValues?: VillagePersonInput;
-  successHref: (id?: string) => string;
+  /** Base list URL for creation, or concrete detail URL for editing. */
+  successPath: string;
 };
 
 const SUPPORT_REASON_MIN_LENGTH = 5;
@@ -40,7 +41,7 @@ export function VillagePersonForm({
   mode,
   houseOptions,
   defaultValues,
-  successHref,
+  successPath,
 }: VillagePersonFormProps) {
   const router = useRouter();
   const toast = useToast();
@@ -117,7 +118,7 @@ export function VillagePersonForm({
 
     toast.success(result.message);
 
-    router.push(successHref(result.id));
+    router.push(mode === "create" && result.id ? `${successPath}/${result.id}` : successPath);
     router.refresh();
   });
 

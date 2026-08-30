@@ -27,6 +27,6 @@ export function DeleteSuperAdminHouseButton({ villageId, houseId, houseNumber }:
 
   return <>
     <Button type="button" variant="danger" onClick={() => setOpen(true)}>ลบบ้าน</Button>
-    <ActionReasonDialog open={open} action="population.house.delete" title={`ลบบ้านเลขที่ ${houseNumber}`} description="ลบได้เฉพาะบ้านที่ไม่มีประชากร สมาชิกผูกบ้าน หรือประวัติที่เกี่ยวข้อง เหตุผลจะถูกบันทึกใน Audit Log" reasonLabel="เหตุผลในการดำเนินการ *" submitLabel="ยืนยันลบบ้าน" loading={pending} onCancel={() => setOpen(false)} onSubmit={remove} />
+    <ActionReasonDialog open={open} action="population.house.delete" title={`ลบบ้านเลขที่ ${houseNumber}`} description="ลบได้เฉพาะบ้านที่ไม่มีประชากร สมาชิกผูกบ้าน หรือประวัติที่เกี่ยวข้อง เหตุผลจะถูกบันทึกใน Audit Log" reasonLabel="เหตุผลในการดำเนินการ" submitLabel="ยืนยันลบบ้าน" loading={pending} onCancel={() => setOpen(false)} onSubmit={remove} />
   </>;
 }

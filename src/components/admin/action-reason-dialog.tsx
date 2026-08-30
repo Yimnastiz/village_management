@@ -20,7 +20,7 @@ type ActionReasonDialogProps = {
   onSubmit: (reason: string) => void | Promise<void>;
 };
 
-/** Shared /admin reason interaction for sensitive actions. */
+/** Shared reason interaction for sensitive actions. The field component renders the required marker. */
 export function ActionReasonDialog({ open, action, title, description, submitLabel = "ยืนยัน", reasonLabel = "เหตุผล", helperText, children, loading = false, onCancel, onSubmit }: ActionReasonDialogProps) {
   const policy = getActionPolicy(action);
   const [reason, setReason] = useState("");
