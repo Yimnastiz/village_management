@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 
@@ -28,6 +29,8 @@ type Props = {
   };
   /** Serializable detail URL to return to after a successful edit. */
   successHref?: string;
+  /** Client-only callback, for example to close a surrounding dialog. */
+  onSuccess?: (id?: string) => void;
 
   /**
    * Use this for Super Admin village operations.
@@ -36,6 +39,8 @@ type Props = {
    * for every create/update operation.
    */
   requireReason?: boolean;
+  /** Collect the mandatory support reason only after the user confirms the edit. */
+  confirmReason?: boolean;
 };
 
 const SUPPORT_REASON_MIN_LENGTH = 5;
@@ -46,7 +51,9 @@ export function HouseForm({
   mode = "create",
   defaults,
   successHref,
+  onSuccess,
   requireReason = false,
+  confirmReason = false,
 }: Props) {
   const toast = useToast();
   const router = useRouter();
@@ -60,9 +67,41 @@ export function HouseForm({
 
   const houseNumberRef = useRef<HTMLInputElement>(null);
   const reasonRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const pendingFormDataRef = useRef<FormData | null>(null);
+  const [reasonDialogOpen, setReasonDialogOpen] = useState(false);
+
+  const submitAction = (formData: FormData) => {
+    startTransition(async () => {
+      const result = await action(formData);
+
+      if (!result.success) {
+        setError(result.error);
+
+        if (result.field) {
+          const fieldMessage = result.field === "houseNumber" && result.error.includes("มีอยู่") ? "บ้านเลขที่นี้มีอยู่แล้ว" : result.error;
+          setFieldErrors({ [result.field]: fieldMessage });
+          if (result.field === "houseNumber") requestAnimationFrame(() => houseNumberRef.current?.focus());
+          if (result.field === "reason") requestAnimationFrame(() => reasonRef.current?.focus());
+        }
+
+        toast.error(mode === "create" ? "เพิ่มบ้านไม่สำเร็จ" : "แก้ไขบ้านไม่สำเร็จ", result.error);
+        return;
+      }
+
+      setReasonDialogOpen(false);
+      toast.success(result.message);
+      if (mode === "create") formRef.current?.reset();
+      onSuccess?.(result.id);
+      if (successHref) router.push(successHref);
+      router.refresh();
+    });
+  };
 
   return (
+    <>
     <form
+      ref={formRef}
       className="grid grid-cols-1 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-white p-3 sm:p-4 md:grid-cols-2 xl:grid-cols-[minmax(160px,0.7fr)_minmax(280px,1.5fr)_auto]"
       onSubmit={(event) => {
         event.preventDefault();
@@ -73,7 +112,7 @@ export function HouseForm({
         const form = event.currentTarget;
         const formData = new FormData(form);
 
-        if (requireReason) {
+        if (requireReason && !confirmReason) {
           const supportReason = String(formData.get("reason") ?? "").trim();
 
           if (supportReason.length < SUPPORT_REASON_MIN_LENGTH) {
@@ -107,55 +146,13 @@ export function HouseForm({
           formData.set("reason", supportReason);
         }
 
-        startTransition(async () => {
-          const result = await action(formData);
+        if (requireReason && confirmReason) {
+          pendingFormDataRef.current = formData;
+          setReasonDialogOpen(true);
+          return;
+        }
 
-          if (!result.success) {
-            setError(result.error);
-
-            if (result.field) {
-              const fieldMessage =
-                result.field === "houseNumber" &&
-                result.error.includes("มีอยู่")
-                  ? "บ้านเลขที่นี้มีอยู่แล้ว"
-                  : result.error;
-
-              setFieldErrors({
-                [result.field]: fieldMessage,
-              });
-
-              if (result.field === "houseNumber") {
-                requestAnimationFrame(() => {
-                  houseNumberRef.current?.focus();
-                });
-              }
-
-              if (result.field === "reason") {
-                requestAnimationFrame(() => {
-                  reasonRef.current?.focus();
-                });
-              }
-            }
-
-            toast.error(
-              mode === "create"
-                ? "เพิ่มบ้านไม่สำเร็จ"
-                : "แก้ไขบ้านไม่สำเร็จ",
-              result.error,
-            );
-
-            return;
-          }
-
-          toast.success(result.message);
-
-          if (mode === "create") {
-            form.reset();
-          }
-
-          if (successHref) router.push(successHref);
-          router.refresh();
-        });
+        submitAction(formData);
       }}
     >
       <div className="w-full">
@@ -199,7 +196,7 @@ export function HouseForm({
         </Button>
       </div>
 
-      {requireReason ? (
+      {requireReason && !confirmReason ? (
         <div className="md:col-span-2 xl:col-span-3">
           <Input
             ref={reasonRef}
@@ -229,5 +226,7 @@ export function HouseForm({
         </p>
       ) : null}
     </form>
+    {requireReason && confirmReason ? <ActionReasonDialog open={reasonDialogOpen} action="population.house.edit" title="ยืนยันการแก้ไขบ้าน" description="กรุณาระบุเหตุผลในการดำเนินการ ระบบจะบันทึกการแก้ไขใน Audit Log" reasonLabel="เหตุผลในการดำเนินการ" submitLabel="ยืนยันบันทึกการแก้ไข" requireReason minReasonLength={SUPPORT_REASON_MIN_LENGTH} maxReasonLength={SUPPORT_REASON_MAX_LENGTH} loading={pending} onCancel={() => setReasonDialogOpen(false)} onSubmit={(reason) => { const formData = pendingFormDataRef.current; if (!formData) return; formData.set("reason", reason); submitAction(formData); }} /> : null}
+    </>
   );
 }

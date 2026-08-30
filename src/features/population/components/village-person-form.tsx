@@ -1,9 +1,11 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
+import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +33,8 @@ type VillagePersonFormProps = {
   defaultValues?: VillagePersonInput;
   /** Base list URL for creation, or concrete detail URL for editing. */
   successPath: string;
+  /** Delay the Super Admin support reason until final save confirmation. */
+  confirmReason?: boolean;
 };
 
 const SUPPORT_REASON_MIN_LENGTH = 5;
@@ -42,9 +46,13 @@ export function VillagePersonForm({
   houseOptions,
   defaultValues,
   successPath,
+  confirmReason = false,
 }: VillagePersonFormProps) {
   const router = useRouter();
   const toast = useToast();
+  const [reasonDialogOpen, setReasonDialogOpen] = useState(false);
+  const [stagedData, setStagedData] = useState<VillagePersonInput | null>(null);
+  const [pending, startTransition] = useTransition();
 
   const {
     register,
@@ -71,7 +79,7 @@ export function VillagePersonForm({
     },
   });
 
-  const onSubmit = handleSubmit(async (data) => {
+  const submitMutation = async (data: VillagePersonInput) => {
     const supportReason = data.reason?.trim() ?? "";
 
     if (supportReason.length < SUPPORT_REASON_MIN_LENGTH) {
@@ -82,7 +90,7 @@ export function VillagePersonForm({
         message: errorMessage,
       });
 
-      return;
+      return false;
     }
 
     if (supportReason.length > SUPPORT_REASON_MAX_LENGTH) {
@@ -93,7 +101,7 @@ export function VillagePersonForm({
         message: errorMessage,
       });
 
-      return;
+      return false;
     }
 
     const result = await action({
@@ -113,13 +121,23 @@ export function VillagePersonForm({
         result.error,
       );
 
-      return;
+      return false;
     }
 
     toast.success(result.message);
-
+    setReasonDialogOpen(false);
     router.push(mode === "create" && result.id ? `${successPath}/${result.id}` : successPath);
     router.refresh();
+    return true;
+  };
+
+  const onSubmit = handleSubmit(async (data) => {
+    if (confirmReason) {
+      setStagedData(data);
+      setReasonDialogOpen(true);
+      return;
+    }
+    await submitMutation(data);
   });
 
   return (
@@ -197,7 +215,7 @@ export function VillagePersonForm({
         helperText="แสดงเฉพาะบ้านภายในหมู่บ้านเป้าหมาย"
       />
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+      {!confirmReason ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
         <Textarea
           label="เหตุผลประกอบการดำเนินการ"
           required
@@ -221,7 +239,7 @@ export function VillagePersonForm({
             },
           })}
         />
-      </div>
+      </div> : null}
 
       {errors.root?.message ? (
         <p
@@ -237,7 +255,7 @@ export function VillagePersonForm({
           type="button"
           variant="outline"
           onClick={() => router.back()}
-          disabled={isSubmitting}
+          disabled={isSubmitting || pending}
           className="w-full sm:w-auto"
         >
           ยกเลิก
@@ -245,7 +263,8 @@ export function VillagePersonForm({
 
         <Button
           type="submit"
-          isLoading={isSubmitting}
+          isLoading={isSubmitting || pending}
+          disabled={pending}
           className="w-full sm:w-auto"
         >
           {mode === "create"
@@ -253,6 +272,8 @@ export function VillagePersonForm({
             : "บันทึกการแก้ไข"}
         </Button>
       </div>
+
+      {confirmReason ? <ActionReasonDialog open={reasonDialogOpen} action="population.person.edit" title="ยืนยันการแก้ไขข้อมูลบุคคล" description="กรุณาระบุเหตุผลในการดำเนินการ ระบบจะบันทึกการแก้ไขใน Audit Log" reasonLabel="เหตุผลในการดำเนินการ" submitLabel="ยืนยันบันทึกการแก้ไข" requireReason minReasonLength={SUPPORT_REASON_MIN_LENGTH} maxReasonLength={SUPPORT_REASON_MAX_LENGTH} loading={pending} onCancel={() => setReasonDialogOpen(false)} onSubmit={(reason) => { if (!stagedData) return; startTransition(() => { void submitMutation({ ...stagedData, reason }); }); }} /> : null}
     </form>
   );
 }

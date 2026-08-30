@@ -222,7 +222,7 @@ export function AdminPageToolbar({
             <span className="hidden md:inline">ตัวกรอง</span>
             {activeFilterCount > 0 ? <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-xs font-semibold text-white">{activeFilterCount}</span> : null}
           </button>
-          {filterExpanded ? <AdminFilterDropdownContext.Provider value={{ openDropdown, setOpenDropdown, keepFiltersOpen }}><div id={filterPanelId} className="relative z-30 flex min-w-0 flex-wrap items-center gap-2 overflow-visible rounded-lg border border-gray-200 bg-white px-2 py-1.5">{filters}</div></AdminFilterDropdownContext.Provider> : <div id={filterPanelId} hidden />}
+          {filterExpanded ? <AdminFilterDropdownContext.Provider value={{ openDropdown, setOpenDropdown, keepFiltersOpen }}><div id={filterPanelId} className="relative z-30 order-last flex w-full basis-full flex-wrap items-center gap-2 overflow-visible rounded-lg border border-gray-200 bg-white px-2 py-1.5">{filters}</div></AdminFilterDropdownContext.Provider> : <div id={filterPanelId} hidden />}
         </> : null}
         {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div> : null}
       </div> : null}

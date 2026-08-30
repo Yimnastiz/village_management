@@ -14,6 +14,9 @@ type ActionReasonDialogProps = {
   submitLabel?: string;
   reasonLabel?: string;
   helperText?: string;
+  requireReason?: boolean;
+  minReasonLength?: number;
+  maxReasonLength?: number;
   children?: ReactNode;
   loading?: boolean;
   onCancel: () => void;
@@ -21,14 +24,16 @@ type ActionReasonDialogProps = {
 };
 
 /** Shared reason interaction for sensitive actions. The field component renders the required marker. */
-export function ActionReasonDialog({ open, action, title, description, submitLabel = "ยืนยัน", reasonLabel = "เหตุผล", helperText, children, loading = false, onCancel, onSubmit }: ActionReasonDialogProps) {
+export function ActionReasonDialog({ open, action, title, description, submitLabel = "ยืนยัน", reasonLabel = "เหตุผล", helperText, requireReason, minReasonLength, maxReasonLength, children, loading = false, onCancel, onSubmit }: ActionReasonDialogProps) {
   const policy = getActionPolicy(action);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const normalizedReason = reason.trim();
   const busy = loading || submitting;
-  const valid = !policy.requiresReason || normalizedReason.length >= policy.minReasonLength;
+  const requiresReason = requireReason ?? policy.requiresReason;
+  const minimumLength = minReasonLength ?? policy.minReasonLength;
+  const valid = !requiresReason || normalizedReason.length >= minimumLength;
 
   const submit = async () => {
     if (!valid || busy || submittingRef.current) return;
@@ -46,7 +51,7 @@ export function ActionReasonDialog({ open, action, title, description, submitLab
       </div>
     }>
       {children ? <div className="mb-4">{children}</div> : null}
-      <Textarea autoFocus label={reasonLabel} required value={reason} onChange={(event) => setReason(event.target.value)} helperText={helperText ?? `อย่างน้อย ${policy.minReasonLength} ตัวอักษร`} disabled={busy} />
+      <Textarea autoFocus label={reasonLabel} required={requiresReason} value={reason} onChange={(event) => setReason(event.target.value)} helperText={helperText ?? `อย่างน้อย ${minimumLength} ตัวอักษร`} maxLength={maxReasonLength} disabled={busy} />
     </Dialog>
   );
 }

@@ -29,6 +29,7 @@ interface AdminListToolbarProps {
   hideHeading?: boolean;
   searchAlwaysVisible?: boolean;
   filtersInlineWithSearch?: boolean;
+  className?: string;
 }
 
 /** Compact single-select dropdown controlled by the shared toolbar. */
@@ -75,7 +76,7 @@ export function AdminFilterDropdown({ group }: { group: ToolbarGroup }) {
 export function AdminListToolbar({
   title, description, clearHref, keyword, searchPlaceholder, suggestionTitles = [], groups = [], actions,
   sticky = false, searchLabel = "ค้นหา", extraFilters, hideHeading = false,
-  searchAlwaysVisible = true, filtersInlineWithSearch = false,
+  searchAlwaysVisible = true, filtersInlineWithSearch = false, className,
 }: AdminListToolbarProps) {
   const activeFilterCount = groups.reduce(
     (count, group) => count + Number((group.countsAsFilter ?? !["เรียง", "เรียงลำดับ"].includes(group.label)) && group.options.some((option, index) => option.active && !(option.isDefault ?? index === 0))),
@@ -96,5 +97,5 @@ export function AdminListToolbar({
     {extraFilters}
   </> : extraFilters;
 
-  return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} hideHeading={hideHeading} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} searchAlwaysVisible={searchAlwaysVisible} filtersInlineWithSearch={filtersInlineWithSearch} />;
+  return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} hideHeading={hideHeading} className={className} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} searchAlwaysVisible={searchAlwaysVisible} filtersInlineWithSearch={filtersInlineWithSearch} />;
 }
