@@ -1,13 +1,13 @@
 "use server";
 
-import { AuditAction, MembershipStatus, PopulationImportStage, Prisma } from "@prisma/client";
+import { AuditAction, PopulationImportStage, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { applyStoredImportRow, type StoredImportRow } from "../actions";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
-import { requireVillagePermission, type VillagePermission } from "@/lib/village-permissions";
+import { type VillagePermission } from "@/lib/village-permissions";
+import { requirePopulationImportWorkspaceAccess } from "@/features/population/server/import-workspace-access";
 
 type ImportJobDetailsPayload = {
   importedPersonIds?: string[];
@@ -47,24 +47,13 @@ function parsePayload(value: unknown): ImportJobDetailsPayload {
   return {};
 }
 
-async function requireImportJobForAdmin(jobId: string, targetVillageId = "", permission: VillagePermission = "population.import") {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id || (!isAdminUser(session) && !isSuperAdminUser(session))) {
-    throw new Error("ไม่มีสิทธิ์ใช้งาน");
-  }
-
-  const adminMembership = getAdminMembership(session);
-  const villageId = isSuperAdminUser(session) ? targetVillageId : adminMembership?.villageId;
-  if (!villageId) {
-    throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");
-  }
-
-  if (!isSuperAdminUser(session)) requireVillagePermission(adminMembership!, permission);
+async function requireImportJobAccess(jobId: string, targetVillageId = "", permission: VillagePermission = "population.import") {
+  const access = await requirePopulationImportWorkspaceAccess(targetVillageId, permission);
 
   const job = await prisma.populationImportJob.findFirst({
     where: {
       id: jobId,
-      villageId,
+      villageId: access.villageId,
     },
     select: {
       id: true,
@@ -84,8 +73,10 @@ async function requireImportJobForAdmin(jobId: string, targetVillageId = "", per
 
   return {
     villageId: job.villageId,
-    userId: session.id,
-    actorRole: adminMembership?.role ?? "SUPERADMIN",
+    userId: access.userId,
+    actorId: access.actorId,
+    actorType: access.actorType,
+    actorRole: access.actorRole,
     fileName: job.fileName,
     stage: job.stage,
     createdAt: job.createdAt,
@@ -98,11 +89,11 @@ export async function confirmPopulationImportAction(formData: FormData) {
   const jobId = typeof formData.get("jobId") === "string" ? formData.get("jobId")!.toString().trim() : "";
   const targetVillageId = typeof formData.get("targetVillageId") === "string" ? formData.get("targetVillageId")!.toString().trim() : "";
   if (!jobId) throw new Error("กรุณาระบุงานนำเข้า");
-  const access = await requireImportJobForAdmin(jobId, targetVillageId);
+  const access = await requireImportJobAccess(jobId, targetVillageId);
   const reason = requireActionReason("population.import", formData.get("supportReason"));
   const skippedRows = access.sourceRows.filter((row) => row.action === "SKIP").length;
   if (access.stage !== PopulationImportStage.PENDING) throw new Error("งานนี้ถูกยืนยันหรือดำเนินการไปแล้ว");
-  const claimed = await prisma.populationImportJob.updateMany({ where: { id: jobId, villageId: access.villageId, stage: PopulationImportStage.PENDING }, data: { stage: PopulationImportStage.PROCESSING, confirmedBy: access.userId, confirmedAt: new Date(), supportReason: reason } });
+  const claimed = await prisma.populationImportJob.updateMany({ where: { id: jobId, villageId: access.villageId, stage: PopulationImportStage.PENDING }, data: { stage: PopulationImportStage.PROCESSING, confirmedBy: access.actorId, confirmedAt: new Date(), supportReason: reason } });
   if (claimed.count !== 1) throw new Error("งานนี้ถูกยืนยันไปแล้ว กรุณารีเฟรชหน้า");
   let importedRows = 0;
   let failedRows = 0;
@@ -112,7 +103,7 @@ export async function confirmPopulationImportAction(formData: FormData) {
   const createdPeople: Array<{ id: string; label: string; houseNumber: string }> = [];
   const createdHouses: Array<{ id: string; label: string }> = [];
   await prisma.$transaction(async (tx) => {
-    const ctx: Parameters<typeof applyStoredImportRow>[1] = { userId: access.userId, role: access.actorRole, villageId: access.villageId, importJobId: jobId, villageName: "", province: null, district: null, subdistrict: null };
+    const ctx: Parameters<typeof applyStoredImportRow>[1] = { userId: access.userId, actorId: access.actorId, actorType: access.actorType, role: access.actorRole, villageId: access.villageId, importJobId: jobId, villageName: "", province: null, district: null, subdistrict: null };
     const village = await tx.village.findUnique({ where: { id: access.villageId }, select: { name: true, province: true, district: true, subdistrict: true } });
     if (!village) throw new Error("ไม่พบหมู่บ้านของงาน");
     ctx.villageName = village.name; ctx.province = village.province; ctx.district = village.district; ctx.subdistrict = village.subdistrict;
@@ -132,10 +123,10 @@ export async function confirmPopulationImportAction(formData: FormData) {
     const stage = failedRows > 0 ? PopulationImportStage.PARTIAL : PopulationImportStage.COMPLETED;
     finalStage = stage;
     await tx.populationImportJob.update({ where: { id: jobId }, data: { stage, importedRows, failedRows, completedAt: new Date(), errors: { ...access.payload, createdPersonIds, createdHouseIds, createdPeople, createdHouses } } });
-    const actorRole = targetVillageId ? "SUPERADMIN" : "ADMIN";
-    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, supportReason: reason } } });
-    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
-    if (actorRole === "SUPERADMIN") {
+    const actorRole = access.actorRole;
+    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, actorType: access.actorType, jobId, fileName: access.fileName, supportReason: reason } } });
+    await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, actorType: access.actorType, jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
+    if (access.actorType === "SUPERADMIN_ENV") {
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: access.villageId, actionLabel: "นำเข้าทะเบียนประชากร", supportReason: reason, targetType: "PopulationImportJob", targetId: jobId, targetName: access.fileName, actionUrl: "/admin/population/import", metadata: { importJobId: jobId } });
     }
   });
@@ -206,7 +197,7 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
 }
 
 export async function getImportCleanupPreflightAction(jobId: string, targetVillageId = ""): Promise<ImportCleanupPreflight> {
-  const access = await requireImportJobForAdmin(jobId, targetVillageId, "population.import.rollback");
+  const access = await requireImportJobAccess(jobId, targetVillageId, "population.import.rollback");
   if (access.stage !== PopulationImportStage.COMPLETED && access.stage !== PopulationImportStage.PARTIAL) throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
   const assessment = await prisma.$transaction((tx) => assessImportCleanup(tx, access.villageId, jobId, access.createdAt, access.payload.createdPersonIds ?? [], access.payload.createdHouseIds ?? []));
   return { deletablePeople: assessment.deletablePeople, deletableHouses: assessment.deletableHouses, skipped: assessment.skipped, skippedReasonCounts: assessment.skippedReasonCounts };
@@ -220,7 +211,7 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
 
   const jobId = jobIdValue.trim();
   const targetVillageId = typeof formData.get("targetVillageId") === "string" ? formData.get("targetVillageId")!.toString().trim() : "";
-  const { villageId, createdAt, payload, stage, userId, actorRole } = await requireImportJobForAdmin(jobId, targetVillageId, "population.import.rollback");
+  const { villageId, createdAt, payload, stage, userId, actorId, actorRole, actorType } = await requireImportJobAccess(jobId, targetVillageId, "population.import.rollback");
   const reason = requireActionReason("population.import.rollback", formData.get("supportReason"));
   if (stage !== PopulationImportStage.COMPLETED && stage !== PopulationImportStage.PARTIAL) {
     throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
@@ -230,10 +221,10 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   const houseIds = payload.createdHouseIds ?? [];
 
   const result = await prisma.$transaction(async (tx) => {
-    const actor = await tx.user.findUnique({
+    const actor = userId ? await tx.user.findUnique({
       where: { id: userId },
-      select: { name: true, memberships: { where: { villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } },
-    });
+      select: { name: true },
+    }) : null;
     const assessment = await assessImportCleanup(tx, villageId, jobId, createdAt, personIds, houseIds);
     const personLabels = new Map((await tx.person.findMany({ where: { id: { in: assessment.deletablePersonIds } }, select: { id: true, firstName: true, lastName: true } })).map((person) => [person.id, `${person.firstName} ${person.lastName}`]));
     let deletedPeople = 0;
@@ -265,14 +256,14 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     const skipped = [...assessment.skipped.filter((item) => item.kind === "person"), ...finalAssessment.skipped];
     const skippedReasonCounts = countSkipReasons(skipped);
     const cleanupHistory = [...(payload.cleanupHistory ?? []), {
-      cleanedAt: new Date().toISOString(), actorId: userId, actorName: actor?.name ?? null, actorRole: actor?.memberships[0]?.role ?? null,
+      cleanedAt: new Date().toISOString(), actorId, actorName: actor?.name ?? (actorType === "SUPERADMIN_ENV" ? "Super Admin" : null), actorRole,
       reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts,
       deletedItems: [...assessment.deletablePersonIds.map((id) => ({ kind: "person" as const, label: personLabels.get(id) ?? "บุคคล" })), ...afterPeople.deletableHouseIds.map((id) => ({ kind: "house" as const, label: houseLabels.get(id) ?? "บ้าน" }))],
       retainedItems: skipped,
     }].slice(-10);
     await tx.populationImportJob.update({ where: { id: jobId }, data: { errors: { ...payload, cleanupHistory } } });
-    await tx.auditLog.create({ data: { userId, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, policyAction: "population.import.rollback", jobId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts } } });
-    if (actorRole === "SUPERADMIN") {
+    await tx.auditLog.create({ data: { userId, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, actorType, policyAction: "population.import.rollback", jobId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts } } });
+    if (actorType === "SUPERADMIN_ENV") {
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "ย้อนกลับข้อมูลจากการนำเข้าทะเบียนประชากร", supportReason: reason, targetType: "PopulationImportJob", targetId: jobId, actionUrl: "/admin/population/import", metadata: { importJobId: jobId } });
     }
     return { deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts };
@@ -306,7 +297,7 @@ export async function deleteImportedPersonAction(_formData: FormData) {
   const jobId = jobIdValue.trim();
   const personId = personIdValue.trim();
 
-  const { villageId, payload } = await requireImportJobForAdmin(jobId);
+  const { villageId, payload } = await requireImportJobAccess(jobId);
 
   const personIds = payload.createdPersonIds ?? [];
   const houseIds = payload.createdHouseIds ?? [];

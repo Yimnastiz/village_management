@@ -15,12 +15,11 @@ import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
 import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
 import { isValidPersonName, normalizePersonGender, normalizePersonName } from "@/lib/person-validation";
-import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, isSuperAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
 import { parsePopulationEvent, parsePopulationImportDate } from "@/features/population/server/import-value-parsers";
-import { requireVillagePermission } from "@/lib/village-permissions";
+import { requirePopulationImportWorkspaceAccess } from "@/features/population/server/import-workspace-access";
 import {
   POPULATION_IMPORT_COLUMNS,
   POPULATION_IMPORT_HEADER_ALIASES,
@@ -102,7 +101,9 @@ type RowImportResult = {
 };
 
 type AdminVillageContext = {
-  userId: string;
+  userId: string | null;
+  actorId: string;
+  actorType: "ADMIN" | "SUPERADMIN_ENV";
   role: string;
   villageId: string;
   importJobId?: string;
@@ -516,23 +517,11 @@ function buildImportJobDetailsPayload(params: {
 }
 
 async function getAdminVillageContext(formData?: FormData): Promise<AdminVillageContext> {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id || (!isAdminUser(session) && !isSuperAdminUser(session))) {
-    throw new Error("ไม่มีสิทธิ์ใช้งานหน้านี้");
-  }
-
   const requestedVillageId = typeof formData?.get("targetVillageId") === "string" ? String(formData.get("targetVillageId")).trim() : "";
-  const adminMembership = getAdminMembership(session);
-
-  const targetVillageId = isSuperAdminUser(session) ? requestedVillageId : adminMembership?.villageId;
-  if (!targetVillageId) {
-    throw new Error("ไม่พบหมู่บ้านที่คุณมีสิทธิ์จัดการ");
-  }
-
-  if (!isSuperAdminUser(session)) requireVillagePermission(adminMembership!, "population.import");
+  const access = await requirePopulationImportWorkspaceAccess(requestedVillageId);
 
   const village = await prisma.village.findUnique({
-    where: { id: targetVillageId },
+    where: { id: access.villageId },
     select: {
       id: true,
       name: true,
@@ -547,8 +536,10 @@ async function getAdminVillageContext(formData?: FormData): Promise<AdminVillage
   }
 
   return {
-    userId: session.id,
-    role: adminMembership?.role ?? "SUPERADMIN",
+    userId: access.userId,
+    actorId: access.actorId,
+    actorType: access.actorType,
+    role: access.actorRole,
     villageId: village.id,
     villageName: village.name,
     province: village.province,
@@ -942,7 +933,7 @@ export async function importPopulationWorkbookAction(
     const job = await prisma.populationImportJob.create({
       data: {
         villageId: ctx.villageId,
-        createdBy: ctx.userId,
+        createdBy: ctx.actorId,
         fileName: fileEntry.name,
         stage: PopulationImportStage.PENDING,
         startedAt: new Date(),
@@ -950,7 +941,7 @@ export async function importPopulationWorkbookAction(
       select: { id: true },
     });
     jobId = job.id;
-    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, jobId, fileName: fileEntry.name } } });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_STARTED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, actorType: ctx.actorType, jobId, fileName: fileEntry.name } } });
 
     const buffer = Buffer.from(await fileEntry.arrayBuffer());
     const isCsv = /\.csv$/i.test(fileEntry.name);
@@ -1007,8 +998,9 @@ export async function importPopulationWorkbookAction(
         errors: buildImportJobDetailsPayload({ rows: spreadsheetRows, sourceHeaders, errors: previewErrors, rowDetails: preview.details }),
       },
     });
-    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
+    await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, actorType: ctx.actorType, jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
     revalidatePath("/admin/population/import");
+    if (ctx.actorType === "SUPERADMIN_ENV") revalidatePath(`/superadmin/villages/${ctx.villageId}/population/import`);
     return { success: true, message: `ตรวจสอบไฟล์แล้ว กรุณาเปิดงาน ${jobId} เพื่อดู Preview และยืนยัน`, summary: { fileName: fileEntry.name, totalRows: spreadsheetRows.length, importedRows: 0, failedRows: preview.failedRows + preview.conflictRows, stage: PopulationImportStage.PENDING }, errors: previewErrors };
 
     let importedRows = 0;

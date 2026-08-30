@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
 
 export function ImportPreparationDisclosure() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const contentId = useId();
 
   return (

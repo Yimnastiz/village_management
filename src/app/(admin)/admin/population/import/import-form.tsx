@@ -5,6 +5,7 @@ import { Check, Info, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { importPopulationWorkbookAction, type ImportActionState } from "./actions";
 import { useToast } from "@/components/ui/toast";
+import { ImportPreparationDisclosure } from "./import-preparation-disclosure";
 
 export function PopulationImportForm({ targetVillageId, templateHref = "/api/admin/population/import-template", importAction = importPopulationWorkbookAction, showTemplateDownload = true, showPreparationNotes = true, preUploadContent }: { targetVillageId?: string; templateHref?: string; importAction?: typeof importPopulationWorkbookAction; showTemplateDownload?: boolean; showPreparationNotes?: boolean; preUploadContent?: ReactNode }) {
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number } | null>(null);
@@ -63,19 +64,7 @@ export function PopulationImportForm({ targetVillageId, templateHref = "/api/adm
       </ol>
 
       {/* Important Notes */}
-      {showPreparationNotes && <section className="rounded-xl border border-gray-200 bg-gray-50/70 p-4" aria-labelledby="import-notes-heading">
-        <div className="flex gap-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" aria-hidden="true" />
-          <div>
-            <h2 id="import-notes-heading" className="text-sm font-semibold text-gray-900">ก่อนนำเข้าข้อมูล</h2>
-            <ul className="mt-2 space-y-1 text-xs leading-5 text-gray-600">
-              <li>ระบบจะตรวจสอบข้อมูลเดิมก่อนสร้างรายการใหม่ เพื่อลดข้อมูลซ้ำ</li>
-              <li>การนำเข้าข้อมูลไม่ใช่การยืนยันตัวตนของลูกบ้าน</li>
-              <li>ข้อมูลจะยังไม่ถูกบันทึกจริงจนกว่าจะตรวจสอบและยืนยัน</li>
-            </ul>
-          </div>
-        </div>
-      </section>}
+      {showPreparationNotes ? <ImportPreparationDisclosure /> : null}
 
       {preUploadContent}
 
