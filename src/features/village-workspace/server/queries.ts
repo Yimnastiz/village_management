@@ -2,8 +2,6 @@ import { MembershipStatus, Prisma, VillageMembershipRole } from "@prisma/client"
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-export const WORKSPACE_PAGE_SIZE = 20;
-
 function parseActiveMembershipRole(value?: string): VillageMembershipRole | undefined {
   if (!value || value === "ALL") return undefined;
   if (value === VillageMembershipRole.HEADMAN) return VillageMembershipRole.HEADMAN;
@@ -57,9 +55,8 @@ export async function getVillageEligibleAdminUsers(villageId: string) {
 
 export async function getVillageMembers(
   villageId: string,
-  input: { query?: string; role?: string; status?: string; page?: number; adminOnly?: boolean } = {},
+  input: { query?: string; role?: string; status?: string; adminOnly?: boolean } = {},
 ) {
-  const page = Math.max(1, input.page ?? 1);
   const query = input.query?.trim() ?? "";
   const role = parseActiveMembershipRole(input.role);
   const roles = input.adminOnly
@@ -87,8 +84,6 @@ export async function getVillageMembers(
     prisma.villageMembership.findMany({
       where,
       orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-      skip: (page - 1) * WORKSPACE_PAGE_SIZE,
-      take: WORKSPACE_PAGE_SIZE,
       select: {
         id: true,
         role: true,
@@ -101,7 +96,7 @@ export async function getVillageMembers(
     }),
     prisma.villageMembership.count({ where }),
   ]);
-  return { rows, total, page, pageCount: Math.max(1, Math.ceil(total / WORKSPACE_PAGE_SIZE)) };
+  return { rows, total };
 }
 
 export async function getVillageDashboard(villageId: string) {

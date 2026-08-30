@@ -2,7 +2,6 @@
 
 import { AuditAction, BindingRequestStatus, MembershipStatus, MovementType, NotificationType, PersonStatus, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { isRequestPlaceholderStatus } from "@/lib/settings-access";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
@@ -174,7 +173,7 @@ export async function setVillageAdminSupportAction(targetVillageId: string, form
     await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: "กำหนดบทบาทผู้ดูแลหมู่บ้าน", supportReason: reason, targetType: "VillageMembership", targetId: membership.id, actionUrl: "/admin", metadata: { membershipId: membership.id } });
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
-  redirect(`/superadmin/villages/${targetVillageId}/admins?success=${encodeURIComponent("แต่งตั้งผู้ดูแลเรียบร้อยแล้ว")}`);
+  return { success: true, message: "แต่งตั้งผู้ดูแลเรียบร้อยแล้ว" };
 }
 
 export async function changeMembershipSupportAction(targetVillageId: string, formData: FormData) {
@@ -196,5 +195,5 @@ export async function changeMembershipSupportAction(targetVillageId: string, for
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
   const returnTo = value(formData, "returnTo") === "admins" ? "admins" : "users";
-  redirect(`/superadmin/villages/${targetVillageId}/${returnTo}?success=${encodeURIComponent("ปรับข้อมูลสมาชิกเรียบร้อยแล้ว")}`);
+  return { success: true, message: "ปรับข้อมูลสมาชิกเรียบร้อยแล้ว", returnTo };
 }
