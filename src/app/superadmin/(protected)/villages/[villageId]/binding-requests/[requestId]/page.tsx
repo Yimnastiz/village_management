@@ -1,6 +1,6 @@
 import { BindingRequestStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { BINDING_REQUEST_STATUS_LABELS, MEMBERSHIP_ROLE_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { personStatusBadgeVariant } from "@/features/population/person-status";
@@ -59,7 +59,7 @@ export default async function Page({ params }: { params: Promise<{ villageId: st
   const houseMismatch = Boolean(existingPersonHouseId && resolvedHouse?.id && existingPersonHouseId !== resolvedHouse.id);
 
   return <div className="space-y-5">
-    <AdminPageToolbar title="ตรวจสอบคำขอผูกเลขบ้าน" description={`${request.village?.name ?? "หมู่บ้าน"} · ยื่นเมื่อ ${request.createdAt.toLocaleString("th-TH")}`} backHref={base} backLabel="กลับคำขอผูกบ้าน" backPlacement="header-start" actions={<Badge variant={statusVariant(request.status)}>{BINDING_REQUEST_STATUS_LABELS[request.status]}</Badge>} />
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><Link href={base} className="text-sm text-slate-500 hover:text-slate-900">← กลับคำขอผูกบ้าน</Link><h1 className="mt-2 break-words text-2xl font-bold text-gray-900">ตรวจสอบคำขอผูกเลขบ้าน</h1><p className="mt-1 text-sm text-gray-500">{request.village?.name ?? "หมู่บ้าน"} · ยื่นเมื่อ {request.createdAt.toLocaleString("th-TH")}</p></div><Badge variant={statusVariant(request.status)}>{request.status === BindingRequestStatus.APPROVED ? "อนุมัติ" : BINDING_REQUEST_STATUS_LABELS[request.status]}</Badge></header>
     <div className="grid gap-4 lg:grid-cols-2">
       <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5"><h2 className="font-semibold text-gray-900">ข้อมูลผู้ยื่นคำขอ</h2><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><Detail label="ชื่อ" value={request.user.name} /><Detail label="เบอร์โทร" value={request.user.phoneNumber} /><Detail label="เลขบัตรประชาชน" value={nationalId ? maskNationalId(nationalId) : "ไม่พบข้อมูล"} /><Detail label="วันที่ยื่นคำขอ" value={request.createdAt.toLocaleString("th-TH")} /></dl></section>
       <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5"><h2 className="font-semibold text-gray-900">บ้านที่ขอ</h2><p className="mt-4 break-words text-2xl font-semibold text-gray-900">{requestedHouseNumber ?? "ไม่ระบุเลขบ้าน"}</p>{resolvedHouse ? <p className="mt-2 text-sm font-medium text-emerald-700">พบในทะเบียนบ้านแล้ว</p> : <p className="mt-2 text-sm font-medium text-amber-800">ไม่พบบ้านเลขที่ {requestedHouseNumber ?? "-"} ในทะเบียนบ้าน</p>}</section>

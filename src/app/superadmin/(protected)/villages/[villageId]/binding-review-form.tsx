@@ -2,7 +2,9 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { reviewBindingForWorkspaceAction, type BindingReviewActionState } from "./actions";
 
@@ -17,6 +19,8 @@ export function BindingReviewForm({ villageName, requestId, proposed, houses, id
   const [state, formAction, pending] = useActionState(reviewBindingForWorkspaceAction, { success: false } as BindingReviewActionState);
   const formRef = useRef<HTMLFormElement>(null);
   const [decision, setDecision] = useState<"APPROVE" | "REJECT" | null>(null);
+  const [reviewReason, setReviewReason] = useState("");
+  const [supportReason, setSupportReason] = useState("");
   const [confirmMatchedPerson, setConfirmMatchedPerson] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -32,6 +36,8 @@ export function BindingReviewForm({ villageName, requestId, proposed, houses, id
     if (state.success) {
       toast.success(state.message);
       setDecision(null);
+      setReviewReason("");
+      setSupportReason("");
       setErrorMessage(null);
       router.refresh();
       return;
@@ -40,13 +46,17 @@ export function BindingReviewForm({ villageName, requestId, proposed, houses, id
     toast.error("ดำเนินการไม่สำเร็จ", state.message);
   }, [router, state.message, state.success, toast]);
 
-  const submitDecision = (reason: string) => {
+  const submitDecision = () => {
     if (!decision || busy) return;
+    const normalizedReviewReason = reviewReason.trim();
+    const normalizedSupportReason = supportReason.trim();
+    if (normalizedSupportReason.length < 5 || (decision === "REJECT" && normalizedReviewReason.length < 5)) return;
     const form = formRef.current;
     if (!form) return;
     const formData = new FormData(form);
     formData.set("decision", decision);
-    formData.set("reason", reason);
+    formData.set("reviewReason", normalizedReviewReason);
+    formData.set("supportReason", normalizedSupportReason);
     setErrorMessage(null);
     setSubmitting(true);
     startTransition(() => formAction(formData));
@@ -65,8 +75,12 @@ export function BindingReviewForm({ villageName, requestId, proposed, houses, id
     </form>
     {errorMessage ? <p className="mt-3 text-sm font-medium text-rose-700" role="alert">{errorMessage}</p> : null}
     <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={busy || identityBlocked || (identityReconciliation?.kind === "single_unlinked_match" && !confirmMatchedPerson)} onClick={() => setDecision("APPROVE")} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-emerald-700 px-4 text-sm font-medium text-white transition-colors hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">อนุมัติ</button><button type="button" disabled={busy} onClick={() => setDecision("REJECT")} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-rose-700 px-4 text-sm font-medium text-white transition-colors hover:bg-rose-800 focus:outline-none focus:ring-2 focus:ring-rose-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">ปฏิเสธ</button></div>
-    <ActionReasonDialog open={decision !== null} action={decision === "APPROVE" ? "binding.approve" : "binding.reject"} title={decision === "APPROVE" ? "อนุมัติคำขอผูกบ้าน" : "ปฏิเสธคำขอผูกบ้าน"} description={decision === "APPROVE" ? "บัญชีผู้ยื่นจะถูกผูกกับบ้านที่ตรวจสอบแล้วในหมู่บ้านนี้" : "ผู้ยื่นจะได้รับแจ้งผลพร้อมเหตุผลที่ระบุ"} submitLabel={decision === "APPROVE" ? "ยืนยันการอนุมัติ" : "ยืนยันการปฏิเสธ"} reasonLabel="เหตุผลในการดำเนินการ" requireReason minReasonLength={5} loading={busy} onCancel={() => { if (!busy) { setDecision(null); setErrorMessage(null); } }} onSubmit={submitDecision}>
-      {errorMessage ? <p className="text-sm font-medium text-rose-700" role="alert">{errorMessage}</p> : null}
-    </ActionReasonDialog>
+    <Dialog open={decision !== null} title={decision === "APPROVE" ? "อนุมัติคำขอผูกบ้าน" : "ปฏิเสธคำขอผูกบ้าน"} description={decision === "APPROVE" ? "ระบุเหตุผลที่ Super Admin ดำเนินการแทนผู้ดูแลหมู่บ้าน" : "ระบุเหตุผลแยกตามผู้รับสาร เพื่อให้ผู้ยื่นคำขอและผู้ดูแลหมู่บ้านเข้าใจตรงกัน"} onClose={() => { if (!busy) { setDecision(null); setErrorMessage(null); setReviewReason(""); setSupportReason(""); } }} closeOnBackdrop={false} closeOnEscape={!busy} footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={busy} onClick={() => { setDecision(null); setErrorMessage(null); setReviewReason(""); setSupportReason(""); }}>ยกเลิก</Button><Button type="button" isLoading={busy} disabled={busy || supportReason.trim().length < 5 || (decision === "REJECT" && reviewReason.trim().length < 5)} onClick={submitDecision}>{decision === "APPROVE" ? "ยืนยันการอนุมัติ" : "ยืนยันการปฏิเสธ"}</Button></div>}>
+      <div className="space-y-4">
+        {decision === "REJECT" ? <Textarea label="เหตุผลที่ปฏิเสธคำขอ" required value={reviewReason} onChange={(event) => setReviewReason(event.target.value)} helperText="เหตุผลนี้จะแสดงต่อผู้ยื่นคำขอและบันทึกเป็นหมายเหตุการพิจารณา อย่างน้อย 5 ตัวอักษร" minLength={5} disabled={busy} /> : null}
+        <Textarea label="เหตุผลในการดำเนินการแทนผู้ดูแลหมู่บ้าน" required value={supportReason} onChange={(event) => setSupportReason(event.target.value)} helperText="เหตุผลนี้ใช้ในบันทึกการตรวจสอบและการแจ้งเตือนผู้ดูแลหมู่บ้าน อย่างน้อย 5 ตัวอักษร" minLength={5} disabled={busy} />
+        {errorMessage ? <p className="text-sm font-medium text-rose-700" role="alert">{errorMessage}</p> : null}
+      </div>
+    </Dialog>
   </section>;
 }

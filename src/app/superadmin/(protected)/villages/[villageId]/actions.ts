@@ -45,11 +45,13 @@ async function reviewBindingSupportAction(
   const requestId = value(formData, "requestId");
   const decision = value(formData, "decision");
   const selectedHouseId = value(formData, "selectedHouseId");
-  const reason = value(formData, "reason");
+  const reviewReason = value(formData, "reviewReason");
+  const supportReason = value(formData, "supportReason");
   const confirmMatchedPerson = value(formData, "confirmMatchedPerson") === "true";
 
   if (!requestId || !["APPROVE", "REJECT"].includes(decision)) return { success: false, message: "ข้อมูลคำขอไม่ครบถ้วน" };
-  if (reason.length < 5) return { success: false, message: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" };
+  if (supportReason.length < 5) return { success: false, message: "กรุณาระบุเหตุผลในการดำเนินการแทนผู้ดูแลหมู่บ้านอย่างน้อย 5 ตัวอักษร" };
+  if (decision === "REJECT" && reviewReason.length < 5) return { success: false, message: "กรุณาระบุเหตุผลที่ปฏิเสธคำขออย่างน้อย 5 ตัวอักษร" };
   // The request is the authoritative scope; never accept a village id from the browser.
   const requestScope = await prisma.bindingRequest.findUnique({ where: { id: requestId }, select: { villageId: true } });
   if (!requestScope) return { success: false, message: "ไม่พบคำขอผูกบ้าน" };
@@ -125,10 +127,10 @@ async function reviewBindingSupportAction(
         else if (isRequestPlaceholderStatus(placeholder.status)) await tx.villageMembership.update({ where: { id: placeholder.id }, data: { status: MembershipStatus.REJECTED, houseId: null, joinedAt: null } });
       }
 
-      await tx.bindingRequest.update({ where: { id: request.id }, data: { status: decision === "APPROVE" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED, houseId: decision === "APPROVE" ? resolvedHouseId : null, reviewedBy: actor.id, reviewedAt: new Date(), reviewNote: reason } });
-      await tx.notification.create({ data: { userId: request.userId, villageId: targetVillageId, type: NotificationType.BINDING_REQUEST, title: decision === "APPROVE" ? "คำขอผูกบ้านได้รับการอนุมัติ" : "คำขอผูกบ้านถูกปฏิเสธ", body: decision === "APPROVE" ? `คำขอผูกบ้านของคุณใน ${village.name} ได้รับการอนุมัติแล้ว` : `คำขอผูกบ้านถูกปฏิเสธ: ${reason}`, metadata: { bindingRequestId: request.id, action: decision.toLowerCase(), actionUrl: decision === "APPROVE" ? "/resident/dashboard" : "/resident/binding/pending" } } });
-      await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequestSupport", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, reason, oldValue: { status: "PENDING" }, newValue: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", houseId: resolvedHouseId } } } });
-      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: decision === "APPROVE" ? "อนุมัติคำขอผูกเลขบ้าน" : "ปฏิเสธคำขอผูกเลขบ้าน", supportReason: reason, targetType: "BindingRequest", targetId: request.id, targetName: request.user.name, actionUrl: `/admin/population/binding-requests/${request.id}`, metadata: { bindingRequestId: request.id } });
+      await tx.bindingRequest.update({ where: { id: request.id }, data: { status: decision === "APPROVE" ? BindingRequestStatus.APPROVED : BindingRequestStatus.REJECTED, houseId: decision === "APPROVE" ? resolvedHouseId : null, reviewedBy: actor.id, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? reviewReason : null } });
+      await tx.notification.create({ data: { userId: request.userId, villageId: targetVillageId, type: NotificationType.BINDING_REQUEST, title: decision === "APPROVE" ? "คำขอผูกบ้านได้รับการอนุมัติ" : "คำขอผูกบ้านถูกปฏิเสธ", body: decision === "APPROVE" ? `คำขอผูกบ้านของคุณใน ${village.name} ได้รับการอนุมัติแล้ว` : `คำขอผูกบ้านถูกปฏิเสธ: ${reviewReason}`, metadata: { bindingRequestId: request.id, action: decision.toLowerCase(), actionUrl: decision === "APPROVE" ? "/resident/dashboard" : "/resident/binding/pending" } } });
+      await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "BindingRequestSupport", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", targetVillageId, supportReason, oldValue: { status: "PENDING" }, newValue: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", houseId: resolvedHouseId } } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: decision === "APPROVE" ? "อนุมัติคำขอผูกเลขบ้าน" : "ปฏิเสธคำขอผูกเลขบ้าน", supportReason, targetType: "BindingRequest", targetId: request.id, targetName: request.user.name, actionUrl: `/admin/population/binding-requests/${request.id}`, metadata: { bindingRequestId: request.id } });
     });
   } catch (error) {
     if (error instanceof BindingReviewValidationError) return { success: false, message: error.message };
