@@ -13,6 +13,17 @@ function stringValue(metadata: NotificationMetadata, key: string) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
+function interventionMetadata(notification: Pick<Notification, "metadata">) {
+  const metadata = metadataOf(notification);
+  return typeof metadata.source === "string" && metadata.source.toUpperCase() === "SUPERADMIN_INTERVENTION" ? metadata : null;
+}
+
+const interventionResourceLabels: Record<string, string> = {
+  House: "ข้อมูลบ้าน", Person: "ข้อมูลบุคคล", MembershipSupport: "ข้อมูลสมาชิก", VillageMembership: "สมาชิกหมู่บ้าน",
+  VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน", Issue: "คำร้อง", Appointment: "นัดหมาย", PopulationExport: "ทะเบียนประชากร",
+  VillageEventSubmission: "คำขอกิจกรรม", GallerySubmission: "คำขอรูปภาพ", Download: "เอกสาร", TransparencyRecord: "ข้อมูลความโปร่งใส",
+};
+
 /**
  * Resolves a destination from structured notification metadata.  Keep this in
  * one place so a notification always opens the most specific admin resource.
@@ -80,7 +91,16 @@ const LEGACY_THAI_COPY: Partial<Record<NotificationType, { title: string; body?:
 };
 
 /** Provides Thai fallbacks for older rows that stored the former English copy. */
-export function getAdminNotificationCopy(notification: Pick<Notification, "type" | "title" | "body">) {
+export function getAdminNotificationCopy(notification: Pick<Notification, "type" | "title" | "body" | "metadata">) {
+  const intervention = interventionMetadata(notification);
+  if (intervention) {
+    const actionLabel = stringValue(intervention, "actionLabel") ?? "ดำเนินการในหมู่บ้าน";
+    const actorLabel = stringValue(intervention, "actorLabel") ?? "ผู้ดูแลระบบระดับสูง";
+    const resource = interventionResourceLabels[stringValue(intervention, "targetType") ?? ""] ?? "รายการที่เกี่ยวข้อง";
+    const reason = stringValue(intervention, "supportReason");
+    const legacyBody = notification.body?.replace(/^.*?\n/, "").replace(/^เหตุผล:\s*/u, "").trim();
+    return { title: `${actorLabel}${actionLabel}`, body: `${legacyBody && legacyBody !== reason ? `ดำเนินการกับ${resource}: ${legacyBody}` : `ดำเนินการกับ${resource}`}${reason ? `\nเหตุผล: ${reason}` : ""}` };
+  }
   const fallback = LEGACY_THAI_COPY[notification.type];
   const titleIsEnglish = /^[\x00-\x7F]+$/.test(notification.title);
   const bodyIsEnglish = notification.body ? /^[\x00-\x7F]+$/.test(notification.body) : false;
