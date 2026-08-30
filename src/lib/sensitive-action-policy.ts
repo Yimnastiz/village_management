@@ -94,7 +94,7 @@ export function requireActionReason(action: SensitiveAction, input: unknown): st
   const policy = getActionPolicy(action);
   const reason = typeof input === "string" ? input.trim() : "";
   if (policy.requiresReason && reason.length < policy.minReasonLength) {
-    throw new ActionReasonError(action, `Reason must contain at least ${policy.minReasonLength} characters`);
+    throw new ActionReasonError(action, `กรุณาระบุเหตุผลอย่างน้อย ${policy.minReasonLength} ตัวอักษร`);
   }
   return reason;
 }

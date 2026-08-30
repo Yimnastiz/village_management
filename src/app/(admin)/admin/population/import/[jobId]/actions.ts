@@ -100,11 +100,13 @@ export async function confirmPopulationImportAction(formData: FormData) {
   if (!jobId) throw new Error("กรุณาระบุงานนำเข้า");
   const access = await requireImportJobForAdmin(jobId, targetVillageId);
   const reason = requireActionReason("population.import", formData.get("supportReason"));
+  const skippedRows = access.sourceRows.filter((row) => row.action === "SKIP").length;
   if (access.stage !== PopulationImportStage.PENDING) throw new Error("งานนี้ถูกยืนยันหรือดำเนินการไปแล้ว");
   const claimed = await prisma.populationImportJob.updateMany({ where: { id: jobId, villageId: access.villageId, stage: PopulationImportStage.PENDING }, data: { stage: PopulationImportStage.PROCESSING, confirmedBy: access.userId, confirmedAt: new Date(), supportReason: reason } });
   if (claimed.count !== 1) throw new Error("งานนี้ถูกยืนยันไปแล้ว กรุณารีเฟรชหน้า");
   let importedRows = 0;
   let failedRows = 0;
+  let finalStage: PopulationImportStage = PopulationImportStage.PROCESSING;
   const createdPersonIds: string[] = [];
   const createdHouseIds: string[] = [];
   const createdPeople: Array<{ id: string; label: string; houseNumber: string }> = [];
@@ -128,6 +130,7 @@ export async function confirmPopulationImportAction(formData: FormData) {
       importedRows += 1;
     }
     const stage = failedRows > 0 ? PopulationImportStage.PARTIAL : PopulationImportStage.COMPLETED;
+    finalStage = stage;
     await tx.populationImportJob.update({ where: { id: jobId }, data: { stage, importedRows, failedRows, completedAt: new Date(), errors: { ...access.payload, createdPersonIds, createdHouseIds, createdPeople, createdHouses } } });
     const actorRole = targetVillageId ? "SUPERADMIN" : "ADMIN";
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, jobId, fileName: access.fileName, supportReason: reason } } });
@@ -146,6 +149,7 @@ export async function confirmPopulationImportAction(formData: FormData) {
     revalidatePath(`/superadmin/villages/${targetVillageId}/houses`);
     revalidatePath(`/superadmin/villages/${targetVillageId}/people`);
   }
+  return { importedRows, failedRows, skippedRows, stage: finalStage };
 }
 
 function countSkipReasons(skipped: ImportCleanupPreflight["skipped"]) {
@@ -201,8 +205,8 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
   return { deletablePeople: deletablePersonIds.length, deletableHouses: deletableHouseIds.length, deletablePersonIds, deletableHouseIds, skipped, skippedReasonCounts: countSkipReasons(skipped) };
 }
 
-export async function getImportCleanupPreflightAction(jobId: string): Promise<ImportCleanupPreflight> {
-  const access = await requireImportJobForAdmin(jobId, "", "population.import.rollback");
+export async function getImportCleanupPreflightAction(jobId: string, targetVillageId = ""): Promise<ImportCleanupPreflight> {
+  const access = await requireImportJobForAdmin(jobId, targetVillageId, "population.import.rollback");
   if (access.stage !== PopulationImportStage.COMPLETED && access.stage !== PopulationImportStage.PARTIAL) throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
   const assessment = await prisma.$transaction((tx) => assessImportCleanup(tx, access.villageId, jobId, access.createdAt, access.payload.createdPersonIds ?? [], access.payload.createdHouseIds ?? []));
   return { deletablePeople: assessment.deletablePeople, deletableHouses: assessment.deletableHouses, skipped: assessment.skipped, skippedReasonCounts: assessment.skippedReasonCounts };
@@ -215,7 +219,8 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   }
 
   const jobId = jobIdValue.trim();
-  const { villageId, createdAt, payload, stage, userId, actorRole } = await requireImportJobForAdmin(jobId, "", "population.import.rollback");
+  const targetVillageId = typeof formData.get("targetVillageId") === "string" ? formData.get("targetVillageId")!.toString().trim() : "";
+  const { villageId, createdAt, payload, stage, userId, actorRole } = await requireImportJobForAdmin(jobId, targetVillageId, "population.import.rollback");
   const reason = requireActionReason("population.import.rollback", formData.get("supportReason"));
   if (stage !== PopulationImportStage.COMPLETED && stage !== PopulationImportStage.PARTIAL) {
     throw new Error("ลบข้อมูลที่สร้างจากงานนี้ได้หลังงานนำเข้าสิ้นสุดแล้วเท่านั้น");
@@ -276,6 +281,12 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
   revalidatePath(`/admin/population/import/${jobId}`);
   revalidatePath("/admin/population/houses");
   revalidatePath("/admin/population/people");
+  if (targetVillageId) {
+    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import`);
+    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import/${jobId}`);
+    revalidatePath(`/superadmin/villages/${targetVillageId}/houses`);
+    revalidatePath(`/superadmin/villages/${targetVillageId}/people`);
+  }
   return result;
 }
 

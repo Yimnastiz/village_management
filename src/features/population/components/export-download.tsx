@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { useToast } from "@/components/ui/toast";
 
-type ExportDownloadProps = { href: string; requireConfirmation?: boolean };
+type ExportDownloadProps = { href: string; requireConfirmation?: boolean; reasonParam?: string };
 
-export function ExportDownload({ href, requireConfirmation = true }: ExportDownloadProps) {
+export function ExportDownload({ href, requireConfirmation = true, reasonParam = "reason" }: ExportDownloadProps) {
   const [pending, setPending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const toast = useToast();
@@ -18,9 +18,12 @@ export function ExportDownload({ href, requireConfirmation = true }: ExportDownl
     setPending(true);
     try {
       const url = new URL(href, window.location.origin);
-      if (reason) url.searchParams.set("reason", reason);
+      if (reason) url.searchParams.set(reasonParam, reason);
       const response = await fetch(url);
-      if (!response.ok) throw new Error("Export failed");
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: string } | null;
+        throw new Error(payload?.error ?? "ไม่สามารถส่งออกข้อมูลได้");
+      }
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -32,8 +35,8 @@ export function ExportDownload({ href, requireConfirmation = true }: ExportDownl
       URL.revokeObjectURL(objectUrl);
       toast.success("เตรียมข้อมูลส่งออกสำเร็จ");
       setConfirmOpen(false);
-    } catch {
-      toast.error("ส่งออกไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } catch (error) {
+      toast.error("ส่งออกไม่สำเร็จ", error instanceof Error ? error.message : "กรุณาลองใหม่อีกครั้ง");
     } finally {
       setPending(false);
     }
