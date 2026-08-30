@@ -5,6 +5,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { HouseBatchCreateDialog } from "@/features/population/components/house-batch-create-dialog";
 import { getWorkspaceVillage } from "@/features/village-workspace/server/queries";
+import { WorkspaceListPage } from "../workspace-list-page";
 import { normalizeHouseNumber } from "@/lib/house-number";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
@@ -46,9 +47,9 @@ export default async function Page({ params, searchParams }: PageProps) {
     return queryString ? `${base}?${queryString}` : base;
   };
 
-  return <div className="flex min-h-0 flex-col sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-visible">
+  return <WorkspaceListPage><div className="flex min-h-0 flex-col sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)] sm:overflow-visible">
     <SuperAdminPageHeaderRegistration priority={1} context={{ title: "ทะเบียนบ้าน", description: `จัดการบ้านเฉพาะ ${village.name} · ${total.toLocaleString("th-TH")} หลัง` }} />
-    <AdminListToolbar sticky className="-mt-4 sm:-mt-6" hideHeading title="ทะเบียนบ้าน" description={`จัดการบ้านเฉพาะ ${village.name} · ${total.toLocaleString("th-TH")} หลัง`} searchAction={base} clearHref={buildHref({ occupancy: "all", sort: "asc" })} keyword={keyword} searchLabel="ค้นหาบ้านเลขที่" searchPlaceholder="ค้นหาบ้านเลขที่ เช่น 99/1" suggestionTitles={houseSuggestions.map((house) => house.houseNumber)} groups={[
+    <AdminListToolbar sticky hideHeading title="ทะเบียนบ้าน" description={`จัดการบ้านเฉพาะ ${village.name} · ${total.toLocaleString("th-TH")} หลัง`} searchAction={base} clearHref={buildHref({ occupancy: "all", sort: "asc" })} keyword={keyword} searchLabel="ค้นหาบ้านเลขที่" searchPlaceholder="ค้นหาบ้านเลขที่ เช่น 99/1" suggestionTitles={houseSuggestions.map((house) => house.houseNumber)} groups={[
       { label: "เรียง", options: [{ label: "บ้านเลขที่น้อย → มาก", href: buildHref({ occupancy, sort: "asc" }), active: sort === "asc", isDefault: true }, { label: "บ้านเลขที่มาก → น้อย", href: buildHref({ occupancy, sort: "desc" }), active: sort === "desc" }] },
       { label: "สถานะข้อมูล", options: [{ label: "ทั้งหมด", href: buildHref({ occupancy: "all", sort }), active: occupancy === "all", isDefault: true }, { label: "มีประชากรปัจจุบัน", href: buildHref({ occupancy: "withPeople", sort }), active: occupancy === "withPeople" }, { label: "ไม่มีประชากรปัจจุบัน", href: buildHref({ occupancy: "withoutPeople", sort }), active: occupancy === "withoutPeople" }] },
     ]} actions={<HouseBatchCreateDialog createAction={createSuperAdminHousesAction.bind(null, villageId)} requireReason />} />
@@ -59,5 +60,5 @@ export default async function Page({ params, searchParams }: PageProps) {
       </table></div> : <div className="px-4 py-10 text-center text-sm text-gray-500">{keyword ? <><p className="font-medium text-gray-700">ไม่พบบ้านเลขที่ที่ตรงกับคำค้นหา</p><p className="mt-1">ลองตรวจสอบเลขบ้านหรือใช้คำค้นหาที่สั้นลง</p></> : <><p className="font-medium text-gray-700">ยังไม่มีข้อมูลทะเบียนบ้าน</p><p className="mt-1">เพิ่มบ้านเลขที่เพื่อเริ่มจัดทำทะเบียนครัวเรือน</p><div className="mt-4 flex justify-center"><HouseBatchCreateDialog createAction={createSuperAdminHousesAction.bind(null, villageId)} requireReason /></div></>}</div>}
     </section>
     <QueryPagination pathname={base} page={page} totalPages={Math.max(1, Math.ceil(total / pageSize))} params={{ q: keyword || undefined, occupancy: occupancy === "all" ? undefined : occupancy, sort: sort === "asc" ? undefined : sort }} />
-  </div>;
+  </div></WorkspaceListPage>;
 }

@@ -35,6 +35,7 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   const metadata = metadataOf(notification);
   const source = typeof metadata.source === "string" ? metadata.source.toUpperCase() : "";
   const actionUrl = typeof metadata.actionUrl === "string" ? metadata.actionUrl : "";
+  if (source === "SUPERADMIN_INTERVENTION") return PRESENTATIONS.superadmin;
   if (notification.type === "NEWS" || hasString(metadata, "newsId") || source.includes("NEWS")) return PRESENTATIONS.news;
   if (notification.type === "ISSUE_UPDATE" || hasString(metadata, "issueId") || source.includes("ISSUE")) return PRESENTATIONS.issues;
   // Calendar and appointments are separate Resident modules. Prioritize the
@@ -76,4 +77,3 @@ export function formatNotificationTimestamp(value: Date) {
   if (group === "yesterday") return `เมื่อวาน ${time}`;
   return `${new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" }).format(value)} เวลา ${time}`;
 }
-  if (source === "SUPERADMIN_INTERVENTION") return PRESENTATIONS.superadmin;
