@@ -15,12 +15,11 @@ export default async function Page() {
   if (!adminMembership) redirect(computeLandingPath(session));
   const canExportFullRegistry = hasVillagePermission(adminMembership.role, "population.export_sensitive");
 
-  const [village, houseCount, peopleCount, accountCount, zones] = await Promise.all([
+  const [village, houseCount, peopleCount, accountCount] = await Promise.all([
     prisma.village.findUnique({ where: { id: adminMembership.villageId }, select: { name: true } }),
     prisma.house.count({ where: { villageId: adminMembership.villageId } }),
     prisma.person.count({ where: { villageId: adminMembership.villageId } }),
     prisma.villageMembership.count({ where: { villageId: adminMembership.villageId } }),
-    prisma.villageZone.findMany({ where: { villageId: adminMembership.villageId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   return (
@@ -30,7 +29,7 @@ export default async function Page() {
           <h1 className="text-2xl font-bold text-gray-900">ส่งออกข้อมูลประชากร</h1>
           <p className="mt-1 text-sm text-gray-500">ส่งออกข้อมูลบ้าน คน และบัญชีผู้ใช้ของ {village?.name ?? "หมู่บ้านของคุณ"} เป็นไฟล์ Excel เดียว</p>
         </div>
-        <PopulationExportForm zones={zones} canExportFullRegistry={canExportFullRegistry} />
+        <PopulationExportForm canExportFullRegistry={canExportFullRegistry} />
       </div>
 
       {canExportFullRegistry ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">ไฟล์ส่งออกมีข้อมูลส่วนบุคคล กรุณาจัดเก็บและใช้งานอย่างเหมาะสม</p> : null}
