@@ -257,6 +257,7 @@ export async function createSuperAdminPersonAction(
         reason: supportReason,
       },
       actor,
+      { supportReason },
     );
 
     refresh(villageId, "people", row.id);
@@ -264,7 +265,7 @@ export async function createSuperAdminPersonAction(
     return {
       success: true,
       id: row.id,
-      message: "เพิ่มประชากรสำเร็จ",
+      message: "เพิ่มบุคคลสำเร็จ",
     };
   } catch (error) {
     return {

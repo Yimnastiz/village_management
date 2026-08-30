@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { PERSON_STATUS_LABELS } from "@/lib/constants";
 import type { VillagePersonInput } from "@/features/population/server/village-population-service";
 
 type Result =
@@ -108,7 +107,7 @@ export function VillagePersonForm({
 
       toast.error(
         mode === "create"
-          ? "เพิ่มประชากรไม่สำเร็จ"
+          ? "เพิ่มบุคคลไม่สำเร็จ"
           : "แก้ไขข้อมูลประชากรไม่สำเร็จ",
         result.error,
       );
@@ -186,17 +185,6 @@ export function VillagePersonForm({
           {...register("email")}
         />
 
-        <Select
-          label="สถานะ"
-          error={errors.status?.message}
-          {...register("status")}
-          options={Object.entries(PERSON_STATUS_LABELS).map(
-            ([value, label]) => ({
-              value,
-              label,
-            }),
-          )}
-        />
       </div>
 
       <Select
@@ -260,7 +248,7 @@ export function VillagePersonForm({
           className="w-full sm:w-auto"
         >
           {mode === "create"
-            ? "เพิ่มประชากร"
+            ? "เพิ่มบุคคล"
             : "บันทึกการแก้ไข"}
         </Button>
       </div>

@@ -39,6 +39,9 @@ export type VillageHouseInput = {
 export type VillageHouseMutationOptions = {
   supportReason?: string;
 };
+export type VillagePersonMutationOptions = {
+  supportReason?: string;
+};
 export type VillageHouseBatchError = { index: number; field: "houseNumber" | "address"; message: string };
 export class PopulationBatchValidationError extends Error {
   constructor(public readonly errors: VillageHouseBatchError[]) { super("ข้อมูลบ้านไม่ถูกต้อง"); }
@@ -542,9 +545,10 @@ export async function deleteVillageHouse(villageId: string, houseId: string, rea
   });
 }
 
-export async function createVillagePerson(villageId: string, data: VillagePersonInput, actor: PopulationActor) {
+export async function createVillagePerson(villageId: string, data: VillagePersonInput, actor: PopulationActor, options?: VillagePersonMutationOptions) {
   await assertTargetVillage(villageId);
   const value = normalizePersonInput(data);
+  const supportReason = options?.supportReason?.trim() || null;
   return prisma.$transaction(async (tx) => {
     await assertHouseInVillage(tx, villageId, value.houseId);
     if (value.nationalId && await tx.person.findFirst({ where: { villageId, nationalId: value.nationalId }, select: { id: true } })) throw new PopulationValidationError("เลขบัตรประชาชนนี้มีอยู่ในทะเบียนแล้ว");
@@ -557,7 +561,7 @@ export async function createVillagePerson(villageId: string, data: VillagePerson
         if (!activeAdmin) await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId }, create: { userId: user.id, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId } });
       }
     }
-    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actorRole: actor.role, actionName: "PERSON_CREATED", houseId: value.houseId } } });
+    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actorRole: actor.role, actionName: "PERSON_CREATED", houseId: value.houseId, reason: supportReason } } });
     return person;
   });
 }

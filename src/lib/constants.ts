@@ -112,6 +112,22 @@ export const PERSON_STATUS_LABELS: Record<string, string> = {
   UNKNOWN: "ไม่ทราบสถานะ",
 };
 
+export const MOVEMENT_TYPE_LABELS: Record<string, string> = {
+  MOVE_IN: "ย้ายเข้า",
+  MOVE_OUT: "ย้ายออก",
+  BIRTH: "เกิด",
+  DEATH: "เสียชีวิต",
+  TRANSFER: "ย้ายทะเบียน",
+};
+
+export const HOUSE_SOURCE_TYPE_LABELS: Record<string, string> = {
+  ADMIN_CREATED: "เพิ่มโดยผู้ดูแลหมู่บ้าน",
+  IMPORT: "นำเข้าข้อมูล",
+  RESIDENT_REQUEST_VERIFIED: "ยืนยันคำขอของลูกบ้าน",
+  SUPERADMIN_CREATED: "เพิ่มโดยผู้ดูแลระบบ",
+  SEED: "ข้อมูลตั้งต้นระบบ",
+};
+
 export const OCCUPANCY_STATUS_LABELS: Record<string, string> = {
   OCCUPIED: "มีผู้อยู่อาศัย",
   VACANT: "ว่าง",

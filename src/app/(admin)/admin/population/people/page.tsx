@@ -7,16 +7,11 @@ import { PERSON_STATUS_LABELS } from "@/lib/constants";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { PersonStatus, Prisma } from "@prisma/client";
+import { personStatusBadgeVariant } from "@/features/population/person-status";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; status?: string; history?: string; page?: string }>;
 };
-
-function personStatusBadgeVariant(status: PersonStatus): "success" | "warning" | "default" {
-  if (status === PersonStatus.ACTIVE) return "success";
-  if (status === PersonStatus.MOVED_OUT) return "warning";
-  return "default";
-}
 
 export default async function PopulationPeoplePage({ searchParams }: PageProps) {
   const context = await getVillagePermissionContext("population.person.manage");

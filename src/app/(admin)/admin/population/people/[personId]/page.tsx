@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { MovementType } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
-import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
+import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, MOVEMENT_TYPE_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
@@ -12,14 +11,6 @@ import { MoveOutPersonButton } from "../move-out-person-button";
 import { MarkDeceasedPersonButton } from "../mark-deceased-person-button";
 
 interface PageProps { params: Promise<{ personId: string }> }
-
-const MOVEMENT_LABELS: Record<MovementType, string> = {
-  MOVE_IN: "ย้ายเข้า",
-  MOVE_OUT: "ย้ายออก",
-  BIRTH: "เกิด",
-  DEATH: "เสียชีวิต",
-  TRANSFER: "ย้ายทะเบียน",
-};
 
 function toThaiDate(value: Date | null): string {
   if (!value) return "-";
@@ -103,7 +94,7 @@ export default async function Page({ params }: PageProps) {
 
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       <div className="border-b border-gray-200 px-4 py-3"><h2 className="font-semibold text-gray-900">ประวัติการย้ายล่าสุด</h2></div>
-      {person.movements.length === 0 ? <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีประวัติการย้าย</p> : <div className="overflow-x-auto"><table className="min-w-[640px] w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th scope="col" className="px-4 py-3">วันที่</th><th scope="col" className="px-4 py-3">ประเภท</th><th scope="col" className="px-4 py-3">บ้าน</th><th scope="col" className="px-4 py-3">หมายเหตุ</th></tr></thead><tbody>{person.movements.map((movement) => <tr key={movement.id} className="border-t border-gray-100"><td className="px-4 py-3 text-gray-700">{toThaiDate(movement.date)}</td><td className="px-4 py-3 text-gray-700">{MOVEMENT_LABELS[movement.movementType]}</td><td className="px-4 py-3 text-gray-700">{movement.house?.houseNumber ?? "-"}</td><td className="px-4 py-3 text-gray-700">{movement.note ?? "-"}</td></tr>)}</tbody></table></div>}
+      {person.movements.length === 0 ? <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีประวัติการย้าย</p> : <div className="overflow-x-auto"><table className="min-w-[640px] w-full text-sm"><thead className="bg-gray-50 text-left text-gray-600"><tr><th scope="col" className="px-4 py-3">วันที่</th><th scope="col" className="px-4 py-3">ประเภท</th><th scope="col" className="px-4 py-3">บ้าน</th><th scope="col" className="px-4 py-3">หมายเหตุ</th></tr></thead><tbody>{person.movements.map((movement) => <tr key={movement.id} className="border-t border-gray-100"><td className="px-4 py-3 text-gray-700">{toThaiDate(movement.date)}</td><td className="px-4 py-3 text-gray-700">{MOVEMENT_TYPE_LABELS[movement.movementType] ?? movement.movementType}</td><td className="px-4 py-3 text-gray-700">{movement.house?.houseNumber ?? "-"}</td><td className="px-4 py-3 text-gray-700">{movement.note ?? "-"}</td></tr>)}</tbody></table></div>}
     </section>
   </div>;
 }
