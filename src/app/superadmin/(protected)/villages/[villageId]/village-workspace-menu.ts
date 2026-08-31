@@ -15,7 +15,6 @@ import {
   MessageSquareWarning,
   Newspaper,
   Upload,
-  UserRound,
   Users,
 } from "lucide-react";
 
@@ -50,7 +49,6 @@ export const villageWorkspaceMenuGroups: VillageWorkspaceMenuGroup[] = [
   {
     label: "ผู้ดูแลและสมาชิก",
     links: [
-      { slug: "admins", label: "ผู้ดูแลหมู่บ้าน", icon: UserRound },
       { slug: "users", label: "สมาชิก", icon: Users },
     ],
   },
