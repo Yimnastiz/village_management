@@ -1,4 +1,6 @@
 export const PERSON_NAME_MAX_LENGTH = 100;
+export const THAI_NATIONAL_ID_LENGTH = 13;
+export const THAI_PHONE_LENGTH = 10;
 
 export const PERSON_GENDER_VALUES = ["ชาย", "หญิง", "ไม่ระบุ"] as const;
 export type PersonGender = (typeof PERSON_GENDER_VALUES)[number];
@@ -24,6 +26,27 @@ export function isValidPersonName(value: string): boolean {
   return normalized.length > 0
     && normalized.length <= PERSON_NAME_MAX_LENGTH
     && PERSON_NAME_PATTERN.test(normalized);
+}
+
+/** Client-safe typing normalization; final name validation remains non-destructive. */
+export function normalizePersonNameInput(value: string): string {
+  return value.replace(/[\p{N}]/gu, "").slice(0, PERSON_NAME_MAX_LENGTH);
+}
+
+export function normalizeThaiDigits(value: string): string {
+  return value.replace(/[\u0E50-\u0E59]/g, (digit) => String(digit.charCodeAt(0) - 0x0e50)).replace(/\D/g, "");
+}
+
+export function normalizeThaiNationalIdInput(value: string): string {
+  return normalizeThaiDigits(value).slice(0, THAI_NATIONAL_ID_LENGTH);
+}
+
+export function normalizeThaiPhoneInput(value: string): string {
+  return normalizeThaiDigits(value).slice(0, THAI_PHONE_LENGTH);
+}
+
+export function isValidOptionalThaiPhone(value: string): boolean {
+  return !value || /^\d{10}$/.test(value);
 }
 
 /** Returns null only for values outside the explicit canonical/legacy whitelist. */

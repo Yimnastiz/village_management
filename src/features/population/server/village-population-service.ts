@@ -18,6 +18,8 @@ import {
   isValidPersonName,
   normalizePersonGender,
   normalizePersonName,
+  isValidOptionalThaiPhone,
+  normalizeThaiDigits,
   validateOptionalPersonDate,
 } from "@/lib/person-validation";
 import { prisma } from "@/lib/prisma";
@@ -75,8 +77,10 @@ function normalizePersonInputWithoutNationalId(data: VillagePersonInput) {
   if (!parsedDate.valid) throw new PopulationValidationError(parsedDate.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง");
   const gender = normalizePersonGender(typeof data.gender === "string" ? data.gender : "");
   if (!gender) throw new PopulationValidationError("ข้อมูลเพศไม่ถูกต้อง");
-  const phone = (typeof data.phone === "string" ? data.phone : "").trim().replace(/[\s-]/g, "") || null;
-  if (phone && !/^\+?\d{9,15}$/.test(phone)) throw new PopulationValidationError("รูปแบบเบอร์โทรไม่ถูกต้อง");
+  const rawPhone = typeof data.phone === "string" ? data.phone.trim() : "";
+  if (rawPhone && !/^[\d\u0E50-\u0E59]+$/.test(rawPhone)) throw new PopulationValidationError("รูปแบบเบอร์โทรไม่ถูกต้อง");
+  const phone = rawPhone ? normalizeThaiDigits(rawPhone) : null;
+  if (phone && !isValidOptionalThaiPhone(phone)) throw new PopulationValidationError("กรุณาระบุเบอร์โทร 10 หลัก");
   const email = (typeof data.email === "string" ? data.email : "").trim().toLocaleLowerCase("en-US") || null;
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PopulationValidationError("อีเมลสำหรับติดต่อไม่ถูกต้อง");
   return { firstName, lastName, dateOfBirth: parsedDate.value, gender, phone, email, houseId: (typeof data.houseId === "string" ? data.houseId : "").trim() || null };

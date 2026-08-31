@@ -9,7 +9,9 @@ import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { PersonGenderSelect, PersonNameInput, ThaiNationalIdInput, ThaiPhoneInput } from "@/components/person/person-form-inputs";
 import { useToast } from "@/components/ui/toast";
+import { isValidOptionalThaiPhone, isValidPersonName, PERSON_GENDER_VALUES } from "@/lib/person-validation";
 import type { VillagePersonInput } from "@/features/population/server/village-population-service";
 
 type Result =
@@ -146,32 +148,32 @@ export function VillagePersonForm({
       className="space-y-5 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
+        <PersonNameInput
           label="ชื่อ"
           required
           error={errors.firstName?.message}
           {...register("firstName", {
             required: "กรุณาระบุชื่อ",
+            validate: (value) => isValidPersonName(value) || "ชื่อใช้ได้เฉพาะตัวอักษร เว้นวรรค เครื่องหมาย - ' และ .",
           })}
         />
 
-        <Input
+        <PersonNameInput
           label="นามสกุล"
           required
           error={errors.lastName?.message}
           {...register("lastName", {
             required: "กรุณาระบุนามสกุล",
+            validate: (value) => isValidPersonName(value) || "นามสกุลใช้ได้เฉพาะตัวอักษร เว้นวรรค เครื่องหมาย - ' และ .",
           })}
         />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
+        <ThaiNationalIdInput
           label="เลขบัตรประชาชน"
-          inputMode="numeric"
-          maxLength={13}
           error={errors.nationalId?.message}
-          {...register("nationalId")}
+          {...register("nationalId", { validate: (value) => !value || /^\d{13}$/.test(value) || "เลขบัตรประชาชนต้องมี 13 หลัก" })}
         />
 
         <Input
@@ -183,16 +185,17 @@ export function VillagePersonForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
+        <PersonGenderSelect
           label="เพศ"
           error={errors.gender?.message}
-          {...register("gender")}
+          {...register("gender", { validate: (value) => PERSON_GENDER_VALUES.includes(value as (typeof PERSON_GENDER_VALUES)[number]) || "ข้อมูลเพศไม่ถูกต้อง" })}
+          required
         />
 
-        <Input
+        <ThaiPhoneInput
           label="เบอร์โทร"
           error={errors.phone?.message}
-          {...register("phone")}
+          {...register("phone", { validate: (value) => isValidOptionalThaiPhone(value) || "กรุณาระบุเบอร์โทร 10 หลัก" })}
         />
       </div>
 
@@ -273,7 +276,7 @@ export function VillagePersonForm({
         </Button>
       </div>
 
-      {confirmReason ? <ActionReasonDialog open={reasonDialogOpen} action="population.person.edit" title="ยืนยันการแก้ไขข้อมูลบุคคล" description="กรุณาระบุเหตุผลในการดำเนินการ ระบบจะบันทึกการแก้ไขใน Audit Log" reasonLabel="เหตุผลในการดำเนินการ" submitLabel="ยืนยันบันทึกการแก้ไข" requireReason minReasonLength={SUPPORT_REASON_MIN_LENGTH} maxReasonLength={SUPPORT_REASON_MAX_LENGTH} loading={pending} onCancel={() => setReasonDialogOpen(false)} onSubmit={(reason) => { if (!stagedData) return; startTransition(() => { void submitMutation({ ...stagedData, reason }); }); }} /> : null}
+      {confirmReason ? <ActionReasonDialog open={reasonDialogOpen} action="population.person.edit" title={mode === "create" ? "ยืนยันการเพิ่มบุคคล" : "ยืนยันการแก้ไขข้อมูลบุคคล"} description="กรุณาระบุเหตุผลในการดำเนินการ ระบบจะบันทึกรายการนี้ใน Audit Log" reasonLabel="เหตุผลในการดำเนินการ" helperText="ระบุเหตุผลที่ผู้ดูแลระบบระดับสูงเพิ่มข้อมูลประชากรแทนผู้ดูแลหมู่บ้าน" submitLabel={mode === "create" ? "ยืนยันเพิ่มบุคคล" : "ยืนยันบันทึกการแก้ไข"} requireReason minReasonLength={SUPPORT_REASON_MIN_LENGTH} maxReasonLength={SUPPORT_REASON_MAX_LENGTH} loading={pending} onCancel={() => setReasonDialogOpen(false)} onSubmit={(reason) => { if (!stagedData) return; startTransition(() => { void submitMutation({ ...stagedData, reason }); }); }} /> : null}
     </form>
   );
 }
