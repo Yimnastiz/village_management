@@ -179,23 +179,31 @@ export async function setVillageAdminSupportAction(targetVillageId: string, form
 
 export async function changeMembershipSupportAction(targetVillageId: string, formData: FormData) {
   const actor = await requireSuperAdminActionSession();
-  const membershipId = value(formData, "membershipId"); const operation = value(formData, "operation"); const houseId = value(formData, "houseId") || null; const reason = requireReason(formData);
+  const membershipId = value(formData, "membershipId"); const operation = value(formData, "operation"); const targetRoleValue = value(formData, "targetRole"); const houseId = value(formData, "houseId") || null; const reason = requireReason(formData);
   await requireVillage(targetVillageId);
-  if (!["SUSPEND", "ACTIVATE", "RESIDENT"].includes(operation)) throw new Error("รายการดำเนินการไม่ถูกต้อง");
+  if (!["SUSPEND", "ACTIVATE", "CHANGE_ROLE"].includes(operation)) throw new Error("รายการดำเนินการไม่ถูกต้อง");
   await prisma.$transaction(async (tx) => {
     const membership = await tx.villageMembership.findFirst({ where: { id: membershipId, villageId: targetVillageId }, select: { id: true, userId: true, role: true, status: true, houseId: true, user: { select: { name: true, phoneNumber: true } } } });
     if (!membership) throw new Error("Membership ไม่อยู่ในหมู่บ้านเป้าหมาย");
-    if (membership.role === VillageMembershipRole.HEADMAN && operation === "SUSPEND" && value(formData, "confirmVacant") !== "true") throw new Error("การระงับ Headman ต้องยืนยันว่าหมู่บ้านจะอยู่ในสถานะยังไม่มีผู้ใหญ่บ้าน หรือแต่งตั้งผู้ใหม่ก่อน");
-    const nextRole = operation === "RESIDENT" ? VillageMembershipRole.RESIDENT : membership.role;
+    if (membership.status === MembershipStatus.ACTIVE && !["SUSPEND", "CHANGE_ROLE"].includes(operation)) throw new Error("การดำเนินการนี้ไม่สามารถใช้กับสมาชิกที่ใช้งานอยู่ได้");
+    if (membership.status === MembershipStatus.SUSPENDED && operation !== "ACTIVATE") throw new Error("สมาชิกที่ถูกระงับสามารถเปิดใช้งานได้เท่านั้น");
+    if (![MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED].includes(membership.status)) throw new Error("สถานะสมาชิกนี้ไม่มีการเปลี่ยนแปลงที่อนุญาตผ่านหน้านี้");
+    const targetRole = targetRoleValue as VillageMembershipRole;
+    if (operation === "CHANGE_ROLE" && ![VillageMembershipRole.RESIDENT, VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN].includes(targetRole)) throw new Error("บทบาทใหม่ไม่ถูกต้อง");
+    if (operation === "CHANGE_ROLE" && targetRole === membership.role) throw new Error("ต้องเลือกบทบาทใหม่ที่ต่างจากบทบาทปัจจุบัน");
+    if (membership.role === VillageMembershipRole.HEADMAN && (operation === "SUSPEND" || (operation === "CHANGE_ROLE" && targetRole !== VillageMembershipRole.HEADMAN)) && value(formData, "confirmVacant") !== "true") throw new Error("การเปลี่ยนผู้ใหญ่บ้านต้องยืนยันการเว้นว่างตำแหน่ง หรือแต่งตั้งผู้ใหม่ก่อน");
+    const nextRole = operation === "CHANGE_ROLE" ? targetRole : membership.role;
     const nextStatus = operation === "SUSPEND" ? MembershipStatus.SUSPENDED : MembershipStatus.ACTIVE;
-    if (operation === "RESIDENT") {
+    if (operation === "CHANGE_ROLE" && nextRole === VillageMembershipRole.RESIDENT) {
       if (!houseId || !await tx.house.findFirst({ where: { id: houseId, villageId: targetVillageId } })) throw new Error("ต้องเลือกบ้านที่อยู่ในหมู่บ้านนี้ก่อนเปลี่ยนเป็น Resident");
       await tx.villageMembership.update({ where: { id: membership.id }, data: { role: nextRole, status: nextStatus, houseId } });
-    } else await tx.villageMembership.update({ where: { id: membership.id }, data: { status: nextStatus } });
+    } else {
+      if (operation === "CHANGE_ROLE" && nextRole === VillageMembershipRole.HEADMAN) await tx.villageMembership.updateMany({ where: { villageId: targetVillageId, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, id: { not: membership.id } }, data: { status: MembershipStatus.SUSPENDED } });
+      await tx.villageMembership.update({ where: { id: membership.id }, data: operation === "CHANGE_ROLE" ? { role: nextRole, status: nextStatus, houseId: nextRole === VillageMembershipRole.RESIDENT ? houseId : null } : { status: nextStatus } });
+    }
     await tx.auditLog.create({ data: { userId: actor.id, villageId: targetVillageId, action: AuditAction.UPDATE, resource: "MembershipSupport", resourceId: membership.id, metadata: { actorRole: "SUPERADMIN", targetName: membership.user.name, targetUserId: membership.userId, membershipId: membership.id, phone: membership.user.phoneNumber, targetVillageId, supportReason: reason, oldValue: { role: membership.role, status: membership.status }, newValue: { role: nextRole, status: nextStatus }, confirmedVacantHeadman: value(formData, "confirmVacant") === "true" } } });
     await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: targetVillageId, actionLabel: "เปลี่ยนสถานะสมาชิกหมู่บ้าน", supportReason: reason, targetType: "VillageMembership", targetId: membership.id, targetName: membership.user.name, actionUrl: "/admin", metadata: { membershipId: membership.id, operation } });
   });
   revalidatePath(`/superadmin/villages/${targetVillageId}`);
-  const returnTo = value(formData, "returnTo") === "admins" ? "admins" : "users";
-  return { success: true, message: "ปรับข้อมูลสมาชิกเรียบร้อยแล้ว", returnTo };
+  return { success: true, message: "ปรับข้อมูลสมาชิกเรียบร้อยแล้ว" };
 }

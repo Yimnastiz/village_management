@@ -1,17 +1,6 @@
-import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
-import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
-import { prisma } from "@/lib/prisma";
-import { requireSuperAdminPageSession } from "@/lib/superadmin";
-import { getVillageEligibleAdminUsers, getVillageMembers, getWorkspaceVillage } from "@/features/village-workspace/server/queries";
-import { serializeMemberRows } from "@/features/village-workspace/utils";
-import { AdminAssignmentDialog } from "../admin-assignment-dialog";
-import { MemberList } from "../member-list";
-import { WorkspaceListPage } from "../workspace-list-page";
+import { redirect } from "next/navigation";
 
-export default async function VillageAdminsPage({ params, searchParams }: { params: Promise<{ villageId: string }>; searchParams: Promise<{ q?: string; role?: string; status?: string }> }) {
-  await requireSuperAdminPageSession(); const { villageId } = await params; const search = await searchParams; const base = `/superadmin/villages/${villageId}/admins`; const keyword = (search.q ?? "").trim(); const role = search.role ?? "ALL"; const status = search.status ?? "ALL";
-  const [village, result, houses, eligibleUsers] = await Promise.all([getWorkspaceVillage(villageId), getVillageMembers(villageId, { query: keyword, role, status, adminOnly: true }), prisma.house.findMany({ where: { villageId }, orderBy: { houseNumber: "asc" }, select: { id: true, houseNumber: true } }), getVillageEligibleAdminUsers(villageId)]);
-  const href = (nextRole = role, nextStatus = status) => { const query = new URLSearchParams(); if (keyword) query.set("q", keyword); if (nextRole !== "ALL") query.set("role", nextRole); if (nextStatus !== "ALL") query.set("status", nextStatus); const value = query.toString(); return value ? `${base}?${value}` : base; };
-  const rows = serializeMemberRows(result.rows);
-  return <WorkspaceListPage><div className="flex min-h-0 flex-col gap-2 sm:h-[calc(100dvh-var(--app-topbar-visible-offset,4rem)-2rem)]"><SuperAdminPageHeaderRegistration priority={1} context={{ title: "ผู้ดูแลหมู่บ้าน", description: `ผู้ดูแล ${result.total.toLocaleString("th-TH")} คน · เฉพาะ ${village.name}` }} /><AdminListToolbar sticky hideHeading title="ผู้ดูแลหมู่บ้าน" description={`ผู้ดูแล ${result.total.toLocaleString("th-TH")} คน · เฉพาะ ${village.name}`} searchAction={base} clearHref={base} keyword={keyword} searchLabel="ค้นหาผู้ดูแล" searchPlaceholder="ค้นหาชื่อ เบอร์โทร หรือบ้านเลขที่" actions={<AdminAssignmentDialog villageId={villageId} users={eligibleUsers} />} groups={[{ label: "บทบาท", options: [{ label: "ทุกบทบาท", href: href("ALL", status), active: role === "ALL", isDefault: true }, { label: "ผู้ใหญ่บ้าน", href: href("HEADMAN", status), active: role === "HEADMAN" }, { label: "ผู้ช่วยผู้ใหญ่บ้าน", href: href("ASSISTANT_HEADMAN", status), active: role === "ASSISTANT_HEADMAN" }] }, { label: "สถานะ", options: [{ label: "ทุกสถานะ", href: href(role, "ALL"), active: status === "ALL", isDefault: true }, { label: "ใช้งานอยู่", href: href(role, "ACTIVE"), active: status === "ACTIVE" }, { label: "ระงับ", href: href(role, "SUSPENDED"), active: status === "SUSPENDED" }] }]} /><MemberList rows={rows} total={result.total} villageId={villageId} villageName={village.name} houses={houses} returnTo="admins" /></div></WorkspaceListPage>;
+export default async function VillageAdminsPage({ params }: { params: Promise<{ villageId: string }> }) {
+  const { villageId } = await params;
+  redirect(`/superadmin/villages/${villageId}/users?view=admins`);
 }

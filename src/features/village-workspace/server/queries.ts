@@ -89,6 +89,7 @@ export async function getVillageMembers(
         role: true,
         status: true,
         joinedAt: true,
+        updatedAt: true,
         houseId: true,
         house: { select: { houseNumber: true } },
         user: { select: { id: true, name: true, phoneNumber: true, accountStatus: true } },
@@ -96,7 +97,10 @@ export async function getVillageMembers(
     }),
     prisma.villageMembership.count({ where }),
   ]);
-  return { rows, total };
+  const orderedRows = input.adminOnly
+    ? rows.sort((a, b) => (a.role === VillageMembershipRole.HEADMAN ? -1 : b.role === VillageMembershipRole.HEADMAN ? 1 : b.updatedAt.getTime() - a.updatedAt.getTime()))
+    : rows;
+  return { rows: orderedRows, total };
 }
 
 export async function getVillageDashboard(villageId: string) {
