@@ -115,8 +115,10 @@ async function reviewSuperAdminGallerySubmissionResultAction(villageId: string, 
   try {
     await village(villageId); const supportReason = reason(formData.get("supportReason"));
     const decision = String(formData.get("decision") ?? "");
+    const businessReason = String(formData.get("businessReason") ?? "").trim();
     const submission = await prisma.galleryItemSubmission.findFirst({ where: { id: submissionId, status: "PENDING", album: { villageId } }, include: { album: { select: { id: true, villageId: true, title: true } } } });
     if (!submission || (decision !== "APPROVE" && decision !== "REJECT")) return { success: false, error: "ไม่พบคำขอหรือคำสั่งไม่ถูกต้อง" };
+    if (decision === "REJECT" && (businessReason.length < 5 || businessReason.length > 500)) return { success: false, error: "กรุณาระบุเหตุผลที่ไม่อนุมัติ 5–500 ตัวอักษร" };
     await prisma.$transaction(async (tx) => {
       let itemId: string | null = null;
       if (decision === "APPROVE") {
@@ -125,9 +127,9 @@ async function reviewSuperAdminGallerySubmissionResultAction(villageId: string, 
         itemId = item.id;
         if (count === 0) await tx.galleryAlbum.update({ where: { id: submission.albumId }, data: { coverUrl: submission.fileUrl } });
       }
-      await tx.galleryItemSubmission.update({ where: { id: submission.id }, data: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? supportReason : null } });
-      await tx.notification.create({ data: { villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title: decision === "APPROVE" ? "รูปภาพได้รับการอนุมัติ" : "รูปภาพไม่ได้รับการอนุมัติ", body: decision === "APPROVE" ? `รูปภาพถูกเพิ่มในอัลบั้ม ${submission.album.title}` : `เหตุผล: ${supportReason}`, metadata: { source: "GALLERY", submissionId: submission.id, albumId: submission.albumId, itemId, status: decision === "APPROVE" ? "APPROVED" : "REJECTED" } } });
-      await tx.auditLog.create({ data: { userId: null, villageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "GalleryItemSubmission", resourceId: submission.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `GALLERY_SUBMISSION_${decision}D`, supportReason, albumId: submission.albumId, requesterId: submission.requesterId, itemId } } });
+      await tx.galleryItemSubmission.update({ where: { id: submission.id }, data: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? businessReason : null } });
+      await tx.notification.create({ data: { villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title: decision === "APPROVE" ? "รูปภาพได้รับการอนุมัติ" : "รูปภาพไม่ได้รับการอนุมัติ", body: decision === "APPROVE" ? `รูปภาพถูกเพิ่มในอัลบั้ม ${submission.album.title}` : `เหตุผล: ${businessReason}`, metadata: { source: "GALLERY", submissionId: submission.id, albumId: submission.albumId, itemId, status: decision === "APPROVE" ? "APPROVED" : "REJECTED" } } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "GalleryItemSubmission", resourceId: submission.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `GALLERY_SUBMISSION_${decision}D`, supportReason, businessReason: decision === "REJECT" ? businessReason : null, albumId: submission.albumId, requesterId: submission.requesterId, itemId } } });
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: decision === "APPROVE" ? "อนุมัติรูปภาพที่ส่งเข้าร่วม" : "ปฏิเสธรูปภาพที่ส่งเข้าร่วม", supportReason, targetType: "GalleryItemSubmission", targetId: submission.id, targetName: submission.album.title, actionUrl: `/admin/gallery/submissions/${submission.id}`, metadata: { submissionId: submission.id, albumId: submission.albumId } });
     });
     refreshWorkspace(villageId, "gallery", submission.albumId); return { success: true, message: "บันทึกผลการพิจารณาแล้ว" };

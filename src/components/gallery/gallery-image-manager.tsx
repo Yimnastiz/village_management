@@ -24,11 +24,12 @@ type Props = {
   autoSelectFirstCover?: boolean;
   allowCoverSelection?: boolean;
   allowReorder?: boolean;
+  uploadEndpoint?: string;
 };
 
 /** Gallery adapter over the shared Places image manager. */
-export function GalleryImageManager({ value, onChange, maxCount, label = "รูปภาพ", disabled, onBusyChange, autoSelectFirstCover, allowCoverSelection, allowReorder }: Props) {
-  return <PlaceImageManager value={value} maxCount={maxCount} label={label} disabled={disabled} onBusyChange={onBusyChange} autoSelectFirstCover={autoSelectFirstCover} allowCoverSelection={allowCoverSelection} allowReorder={allowReorder} maxSizeBytes={MAX_GALLERY_IMAGE_BYTES} uploadEndpoint="/api/gallery/images" helpText="รองรับ JPG, PNG และ WebP สูงสุด 10 MB ต่อรูป ไม่เกิน 10 รูปต่อครั้ง" renderItemMetadata={(image) => {
+export function GalleryImageManager({ value, onChange, maxCount, label = "รูปภาพ", disabled, onBusyChange, autoSelectFirstCover, allowCoverSelection, allowReorder, uploadEndpoint = "/api/gallery/images" }: Props) {
+  return <PlaceImageManager value={value} maxCount={maxCount} label={label} disabled={disabled} onBusyChange={onBusyChange} autoSelectFirstCover={autoSelectFirstCover} allowCoverSelection={allowCoverSelection} allowReorder={allowReorder} maxSizeBytes={MAX_GALLERY_IMAGE_BYTES} uploadEndpoint={uploadEndpoint} helpText="รองรับ JPG, PNG และ WebP สูงสุด 10 MB ต่อรูป ไม่เกิน 10 รูปต่อครั้ง" renderItemMetadata={(image) => {
     const source = (image as GalleryImageDraft).source;
     return source?.type === "RESIDENT_SUBMISSION" ? <p className="text-xs text-gray-500">คำขอจาก {source.requesterName}</p> : null;
   }} onChange={(next: PlaceImageInput[]) => onChange(next.map((image, index) => {

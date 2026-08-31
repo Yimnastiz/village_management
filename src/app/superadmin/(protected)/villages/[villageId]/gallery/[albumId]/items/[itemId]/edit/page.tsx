@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { prisma } from "@/lib/prisma";
-import { SuperAdminItemForm } from "../../../superadmin-gallery-form";
+import { SuperAdminItemForm } from "../../../../superadmin-gallery-form";
 export default async function EditGalleryItem({params}:{params:Promise<{villageId:string;albumId:string;itemId:string}>}){const {villageId,albumId,itemId}=await params;const item=await prisma.galleryItem.findFirst({where:{id:itemId,albumId,album:{villageId}}});if(!item)notFound();return <div className="space-y-4"><AdminPageToolbar sticky variant="form" backHref={`/superadmin/villages/${villageId}/gallery/${albumId}`} backLabel="กลับรายละเอียดอัลบั้ม" title="แก้ไขรูปภาพ" description="อัปเดตรูปภาพและคำอธิบาย" /><SuperAdminItemForm villageId={villageId} albumId={albumId} itemId={itemId} defaultValues={{id:item.id,url:item.fileUrl,fileKey:item.fileKey??undefined,mimeType:item.mimeType??undefined,description:item.title??"",sortOrder:item.sortOrder,isCover:item.isCover}}/></div>}

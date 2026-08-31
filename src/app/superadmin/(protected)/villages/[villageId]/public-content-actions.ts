@@ -226,3 +226,46 @@ export async function superAdminDeleteTransparencyAction(villageId: string, form
   if (!result.success) throw new Error(result.error);
   redirectWithSuccess(villageId, "transparency", "ลบรายการเรียบร้อยแล้ว");
 }
+
+type SuperAdminTransparencyData = {
+  title: string;
+  description: string;
+  category: string;
+  amount: string;
+  fiscalYear: string;
+  stage: string;
+  visibility: string;
+};
+
+/** The client-dialog counterpart of the legacy form action. */
+export async function superAdminSaveTransparencyDataAction(
+  villageId: string,
+  recordId: string | null,
+  data: SuperAdminTransparencyData,
+  supportReason: string,
+) {
+  try {
+    const context = await requireSuperAdminVillageContext(villageId);
+    const reason = requireSupportReason(supportReason);
+    const amountText = data.amount.trim();
+    const amount = amountText ? Number(amountText) : undefined;
+    if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
+      return { success: false as const, error: "จำนวนเงินไม่ถูกต้อง" };
+    }
+    const payload = { title: data.title, description: data.description, category: data.category, amount, fiscalYear: data.fiscalYear, stage: data.stage, visibility: data.visibility };
+    return recordId
+      ? await updateTransparency({ ...context, supportReason: reason }, recordId, payload)
+      : await createTransparency({ ...context, supportReason: reason }, payload);
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "ไม่สามารถบันทึกรายการได้" };
+  }
+}
+
+export async function superAdminDeleteTransparencyDataAction(villageId: string, recordId: string, supportReason: string) {
+  try {
+    const context = await requireSuperAdminVillageContext(villageId);
+    return await deleteTransparency({ ...context, supportReason: requireSupportReason(supportReason) }, recordId);
+  } catch (error) {
+    return { success: false as const, error: error instanceof Error ? error.message : "ไม่สามารถลบรายการได้" };
+  }
+}
