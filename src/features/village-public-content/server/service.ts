@@ -239,7 +239,17 @@ async function auditSuperAdmin(
     };
     const resource = resourceLabel[input.resource] ?? "ข้อมูลหมู่บ้าน";
     const verb = input.action === AuditAction.CREATE ? "เพิ่ม" : input.action === AuditAction.DELETE ? "ลบ" : "แก้ไข";
-    const actionLabel = input.actionName.includes("PUBLISHED") ? `เผยแพร่${resource}` : `${verb}${resource}`;
+    const newsActionLabels: Record<string, string> = {
+      SUPERADMIN_NEWS_CREATED: "เพิ่มข่าวสาร",
+      SUPERADMIN_NEWS_UPDATED: "แก้ไขข่าวสาร",
+      SUPERADMIN_NEWS_PUBLISHED: "เผยแพร่ข่าวสาร",
+      SUPERADMIN_NEWS_DRAFT: "นำข่าวสารกลับเป็นร่าง",
+      SUPERADMIN_NEWS_ARCHIVED: "จัดเก็บข่าวสาร",
+      SUPERADMIN_NEWS_DELETED: "ลบข่าวสาร",
+    };
+    const actionLabel = input.resource === "News" && newsActionLabels[input.actionName]
+      ? newsActionLabels[input.actionName]
+      : input.actionName.includes("PUBLISHED") ? `เผยแพร่${resource}` : `${verb}${resource}`;
     const actionUrl: Record<string, string> = {
       News: `/admin/news/${input.resourceId}`,
       ContactDirectory: `/admin/contacts/${input.resourceId}`,

@@ -1,148 +1,25 @@
 import Link from "next/link";
-import { NewsStage } from "@prisma/client";
+import { Newspaper, Plus } from "lucide-react";
+import { Prisma } from "@prisma/client";
+import { NewsCard } from "@/components/news/news-card";
+import { NewsMetadata } from "@/components/news/news-metadata";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { SuperAdminNewsImageField } from "@/components/news/superadmin-news-image-field";
 import { prisma } from "@/lib/prisma";
-import {
-  EmptyState,
-  formatDate,
-  HiddenId,
-  PageHeader,
-  Pager,
-  ReasonField,
-  SearchBar,
-  SupportNotice,
-  VisibilitySelect,
-} from "../public-content-ui";
-import {
-  superAdminDeleteNewsAction,
-  superAdminSaveNewsAction,
-  superAdminSetNewsStageAction,
-} from "../public-content-actions";
+import { formatNewsAuthor } from "@/lib/news-author";
 
-const TAKE = 10;
+function href(villageId: string, q: string, stage: string, visibility: string, sort: string) { const params = new URLSearchParams(); if (q) params.set("q", q); if (stage !== "ALL") params.set("stage", stage); if (visibility !== "ALL") params.set("visibility", visibility); if (sort !== "newest") params.set("sort", sort); const query = params.toString(); return `/superadmin/villages/${villageId}/news${query ? `?${query}` : ""}`; }
 
-export default async function SuperAdminVillageNewsPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ villageId: string }>;
-  searchParams: Promise<{ q?: string; status?: string; page?: string; edit?: string }>;
-}) {
-  const { villageId } = await params;
-  const query = await searchParams;
-  const page = Math.max(Number(query.page ?? "1") || 1, 1);
-  const search = query.q?.trim() ?? "";
-  const status = query.status?.trim() ?? "";
-  const where = {
-    villageId,
-    ...(search
-      ? { OR: [{ title: { contains: search, mode: "insensitive" as const } }, { summary: { contains: search, mode: "insensitive" as const } }] }
-      : {}),
-    ...(status && status !== "ALL" ? { stage: status as NewsStage } : {}),
-  };
-  const [village, rows, total, editing] = await Promise.all([
-    prisma.village.findUnique({ where: { id: villageId }, select: { name: true } }),
-    prisma.news.findMany({
-      where,
-      orderBy: [{ updatedAt: "desc" }],
-      skip: (page - 1) * TAKE,
-      take: TAKE,
-      select: { id: true, title: true, summary: true, stage: true, visibility: true, isPinned: true, publishedAt: true, updatedAt: true, author: { select: { name: true } }, imageUrls: true, coverUrl: true, content: true },
-    }),
-    prisma.news.count({ where }),
-    query.edit ? prisma.news.findFirst({ where: { id: query.edit, villageId } }) : null,
-  ]);
-
-  const saveAction = superAdminSaveNewsAction.bind(null, villageId);
-  const stageAction = superAdminSetNewsStageAction.bind(null, villageId);
-  const deleteAction = superAdminDeleteNewsAction.bind(null, villageId);
-
-  return (
-    <div className="space-y-4">
-      <PageHeader title="ข่าวสาร" description="จัดการข่าวที่แสดงในพื้นที่สาธารณะของหมู่บ้านเป้าหมาย" villageId={villageId} module="news" />
-      <SupportNotice villageName={village?.name ?? "-"} />
-
-      <SearchBar action={`/superadmin/villages/${villageId}/news`} search={search}>
-        <Select
-          name="status"
-          label="สถานะ"
-          defaultValue={status || "ALL"}
-          options={[
-            { value: "ALL", label: "ทั้งหมด" },
-            { value: "DRAFT", label: "ฉบับร่าง" },
-            { value: "PUBLISHED", label: "เผยแพร่" },
-            { value: "ARCHIVED", label: "เก็บถาวร" },
-          ]}
-        />
-      </SearchBar>
-
-      <form action={saveAction} className="space-y-3 rounded-lg border bg-white p-4">
-        <HiddenId id={editing?.id} />
-        <h3 className="text-base font-semibold text-slate-900">{editing ? "แก้ไขข่าว" : "สร้างข่าว"}</h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input name="title" label="หัวข้อ" defaultValue={editing?.title ?? ""} required />
-          <Select
-            name="stage"
-            label="สถานะ"
-            defaultValue={editing?.stage ?? "DRAFT"}
-            options={[
-              { value: "DRAFT", label: "ฉบับร่าง" },
-              { value: "PUBLISHED", label: "เผยแพร่" },
-              { value: "ARCHIVED", label: "เก็บถาวร" },
-            ]}
-          />
-          <VisibilitySelect defaultValue={editing?.visibility ?? "PUBLIC"} />
-          <label className="mt-6 flex items-center gap-2 text-sm text-slate-700"><input name="isPinned" type="checkbox" defaultChecked={editing?.isPinned ?? false} /> ปักหมุด</label>
-        </div>
-        <Textarea name="summary" label="สรุป" rows={2} defaultValue={editing?.summary ?? ""} />
-        <Textarea name="content" label="เนื้อหา" rows={6} defaultValue={editing?.content ?? ""} required />
-        <SuperAdminNewsImageField initialUrls={Array.isArray(editing?.imageUrls) ? editing.imageUrls.map(String) : []} initialCoverUrl={editing?.coverUrl} />
-        <ReasonField />
-        <Button type="submit">{editing ? "บันทึกการแก้ไข" : "สร้างข่าว"}</Button>
-      </form>
-
-      <div className="overflow-hidden rounded-lg border bg-white">
-        <div className="border-b px-4 py-3 text-sm text-slate-600">ทั้งหมด {total} รายการ</div>
-        {rows.length === 0 ? <EmptyState text="ยังไม่มีข่าวตามเงื่อนไขนี้" /> : (
-          <div className="divide-y">
-            {rows.map((item) => (
-              <div key={item.id} className="space-y-3 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{item.title}</h3>
-                    <p className="text-sm text-slate-600">{item.summary || "-"}</p>
-                    <p className="mt-1 text-xs text-slate-500">สถานะ {item.stage} · {item.visibility} · ผู้เขียน/แก้ไขล่าสุด {item.author?.name ?? "-"} · เผยแพร่ {formatDate(item.publishedAt)} · แก้ไข {formatDate(item.updatedAt)}</p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Link className="rounded-md border px-3 py-2 text-sm" href={`/superadmin/villages/${villageId}/news?edit=${item.id}`}>แก้ไข</Link>
-                    <Link className="rounded-md border px-3 py-2 text-sm" href={`/superadmin/villages/${villageId}/news/${item.id}`}>Preview</Link>
-                  </div>
-                </div>
-                <div className="grid gap-2 md:grid-cols-4">
-                  {["PUBLISHED", "DRAFT", "ARCHIVED"].map((target) => (
-                    <form key={target} action={stageAction} className="space-y-2">
-                      <input type="hidden" name="resourceId" value={item.id} />
-                      <input type="hidden" name="stage" value={target} />
-                      <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={5} maxLength={500} />
-                      <Button className="w-full" type="submit" variant="outline">{target === "PUBLISHED" ? "Publish" : target === "DRAFT" ? "Unpublish" : "Archive"}</Button>
-                    </form>
-                  ))}
-                  <form action={deleteAction} className="space-y-2">
-                    <input type="hidden" name="resourceId" value={item.id} />
-                    <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={5} maxLength={500} />
-                    <Button className="w-full" type="submit" variant="danger">Delete</Button>
-                  </form>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <Pager basePath={`/superadmin/villages/${villageId}/news`} page={page} hasNext={page * TAKE < total} />
-    </div>
-  );
+export default async function SuperAdminVillageNewsPage({ params, searchParams }: { params: Promise<{ villageId: string }>; searchParams: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }> }) {
+  const { villageId } = await params; const query = await searchParams; const keyword = query.q?.trim() ?? ""; const stage = query.stage ?? "ALL"; const visibility = query.visibility ?? "ALL"; const sort = query.sort ?? "newest";
+  const village = await prisma.village.findUnique({ where: { id: villageId }, select: { name: true } });
+  const where: Prisma.NewsWhereInput = { villageId };
+  if (keyword) where.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { summary: { contains: keyword, mode: "insensitive" } }, { content: { contains: keyword, mode: "insensitive" } }];
+  if (["DRAFT", "PUBLISHED", "ARCHIVED"].includes(stage)) where.stage = stage as "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  if (["PUBLIC", "RESIDENT_ONLY"].includes(visibility)) where.visibility = visibility as "PUBLIC" | "RESIDENT_ONLY";
+  const rows = await prisma.news.findMany({ where, orderBy: [{ isPinned: "desc" }, { createdAt: sort === "oldest" ? "asc" : "desc" }], select: { id: true, title: true, summary: true, coverUrl: true, imageUrls: true, stage: true, visibility: true, isPinned: true, publishedAt: true, createdAt: true, author: { select: { name: true, systemRole: true, memberships: { where: { villageId, status: "ACTIVE" }, select: { role: true } } } } } });
+  const suggestions = Array.from(new Set(rows.map((row) => row.title))).slice(0, 12);
+  const groups = [{ label: "สถานะ", values: [["ALL", "ทั้งหมด"], ["DRAFT", "ร่าง"], ["PUBLISHED", "เผยแพร่"], ["ARCHIVED", "จัดเก็บแล้ว"]] }, { label: "การมองเห็น", values: [["ALL", "ทั้งหมด"], ["PUBLIC", "สาธารณะ"], ["RESIDENT_ONLY", "ลูกบ้าน"]] }, { label: "เรียง", values: [["newest", "ล่าสุด"], ["oldest", "เก่าสุด"]] }];
+  return <div className="space-y-4"><SuperAdminPageHeaderRegistration context={{ title: "ข่าวสาร", description: `จัดการข่าวสารและประกาศของ ${village?.name ?? "หมู่บ้าน"} เพื่อการสนับสนุนงานหมู่บ้าน` }} /><AdminListToolbar sticky title="ข่าวสาร" description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น" searchAction={`/superadmin/villages/${villageId}/news`} clearHref={`/superadmin/villages/${villageId}/news`} keyword={keyword} searchPlaceholder="ค้นหาชื่อหรือเนื้อหาข่าว" searchLabel="ค้นหาข่าว" suggestionTitles={suggestions} groups={groups.map((group, groupIndex) => ({ label: group.label, options: group.values.map(([value, label], index) => ({ label, href: href(villageId, keyword, groupIndex === 0 ? value : stage, groupIndex === 1 ? value : visibility, groupIndex === 2 ? value : sort), active: (groupIndex === 0 ? stage : groupIndex === 1 ? visibility : sort) === value, isDefault: index === 0 })) }))} actions={<Link href={`/superadmin/villages/${villageId}/news/new`}><Button size="sm" className="h-10 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="ml-1 hidden min-[360px]:inline">เพิ่มข่าว</span></Button></Link>} />{rows.length === 0 ? <div className="rounded-xl border border-gray-200 bg-white p-10 text-center"><Newspaper className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="text-gray-600">ยังไม่มีข่าวตามเงื่อนไขนี้</p></div> : <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{rows.map((news) => <NewsCard key={news.id} href={`/superadmin/villages/${villageId}/news/${news.id}`} title={news.title} summary={news.summary} imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)} isPinned={news.isPinned} metadata={<NewsMetadata stage={news.stage} visibility={news.visibility} isPinned={news.isPinned} showPinned={false} />} meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`} />)}</div>}</div>;
 }

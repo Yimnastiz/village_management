@@ -1,65 +1,19 @@
 import Link from "next/link";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { notFound } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ImageCarousel } from "@/components/ui/image-carousel";
+import { NewsMetadata } from "@/components/news/news-metadata";
 import { prisma } from "@/lib/prisma";
-import { formatDate, SupportNotice } from "../../public-content-ui";
+import { formatNewsAuthor } from "@/lib/news-author";
+import { SuperAdminNewsActions } from "../superadmin-news-actions";
 
-export default async function SuperAdminNewsPreviewPage({
-  params,
-}: {
-  params: Promise<{ villageId: string; newsId: string }>;
-}) {
+export default async function SuperAdminNewsDetailPage({ params }: { params: Promise<{ villageId: string; newsId: string }> }) {
   const { villageId, newsId } = await params;
-  const [village, news] = await Promise.all([
-    prisma.village.findUnique({ where: { id: villageId }, select: { name: true, slug: true } }),
-    prisma.news.findFirst({
-      where: { id: newsId, villageId },
-      select: {
-        id: true,
-        title: true,
-        summary: true,
-        content: true,
-        imageUrls: true,
-        stage: true,
-        visibility: true,
-        isPinned: true,
-        publishedAt: true,
-        updatedAt: true,
-        author: { select: { name: true } },
-      },
-    }),
-  ]);
+  const news = await prisma.news.findFirst({ where: { id: newsId, villageId }, include: { author: { select: { name: true, systemRole: true, memberships: { where: { villageId, status: "ACTIVE" }, select: { role: true } } } } } });
   if (!news) notFound();
   const images = Array.isArray(news.imageUrls) ? news.imageUrls.map(String).filter(Boolean) : [];
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Badge variant="info">Preview</Badge>
-          <h2 className="mt-2 text-xl font-semibold text-slate-900">{news.title}</h2>
-          <p className="text-sm text-slate-600">
-            {news.stage} · {news.visibility} · {news.isPinned ? "Pinned" : "Normal"} · เผยแพร่ {formatDate(news.publishedAt)} · แก้ไข {formatDate(news.updatedAt)}
-          </p>
-        </div>
-        <Link className="rounded-md border px-3 py-2 text-sm" href={`/superadmin/villages/${villageId}/news?edit=${news.id}`}>
-          แก้ไขข่าวนี้
-        </Link>
-      </div>
-      <SupportNotice villageName={village?.name ?? "-"} />
-      <article className="rounded-lg border bg-white p-4">
-        {images.length > 0 && (
-          <div className="mb-4 grid gap-2 sm:grid-cols-2">
-            {images.slice(0, 4).map((url) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={url} src={url} alt="" className="h-56 w-full rounded object-cover" />
-            ))}
-          </div>
-        )}
-        {news.summary && <p className="mb-4 text-base text-slate-700">{news.summary}</p>}
-        <div className="whitespace-pre-wrap text-sm leading-7 text-slate-800">{news.content}</div>
-        <p className="mt-6 text-xs text-slate-500">ผู้เขียน/ผู้แก้ไขล่าสุด: {news.author?.name ?? "-"}</p>
-      </article>
-    </div>
-  );
+  if (news.coverUrl && images.includes(news.coverUrl)) images.splice(0, 0, ...images.splice(images.indexOf(news.coverUrl), 1));
+  const creator = news.author ? formatNewsAuthor(news.author.name, news.author.systemRole, news.author.memberships[0]?.role) : "ผู้ดูแลระบบระดับสูง (ดำเนินการแทนหมู่บ้าน)";
+  return <div className="mx-auto w-full max-w-4xl space-y-6 px-1 sm:px-0"><div className="flex flex-wrap items-center justify-between gap-3"><Link href={`/superadmin/villages/${villageId}/news`} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"><ArrowLeft className="h-4 w-4" />กลับรายการข่าว</Link><div className="flex w-full flex-wrap items-center gap-2 sm:w-auto"><Link href={`/superadmin/villages/${villageId}/news/${newsId}/edit`}><Button size="sm" variant="outline"><Pencil className="mr-1 h-4 w-4" />แก้ไข</Button></Link><SuperAdminNewsActions villageId={villageId} newsId={newsId} stage={news.stage} /></div></div><article className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8"><NewsMetadata className="mb-4 text-sm" stage={news.stage} visibility={news.visibility} isPinned={news.isPinned} /><h1 className="break-words text-2xl font-bold text-gray-900">{news.title}</h1><p className="mt-2 text-sm text-gray-400">{news.publishedAt ? `เผยแพร่เมื่อ ${news.publishedAt.toLocaleDateString("th-TH")}` : `สร้างเมื่อ ${news.createdAt.toLocaleDateString("th-TH")}`}</p><p className="mt-1 text-sm text-gray-500">ผู้สร้างข่าว: {creator}</p><p className="mt-1 text-sm text-gray-500">แก้ไขล่าสุด: {news.updatedAt.toLocaleString("th-TH")}</p>{news.summary ? <p className="mt-4 text-gray-600">{news.summary}</p> : null}{images.length ? <div className="mt-6"><ImageCarousel images={images} altPrefix={news.title} thumbnailBehavior="select" /></div> : null}<div className="mt-6 border-t pt-6"><p className="whitespace-pre-wrap break-words leading-7 text-gray-700">{news.content}</p></div></article></div>;
 }
