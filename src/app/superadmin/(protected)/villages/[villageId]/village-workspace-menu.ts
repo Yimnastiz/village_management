@@ -50,7 +50,8 @@ export const villageWorkspaceMenuGroups: VillageWorkspaceMenuGroup[] = [
   {
     label: "ผู้ดูแลและสมาชิก",
     links: [
-      { slug: "users", label: "สมาชิกและผู้ดูแล", icon: UserRound },
+      { slug: "admins", label: "ผู้ดูแลหมู่บ้าน", icon: UserRound },
+      { slug: "users", label: "สมาชิก", icon: Users },
     ],
   },
   {

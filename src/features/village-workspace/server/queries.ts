@@ -53,6 +53,41 @@ export async function getVillageEligibleAdminUsers(villageId: string) {
   });
 }
 
+/** Administrator-only projection for the Super Admin village workspace. */
+export async function getVillageAdministrators(
+  villageId: string,
+  input: { query?: string; role?: string; status?: string } = {},
+) {
+  const query = input.query?.trim() ?? "";
+  const role = parseActiveMembershipRole(input.role);
+  if (role === VillageMembershipRole.RESIDENT) throw new Error("Invalid village administrator role filter.");
+  const status = input.status && input.status !== "ALL"
+    ? ([MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED].includes(input.status as MembershipStatus) ? input.status as MembershipStatus : (() => { throw new Error("Invalid village administrator status filter."); })())
+    : undefined;
+  const where: Prisma.VillageMembershipWhereInput = {
+    villageId,
+    role: role ?? { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] },
+    ...(status ? { status } : {}),
+    ...(query ? { OR: [
+      { user: { is: { name: { contains: query, mode: "insensitive" } } } },
+      { user: { is: { phoneNumber: { contains: query, mode: "insensitive" } } } },
+      { user: { is: { email: { contains: query, mode: "insensitive" } } } },
+    ] } : {}),
+  };
+  const [rows, total] = await Promise.all([
+    prisma.villageMembership.findMany({
+      where,
+      orderBy: [{ role: "asc" }, { updatedAt: "desc" }, { id: "desc" }],
+      select: {
+        id: true, role: true, status: true, createdAt: true, joinedAt: true, updatedAt: true,
+        user: { select: { id: true, name: true, phoneNumber: true, email: true, accountStatus: true } },
+      },
+    }),
+    prisma.villageMembership.count({ where }),
+  ]);
+  return { rows, total };
+}
+
 export async function getVillageMembers(
   villageId: string,
   input: { query?: string; role?: string; status?: string; adminOnly?: boolean } = {},

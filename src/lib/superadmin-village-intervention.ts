@@ -15,6 +15,7 @@ export async function notifyVillageAdministrationOfSuperAdminIntervention(
     targetId?: string | null;
     targetName?: string | null;
     actionUrl: string;
+    additionalRecipientUserIds?: string[];
     metadata?: Prisma.InputJsonObject;
   },
 ) {
@@ -26,7 +27,7 @@ export async function notifyVillageAdministrationOfSuperAdminIntervention(
     },
     select: { userId: true },
   });
-  const userIds = [...new Set(recipients.map((recipient) => recipient.userId))];
+  const userIds = [...new Set([...recipients.map((recipient) => recipient.userId), ...(input.additionalRecipientUserIds ?? [])])];
   if (userIds.length === 0) return;
 
   const reason = input.supportReason.trim();
