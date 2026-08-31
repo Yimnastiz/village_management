@@ -12,7 +12,7 @@ type Result = { success: true; message: string } | { success: false; error: stri
 
 function reason(input: unknown) {
   const value = typeof input === "string" ? input.trim() : "";
-  if (value.length < 5) throw new Error("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
+  if (value.length < 5 || value.length > 500) throw new Error("กรุณาระบุเหตุผลในการดำเนินการ 5–500 ตัวอักษร");
   return value;
 }
 
@@ -198,15 +198,16 @@ async function addSuperAdminIssueMessageResultAction(villageId: string, issueId:
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
     const content = String(formData.get("content") ?? "").trim();
+    const isInternal = formData.get("isInternal") === "true";
     if (content.length < 2) return { success: false, error: "กรุณาระบุข้อความอย่างน้อย 2 ตัวอักษร" };
     const issue = await prisma.issue.findFirst({ where: { id: issueId, villageId } });
     if (!issue) return { success: false, error: "ไม่พบปัญหาในหมู่บ้านนี้" };
     await prisma.$transaction(async (tx) => {
-      await tx.issueMessage.create({ data: { issueId: issue.id, senderId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, content, isInternal: false } });
-      await tx.issueTimeline.create({ data: { issueId: issue.id, actorId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, action: "แสดงความคิดเห็น", description: content, metadata: { eventType: "COMMENT", actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
-      await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Issue", resourceId: issue.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "ISSUE_MESSAGE_ADDED", supportReason } } });
+      await tx.issueMessage.create({ data: { issueId: issue.id, senderId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, content, isInternal } });
+      if (!isInternal) await tx.issueTimeline.create({ data: { issueId: issue.id, actorId: SUPERADMIN_ISSUE_MESSAGE_SENDER_ID, action: "แสดงความคิดเห็น", description: content, metadata: { eventType: "COMMENT", actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Issue", resourceId: issue.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "ISSUE_MESSAGE_ADDED", supportReason, isInternal } } });
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "เพิ่มข้อความในคำร้อง", supportReason, targetType: "Issue", targetId: issue.id, targetName: issue.title, actionUrl: `/admin/issues/${issue.id}`, metadata: { issueId: issue.id } });
-      await tx.notification.create({ data: { villageId, userId: issue.reporterId, type: NotificationType.ISSUE_UPDATE, title: "มีข้อความใหม่ในคำร้อง", body: content, metadata: { source: "ISSUE", issueId: issue.id } } });
+      if (!isInternal) await tx.notification.create({ data: { villageId, userId: issue.reporterId, type: NotificationType.ISSUE_UPDATE, title: "มีข้อความใหม่ในคำร้อง", body: content, metadata: { source: "ISSUE", issueId: issue.id } } });
     });
     refresh(villageId, "issues", issue.id);
     return { success: true, message: "เพิ่มข้อความแล้ว" };
@@ -281,12 +282,12 @@ export async function reviewSuperAdminCalendarRequestAction(villageId: string, r
   await reviewSuperAdminCalendarRequestResultAction(villageId, requestId, formData);
 }
 
-export async function updateSuperAdminIssueAction(villageId: string, issueId: string, formData: FormData): Promise<void> {
-  await updateSuperAdminIssueResultAction(villageId, issueId, formData);
+export async function updateSuperAdminIssueAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
+  return updateSuperAdminIssueResultAction(villageId, issueId, formData);
 }
 
-export async function addSuperAdminIssueMessageAction(villageId: string, issueId: string, formData: FormData): Promise<void> {
-  await addSuperAdminIssueMessageResultAction(villageId, issueId, formData);
+export async function addSuperAdminIssueMessageAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
+  return addSuperAdminIssueMessageResultAction(villageId, issueId, formData);
 }
 
 export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<void> {
