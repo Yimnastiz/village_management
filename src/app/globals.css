@@ -109,3 +109,20 @@ input[type="radio"]:disabled {
 .sidebar-scroll::-webkit-scrollbar { width: 4px; }
 .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
 .sidebar-scroll::-webkit-scrollbar-thumb { border-radius: 999px; background: color-mix(in srgb, currentColor 22%, transparent); }
+
+/* Shared Super Admin member-list fallback until its client markup is split into WorkspaceTable. */
+.workspace-list-page > div > .rounded-xl.border-slate-200.bg-white {
+  margin-inline: -1rem;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+@media (min-width: 640px) {
+  .workspace-list-page > div > .rounded-xl.border-slate-200.bg-white { margin-inline: -1.5rem; }
+}
+.workspace-list-page > div > .rounded-xl.border-slate-200.bg-white > .max-h-\[calc\(100dvh-15rem\)\] {
+  max-height: none;
+  min-height: 0;
+  height: 100%;
+}

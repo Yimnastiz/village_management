@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatThaiDateTime } from "@/lib/utils";
-import { getAdminMembership, getSessionContextFromServerCookies, getHeadmanMembership } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import {
   ISSUE_STAGE_LABELS,
@@ -68,8 +68,11 @@ export default async function AdminDashboard() {
     redirect("/auth/login");
   }
 
-  const headmanMembership = getHeadmanMembership(session);
-  const userRole = headmanMembership ? "headman" : "admin";
+  const userRole = adminMembership.role === "HEADMAN"
+    ? "headman"
+    : adminMembership.role === "ASSISTANT_HEADMAN"
+      ? "assistant"
+      : "admin";
   const membership = adminMembership;
   const villageName = await getVillageDisplayName(village);
 

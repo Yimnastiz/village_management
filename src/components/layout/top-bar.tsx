@@ -37,7 +37,7 @@ export function TopBar({
   unreadNotificationCount,
   villageName,
   villageMoo,
-  adminRoleLabel = "ผู้ใหญ่บ้าน",
+  adminRoleLabel = "ผู้ดูแลหมู่บ้าน",
   residentNavigationState,
   adminActionCounts,
   adminRole,
@@ -71,8 +71,8 @@ export function TopBar({
     ? `หมู่บ้าน ${villageName.trim()}${villageMooLabel ? ` หมู่ ${villageMooLabel}` : ""}`
     : "หมู่บ้าน";
   const adminVillageLabel = villageName?.trim()
-    ? `ผู้ใหญ่บ้าน · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
-    : "ผู้ใหญ่บ้าน";
+    ? `${adminRoleLabel} · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
+    : adminRoleLabel;
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
   const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
@@ -243,7 +243,7 @@ export function TopBar({
                   "text-sm font-semibold",
                   isAdminArea ? "text-white" : "text-gray-900"
                 )}>
-                  {userArea === "resident" ? "เมนูลูกบ้าน" : "เมนูผู้ใหญ่บ้าน"}
+                  {userArea === "resident" ? "เมนูลูกบ้าน" : `เมนู${adminRoleLabel}`}
                 </p>
                 {isAdminArea ? (
                   <span title={adminVillageLabel} className="max-w-[12rem] truncate rounded-full bg-blue-500 px-2 py-0.5 text-[11px] font-semibold text-white">{adminVillageLabel}</span>

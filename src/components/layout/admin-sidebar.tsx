@@ -12,6 +12,7 @@ import { SidebarNotificationBadge } from "@/components/ui/sidebar-notification-b
 import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
 import type { AdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
 import { hasVillagePermission, type VillagePermission } from "@/lib/village-permissions";
+import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 export type AdminMenuItem = {
@@ -92,6 +93,7 @@ export function AdminSidebar({ actionCounts, role }: { actionCounts: AdminSideba
   const [collapsed, setCollapsed] = useState(false);
   const [populationOpen, setPopulationOpen] = useState(populationActive);
   const populationMenuId = "admin-sidebar-population-menu";
+  const roleLabel = MEMBERSHIP_ROLE_LABELS[role] ?? "ผู้ดูแลหมู่บ้าน";
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setCollapsed(localStorage.getItem("village-admin-sidebar-collapsed") === "true"));
@@ -109,7 +111,7 @@ export function AdminSidebar({ actionCounts, role }: { actionCounts: AdminSideba
         <div className={cn("flex items-center gap-2", collapsed ? "justify-center" : "justify-between")}>
           {!collapsed ? <Link href="/admin" className="flex min-w-0 items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500"><LayoutDashboard className="h-4 w-4 text-white" /></div>
-            <div><p className="text-sm font-semibold text-white">พื้นที่ผู้ใหญ่บ้าน</p><p className="text-xs text-gray-400">จัดการข้อมูลหมู่บ้าน</p></div>
+            <div><p className="text-sm font-semibold text-white">พื้นที่{roleLabel}</p><p className="text-xs text-gray-400">จัดการข้อมูลหมู่บ้าน</p></div>
           </Link> : null}
           <button type="button" onClick={toggle} aria-label={collapsed ? "ขยายเมนู" : "ย่อเมนู"} aria-expanded={!collapsed} title={collapsed ? "ขยายเมนู" : "ย่อเมนู"} className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900">
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

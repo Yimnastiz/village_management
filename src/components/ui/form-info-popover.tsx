@@ -31,8 +31,8 @@ export function FormInfoPopover({ label, children }: FormInfoPopoverProps) {
   }, [open]);
 
   return <div ref={rootRef} className="relative inline-flex">
-    <button type="button" aria-label={label} title={label} aria-expanded={open} aria-controls={popoverId} onClick={() => setOpen((value) => !value)} className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1">
-      <Info className="h-5 w-5" aria-hidden="true" />
+    <button type="button" aria-label={label} title={label} aria-expanded={open} aria-controls={popoverId} onClick={() => setOpen((value) => !value)} className="inline-flex h-6 w-6 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1">
+      <Info className="h-4 w-4" aria-hidden="true" />
     </button>
     {open ? <div id={popoverId} role="dialog" aria-label={label} className="absolute right-0 top-full z-20 mt-2 w-[min(20rem,calc(100vw-3rem))] rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-600 shadow-lg">
       <p className="font-medium text-slate-800">{label}</p>
