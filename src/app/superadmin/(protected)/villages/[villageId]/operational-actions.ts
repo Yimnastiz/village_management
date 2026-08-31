@@ -6,14 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/superadmin-auth";
 import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
+import { requireSupportReason } from "@/features/village-public-content/server/context";
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 
 type Result = { success: true; message: string } | { success: false; error: string };
 
 function reason(input: unknown) {
-  const value = typeof input === "string" ? input.trim() : "";
-  if (value.length < 5 || value.length > 500) throw new Error("กรุณาระบุเหตุผลในการดำเนินการ 5–500 ตัวอักษร");
-  return value;
+  return requireSupportReason(typeof input === "string" ? input : undefined);
 }
 
 async function village(villageId: string) {
@@ -140,8 +139,10 @@ async function reviewSuperAdminCalendarRequestResultAction(villageId: string, re
     await village(villageId); const supportReason = reason(formData.get("supportReason"));
     const decision = String(formData.get("decision") ?? "");
     const visibility = String(formData.get("visibility") ?? "RESIDENT");
+    const businessReason = String(formData.get("businessReason") ?? "").trim();
     if (decision !== "APPROVE" && decision !== "REJECT") return { success: false, error: "คำสั่งพิจารณาไม่ถูกต้อง" };
     if (decision === "APPROVE" && visibility !== "PUBLIC" && visibility !== "RESIDENT") return { success: false, error: "การมองเห็นไม่ถูกต้อง" };
+    if (decision === "REJECT" && (businessReason.length < 5 || businessReason.length > 500)) return { success: false, error: "กรุณาระบุเหตุผลปฏิเสธ 5–500 ตัวอักษร" };
     const request = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, villageId, status: "PENDING" } });
     if (!request) return { success: false, error: "ไม่พบคำขอในหมู่บ้านนี้ หรือคำขอถูกดำเนินการแล้ว" };
     const approved = decision === "APPROVE";
@@ -160,9 +161,9 @@ async function reviewSuperAdminCalendarRequestResultAction(villageId: string, re
           if (request.type === "EDIT") await tx.villageEvent.update({ where: { id: event.id }, data: { title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic } });
         }
       }
-      await tx.villageEventSubmission.update({ where: { id: request.id }, data: { status: approved ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: approved ? null : supportReason, ...(approved ? { eventId } : {}) } });
-      await tx.notification.create({ data: { userId: request.requesterId, villageId, type: NotificationType.SYSTEM, title: approved ? "คำขอกิจกรรมได้รับการอนุมัติ" : "คำขอกิจกรรมไม่ได้รับการอนุมัติ", body: approved ? `“${request.title}” ถูกดำเนินการแล้ว` : `เหตุผล: ${supportReason}`, metadata: { source: "CALENDAR", requestId: request.id, eventId: eventId || null, status: approved ? "APPROVED" : "REJECTED", actionUrl: eventId ? `/resident/calendar/${eventId}` : "/resident/calendar/requests" } } });
-      await tx.auditLog.create({ data: { userId: null, villageId, action: approved ? AuditAction.APPROVE : AuditAction.REJECT, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `CALENDAR_REQUEST_${approved ? "APPROVED" : "REJECTED"}`, supportReason, requesterId: request.requesterId, eventId, finalVisibility: approved ? visibility : null } } });
+      await tx.villageEventSubmission.update({ where: { id: request.id }, data: { status: approved ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: approved ? null : businessReason, ...(approved ? { eventId } : {}) } });
+      await tx.notification.create({ data: { userId: request.requesterId, villageId, type: NotificationType.SYSTEM, title: approved ? "คำขอกิจกรรมได้รับการอนุมัติ" : "คำขอกิจกรรมไม่ได้รับการอนุมัติ", body: approved ? `“${request.title}” ถูกดำเนินการแล้ว` : `เหตุผล: ${businessReason}`, metadata: { source: "CALENDAR", requestId: request.id, eventId: eventId || null, status: approved ? "APPROVED" : "REJECTED", actionUrl: eventId ? `/resident/calendar/${eventId}` : "/resident/calendar/requests" } } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: approved ? AuditAction.APPROVE : AuditAction.REJECT, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `CALENDAR_REQUEST_${approved ? "APPROVED" : "REJECTED"}`, supportReason, businessReason: approved ? null : businessReason, requesterId: request.requesterId, eventId, finalVisibility: approved ? visibility : null } } });
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: approved ? "อนุมัติคำขอกิจกรรม" : "ปฏิเสธคำขอกิจกรรม", supportReason, targetType: "VillageEventSubmission", targetId: request.id, targetName: request.title, actionUrl: eventId ? `/admin/calendar/${eventId}` : "/admin/calendar/requests", metadata: { requestId: request.id, eventId: eventId || null } });
     });
     refreshWorkspace(villageId, "calendar"); return { success: true, message: "บันทึกผลการพิจารณาแล้ว" };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,13 +33,17 @@ export function ActionReasonDialog({ open, action, title, description, submitLab
   const busy = loading || submitting;
   const requiresReason = requireReason ?? policy.requiresReason;
   const minimumLength = minReasonLength ?? policy.minReasonLength;
-  const valid = !requiresReason || normalizedReason.length >= minimumLength;
+  const valid = (!requiresReason || normalizedReason.length >= minimumLength) && (!maxReasonLength || normalizedReason.length <= maxReasonLength);
+
+  useEffect(() => {
+    if (!open) setReason("");
+  }, [open]);
 
   const submit = async () => {
     if (!valid || busy || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
-    try { await onSubmit(normalizedReason); setReason(""); } finally { submittingRef.current = false; setSubmitting(false); }
+    try { await onSubmit(normalizedReason); } finally { submittingRef.current = false; setSubmitting(false); }
   };
   const cancel = () => { if (!busy) { setReason(""); onCancel(); } };
 
