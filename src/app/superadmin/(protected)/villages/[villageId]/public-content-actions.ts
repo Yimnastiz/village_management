@@ -20,6 +20,11 @@ import {
   updateTransparency,
 } from "@/features/village-public-content/server/service";
 import { prisma } from "@/lib/prisma";
+import { AuditAction, NotificationType } from "@prisma/client";
+import { materializePlaceImages, replacePlaceImages } from "@/lib/place-image.server";
+import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
+import { parseVillagePlacePayload } from "@/lib/village-place";
+import type { PlaceImageInput } from "@/lib/place-image";
 
 function value(formData: FormData, key: string) {
   const entry = formData.get(key);
@@ -135,6 +140,41 @@ export async function superAdminDeletePlaceAction(villageId: string, formData: F
   const result = await deletePlace(context, value(formData, "resourceId"));
   if (!result.success) throw new Error(result.error);
   redirectWithSuccess(villageId, "places", "ลบสถานที่เรียบร้อยแล้ว");
+}
+
+type SuperAdminPlaceData = { name: string; category: string; description: string; address: string; openingHours: string; contactPhone: string; mapUrl: string; latitude: string; longitude: string; isPublic: boolean; isFeatured: boolean; images: PlaceImageInput[] };
+
+export async function superAdminSavePlaceDataAction(villageId: string, placeId: string | null, data: SuperAdminPlaceData, supportReason: string) {
+  const context = await requireSuperAdminVillageContext(villageId);
+  const reason = requireSupportReason(supportReason);
+  const result = placeId
+    ? await updatePlace({ ...context, supportReason: reason }, placeId, data)
+    : await createPlace({ ...context, supportReason: reason }, data);
+  return result;
+}
+
+export async function superAdminDeletePlaceDataAction(villageId: string, placeId: string, supportReason: string) {
+  const context = await requireSuperAdminVillageContext(villageId);
+  const reason = requireSupportReason(supportReason);
+  return deletePlace({ ...context, supportReason: reason }, placeId);
+}
+
+export async function superAdminReviewPlaceSubmissionDataAction(villageId: string, submissionId: string, decision: "APPROVE" | "REJECT", businessReasonInput: string, supportReason: string) {
+  const context = await requireSuperAdminVillageContext(villageId); const interventionReason = requireSupportReason(supportReason); const businessReason = businessReasonInput.trim();
+  if (decision === "REJECT" && (businessReason.length < 5 || businessReason.length > 500)) return { success: false as const, error: "กรุณาระบุเหตุผลปฏิเสธ 5–500 ตัวอักษร" };
+  const db = (prisma as unknown as { villagePlaceSubmission: { findFirst: (args: unknown) => Promise<any> } }).villagePlaceSubmission;
+  const submission = await db.findFirst({ where: { id: submissionId, villageId, status: "PENDING" }, select: { id: true, requesterId: true, type: true, targetPlaceId: true, payload: true } });
+  if (!submission) return { success: false as const, error: "ไม่พบคำขอในหมู่บ้านนี้ หรือคำขอถูกดำเนินการแล้ว" };
+  const payload = parseVillagePlacePayload(submission.payload); if (!payload) return { success: false as const, error: "ข้อมูลคำขอไม่ถูกต้อง" };
+  let placeId: string | null = null;
+  await prisma.$transaction(async (tx) => {
+    const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId, status: "PENDING" }, data: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? businessReason : null } }); if (claimed.count !== 1) throw new Error("REQUEST_ALREADY_REVIEWED");
+    if (decision === "APPROVE") { if (submission.type === "UPDATE") { const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId ?? "", villageId }, select: { id: true } }); if (!target) throw new Error("PLACE_TARGET_NOT_FOUND"); const imageRows = await materializePlaceImages(tx, payload.images, villageId, { existingPlaceId: target.id, trustedNew: true }); if (!imageRows) throw new Error("INVALID_IMAGES"); const { images: _images, isPublic: _public, ...fields } = payload; await tx.villagePlace.update({ where: { id: target.id }, data: { ...fields, imageUrls: [] } }); await replacePlaceImages(tx, target.id, imageRows); placeId = target.id; } else { const imageRows = await materializePlaceImages(tx, payload.images, villageId, { trustedNew: true }); if (!imageRows) throw new Error("INVALID_IMAGES"); const { images: _images, ...fields } = payload; const place = await tx.villagePlace.create({ data: { villageId, ...fields, imageUrls: [], isPublic: false, isFeatured: false, createdById: submission.requesterId }, select: { id: true } }); await replacePlaceImages(tx, place.id, imageRows); placeId = place.id; } }
+    await tx.notification.create({ data: { villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title: decision === "APPROVE" ? "คำขอสถานที่ได้รับการอนุมัติ" : "คำขอสถานที่ไม่ได้รับการอนุมัติ", body: decision === "APPROVE" ? "คำขอสถานที่ของคุณได้รับการอนุมัติแล้ว" : `เหตุผล: ${businessReason}`, metadata: { source: "PLACE", submissionId: submission.id, placeId, status: decision === "APPROVE" ? "APPROVED" : "REJECTED" } } });
+    await tx.auditLog.create({ data: { userId: null, villageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `SUPERADMIN_PLACE_REQUEST_${decision}D`, supportReason: interventionReason, businessReason: decision === "REJECT" ? businessReason : null, placeId } } });
+    await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: decision === "APPROVE" ? "อนุมัติคำขอสถานที่" : "ปฏิเสธคำขอสถานที่", supportReason: interventionReason, targetType: "VillagePlaceSubmission", targetId: submission.id, targetName: payload.name, actionUrl: `/admin/places/requests/${submission.id}`, metadata: { source: "PLACE", submissionId: submission.id, placeId, businessReason: decision === "REJECT" ? businessReason : null } });
+  });
+  return { success: true as const, placeId };
 }
 
 export async function superAdminSaveEventAction(villageId: string, formData: FormData) {

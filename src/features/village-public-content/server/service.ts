@@ -12,6 +12,8 @@ import { areSafeImageSources } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
 import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
+import { materializePlaceImages, replacePlaceImages } from "@/lib/place-image.server";
+import { deletePlaceUploads } from "@/lib/place-upload.server";
 import { isContactCategory, validateContactPhone } from "@/lib/contact";
 import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
 import { getNextContactSortOrder } from "@/features/contact-ordering/server/order";
@@ -514,13 +516,16 @@ export async function deleteContact(context: VillageActorContext, id: string, re
 export async function createPlace(context: VillageActorContext, input: PlaceInput): Promise<ActionResult<{ placeId: string }>> {
   const normalized = normalizeVillagePlaceInput(input);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  const imageRows = await materializePlaceImages(prisma, normalized.value.images, context.villageId);
+  if (!imageRows) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
   const category = normalized.value.category as VillagePlaceCategory;
   const created = await prisma.$transaction(async (tx) => {
     const { images: _images, ...fields } = normalized.value;
     const place = await tx.villagePlace.create({
-      data: { villageId: context.villageId, ...fields, category, imageUrls: input.imageUrls ?? [], createdById: context.actorUserId },
+      data: { villageId: context.villageId, ...fields, category, imageUrls: [], createdById: context.actorUserId },
       select: { id: true },
     });
+    await replacePlaceImages(tx, place.id, imageRows);
     await auditSuperAdmin(tx, context, {
       action: AuditAction.CREATE,
       actionName: "SUPERADMIN_PLACE_CREATED",
@@ -537,6 +542,9 @@ export async function createPlace(context: VillageActorContext, input: PlaceInpu
 export async function updatePlace(context: VillageActorContext, placeId: string, input: PlaceInput): Promise<ActionResult> {
   const normalized = normalizeVillagePlaceInput(input);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  const imageRows = await materializePlaceImages(prisma, normalized.value.images, context.villageId, { existingPlaceId: placeId });
+  if (!imageRows) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };
+  const currentFileKeys = await prisma.villagePlaceImage.findMany({ where: { placeId }, select: { fileKey: true } });
   const existing = await prisma.villagePlace.findFirst({
     where: { id: placeId, villageId: context.villageId },
     select: { id: true, name: true, category: true, isPublic: true },
@@ -545,7 +553,8 @@ export async function updatePlace(context: VillageActorContext, placeId: string,
   const category = normalized.value.category as VillagePlaceCategory;
   await prisma.$transaction(async (tx) => {
     const { images: _images, ...fields } = normalized.value;
-    await tx.villagePlace.update({ where: { id: placeId }, data: { ...fields, category, imageUrls: input.imageUrls ?? [] } });
+    await tx.villagePlace.update({ where: { id: placeId }, data: { ...fields, category, imageUrls: [] } });
+    await replacePlaceImages(tx, placeId, imageRows);
     await auditSuperAdmin(tx, context, {
       action: AuditAction.UPDATE,
       actionName: "SUPERADMIN_PLACE_UPDATED",
@@ -555,18 +564,21 @@ export async function updatePlace(context: VillageActorContext, placeId: string,
       newValue: { name: normalized.value.name, category, isPublic: normalized.value.isPublic },
     });
   });
+  const retained = new Set(imageRows.flatMap((image) => image.fileKey ? [image.fileKey] : []));
+  await deletePlaceUploads(currentFileKeys.flatMap((image) => image.fileKey && !retained.has(image.fileKey) ? [image.fileKey] : []));
   revalidateVillagePublicContent(context, "places", placeId);
   return { success: true };
 }
 
 export async function deletePlace(context: VillageActorContext, placeId: string): Promise<ActionResult> {
-  const existing = await prisma.villagePlace.findFirst({ where: { id: placeId, villageId: context.villageId }, select: { id: true, name: true } });
+  const existing = await prisma.villagePlace.findFirst({ where: { id: placeId, villageId: context.villageId }, select: { id: true, name: true, images: { select: { fileKey: true } } } });
   if (!existing) return { success: false, error: "ไม่พบสถานที่หรือไม่มีสิทธิ์ลบ" };
   await prisma.$transaction(async (tx) => {
     await tx.savedItem.deleteMany({ where: { placeId } });
     await tx.villagePlace.delete({ where: { id: placeId } });
     await auditSuperAdmin(tx, context, { action: AuditAction.DELETE, actionName: "SUPERADMIN_PLACE_DELETED", resource: "VillagePlace", resourceId: placeId, oldValue: { name: existing.name } });
   });
+  await deletePlaceUploads(existing.images.flatMap((image) => image.fileKey ? [image.fileKey] : []));
   revalidateVillagePublicContent(context, "places", placeId);
   return { success: true };
 }
