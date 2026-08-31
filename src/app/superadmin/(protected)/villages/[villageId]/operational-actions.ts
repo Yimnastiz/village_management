@@ -10,6 +10,8 @@ import { requireSupportReason } from "@/features/village-public-content/server/c
 import { deletePlaceUploads, verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { z } from "zod";
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
+import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 type Result = { success: true; message: string } | { success: false; error: string };
 
@@ -351,6 +353,83 @@ async function addSuperAdminIssueMessageResultAction(villageId: string, issueId:
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถเพิ่มข้อความได้" }; }
 }
 
+async function deleteSuperAdminIssueResultAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
+  try {
+    // This verifies both the Super Admin session and the route village before using either submitted value.
+    await village(villageId);
+
+    let businessReason: string;
+    try {
+      businessReason = requireActionReason("issue.cancel", formData.get("businessReason"));
+    } catch (error) {
+      if (error instanceof ActionReasonError) return { success: false, error: "เหตุผลที่ลบคำร้องต้องมี 5–500 ตัวอักษร" };
+      throw error;
+    }
+    if (businessReason.length > 500) return { success: false, error: "เหตุผลที่ลบคำร้องต้องมี 5–500 ตัวอักษร" };
+    const supportReason = reason(formData.get("supportReason"));
+
+    // Scope the lookup to the route village so a forged Issue id cannot cross village boundaries.
+    const issue = await prisma.issue.findFirst({ where: { id: issueId, villageId } });
+    if (!issue) return { success: false, error: "ไม่พบคำร้องในหมู่บ้านนี้" };
+
+    await prisma.$transaction(async (tx) => {
+      // Keep the established Admin deletion semantics: notify, audit, remove restrictive SavedItems, then delete.
+      await tx.notification.create({
+        data: {
+          villageId,
+          userId: issue.reporterId,
+          type: NotificationType.ISSUE_UPDATE,
+          title: "คำร้องของคุณถูกลบโดยผู้ดูแลหมู่บ้าน",
+          body: `เหตุผล: ${businessReason}`,
+          metadata: notificationMetadata("ISSUE", { action: "ISSUE_DELETED", issueTitle: issue.title, deletionReason: businessReason }),
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: null,
+          villageId,
+          action: AuditAction.DELETE,
+          resource: "Issue",
+          resourceId: issue.id,
+          metadata: {
+            actorRole: "SUPERADMIN",
+            actorType: "SUPERADMIN_ENV",
+            policyAction: "issue.cancel",
+            actionName: "ISSUE_DELETED_BY_SUPERADMIN",
+            issueTitle: issue.title,
+            reporterId: issue.reporterId,
+            businessReason,
+            supportReason,
+            issueStage: issue.stage,
+            issueCategory: issue.category,
+          },
+        },
+      });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, {
+        villageId,
+        actionLabel: "ลบคำร้องปัญหา",
+        supportReason,
+        targetType: "Issue",
+        targetId: issue.id,
+        targetName: issue.title,
+        actionUrl: "/admin/issues",
+        metadata: { issueId: issue.id, businessReason },
+      });
+      await tx.savedItem.deleteMany({ where: { issueId: issue.id } });
+      await tx.issue.delete({ where: { id: issue.id } });
+    });
+
+    refresh(villageId, "issues", issue.id);
+    revalidatePath("/admin/issues");
+    revalidatePath(`/admin/issues/${issue.id}`);
+    revalidatePath("/admin/notifications");
+    revalidatePath("/resident/saved");
+    return { success: true, message: "ลบคำร้องเรียบร้อยแล้ว" };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถลบคำร้องได้" };
+  }
+}
+
 async function proposeSuperAdminAppointmentTimeResultAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
@@ -435,6 +514,10 @@ export async function updateSuperAdminIssueAction(villageId: string, issueId: st
 
 export async function addSuperAdminIssueMessageAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
   return addSuperAdminIssueMessageResultAction(villageId, issueId, formData);
+}
+
+export async function deleteSuperAdminIssueAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {
+  return deleteSuperAdminIssueResultAction(villageId, issueId, formData);
 }
 
 export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
