@@ -55,6 +55,7 @@ async function reviewBindingSupportAction(
   const requestScope = await prisma.bindingRequest.findUnique({ where: { id: requestId }, select: { villageId: true } });
   if (!requestScope) return { success: false, message: "ไม่พบคำขอผูกบ้าน" };
   const targetVillageId = requestScope.villageId;
+  if (!targetVillageId) return { success: false, message: "คำขอผูกบ้านไม่มีหมู่บ้านเป้าหมาย" };
   const village = await prisma.village.findUnique({ where: { id: targetVillageId }, select: { id: true, name: true } });
   if (!village) return { success: false, message: "ไม่พบหมู่บ้านเป้าหมาย" };
 
