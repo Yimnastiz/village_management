@@ -71,7 +71,10 @@ function changeDetails(metadata: Record<string, Prisma.JsonValue>) {
 }
 
 function actorLabel(entry: TimelineEntry, villageId: string, viewerId?: string) {
-  if (!entry.actorId) return "ระบบ";
+  if (!entry.actorId) {
+    const metadata = metadataOf(entry.metadata);
+    return metadata.actorRole === "SUPERADMIN" || metadata.actorType === "SUPERADMIN_ENV" ? "ผู้ดูแลระบบระดับสูง (Super Admin)" : "ระบบ";
+  }
   if (viewerId && entry.actorId === viewerId) return "คุณ";
   const membership = entry.actor?.memberships.find((item) => !item.villageId || item.villageId === villageId);
   const role = membership ? MEMBERSHIP_ROLE_LABELS[membership.role] : null;

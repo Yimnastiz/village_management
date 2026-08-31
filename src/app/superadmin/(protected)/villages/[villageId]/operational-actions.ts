@@ -222,13 +222,16 @@ async function proposeSuperAdminAppointmentTimeResultAction(villageId: string, a
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateText) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(startTime)) return { success: false, error: "วันหรือเวลาไม่ถูกต้อง" };
     const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId } });
     if (!appointment || appointment.stage !== "PENDING_APPROVAL") return { success: false, error: "นัดหมายนี้เสนอวันเวลาไม่ได้" };
+    const firstTimeline = await prisma.appointmentTimeline.findFirst({ where: { appointmentId: appointment.id }, orderBy: { createdAt: "asc" }, select: { metadata: true } });
+    const creationMetadata = firstTimeline?.metadata;
+    if (creationMetadata && typeof creationMetadata === "object" && !Array.isArray(creationMetadata) && creationMetadata.adminCreated === true) return { success: false, error: "นัดหมายที่ผู้ดูแลสร้างไม่สามารถเสนอวันเวลาในสถานะนี้ได้" };
     const hour = Number(startTime.slice(0, 2)); const endTime = `${String(hour + 1).padStart(2, "0")}:00`;
     if (hour >= 23) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 22:59 น." };
     const date = new Date(`${dateText}T00:00:00.000Z`);
     await prisma.$transaction(async (tx) => {
       const slot = await tx.appointmentSlot.create({ data: { villageId, date, startTime, endTime, maxCapacity: 1, note: `เวลาเสนอสำหรับนัด ${appointment.id}` } });
       await tx.appointment.update({ where: { id: appointment.id }, data: { slotId: slot.id, scheduledAt: date, stage: "TIME_SUGGESTED", reviewedAt: new Date() } });
-      await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: "TIME_SUGGESTED", description: "ผู้ดูแลระบบเสนอวันเวลาให้ลูกบ้านยืนยัน", metadata: { slotDate: date, slotTime: startTime, supportReason } } });
+      await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: "TIME_SUGGESTED", description: "ผู้ดูแลระบบเสนอวันเวลาให้ลูกบ้านยืนยัน", metadata: { slotDate: date, slotTime: startTime, actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
       await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "APPOINTMENT_TIME_SUGGESTED", supportReason, date: dateText, startTime } } });
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "เสนอเวลานัดหมาย", supportReason, targetType: "Appointment", targetId: appointment.id, targetName: appointment.title, actionUrl: `/admin/appointments/${appointment.id}`, metadata: { appointmentId: appointment.id } });
       await tx.notification.create({ data: { villageId, userId: appointment.userId, type: NotificationType.APPOINTMENT_UPDATE, title: "มีการเสนอเวลานัดหมาย", body: `นัดหมาย “${appointment.title}” มีวันเวลาใหม่ให้ยืนยัน`, metadata: { appointmentId: appointment.id } } });
@@ -243,6 +246,7 @@ async function changeSuperAdminAppointmentStageResultAction(villageId: string, a
     await village(villageId);
     const supportReason = reason(formData.get("supportReason"));
     const action = String(formData.get("action") ?? "");
+    const businessReason = String(formData.get("businessReason") ?? "").trim();
     const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId } });
     if (!appointment) return { success: false, error: "ไม่พบนัดหมายในหมู่บ้านนี้" };
     const next = action === "REJECT" ? "REJECTED" : action === "CANCEL" ? "CANCELLED" : null;
@@ -250,12 +254,18 @@ async function changeSuperAdminAppointmentStageResultAction(villageId: string, a
       ? appointment.stage === "PENDING_APPROVAL"
       : action === "CANCEL" && ["TIME_SUGGESTED", "APPROVED"].includes(appointment.stage);
     if (!next || !validStage) return { success: false, error: "ไม่สามารถดำเนินการกับนัดหมายในสถานะนี้ได้" };
+    if (action === "REJECT") {
+      const firstTimeline = await prisma.appointmentTimeline.findFirst({ where: { appointmentId: appointment.id }, orderBy: { createdAt: "asc" }, select: { metadata: true } });
+      const creationMetadata = firstTimeline?.metadata;
+      if (creationMetadata && typeof creationMetadata === "object" && !Array.isArray(creationMetadata) && creationMetadata.adminCreated === true) return { success: false, error: "ปฏิเสธได้เฉพาะคำขอนัดหมายของลูกบ้าน" };
+    }
+    if (businessReason.length < 5 || businessReason.length > 500) return { success: false, error: "กรุณาระบุเหตุผล 5–500 ตัวอักษร" };
     await prisma.$transaction(async (tx) => {
-      await tx.appointment.update({ where: { id: appointment.id }, data: { stage: next, reviewedAt: new Date(), reviewNote: supportReason } });
-      await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: next, description: `${next === "REJECTED" ? "ปฏิเสธ" : "ยกเลิก"}นัดหมาย | เหตุผล: ${supportReason}`, metadata: { reason: supportReason } } });
-      await tx.auditLog.create({ data: { userId: null, villageId, action: next === "REJECTED" ? AuditAction.REJECT : AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `APPOINTMENT_${next}`, supportReason, affectedUserId: appointment.userId } } });
+      await tx.appointment.update({ where: { id: appointment.id }, data: { stage: next, reviewedAt: new Date(), reviewNote: businessReason } });
+      await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: next, description: `${next === "REJECTED" ? "ปฏิเสธ" : "ยกเลิก"}นัดหมาย | เหตุผล: ${businessReason}`, metadata: { reason: businessReason, actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: next === "REJECTED" ? AuditAction.REJECT : AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `APPOINTMENT_${next}`, supportReason, businessReason, affectedUserId: appointment.userId, oldStage: appointment.stage, newStage: next } } });
       await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: next === "REJECTED" ? "ปฏิเสธนัดหมาย" : "ยกเลิกนัดหมาย", supportReason, targetType: "Appointment", targetId: appointment.id, targetName: appointment.title, actionUrl: `/admin/appointments/${appointment.id}`, metadata: { appointmentId: appointment.id } });
-      await tx.notification.create({ data: { villageId, userId: appointment.userId, type: NotificationType.APPOINTMENT_UPDATE, title: next === "REJECTED" ? "นัดหมายไม่ได้รับการยืนยัน" : "นัดหมายถูกยกเลิก", body: `นัดหมาย “${appointment.title}” ${next === "REJECTED" ? "ไม่ได้รับการยืนยัน" : "ถูกยกเลิก"} เหตุผล: ${supportReason}`, metadata: { appointmentId: appointment.id } } });
+      await tx.notification.create({ data: { villageId, userId: appointment.userId, type: NotificationType.APPOINTMENT_UPDATE, title: next === "REJECTED" ? "นัดหมายไม่ได้รับการยืนยัน" : "นัดหมายถูกยกเลิก", body: `นัดหมาย “${appointment.title}” ${next === "REJECTED" ? "ไม่ได้รับการยืนยัน" : "ถูกยกเลิก"} เหตุผล: ${businessReason}`, metadata: { appointmentId: appointment.id } } });
     });
     refresh(villageId, "appointments", appointment.id);
     return { success: true, message: action === "REJECT" ? "ปฏิเสธนัดหมายแล้ว" : "ยกเลิกนัดหมายแล้ว" };
@@ -290,10 +300,10 @@ export async function addSuperAdminIssueMessageAction(villageId: string, issueId
   return addSuperAdminIssueMessageResultAction(villageId, issueId, formData);
 }
 
-export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<void> {
-  await proposeSuperAdminAppointmentTimeResultAction(villageId, appointmentId, formData);
+export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
+  return proposeSuperAdminAppointmentTimeResultAction(villageId, appointmentId, formData);
 }
 
-export async function changeSuperAdminAppointmentStageAction(villageId: string, appointmentId: string, formData: FormData): Promise<void> {
-  await changeSuperAdminAppointmentStageResultAction(villageId, appointmentId, formData);
+export async function changeSuperAdminAppointmentStageAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
+  return changeSuperAdminAppointmentStageResultAction(villageId, appointmentId, formData);
 }
