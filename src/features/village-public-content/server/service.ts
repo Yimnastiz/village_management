@@ -14,7 +14,7 @@ import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/super
 import { normalizeVillagePlaceInput } from "@/lib/village-place";
 import { materializePlaceImages, replacePlaceImages } from "@/lib/place-image.server";
 import { deletePlaceUploads } from "@/lib/place-upload.server";
-import { isContactCategory, validateContactPhone } from "@/lib/contact";
+import { isContactCategory, validateContactEmail, validateContactPhone } from "@/lib/contact";
 import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
 import { getNextContactSortOrder } from "@/features/contact-ordering/server/order";
 import type { VillageActorContext } from "./context";
@@ -131,6 +131,9 @@ function normalizeContactInput(data: ContactInput, allowedLegacyCategory?: strin
   const phone = parsed.data.phone?.trim() || "";
   const phoneError = validateContactPhone(phone, false);
   if (phoneError) return { ok: false as const, error: phoneError };
+  const email = parsed.data.email?.trim() || "";
+  const emailError = validateContactEmail(email);
+  if (emailError) return { ok: false as const, error: emailError };
   const category = parsed.data.category.trim();
   if (!isContactCategory(category) && category !== allowedLegacyCategory) return { ok: false as const, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง" };
   if (parsed.data.isPublic !== "PUBLIC" && parsed.data.isPublic !== "RESIDENT") return { ok: false as const, error: "การมองเห็นไม่ถูกต้อง" };
@@ -144,7 +147,7 @@ function normalizeContactInput(data: ContactInput, allowedLegacyCategory?: strin
       name: parsed.data.name.trim(),
       role: parsed.data.role?.trim() || null,
       phone: phone || null,
-      email: parsed.data.email?.trim() || null,
+      email: email || null,
       address: parsed.data.address?.trim() || null,
       category,
       sortOrder,

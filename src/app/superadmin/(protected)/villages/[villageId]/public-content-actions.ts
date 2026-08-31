@@ -114,6 +114,16 @@ export async function superAdminDeleteContactAction(villageId: string, formData:
   redirectWithSuccess(villageId, "contacts", "ลบผู้ติดต่อเรียบร้อยแล้ว");
 }
 
+export async function superAdminSaveContactDataAction(villageId: string, contactId: string | null, data: Record<string, string | boolean>, supportReason: string) {
+  try {
+    const context = await requireSuperAdminVillageContext(villageId);
+    const reason = requireSupportReason(supportReason);
+    const payload = { name: String(data.name ?? ""), role: String(data.role ?? ""), phone: String(data.phone ?? ""), email: String(data.email ?? ""), address: String(data.address ?? ""), category: String(data.category ?? ""), sortOrder: String(data.sortOrder ?? "0"), isPublic: data.isPublic ? "PUBLIC" : "RESIDENT" };
+    return contactId ? await updateContact({ ...context, supportReason: reason }, contactId, payload) : await createContact({ ...context, supportReason: reason }, payload);
+  } catch (error) { return { success: false as const, error: error instanceof Error ? error.message : "ไม่สามารถบันทึกข้อมูลได้" }; }
+}
+export async function superAdminDeleteContactDataAction(villageId: string, contactId: string, supportReason: string) { try { const context = await requireSuperAdminVillageContext(villageId); return await deleteContact({ ...context, supportReason: requireSupportReason(supportReason) }, contactId); } catch (error) { return { success: false as const, error: error instanceof Error ? error.message : "ไม่สามารถลบข้อมูลได้" }; } }
+
 export async function superAdminSavePlaceAction(villageId: string, formData: FormData) {
   const context = await superContext(villageId, formData);
   const id = value(formData, "resourceId");
