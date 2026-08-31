@@ -659,8 +659,11 @@ export async function updateTransparency(context: VillageActorContext, id: strin
 }
 
 export async function deleteTransparency(context: VillageActorContext, id: string): Promise<ActionResult> {
-  const existing = await prisma.transparencyRecord.findFirst({ where: { id, villageId: context.villageId }, select: { id: true, title: true } });
+  const existing = await prisma.transparencyRecord.findFirst({ where: { id, villageId: context.villageId }, select: { id: true, title: true, stage: true } });
   if (!existing) return { success: false, error: "ไม่พบรายการหรือไม่มีสิทธิ์ลบ" };
+  // Keep the same lifecycle semantics as Admin Transparency: only drafts may
+  // be permanently deleted; published records must be archived first.
+  if (existing.stage !== TransparencyStage.DRAFT) return { success: false, error: "ลบได้เฉพาะรายการฉบับร่าง รายการที่เผยแพร่แล้วให้จัดเก็บแทน" };
   await prisma.$transaction(async (tx) => {
     await tx.savedItem.deleteMany({ where: { transparencyId: id } });
     await tx.transparencyRecord.delete({ where: { id } });

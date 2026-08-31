@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TransparencyStage } from "@prisma/client";
+import { NewsVisibility, TransparencyStage } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,23 +15,27 @@ export default async function SuperAdminVillageTransparencyPage({
   searchParams,
 }: {
   params: Promise<{ villageId: string }>;
-  searchParams: Promise<{ q?: string; status?: string; year?: string; page?: string; edit?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; visibility?: string; sort?: string; year?: string; page?: string; edit?: string }>;
 }) {
   const { villageId } = await params;
   const query = await searchParams;
   const page = Math.max(Number(query.page ?? "1") || 1, 1);
   const search = query.q?.trim() ?? "";
-  const status = query.status?.trim() ?? "";
+  const status = ["DRAFT", "PUBLISHED", "ARCHIVED"].includes(query.status?.trim() ?? "") ? query.status!.trim() : "";
+  const visibility = ["PUBLIC", "RESIDENT_ONLY"].includes(query.visibility?.trim() ?? "") ? query.visibility!.trim() : "";
+  const sort = ["newest", "oldest", "amount"].includes(query.sort?.trim() ?? "") ? query.sort!.trim() : "newest";
   const year = query.year?.trim() ?? "";
   const where = {
     villageId,
     ...(search ? { OR: [{ title: { contains: search, mode: "insensitive" as const } }, { category: { contains: search, mode: "insensitive" as const } }] } : {}),
     ...(status && status !== "ALL" ? { stage: status as TransparencyStage } : {}),
+    ...(visibility && visibility !== "ALL" ? { visibility: visibility as NewsVisibility } : {}),
     ...(year ? { fiscalYear: year } : {}),
   };
+  const orderBy = sort === "oldest" ? { createdAt: "asc" as const } : sort === "amount" ? { amount: "desc" as const } : { updatedAt: "desc" as const };
   const [village, rows, total, editing] = await Promise.all([
     prisma.village.findUnique({ where: { id: villageId }, select: { name: true } }),
-    prisma.transparencyRecord.findMany({ where, orderBy: { updatedAt: "desc" }, skip: (page - 1) * TAKE, take: TAKE }),
+    prisma.transparencyRecord.findMany({ where, orderBy, skip: (page - 1) * TAKE, take: TAKE }),
     prisma.transparencyRecord.count({ where }),
     query.edit ? prisma.transparencyRecord.findFirst({ where: { id: query.edit, villageId } }) : null,
   ]);
@@ -44,6 +48,8 @@ export default async function SuperAdminVillageTransparencyPage({
       <SupportNotice villageName={village?.name ?? "-"} />
       <SearchBar action={`/superadmin/villages/${villageId}/transparency`} search={search}>
         <Select name="status" label="สถานะ" defaultValue={status || "ALL"} options={[{ value: "ALL", label: "ทั้งหมด" }, { value: "DRAFT", label: "ฉบับร่าง" }, { value: "PUBLISHED", label: "เผยแพร่" }, { value: "ARCHIVED", label: "เก็บถาวร" }]} />
+        <Select name="visibility" label="การมองเห็น" defaultValue={visibility || "ALL"} options={[{ value: "ALL", label: "ทั้งหมด" }, { value: "PUBLIC", label: "สาธารณะ" }, { value: "RESIDENT_ONLY", label: "เฉพาะลูกบ้าน" }]} />
+        <Select name="sort" label="เรียง" defaultValue={sort} options={[{ value: "newest", label: "แก้ไขล่าสุด" }, { value: "oldest", label: "เก่าก่อน" }, { value: "amount", label: "งบสูงก่อน" }]} />
         <Input name="year" label="ปี" defaultValue={year} className="w-32" />
       </SearchBar>
 
@@ -83,7 +89,7 @@ export default async function SuperAdminVillageTransparencyPage({
           </div>
         ))}
       </div>
-      <Pager basePath={`/superadmin/villages/${villageId}/transparency`} page={page} hasNext={page * TAKE < total} />
+      <Pager basePath={`/superadmin/villages/${villageId}/transparency?q=${encodeURIComponent(search)}&status=${encodeURIComponent(status)}&visibility=${encodeURIComponent(visibility)}&sort=${encodeURIComponent(sort)}&year=${encodeURIComponent(year)}`} page={page} hasNext={page * TAKE < total} />
     </div>
   );
 }
