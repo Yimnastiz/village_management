@@ -1,100 +1,52 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { CalendarPlus, Inbox } from "lucide-react";
+import { Prisma } from "@prisma/client";
+import { Badge } from "@/components/ui/badge";
+import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
+import { NewsFilterChip } from "@/components/news/news-toolbar";
+import type { ToolbarGroup } from "@/components/ui/admin-list-toolbar";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 import { prisma } from "@/lib/prisma";
-import { EmptyState, formatDate, HiddenId, PageHeader, Pager, ReasonField, SearchBar, SupportNotice } from "../public-content-ui";
-import { superAdminDeleteEventAction, superAdminSaveEventAction } from "../public-content-actions";
+import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
+import { SuperAdminCalendarEventActions } from "./superadmin-calendar-event-actions";
 
-const TAKE = 10;
+type PageProps = { params: Promise<{ villageId: string }>; searchParams?: Promise<{ q?: string; visibility?: string; month?: string; date?: string }> };
 
-function toDateTimeLocal(value: Date | null | undefined) {
-  if (!value) return "";
-  return new Date(value.getTime() - value.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-}
-
-export default async function SuperAdminVillageCalendarPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ villageId: string }>;
-  searchParams: Promise<{ q?: string; filter?: string; page?: string; edit?: string }>;
-}) {
+export default async function SuperAdminVillageCalendarPage({ params, searchParams }: PageProps) {
   const { villageId } = await params;
-  const query = await searchParams;
-  const page = Math.max(Number(query.page ?? "1") || 1, 1);
-  const search = query.q?.trim() ?? "";
-  const filter = query.filter?.trim() ?? "ALL";
-  const now = new Date();
-  const where = {
-    villageId,
-    ...(search ? { OR: [{ title: { contains: search, mode: "insensitive" as const } }, { location: { contains: search, mode: "insensitive" as const } }] } : {}),
-    ...(filter === "UPCOMING" ? { startsAt: { gte: now } } : {}),
-    ...(filter === "PAST" ? { startsAt: { lt: now } } : {}),
-    ...(filter === "PUBLIC" ? { isPublic: true } : {}),
-    ...(filter === "PRIVATE" ? { isPublic: false } : {}),
-  };
-  const [village, rows, total, editing] = await Promise.all([
-    prisma.village.findUnique({ where: { id: villageId }, select: { name: true } }),
-    prisma.villageEvent.findMany({ where, orderBy: { startsAt: "desc" }, skip: (page - 1) * TAKE, take: TAKE }),
-    prisma.villageEvent.count({ where }),
-    query.edit ? prisma.villageEvent.findFirst({ where: { id: query.edit, villageId } }) : null,
+  const query = (searchParams ? await searchParams : {}) ?? {};
+  const village = await prisma.village.findUniqueOrThrow({ where: { id: villageId }, select: { name: true } });
+  const keyword = query.q?.trim() ?? "";
+  const visibility = query.visibility === "PUBLIC" || query.visibility === "RESIDENT_ONLY" ? query.visibility : "ALL";
+  const { year, monthIndex, yearStart, yearEnd } = parseCalendarMonth(query.month);
+  const monthStart = new Date(year, monthIndex, 1);
+  const nextMonthStart = new Date(year, monthIndex + 1, 1);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const where: Prisma.VillageEventWhereInput = { villageId, startsAt: { gte: monthStart, lt: nextMonthStart } };
+  if (visibility === "PUBLIC") where.isPublic = true;
+  if (visibility === "RESIDENT_ONLY") where.isPublic = false;
+  if (keyword) where.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { location: { contains: keyword, mode: "insensitive" } }, { description: { contains: keyword, mode: "insensitive" } }];
+  const [events, pendingRequestCount] = await Promise.all([
+    prisma.villageEvent.findMany({ where, orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }], select: { id: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true, createdAt: true, updatedAt: true, createdBy: { select: { name: true } } } }),
+    prisma.villageEventSubmission.count({ where: { villageId, status: "PENDING" } }),
   ]);
-  const saveAction = superAdminSaveEventAction.bind(null, villageId);
-  const deleteAction = superAdminDeleteEventAction.bind(null, villageId);
+  const creationAudits = events.length ? await prisma.auditLog.findMany({ where: { villageId, resource: "VillageEvent", resourceId: { in: events.map((event) => event.id) }, action: "CREATE" }, select: { resourceId: true, metadata: true } }) : [];
+  const superAdminCreatedIds = new Set(creationAudits.filter((audit) => (audit.metadata as { actorRole?: string } | null)?.actorRole === "SUPERADMIN").map((audit) => audit.resourceId));
+  const selectedDateKey = query.date && /^\d{4}-\d{2}-\d{2}$/.test(query.date) ? query.date : null;
+  const todayKey = toDateKey(new Date());
+  const eventsByDay = new Map<string, typeof events>();
+  for (const event of events) { const key = toDateKey(event.startsAt); eventsByDay.set(key, [...(eventsByDay.get(key) ?? []), event]); }
+  const selectedEvents = selectedDateKey ? eventsByDay.get(selectedDateKey) ?? [] : [];
+  const base = `/superadmin/villages/${villageId}/calendar`;
+  const href = (next: { q?: string; visibility?: string; month?: string; date?: string }) => { const values = new URLSearchParams(); if (next.q?.trim()) values.set("q", next.q.trim()); if (next.visibility && next.visibility !== "ALL") values.set("visibility", next.visibility); if (next.month) values.set("month", next.month); if (next.date) values.set("date", next.date); return values.size ? `${base}?${values}` : base; };
+  const filterGroups: ToolbarGroup[] = [{ label: "การมองเห็น", options: [{ label: "ทั้งหมด", href: href({ q: keyword, month: toMonthKey(monthStart) }), active: visibility === "ALL", isDefault: true }, { label: "สาธารณะ", href: href({ q: keyword, visibility: "PUBLIC", month: toMonthKey(monthStart) }), active: visibility === "PUBLIC" }, { label: "เฉพาะลูกบ้าน", href: href({ q: keyword, visibility: "RESIDENT_ONLY", month: toMonthKey(monthStart) }), active: visibility === "RESIDENT_ONLY" }] }];
+  const serialize = (event: typeof events[number]) => ({ id: event.id, title: event.title, description: event.description, location: event.location, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, isPublic: event.isPublic });
+  const weekdays = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
-  return (
-    <div className="space-y-4">
-      <PageHeader title="ปฏิทินกิจกรรม" description="จัดการกิจกรรมแบบ list view พร้อม validation เวลาเริ่มและสิ้นสุด" villageId={villageId} module="calendar" />
-      <Link href={`/superadmin/villages/${villageId}/calendar/requests`} className="inline-flex rounded-md border px-3 py-2 text-sm">พิจารณาคำขอกิจกรรม</Link>
-      <SupportNotice villageName={village?.name ?? "-"} />
-      <SearchBar action={`/superadmin/villages/${villageId}/calendar`} search={search}>
-        <Select name="filter" label="Filter" defaultValue={filter} options={[
-          { value: "ALL", label: "ทั้งหมด" },
-          { value: "UPCOMING", label: "Upcoming" },
-          { value: "PAST", label: "Past" },
-          { value: "PUBLIC", label: "Public" },
-          { value: "PRIVATE", label: "Private" },
-        ]} />
-      </SearchBar>
-
-      <form action={saveAction} className="space-y-3 rounded-lg border bg-white p-4">
-        <HiddenId id={editing?.id} />
-        <h3 className="font-semibold text-slate-900">{editing ? "แก้ไขกิจกรรม" : "สร้างกิจกรรม"}</h3>
-        <div className="grid gap-3 md:grid-cols-2">
-          <Input name="title" label="ชื่อกิจกรรม" defaultValue={editing?.title ?? ""} required />
-          <Input name="location" label="สถานที่" defaultValue={editing?.location ?? ""} />
-          <Input name="startsAt" label="วันเวลาเริ่ม" type="datetime-local" defaultValue={toDateTimeLocal(editing?.startsAt)} required />
-          <Input name="endsAt" label="วันเวลาสิ้นสุด" type="datetime-local" defaultValue={toDateTimeLocal(editing?.endsAt)} />
-        </div>
-        <Textarea name="description" label="รายละเอียด" rows={3} defaultValue={editing?.description ?? ""} />
-        <label className="flex items-center gap-2 text-sm text-slate-700"><input name="isPublic" type="checkbox" defaultChecked={editing?.isPublic ?? true} /> แสดงผลสาธารณะ</label>
-        <ReasonField />
-        <Button type="submit">{editing ? "บันทึกการแก้ไข" : "สร้างกิจกรรม"}</Button>
-      </form>
-
-      <div className="rounded-lg border bg-white">
-        <div className="border-b px-4 py-3 text-sm text-slate-600">ทั้งหมด {total} รายการ</div>
-        {rows.length === 0 ? <EmptyState text="ยังไม่มีกิจกรรมตามเงื่อนไขนี้" /> : rows.map((item) => (
-          <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 border-b p-4 last:border-b-0">
-            <div>
-              <h3 className="font-semibold">{item.title}</h3>
-              <p className="text-sm text-slate-600">{item.location ?? "-"} · {formatDate(item.startsAt)} ถึง {formatDate(item.endsAt)}</p>
-              <p className="text-xs text-slate-500">status {item.isPublic ? "PUBLIC" : "PRIVATE"} · แก้ไข {formatDate(item.updatedAt)}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Link className="rounded-md border px-3 py-2 text-sm" href={`/superadmin/villages/${villageId}/calendar?edit=${item.id}`}>แก้ไข</Link>
-              <form action={deleteAction} className="flex gap-2">
-                <input type="hidden" name="resourceId" value={item.id} />
-                <Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" required minLength={5} maxLength={500} />
-                <Button type="submit" variant="danger">Cancel/Delete</Button>
-              </form>
-            </div>
-          </div>
-        ))}
-      </div>
-      <Pager basePath={`/superadmin/villages/${villageId}/calendar`} page={page} hasNext={page * TAKE < total} />
-    </div>
-  );
+  return <div className="space-y-5">
+    <SuperAdminPageHeaderRegistration priority={1} context={{ title: "ปฏิทิน", description: `จัดการกิจกรรมและกำหนดการของ ${village.name} เพื่อการสนับสนุนงานหมู่บ้าน` }} />
+    <CalendarToolbar namespace="superadmin-village-calendar" title="ปฏิทิน" description="" currentYear={year} currentMonth={monthIndex + 1} yearStart={yearStart} yearEnd={yearEnd} todayMonthKey={toMonthKey(new Date())} search={{ keyword, placeholder: "ค้นหาชื่อกิจกรรม สถานที่ หรือรายละเอียด", suggestions: [...new Set(events.map((event) => event.title))].slice(0, 12) }} actions={<><Link href={`${base}/requests`} className="inline-flex"><span className="inline-flex h-9 items-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700"><Inbox className="mr-1.5 h-4 w-4" />คำขอกิจกรรม{pendingRequestCount ? ` (${pendingRequestCount})` : ""}</span></Link><SuperAdminCalendarEventActions villageId={villageId} /></>} filters={<><span className="text-xs font-semibold text-gray-500">การมองเห็น</span><NewsFilterChip href={href({ q: keyword, month: toMonthKey(monthStart) })} active={visibility === "ALL"}>ทั้งหมด</NewsFilterChip><NewsFilterChip href={href({ q: keyword, visibility: "PUBLIC", month: toMonthKey(monthStart) })} active={visibility === "PUBLIC"}>สาธารณะ</NewsFilterChip><NewsFilterChip href={href({ q: keyword, visibility: "RESIDENT_ONLY", month: toMonthKey(monthStart) })} active={visibility === "RESIDENT_ONLY"}>เฉพาะลูกบ้าน</NewsFilterChip></>} adminFilterGroups={filterGroups} />
+    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white"><div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">{weekdays.map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div><div className="grid grid-cols-7">{Array.from({ length: monthStart.getDay() }).map((_, index) => <div key={`blank-${index}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/70 sm:min-h-24 lg:min-h-28" />)}{Array.from({ length: daysInMonth }).map((_, index) => { const day = index + 1; const cellDate = new Date(year, monthIndex, day); const key = toDateKey(cellDate); const dayEvents = eventsByDay.get(key) ?? []; const selected = selectedDateKey === key; const today = key === todayKey; const dateHref = href({ q: keyword, visibility, month: toMonthKey(monthStart), date: key }); return <div key={key} className={`relative min-h-16 min-w-0 border-b border-r border-gray-100 p-1 sm:min-h-24 sm:p-2 lg:min-h-28 ${selected ? "bg-cyan-700 text-white ring-2 ring-inset ring-cyan-800" : "bg-white hover:bg-gray-50"} ${today && !selected ? "bg-red-50 ring-2 ring-inset ring-red-300" : ""}`}><Link href={dateHref} aria-label={`เลือกวันที่ ${cellDate.toLocaleDateString("th-TH")}`} className="absolute inset-0 z-0" /><div className="pointer-events-none relative z-10"><div className="mb-2 flex justify-between gap-1"><span className={`text-sm font-semibold ${selected ? "text-white" : today ? "text-red-600" : "text-gray-800"}`}>{day}</span>{dayEvents.length ? <span className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs ${selected ? "bg-white/20" : "bg-cyan-100 text-cyan-800"}`}>{dayEvents.length}</span> : null}</div>{dayEvents.slice(0, 2).map((event) => <Link key={event.id} href={dateHref} className={`pointer-events-auto relative z-20 hidden truncate rounded px-1.5 py-1 text-xs sm:block ${selected ? "bg-white/15 text-white" : "bg-cyan-50 text-cyan-900"}`}>{event.title}</Link>)}{dayEvents.length > 2 ? <Link href={dateHref} className={`pointer-events-auto relative z-20 block text-xs ${selected ? "text-white" : "text-gray-500"}`}>+ อีก {dayEvents.length - 2} รายการ</Link> : null}</div></div>; })}</div><div className="border-t border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" />วันนี้</div></section>
+    {selectedDateKey ? <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-4 sm:p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-base font-semibold text-gray-900">รายการวันที่ {new Date(`${selectedDateKey}T00:00:00`).toLocaleDateString("th-TH")}</h2><Badge variant="outline">{selectedEvents.length} รายการ</Badge></div>{selectedEvents.length ? <div className="space-y-3">{selectedEvents.map((event) => <article key={event.id} className="rounded-lg border border-gray-200 p-3 sm:p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="break-words font-semibold text-gray-900">{event.title}</h3><Badge variant={event.isPublic ? "success" : "info"}>{event.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge></div>{event.description ? <p className="mt-2 whitespace-pre-wrap break-words text-sm text-gray-600">{event.description}</p> : null}<dl className="mt-3 grid gap-1 text-sm text-gray-600 sm:grid-cols-2"><div><dt className="inline text-gray-500">เริ่ม: </dt><dd className="inline">{event.startsAt.toLocaleString("th-TH")}</dd></div><div><dt className="inline text-gray-500">สิ้นสุด: </dt><dd className="inline">{event.endsAt?.toLocaleString("th-TH") ?? "ไม่ระบุ"}</dd></div><div><dt className="inline text-gray-500">สถานที่: </dt><dd className="inline">{event.location || "ไม่ระบุ"}</dd></div><div><dt className="inline text-gray-500">สร้างเมื่อ: </dt><dd className="inline">{event.createdAt.toLocaleString("th-TH")}</dd></div><div><dt className="inline text-gray-500">แก้ไขล่าสุด: </dt><dd className="inline">{event.updatedAt.toLocaleString("th-TH")}</dd></div><div><dt className="inline text-gray-500">ผู้สร้าง: </dt><dd className="inline">{event.createdBy?.name ?? (superAdminCreatedIds.has(event.id) ? "ผู้ดูแลระบบระดับสูง" : "ไม่ระบุ")}</dd></div></dl></div><SuperAdminCalendarEventActions villageId={villageId} event={serialize(event)} /></div></article>)}</div> : <div className="py-6 text-center text-sm text-gray-500"><CalendarPlus className="mx-auto mb-2 h-8 w-8 text-gray-300" />ไม่มีกิจกรรมในวันนี้</div>}</section> : null}
+  </div>;
 }

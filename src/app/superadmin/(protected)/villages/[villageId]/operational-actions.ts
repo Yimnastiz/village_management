@@ -288,8 +288,8 @@ export async function transitionSuperAdminDownloadAction(villageId: string, down
   await transitionSuperAdminDownloadResultAction(villageId, downloadId, formData);
 }
 
-export async function reviewSuperAdminCalendarRequestAction(villageId: string, requestId: string, formData: FormData): Promise<void> {
-  await reviewSuperAdminCalendarRequestResultAction(villageId, requestId, formData);
+export async function reviewSuperAdminCalendarRequestAction(villageId: string, requestId: string, formData: FormData): Promise<Result> {
+  return reviewSuperAdminCalendarRequestResultAction(villageId, requestId, formData);
 }
 
 export async function updateSuperAdminIssueAction(villageId: string, issueId: string, formData: FormData): Promise<Result> {

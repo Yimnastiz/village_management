@@ -1,12 +1,11 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { reviewSuperAdminCalendarRequestAction } from "../../operational-actions";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
+import { CalendarRequestReviewActions } from "./calendar-request-review-actions";
 
 export default async function Page({ params }: { params: Promise<{ villageId: string }> }) {
   const { villageId } = await params;
-  const requests = await prisma.villageEventSubmission.findMany({ where: { villageId, status: "PENDING" }, orderBy: { createdAt: "asc" }, include: { requester: { select: { name: true } } } });
-  return <div className="space-y-4"><Link href={`/superadmin/villages/${villageId}/calendar`} className="text-sm text-slate-600">← ปฏิทินกิจกรรม</Link><h2 className="text-lg font-semibold">คำขอกิจกรรมรอพิจารณา</h2><section className="rounded-lg border bg-white">{requests.map((request) => { const review = reviewSuperAdminCalendarRequestAction.bind(null, villageId, request.id); return <div key={request.id} className="space-y-3 border-b p-4"><div><p className="font-medium">{request.title}</p><p className="text-sm text-slate-600">{request.type} · {request.requester.name}</p><p className="text-sm text-slate-600">{request.description || "-"}</p></div><form action={review} className="flex flex-wrap gap-2"><Select name="visibility" label="การมองเห็นเมื่ออนุมัติ" defaultValue="RESIDENT" options={[{ value: "RESIDENT", label: "เฉพาะลูกบ้าน" }, { value: "PUBLIC", label: "สาธารณะ" }]} /><Input name="supportReason" aria-label="เหตุผลในการดำเนินการ" placeholder="เหตุผลในการดำเนินการ" minLength={5} required /><Button name="decision" value="APPROVE" type="submit">อนุมัติ</Button><Button name="decision" value="REJECT" type="submit" variant="danger">ปฏิเสธ</Button></form></div>; })}</section></div>;
+  const [village, requests] = await Promise.all([prisma.village.findUniqueOrThrow({ where: { id: villageId }, select: { name: true } }), prisma.villageEventSubmission.findMany({ where: { villageId, status: "PENDING" }, orderBy: { createdAt: "asc" }, include: { requester: { select: { name: true } } } })]);
+  const base = `/superadmin/villages/${villageId}/calendar`;
+  return <div className="space-y-5"><SuperAdminPageHeaderRegistration priority={1} context={{ title: "คำขอกิจกรรม", description: `พิจารณาคำขอกิจกรรมของ ${village.name} เพื่อการสนับสนุนงานหมู่บ้าน` }} /><Link href={base} className="text-sm text-slate-600 hover:text-slate-900">← กลับปฏิทิน</Link><section className="overflow-hidden rounded-xl border bg-white">{requests.length ? requests.map((request) => <article key={request.id} className="space-y-3 border-b p-4 last:border-b-0"><div><div className="flex flex-wrap gap-2"><h2 className="font-semibold">{request.title}</h2><span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{request.type}</span></div><p className="mt-1 text-sm text-slate-600">ผู้ขอ: {request.requester.name || "ไม่ระบุ"}</p>{request.description ? <p className="mt-2 whitespace-pre-wrap text-sm text-slate-600">{request.description}</p> : null}</div><CalendarRequestReviewActions villageId={villageId} requestId={request.id} /></article>) : <p className="p-8 text-center text-sm text-slate-500">ไม่มีคำขอกิจกรรมที่รอพิจารณา</p>}</section></div>;
 }

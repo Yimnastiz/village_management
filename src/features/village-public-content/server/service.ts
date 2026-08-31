@@ -265,6 +265,7 @@ function revalidateVillagePublicContent(context: VillageActorContext, module: st
   revalidatePath(`/superadmin/villages/${context.villageId}/${module}`);
   revalidatePath(`/admin/${module}`);
   const residentRoutes: Record<string, string> = {
+    calendar: "/resident/calendar",
     news: "/resident/news",
     contacts: "/resident/contacts",
     places: "/resident/places",
