@@ -5,12 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { FilterBar } from "@/components/ui/filter-bar";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 
-export function SupportNotice({ villageName }: { villageName: string }) {
+export function SupportNotice({ villageName, title, description }: { villageName: string; title?: string; description?: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+    <>{title ? <SuperAdminPageHeaderRegistration context={{ title, description }} /> : null}<div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
       คุณกำลังดำเนินการแทนผู้ดูแลหมู่บ้าน ‘{villageName}’ การเปลี่ยนแปลงนี้จะถูกบันทึกใน Audit Log
-    </div>
+    </div></>
   );
 }
 

@@ -1,30 +1,20 @@
+import Link from "next/link";
+import { ImagePlus, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { PageHeader, ReasonField, SupportNotice } from "../public-content-ui";
-import { deleteSuperAdminGalleryAlbumAction, reviewSuperAdminGallerySubmissionAction, saveSuperAdminGalleryAlbumAction } from "../operational-actions";
+import { formatThaiShortDate } from "@/lib/utils";
+import { SupportNotice } from "../public-content-ui";
 
-export default async function Page({ params }: { params: Promise<{ villageId: string }> }) {
-  const { villageId } = await params;
-  const [village, albums, submissions] = await Promise.all([
+export default async function SuperAdminGalleryPage({ params, searchParams }: { params: Promise<{ villageId: string }>; searchParams?: Promise<{ q?: string; visibility?: string; sort?: string }> }) {
+  const { villageId } = await params; const query = (searchParams ? await searchParams : {}) ?? {}; const keyword = query.q?.trim() ?? ""; const visibility = query.visibility ?? "ALL";
+  const [village, albums, pending] = await Promise.all([
     prisma.village.findUnique({ where: { id: villageId }, select: { name: true } }),
-    prisma.galleryAlbum.findMany({ where: { villageId }, orderBy: { albumDate: "desc" }, include: { _count: { select: { items: true, itemSubmissions: true } } } }),
-    prisma.galleryItemSubmission.findMany({ where: { status: "PENDING", album: { villageId } }, orderBy: { createdAt: "asc" }, include: { album: { select: { title: true } }, requester: { select: { name: true } } } }),
+    prisma.galleryAlbum.findMany({ where: { villageId, ...(visibility === "PUBLIC" ? { isPublic: true } : visibility === "RESIDENT" ? { isPublic: false } : {}), ...(keyword ? { OR: [{ title: { contains: keyword, mode: "insensitive" } }, { description: { contains: keyword, mode: "insensitive" } }] } : {}) }, orderBy: query.sort === "oldest" ? [{ albumDate: "asc" }, { createdAt: "asc" }] : [{ albumDate: "desc" }, { createdAt: "desc" }], select: { id: true, title: true, coverUrl: true, albumDate: true, isPublic: true, allowResidentSubmissions: true, items: { orderBy: [{ isCover: "desc" }, { sortOrder: "asc" }], take: 1, select: { fileUrl: true } }, _count: { select: { items: true } } } }),
+    prisma.galleryItemSubmission.count({ where: { status: "PENDING", album: { villageId } } }),
   ]);
-  const save = saveSuperAdminGalleryAlbumAction.bind(null, villageId);
-  return <div className="space-y-4">
-    <PageHeader title="แกลเลอรี" description="จัดการอัลบั้มและพิจารณารูปภาพที่ลูกบ้านส่ง" villageId={villageId} module="gallery" />
-    <SupportNotice villageName={village?.name ?? "-"} />
-    <form action={save} className="space-y-3 rounded-lg border bg-white p-4">
-      <h3 className="font-semibold">สร้างอัลบั้ม</h3>
-      <div className="grid gap-3 md:grid-cols-2"><Input name="title" label="ชื่ออัลบั้ม" required /><Input name="albumDate" label="วันที่" type="date" required /></div>
-      <Textarea name="description" label="รายละเอียด" rows={2} />
-      <label className="mr-5 inline-flex gap-2 text-sm"><input name="isPublic" type="checkbox" defaultChecked /> เผยแพร่สาธารณะ</label>
-      <label className="inline-flex gap-2 text-sm"><input name="allowResidentSubmissions" type="checkbox" /> รับรูปจากลูกบ้าน</label>
-      <ReasonField /><Button type="submit">สร้างอัลบั้ม</Button>
-    </form>
-    <section className="rounded-lg border bg-white"><div className="border-b p-4 font-semibold">อัลบั้ม</div>{albums.map((album) => { const remove = deleteSuperAdminGalleryAlbumAction.bind(null, villageId, album.id); return <div key={album.id} className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><p className="font-medium">{album.title}</p><p className="text-sm text-slate-600">{album._count.items} รูป · รอตรวจ {album._count.itemSubmissions}</p></div><form action={remove} className="flex gap-2"><Input name="supportReason" aria-label="เหตุผล" placeholder="เหตุผล" minLength={5} required /><Button type="submit" variant="danger">ลบ</Button></form></div>; })}</section>
-    <section className="rounded-lg border bg-white"><div className="border-b p-4 font-semibold">รูปภาพรอพิจารณา</div>{submissions.map((item) => { const review = reviewSuperAdminGallerySubmissionAction.bind(null, villageId, item.id); return <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 border-b p-4"><div><p className="font-medium">{item.title || "รูปภาพ"}</p><p className="text-sm text-slate-600">{item.album.title} · {item.requester.name}</p></div><form action={review} className="flex flex-wrap gap-2"><Input name="supportReason" aria-label="เหตุผลในการดำเนินการ" placeholder="เหตุผลในการดำเนินการ" minLength={5} required /><Button name="decision" value="APPROVE" type="submit">อนุมัติ</Button><Button name="decision" value="REJECT" type="submit" variant="danger">ปฏิเสธ</Button></form></div>; })}</section>
+  const base = `/superadmin/villages/${villageId}/gallery`;
+  return <div className="space-y-4"><SupportNotice villageName={village?.name ?? "-"} /><AdminListToolbar sticky title="แกลเลอรี" description={`จัดการอัลบั้มและรูปภาพของ ${village?.name ?? "หมู่บ้าน"} เพื่อการสนับสนุนงานหมู่บ้าน`} searchAction={base} clearHref={base} keyword={keyword} searchPlaceholder="ค้นหาชื่ออัลบั้มหรือคำอธิบาย" hiddenInputs={{ visibility: visibility === "ALL" ? "" : visibility, sort: query.sort === "oldest" ? "oldest" : "" }} groups={[{ label: "การมองเห็น", options: [{ label: "ทั้งหมด", href: base, active: visibility === "ALL" }, { label: "สาธารณะ", href: `${base}?visibility=PUBLIC`, active: visibility === "PUBLIC" }, { label: "เฉพาะลูกบ้าน", href: `${base}?visibility=RESIDENT`, active: visibility === "RESIDENT" }] }, { label: "เรียงลำดับ", options: [{ label: "ล่าสุดก่อน", href: base, active: query.sort !== "oldest" }, { label: "เก่าก่อน", href={`${base}?sort=oldest`, active: query.sort === "oldest"}]}]} actions={<><Link href={`${base}/submissions`} className="inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-sm">คำขอเพิ่มรูป {pending ? `(${pending})` : ""}</Link><Link href={`${base}/new`} className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm text-white"><Plus className="mr-1 h-4 w-4" />เพิ่มอัลบั้ม</Link></>} />
+    {albums.length === 0 ? <div className="rounded-xl border border-dashed bg-white p-10 text-center"><ImagePlus className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="text-gray-600">{keyword || visibility !== "ALL" ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มรูปภาพ"}</p></div> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">{albums.map((album) => <Link key={album.id} href={`${base}/${album.id}`} className="min-w-0 overflow-hidden rounded-xl border bg-white transition-shadow hover:shadow-md"><div className="aspect-video bg-gray-100">{album.items[0]?.fileUrl ?? album.coverUrl ? <img src={album.items[0]?.fileUrl ?? album.coverUrl ?? ""} alt={album.title} className="h-full w-full object-cover" loading="lazy" /> : <div className="flex h-full items-center justify-center text-sm text-gray-400">ไม่มีรูปหน้าปก</div>}</div><div className="space-y-2 p-4"><div className="flex flex-wrap gap-2"><Badge variant={album.isPublic ? "success" : "info"}>{album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>{album.allowResidentSubmissions ? <Badge variant="warning">รับคำขอรูป</Badge> : null}<Badge variant="outline">{album._count.items} รูป</Badge></div><p className="truncate font-medium text-gray-900">{album.title}</p><p className="text-xs text-gray-500">วันที่อัลบั้ม {formatThaiShortDate(album.albumDate)}</p></div></Link>)}</div>}
   </div>;
 }

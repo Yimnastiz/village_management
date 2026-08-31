@@ -7,9 +7,27 @@ import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/superadmin-auth";
 import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { requireSupportReason } from "@/features/village-public-content/server/context";
+import { deletePlaceUploads, verifyPlaceUploadToken } from "@/lib/place-upload.server";
+import { z } from "zod";
 import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META, ISSUE_USER_STATUS_TO_STAGE, type IssueUserStatus } from "@/lib/issues/status";
 
 type Result = { success: true; message: string } | { success: false; error: string };
+
+const superAdminAlbumSchema = z.object({ title: z.string().trim().min(2), description: z.string().optional(), albumDate: z.string().min(1), isPublic: z.enum(["PUBLIC", "RESIDENT"]), allowResidentSubmissions: z.enum(["ALLOW", "DISALLOW"]) });
+const superAdminItemSchema = z.object({ id: z.string().optional(), url: z.string().optional(), fileKey: z.string().optional(), uploadToken: z.string().optional(), description: z.string().trim().max(500).optional(), sortOrder: z.number().int().nonnegative(), isCover: z.boolean() });
+type SuperAdminAlbumInput = z.infer<typeof superAdminAlbumSchema>;
+type SuperAdminItemInput = z.infer<typeof superAdminItemSchema>;
+
+function galleryUrl(fileKey: string) { return `/api/places/images?key=${encodeURIComponent(fileKey)}`; }
+function parseSuperAdminAlbum(data: SuperAdminAlbumInput) {
+  const parsed = superAdminAlbumSchema.safeParse(data);
+  if (!parsed.success) return { ok: false as const, error: "ข้อมูลอัลบั้มไม่ถูกต้อง" };
+  const albumDate = new Date(parsed.data.albumDate);
+  if (Number.isNaN(albumDate.getTime())) return { ok: false as const, error: "วันที่อัลบั้มไม่ถูกต้อง" };
+  return { ok: true as const, value: { title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, albumDate, isPublic: parsed.data.isPublic === "PUBLIC", allowResidentSubmissions: parsed.data.allowResidentSubmissions === "ALLOW" } };
+}
+
+function parseGallerySupportReason(value: unknown) { try { return { ok: true as const, value: requireSupportReason(typeof value === "string" ? value : undefined) }; } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : "เหตุผลไม่ถูกต้อง" }; } }
 
 function reason(input: unknown) {
   return requireSupportReason(typeof input === "string" ? input : undefined);
@@ -114,6 +132,122 @@ async function reviewSuperAdminGallerySubmissionResultAction(villageId: string, 
     });
     refreshWorkspace(villageId, "gallery", submission.albumId); return { success: true, message: "บันทึกผลการพิจารณาแล้ว" };
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถพิจารณาคำขอได้" }; }
+}
+
+export async function saveSuperAdminGalleryAlbumDataAction(villageId: string, albumId: string | null, data: SuperAdminAlbumInput, items: SuperAdminItemInput[], supportReasonInput: string): Promise<Result & { id?: string }> {
+  try {
+    await village(villageId);
+    const support = parseGallerySupportReason(supportReasonInput);
+    if (!support.ok) return support;
+    const parsed = parseSuperAdminAlbum(data);
+    if (!parsed.ok) return parsed;
+    const normalizedItems = items.map((item, index) => ({ ...item, sortOrder: index }));
+    const existing = albumId ? await prisma.galleryAlbum.findFirst({ where: { id: albumId, villageId }, include: { items: { select: { id: true, fileKey: true, fileUrl: true } } } }) : null;
+    if (albumId && !existing) return { success: false, error: "ไม่พบอัลบั้มในหมู่บ้านนี้" };
+    const existingById = new Map((existing?.items ?? []).map((item) => [item.id, item]));
+    const seen = new Set<string>();
+    const rows: Array<{ id?: string; fileUrl: string; fileKey: string | null; title: string | null; sortOrder: number; isCover: boolean }> = [];
+    for (const item of normalizedItems) {
+      if (item.id) {
+        const old = existingById.get(item.id);
+        if (!old || seen.has(item.id)) return { success: false, error: "พบรูปภาพที่ไม่อยู่ในอัลบั้มนี้" };
+        seen.add(item.id); rows.push({ id: item.id, fileUrl: old.fileUrl, fileKey: old.fileKey, title: item.description?.trim() || null, sortOrder: item.sortOrder, isCover: item.isCover });
+      } else {
+        if (!item.url || !item.fileKey || item.url !== galleryUrl(item.fileKey) || !verifyPlaceUploadToken(item.uploadToken, item.fileKey, villageId)) return { success: false, error: "ข้อมูลรูปภาพอัปโหลดไม่ถูกต้อง" };
+        rows.push({ fileUrl: item.url, fileKey: item.fileKey, title: item.description?.trim() || null, sortOrder: item.sortOrder, isCover: item.isCover });
+      }
+    }
+    const hasCover = rows.some((row) => row.isCover);
+    const finalRows = rows.map((row, index) => ({ ...row, isCover: hasCover ? row.isCover : index === 0 }));
+    const removed = (existing?.items ?? []).flatMap((item) => item.fileKey && !seen.has(item.id) ? [item.fileKey] : []);
+    let savedId = albumId ?? "";
+    await prisma.$transaction(async (tx) => {
+      const album = existing ? await tx.galleryAlbum.update({ where: { id: existing.id }, data: parsed.value, select: { id: true, title: true } }) : await tx.galleryAlbum.create({ data: { villageId, ...parsed.value }, select: { id: true, title: true } });
+      savedId = album.id;
+      if (existing) {
+        await tx.galleryItem.updateMany({ where: { albumId: album.id }, data: { isCover: false } });
+        await tx.galleryItem.deleteMany({ where: { albumId: album.id, id: { notIn: [...seen] } } });
+      }
+      for (const row of finalRows) {
+        if (row.id) await tx.galleryItem.update({ where: { id: row.id }, data: { title: row.title, sortOrder: row.sortOrder, isCover: row.isCover } });
+        else await tx.galleryItem.create({ data: { albumId: album.id, fileUrl: row.fileUrl, fileKey: row.fileKey, title: row.title, sortOrder: row.sortOrder, isCover: row.isCover } });
+      }
+      await tx.auditLog.create({ data: { userId: null, villageId, action: existing ? AuditAction.UPDATE : AuditAction.CREATE, resource: "GalleryAlbum", resourceId: album.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: existing ? "GALLERY_ALBUM_UPDATED" : "GALLERY_ALBUM_CREATED", supportReason: support.value, imageCount: finalRows.length } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: existing ? "แก้ไขอัลบั้มภาพ" : "เพิ่มอัลบั้มภาพ", supportReason: support.value, targetType: "GalleryAlbum", targetId: album.id, targetName: album.title, actionUrl: `/admin/gallery/${album.id}`, metadata: { source: "GALLERY", albumId: album.id } });
+    });
+    await deletePlaceUploads(removed);
+    if (!existing) await notifyResidents(villageId, "แกลเลอรีหมู่บ้าน: มีอัลบั้มใหม่", `อัลบั้ม ${parsed.value.title} พร้อมให้รับชมแล้ว`, { source: "GALLERY", albumId: savedId, actionUrl: `/resident/gallery/${savedId}` });
+    refreshWorkspace(villageId, "gallery", savedId);
+    return { success: true, message: existing ? "บันทึกการแก้ไขแล้ว" : "สร้างอัลบั้มแล้ว", id: savedId };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถบันทึกอัลบั้มได้" }; }
+}
+
+export async function addSuperAdminGalleryItemsDataAction(villageId: string, albumId: string, items: SuperAdminItemInput[], supportReasonInput: string): Promise<Result & { count?: number }> {
+  try {
+    await village(villageId); const support = parseGallerySupportReason(supportReasonInput); if (!support.ok) return support;
+    const album = await prisma.galleryAlbum.findFirst({ where: { id: albumId, villageId }, select: { id: true, title: true } });
+    if (!album) return { success: false, error: "ไม่พบอัลบั้มในหมู่บ้านนี้" };
+    if (!items.length || items.length > 10) return { success: false, error: "จำนวนรูปภาพไม่ถูกต้อง" };
+    if (!items.every((item) => item.url && item.fileKey && item.url === galleryUrl(item.fileKey) && verifyPlaceUploadToken(item.uploadToken, item.fileKey, villageId))) return { success: false, error: "ข้อมูลรูปภาพอัปโหลดไม่ถูกต้อง" };
+    await prisma.$transaction(async (tx) => {
+      const latest = await tx.galleryItem.aggregate({ where: { albumId }, _max: { sortOrder: true } });
+      const count = await tx.galleryItem.count({ where: { albumId } });
+      const coverIndex = items.findIndex((item) => item.isCover);
+      if (coverIndex >= 0) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
+      await tx.galleryItem.createMany({ data: items.map((item, index) => ({ albumId, fileUrl: item.url!, fileKey: item.fileKey!, title: item.description?.trim() || null, sortOrder: (latest._max.sortOrder ?? -1) + index + 1, isCover: coverIndex >= 0 ? index === coverIndex : count === 0 && index === 0 })) });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "GalleryAlbum", resourceId: albumId, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "GALLERY_ITEMS_ADDED", supportReason: support.value, count: items.length } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "เพิ่มรูปภาพ", supportReason: support.value, targetType: "GalleryAlbum", targetId: albumId, targetName: album.title, actionUrl: `/admin/gallery/${albumId}`, metadata: { source: "GALLERY", albumId, count: items.length } });
+    });
+    await notifyResidents(villageId, "แกลเลอรีหมู่บ้าน: มีรูปภาพใหม่", `อัลบั้ม ${album.title} มีรูปภาพใหม่ ${items.length} รูป`, { source: "GALLERY", albumId, actionUrl: `/resident/gallery/${albumId}` });
+    refreshWorkspace(villageId, "gallery", albumId); return { success: true, message: "เพิ่มรูปภาพแล้ว", count: items.length };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถเพิ่มรูปภาพได้" }; }
+}
+
+export async function updateSuperAdminGalleryItemDataAction(villageId: string, albumId: string, itemId: string, item: SuperAdminItemInput, supportReasonInput: string): Promise<Result> {
+  try {
+    await village(villageId); const support = parseGallerySupportReason(supportReasonInput); if (!support.ok) return support;
+    const row = await prisma.galleryItem.findFirst({ where: { id: itemId, albumId, album: { villageId } }, select: { id: true, fileKey: true, fileUrl: true, title: true, album: { select: { title: true } } } });
+    if (!row) return { success: false, error: "ไม่พบรูปภาพในอัลบั้มของหมู่บ้านนี้" };
+    if (item.fileKey && item.fileKey !== row.fileKey && (!item.url || item.url !== galleryUrl(item.fileKey) || !verifyPlaceUploadToken(item.uploadToken, item.fileKey, villageId))) return { success: false, error: "ข้อมูลรูปภาพอัปโหลดไม่ถูกต้อง" };
+    await prisma.$transaction(async (tx) => {
+      if (item.isCover) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
+      await tx.galleryItem.update({ where: { id: itemId }, data: { title: item.description?.trim() || null, sortOrder: item.sortOrder, isCover: item.isCover, ...(item.fileKey && item.fileKey !== row.fileKey ? { fileKey: item.fileKey, fileUrl: item.url } : {}) } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.UPDATE, resource: "GalleryItem", resourceId: itemId, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "GALLERY_ITEM_UPDATED", supportReason: support.value, albumId } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "แก้ไขรูปภาพ", supportReason: support.value, targetType: "GalleryItem", targetId: itemId, targetName: row.album.title, actionUrl: `/admin/gallery/${albumId}`, metadata: { source: "GALLERY", albumId, itemId } });
+    });
+    if (item.fileKey && item.fileKey !== row.fileKey && row.fileKey) await deletePlaceUploads([row.fileKey]);
+    refreshWorkspace(villageId, "gallery", albumId); return { success: true, message: "บันทึกการแก้ไขแล้ว" };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถแก้ไขรูปภาพได้" }; }
+}
+
+export async function deleteSuperAdminGalleryItemDataAction(villageId: string, albumId: string, itemId: string, supportReasonInput: string): Promise<Result> {
+  try {
+    await village(villageId); const support = parseGallerySupportReason(supportReasonInput); if (!support.ok) return support;
+    const row = await prisma.galleryItem.findFirst({ where: { id: itemId, albumId, album: { villageId } }, select: { id: true, fileKey: true, isCover: true, title: true, album: { select: { title: true } } } });
+    if (!row) return { success: false, error: "ไม่พบรูปภาพในอัลบั้มของหมู่บ้านนี้" };
+    await prisma.$transaction(async (tx) => { await tx.galleryItem.delete({ where: { id: itemId } }); if (row.isCover) { const next = await tx.galleryItem.findFirst({ where: { albumId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } }); if (next) await tx.galleryItem.update({ where: { id: next.id }, data: { isCover: true } }); } await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.DELETE, resource: "GalleryItem", resourceId: itemId, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "GALLERY_ITEM_DELETED", supportReason: support.value, albumId } } }); await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "ลบรูปภาพ", supportReason: support.value, targetType: "GalleryItem", targetId: itemId, targetName: row.album.title, actionUrl: `/admin/gallery/${albumId}`, metadata: { source: "GALLERY", albumId, itemId } }); });
+    if (row.fileKey) await deletePlaceUploads([row.fileKey]); refreshWorkspace(villageId, "gallery", albumId); return { success: true, message: "ลบรูปภาพแล้ว" };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถลบรูปภาพได้" }; }
+}
+
+export async function reviewSuperAdminGallerySubmissionDataAction(villageId: string, submissionId: string, decision: "APPROVE" | "REJECT", businessReasonInput: string, supportReasonInput: string): Promise<Result> {
+  try {
+    await village(villageId); const support = parseGallerySupportReason(supportReasonInput); if (!support.ok) return support;
+    const businessReason = businessReasonInput.trim();
+    if (decision === "REJECT" && (businessReason.length < 5 || businessReason.length > 500)) return { success: false, error: "กรุณาระบุเหตุผลปฏิเสธ 5–500 ตัวอักษร" };
+    const submission = await prisma.galleryItemSubmission.findFirst({ where: { id: submissionId, status: "PENDING", album: { villageId } }, include: { album: { select: { id: true, title: true } } } });
+    if (!submission) return { success: false, error: "ไม่พบคำขอในหมู่บ้านนี้ หรือคำขอถูกดำเนินการแล้ว" };
+    await prisma.$transaction(async (tx) => {
+      let itemId: string | null = null;
+      if (decision === "APPROVE") { const count = await tx.galleryItem.count({ where: { albumId: submission.albumId } }); const item = await tx.galleryItem.create({ data: { albumId: submission.albumId, title: submission.title, fileUrl: submission.fileUrl, fileKey: submission.fileKey, mimeType: submission.mimeType, sortOrder: count, isCover: count === 0, sourceSubmissionId: submission.id }, select: { id: true } }); itemId = item.id; }
+      const claimed = await tx.galleryItemSubmission.updateMany({ where: { id: submission.id, status: "PENDING" }, data: { status: decision === "APPROVE" ? "APPROVED" : "REJECTED", reviewedBy: null, reviewedAt: new Date(), reviewNote: decision === "REJECT" ? businessReason : null } });
+      if (claimed.count !== 1) throw new Error("SUBMISSION_ALREADY_REVIEWED");
+      await tx.notification.create({ data: { villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title: decision === "APPROVE" ? "รูปภาพได้รับการอนุมัติ" : "รูปภาพไม่ได้รับการอนุมัติ", body: decision === "APPROVE" ? `อัลบั้ม ${submission.album.title}: รูปภาพที่คุณส่งได้รับการอนุมัติแล้ว` : `อัลบั้ม ${submission.album.title}: ${businessReason}`, metadata: { source: "GALLERY", submissionId: submission.id, albumId: submission.albumId, itemId, status: decision === "APPROVE" ? "APPROVED" : "REJECTED" } } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: decision === "APPROVE" ? AuditAction.APPROVE : AuditAction.REJECT, resource: "GalleryItemSubmission", resourceId: submission.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: `GALLERY_SUBMISSION_${decision}D`, supportReason: support.value, businessReason: decision === "REJECT" ? businessReason : null, albumId: submission.albumId, itemId } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: decision === "APPROVE" ? "อนุมัติรูปภาพที่ส่งเข้าร่วม" : "ปฏิเสธรูปภาพที่ส่งเข้าร่วม", supportReason: support.value, targetType: "GalleryItemSubmission", targetId: submission.id, targetName: submission.album.title, actionUrl: `/admin/gallery/submissions/${submission.id}`, metadata: { source: "GALLERY", submissionId: submission.id, albumId: submission.albumId, businessReason: decision === "REJECT" ? businessReason : null } });
+    });
+    refreshWorkspace(villageId, "gallery", submission.albumId); return { success: true, message: "บันทึกผลการพิจารณาแล้ว" };
+  } catch (error) { return { success: false, error: error instanceof Error && error.message === "SUBMISSION_ALREADY_REVIEWED" ? "คำขอนี้ถูกดำเนินการแล้ว" : error instanceof Error ? error.message : "ไม่สามารถพิจารณาคำขอได้" }; }
 }
 
 async function transitionSuperAdminDownloadResultAction(villageId: string, downloadId: string, formData: FormData): Promise<Result> {
@@ -273,16 +407,16 @@ async function changeSuperAdminAppointmentStageResultAction(villageId: string, a
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถดำเนินการกับนัดหมายได้" }; }
 }
 
-export async function saveSuperAdminGalleryAlbumAction(villageId: string, formData: FormData): Promise<void> {
-  await saveSuperAdminGalleryAlbumResultAction(villageId, formData);
+export async function saveSuperAdminGalleryAlbumAction(villageId: string, formData: FormData): Promise<Result> {
+  return saveSuperAdminGalleryAlbumResultAction(villageId, formData);
 }
 
-export async function deleteSuperAdminGalleryAlbumAction(villageId: string, albumId: string, formData: FormData): Promise<void> {
-  await deleteSuperAdminGalleryAlbumResultAction(villageId, albumId, formData);
+export async function deleteSuperAdminGalleryAlbumAction(villageId: string, albumId: string, formData: FormData): Promise<Result> {
+  return deleteSuperAdminGalleryAlbumResultAction(villageId, albumId, formData);
 }
 
-export async function reviewSuperAdminGallerySubmissionAction(villageId: string, submissionId: string, formData: FormData): Promise<void> {
-  await reviewSuperAdminGallerySubmissionResultAction(villageId, submissionId, formData);
+export async function reviewSuperAdminGallerySubmissionAction(villageId: string, submissionId: string, formData: FormData): Promise<Result> {
+  return reviewSuperAdminGallerySubmissionResultAction(villageId, submissionId, formData);
 }
 
 export async function transitionSuperAdminDownloadAction(villageId: string, downloadId: string, formData: FormData): Promise<void> {
