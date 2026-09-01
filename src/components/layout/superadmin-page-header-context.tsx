@@ -10,6 +10,8 @@ export type SuperAdminHeaderAction = {
 export type SuperAdminHeaderContext = {
   title: string;
   description?: string;
+  backHref?: string;
+  backLabel?: string;
   workspace?: {
     villageId: string;
     villageName: string;

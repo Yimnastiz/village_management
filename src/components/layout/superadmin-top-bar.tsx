@@ -88,6 +88,7 @@ export function SuperAdminTopBar() {
   return <>
     <header onFocusCapture={() => setFocusWithin(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusWithin(false); }} className={cn("sticky top-0 z-40 flex min-h-16 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2 shadow-sm transition-transform md:gap-3 md:px-6 md:translate-y-0", topBarHidden ? "-translate-y-full" : "translate-y-0")}>
       <button type="button" className="inline-flex shrink-0 rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden" onClick={() => setMobileMenuOpen(true)} aria-label="เปิดเมนู"><Menu className="h-5 w-5" /></button>
+      {header.backHref ? <Link href={header.backHref} aria-label={header.backLabel ?? "เธเธฅเธฑเธ"} title={header.backLabel ?? "เธเธฅเธฑเธ"} className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md px-2 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2"><ArrowLeft className="h-4 w-4" aria-hidden="true" /><span className="hidden xl:inline text-sm font-medium">{header.backLabel ?? "เธเธฅเธฑเธ"}</span></Link> : null}
       {workspace ? <>
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-semibold text-slate-900 sm:text-lg">{workspace.villageName}</p>
