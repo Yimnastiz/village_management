@@ -7,7 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { CreateAppointmentForm, type CreateAppointmentInput } from "@/app/(admin)/admin/appointments/create-appointment-form";
-import { createSuperAdminAppointmentAction } from "../../operational-actions";
+import { createSuperAdminAppointmentAction } from "../operational-actions";
 
 export function CreateSuperAdminAppointmentButton({ villageId }: { villageId: string }) {
   const { pushToast } = useToast();
