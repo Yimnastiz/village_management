@@ -8,39 +8,17 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { useToast } from "@/components/ui/toast";
-import { CONTACT_CATEGORY_OPTIONS, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
+import { CONTACT_CATEGORY_OPTIONS, CONTACT_PHONE_MAX_LENGTH, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
 import { superAdminSaveContactDataAction } from "../public-content-actions";
 
-type Contact = { id?: string; name: string; role: string | null; phone: string | null; email: string | null; address: string | null; category: string | null; sortOrder: number; isPublic: boolean };
+export type SuperAdminContact = { id?: string; name: string; role: string | null; phone: string | null; email: string | null; address: string | null; category: string | null; sortOrder: number; isPublic: boolean; updatedAt?: Date };
 
-export function SuperAdminContactForm({ villageId, initial }: { villageId: string; initial?: Contact }) {
-  const router = useRouter();
-  const toast = useToast();
-  const [draft, setDraft] = useState<Record<string, string | boolean> | null>(null);
-  const [pending, setPending] = useState(false);
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const phone = normalizeContactPhone(String(form.get("phone") ?? ""));
-    const email = String(form.get("email") ?? "").trim();
-    const error = validateContactPhone(phone, false) ?? validateContactEmail(email);
-    if (error) { toast.error(error); return; }
-    setDraft({ name: String(form.get("name") ?? "").trim(), role: String(form.get("role") ?? "").trim(), phone, email, address: String(form.get("address") ?? "").trim(), category: String(form.get("category") ?? ""), sortOrder: String(form.get("sortOrder") ?? "0"), isPublic: form.get("isPublic") === "on" });
-  };
-  const confirm = async (reason: string) => {
-    if (!draft) return;
-    setPending(true);
-    const result = await superAdminSaveContactDataAction(villageId, initial?.id ?? null, draft, reason);
-    setPending(false);
-    if (!result.success) { toast.error(result.error); return; }
-    setDraft(null); router.replace(`/superadmin/villages/${villageId}/contacts`);
-  };
-  return <>
-    <form onSubmit={submit} className="space-y-4 rounded-xl border bg-white p-4 sm:p-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Input name="name" label="ชื่อ" defaultValue={initial?.name ?? ""} required /><Input name="role" label="ตำแหน่ง/บทบาท" defaultValue={initial?.role ?? ""} /><Select name="category" label="หมวดหมู่" defaultValue={initial?.category ?? ""} options={CONTACT_CATEGORY_OPTIONS} required /><Input name="phone" label="เบอร์โทรศัพท์" defaultValue={initial?.phone ?? ""} /><Input name="email" label="อีเมล" type="email" defaultValue={initial?.email ?? ""} /><Input name="sortOrder" label="ลำดับ" inputMode="numeric" defaultValue={String(initial?.sortOrder ?? 0)} /></div>
-      <Textarea name="address" label="ที่อยู่" rows={2} defaultValue={initial?.address ?? ""} /><label className="flex items-center gap-2 text-sm"><input name="isPublic" type="checkbox" defaultChecked={initial?.isPublic ?? true} /> แสดงผลสาธารณะ</label>
-      <Button type="submit">{initial ? "บันทึกการแก้ไข" : "สร้างผู้ติดต่อ"}</Button>
-    </form>
-    <ActionReasonDialog open={Boolean(draft)} action="content.archive" title={initial ? "ยืนยันการแก้ไขผู้ติดต่อ" : "ยืนยันการสร้างผู้ติดต่อ"} description="ระบบจะบันทึก Audit Log และแจ้งผู้ดูแลหมู่บ้าน" reasonLabel="เหตุผลในการดำเนินการ" helperText="ระบุเหตุผลที่ผู้ดูแลระบบระดับสูงดำเนินการแทนผู้ดูแลหมู่บ้าน" requireReason minReasonLength={5} maxReasonLength={500} loading={pending} onCancel={() => setDraft(null)} onSubmit={confirm} />
-  </>;
+function VisibilitySwitch({ defaultChecked }: { defaultChecked: boolean }) { return <label className="flex cursor-pointer items-start justify-between gap-4 rounded-xl border border-gray-200 px-4 py-3 transition hover:border-gray-300"><span className="min-w-0"><span className="block text-sm font-medium text-gray-900">เผยแพร่สาธารณะ</span><span className="mt-1 block text-xs leading-5 text-gray-500">เปิดเพื่อให้บุคคลทั่วไปสามารถเห็นข้อมูลผู้ติดต่อนี้ได้</span></span><span className="relative mt-0.5 inline-flex shrink-0"><input name="isPublic" type="checkbox" defaultChecked={defaultChecked} className="peer sr-only" /><span aria-hidden className="h-6 w-11 rounded-full bg-gray-200 transition peer-checked:bg-green-700 peer-focus-visible:ring-2 peer-focus-visible:ring-green-500 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5" /></span></label>; }
+
+export function SuperAdminContactForm({ villageId, initial, formId, onSuccess, onDirtyChange, onSubmittingChange }: { villageId: string; initial?: SuperAdminContact; formId: string; onSuccess: () => void; onDirtyChange: (dirty: boolean) => void; onSubmittingChange: (pending: boolean) => void }) {
+  const router = useRouter(); const toast = useToast(); const [draft, setDraft] = useState<Record<string, string | boolean> | null>(null); const [pending, setPending] = useState(false);
+  const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); const form = new FormData(event.currentTarget); const phone = normalizeContactPhone(String(form.get("phone") ?? "")); const email = String(form.get("email") ?? "").trim(); const error = validateContactPhone(phone, false) ?? validateContactEmail(email); if (error) { toast.error(error); return; } setDraft({ name: String(form.get("name") ?? "").trim(), role: String(form.get("role") ?? "").trim(), phone, email, address: String(form.get("address") ?? "").trim(), category: String(form.get("category") ?? ""), sortOrder: String(form.get("sortOrder") ?? "0"), isPublic: form.get("isPublic") === "on" }); onDirtyChange(true); };
+  const confirm = async (reason: string) => { if (!draft || pending) return; setPending(true); onSubmittingChange(true); const result = await superAdminSaveContactDataAction(villageId, initial?.id ?? null, draft, reason); setPending(false); onSubmittingChange(false); if (!result.success) { toast.error(result.error); return; } toast.success(initial ? "บันทึกการแก้ไขเรียบร้อยแล้ว" : "เพิ่มผู้ติดต่อเรียบร้อยแล้ว"); setDraft(null); onDirtyChange(false); onSuccess(); router.refresh(); };
+  const categoryOptions = initial?.category && !CONTACT_CATEGORY_OPTIONS.some((option) => option.value === initial.category) ? [{ value: initial.category, label: `${initial.category} (หมวดหมู่เดิม)` }, ...CONTACT_CATEGORY_OPTIONS] : CONTACT_CATEGORY_OPTIONS;
+  return <><form id={formId} onChange={() => onDirtyChange(true)} onSubmit={submit} className="space-y-5"><section className="space-y-4"><h2 className="text-sm font-semibold text-gray-900">ข้อมูลผู้ติดต่อ</h2><Input name="name" label="ชื่อผู้ติดต่อ" defaultValue={initial?.name ?? ""} required /><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Input name="role" label="ตำแหน่ง/บทบาท" defaultValue={initial?.role ?? ""} /><Select name="category" label="หมวดหมู่" defaultValue={initial?.category ?? ""} options={categoryOptions} required /></div></section><section className="space-y-4 border-t border-gray-100 pt-5"><h2 className="text-sm font-semibold text-gray-900">ข้อมูลการติดต่อ</h2><div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><Input name="phone" label="เบอร์โทรศัพท์" inputMode="numeric" maxLength={CONTACT_PHONE_MAX_LENGTH} defaultValue={initial?.phone ?? ""} /><Input name="email" label="อีเมล" type="email" defaultValue={initial?.email ?? ""} /></div><Textarea name="address" label="ที่อยู่" rows={2} defaultValue={initial?.address ?? ""} /></section><section className="space-y-4 border-t border-gray-100 pt-5"><h2 className="text-sm font-semibold text-gray-900">การจัดลำดับและการแสดงผล</h2><Input name="sortOrder" label="ลำดับการแสดงผล" inputMode="numeric" defaultValue={String(initial?.sortOrder ?? 0)} /><VisibilitySwitch defaultChecked={initial?.isPublic ?? true} /></section></form><ActionReasonDialog open={Boolean(draft)} action="content.archive" title={initial ? "ยืนยันการแก้ไขผู้ติดต่อ" : "ยืนยันการสร้างผู้ติดต่อ"} description="ระบบจะบันทึก Audit Log และแจ้งผู้ดูแลหมู่บ้าน" reasonLabel="เหตุผลในการดำเนินการ" helperText="ระบุเหตุผลที่ผู้ดูแลระบบระดับสูงดำเนินการแทนผู้ดูแลหมู่บ้าน" requireReason minReasonLength={5} maxReasonLength={500} submitLabel="ยืนยันดำเนินการ" loading={pending} onCancel={() => { if (!pending) setDraft(null); }} onSubmit={confirm} /></>;
 }
