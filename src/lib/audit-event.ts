@@ -32,11 +32,11 @@ const resourceLabels: Record<string, string> = {
   VillagePlaceSubmission: "คำขอสถานที่",
   GalleryAlbum: "อัลบั้มรูปภาพ",
   GalleryItemSubmission: "คำขอเพิ่มรูปภาพ",
-  DownloadFile: "เอกสาร",
+  DownloadFile: "เอกสารดาวน์โหลด",
   VillageEvent: "กิจกรรมปฏิทิน",
   VillageEventSubmission: "คำขอกิจกรรม",
-  Issue: "ปัญหาหมู่บ้าน",
-  ContactDirectory: "ข้อมูลติดต่อ",
+  Issue: "คำร้องปัญหา",
+  ContactDirectory: "ข้อมูลผู้ติดต่อ",
   ContactRequest: "คำขอข้อมูลติดต่อ",
   TransparencyRecord: "รายการความโปร่งใส",
   Village: "ข้อมูลหมู่บ้าน",
@@ -183,6 +183,23 @@ function fallbackLabel(action: AuditAction, resourceLabel: string): string {
   return ["LOGIN", "LOGOUT"].includes(action) ? value : `${value}${resourceLabel ? ` ${resourceLabel}` : ""}`;
 }
 
+const actionLabels: Partial<Record<AuditAction, string>> = {
+  CREATE: "สร้าง", UPDATE: "แก้ไข", DELETE: "ลบ", APPROVE: "อนุมัติ", REJECT: "ปฏิเสธ",
+  LOGIN: "เข้าสู่ระบบ", LOGOUT: "ออกจากระบบ", VIEW_SENSITIVE: "เปิดดูข้อมูลสำคัญ", EXPORT: "ส่งออกข้อมูล",
+  POPULATION_IMPORT_STARTED: "เริ่มนำเข้าข้อมูลประชากร", POPULATION_IMPORT_VALIDATED: "ตรวจสอบไฟล์ข้อมูลประชากร",
+  POPULATION_IMPORT_CONFIRMED: "ยืนยันการนำเข้าข้อมูลประชากร", POPULATION_IMPORT_COMPLETED: "นำเข้าข้อมูลประชากรสำเร็จ",
+  POPULATION_IMPORT_PARTIAL: "นำเข้าข้อมูลประชากรบางส่วน", POPULATION_IMPORT_FAILED: "นำเข้าข้อมูลประชากรไม่สำเร็จ",
+  POPULATION_IMPORT_ROLLBACK: "ย้อนกลับการนำเข้าข้อมูลประชากร", POPULATION_EXPORT_CREATED: "ส่งออกข้อมูลประชากร",
+  VILLAGE_CREATED_FROM_CATALOG: "สร้างหมู่บ้านจากฐานข้อมูล", VILLAGE_CREATED_MANUAL: "สร้างหมู่บ้านด้วยตนเอง",
+  VILLAGE_CATALOG_IMPORTED: "นำเข้าฐานข้อมูลหมู่บ้าน", VILLAGE_CATALOG_UPDATED: "ปรับปรุงฐานข้อมูลหมู่บ้าน",
+  APPROVE_RESIDENT_WITH_NATIONAL_ID: "ยืนยันตัวตนลูกบ้าน", REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT: "จัดการบัญชีซ้ำ",
+  RELEASE_PHONE_FROM_REVOKED_ACCOUNT: "ปลดเบอร์โทรจากบัญชีเดิม",
+};
+
+export function auditActionLabel(action: AuditAction) {
+  return actionLabels[action] ?? action;
+}
+
 function usefulChanges(metadata: Record<string, Prisma.JsonValue>) {
   const before = asObject(metadata.oldValue);
   const after = asObject(metadata.newValue);
@@ -196,7 +213,7 @@ function usefulChanges(metadata: Record<string, Prisma.JsonValue>) {
 /** Converts storage-oriented audit fields into safe, village-user-facing content. */
 export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
   const metadata = asObject(input.metadata);
-  const resourceLabel = resourceLabels[input.resource] ?? "รายการ";
+  const resourceLabel = resourceLabels[input.resource] ?? input.resource;
   const actionName = text(metadata.actionName);
   const targetFromMetadata = [metadata.targetName, metadata.title, metadata.name, metadata.subject, metadata.houseNumber, metadata.fileName]
     .map(text)
