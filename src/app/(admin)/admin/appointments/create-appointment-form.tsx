@@ -9,8 +9,9 @@ import { useToast } from "@/components/ui/toast";
 import { adminCreateAppointmentAction } from "@/app/(resident)/resident/appointments/actions";
 
 type Resident = { id: string; name: string; phone: string; houseNumber: string };
+export type CreateAppointmentInput = { residentUserId: string; title: string; description: string; date: string; startTime: string };
 
-export function CreateAppointmentForm({ onClose, onPendingChange }: { onClose: () => void; onPendingChange: (pending: boolean) => void }) {
+export function CreateAppointmentForm({ onClose, onPendingChange, residentsUrl = "/api/appointments/residents", onSubmitAppointment, closeOnSuccess = true }: { onClose: () => void; onPendingChange: (pending: boolean) => void; residentsUrl?: string; onSubmitAppointment?: (input: CreateAppointmentInput) => Promise<{ success: boolean; error?: string }>; closeOnSuccess?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const [q, setQ] = useState("");
@@ -24,9 +25,9 @@ export function CreateAppointmentForm({ onClose, onPendingChange }: { onClose: (
   const [residentError, setResidentError] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => fetch(`/api/appointments/residents?q=${encodeURIComponent(q)}`).then((response) => response.ok ? response.json() : []).then(setItems).catch(() => setItems([])), 250);
+    const timer = setTimeout(() => fetch(`${residentsUrl}?q=${encodeURIComponent(q)}`).then((response) => response.ok ? response.json() : []).then(setItems).catch(() => setItems([])), 250);
     return () => clearTimeout(timer);
-  }, [q]);
+  }, [q, residentsUrl]);
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -38,15 +39,17 @@ export function CreateAppointmentForm({ onClose, onPendingChange }: { onClose: (
     setPending(true);
     onPendingChange(true);
     try {
-      const result = await adminCreateAppointmentAction({ residentUserId: resident.id, title, description, date, startTime });
+      const result = await (onSubmitAppointment ?? adminCreateAppointmentAction)({ residentUserId: resident.id, title, description, date, startTime });
       if (!result.success) {
         toast.error("สร้างนัดหมายไม่สำเร็จ", result.error);
         return;
       }
-      toast.success("สร้างนัดหมายเรียบร้อยแล้ว");
-      onPendingChange(false);
-      onClose();
-      router.refresh();
+      if (closeOnSuccess) {
+        toast.success("สร้างนัดหมายเรียบร้อยแล้ว");
+        onPendingChange(false);
+        onClose();
+        router.refresh();
+      }
     } catch {
       toast.error("สร้างนัดหมายไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
     } finally {

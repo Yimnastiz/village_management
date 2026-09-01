@@ -457,6 +457,45 @@ async function proposeSuperAdminAppointmentTimeResultAction(villageId: string, a
   } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถเสนอวันเวลาได้" }; }
 }
 
+const superAdminCreatedAppointmentSchema = z.object({
+  residentUserId: z.string().min(1),
+  title: z.string().trim().min(3),
+  description: z.string().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  supportReason: z.string(),
+});
+
+async function createSuperAdminAppointmentResultAction(villageId: string, input: z.input<typeof superAdminCreatedAppointmentSchema>): Promise<Result> {
+  try {
+    await village(villageId);
+    const parsed = superAdminCreatedAppointmentSchema.safeParse(input);
+    if (!parsed.success) return { success: false, error: "กรอกข้อมูลนัดหมายให้ครบถ้วน" };
+    const supportReason = reason(parsed.data.supportReason);
+    const [hours, minutes] = parsed.data.startTime.split(":").map(Number);
+    const endMinutes = hours * 60 + minutes + 30;
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59 || endMinutes >= 24 * 60) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
+    const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+    const resident = await prisma.villageMembership.findFirst({ where: { villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" }, select: { userId: true, user: { select: { name: true, email: true } } } });
+    if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านนี้" };
+    const date = new Date(`${parsed.data.date}T00:00:00.000Z`);
+    if (Number.isNaN(date.getTime())) return { success: false, error: "วันที่นัดหมายไม่ถูกต้อง" };
+    let appointmentId = "";
+    await prisma.$transaction(async (tx) => {
+      const slot = await tx.appointmentSlot.create({ data: { villageId, date, startTime: parsed.data.startTime, endTime, maxCapacity: 1, note: "นัดหมายที่ผู้ดูแลระบบระดับสูงสร้าง" } });
+      const appointment = await tx.appointment.create({ data: { villageId, userId: resident.userId, title: parsed.data.title, description: parsed.data.description?.trim() || null, stage: "TIME_SUGGESTED", slotId: slot.id, scheduledAt: date, reviewedBy: null, reviewedAt: new Date() } });
+      appointmentId = appointment.id;
+      await tx.appointmentTimeline.create({ data: { appointmentId: appointment.id, actorId: null, action: "TIME_SUGGESTED", description: "ผู้ดูแลระบบระดับสูงสร้างนัดหมายและเสนอวันเวลา", metadata: { adminCreated: true, creatorName: "ผู้ดูแลระบบระดับสูง", creatorRole: "SUPERADMIN", actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", supportReason } } });
+      await tx.auditLog.create({ data: { userId: null, villageId, action: AuditAction.CREATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: "SUPERADMIN", actorType: "SUPERADMIN_ENV", actionName: "APPOINTMENT_CREATED_BY_SUPERADMIN", supportReason, affectedUserId: resident.userId, residentName: resident.user.name ?? resident.user.email ?? null, title: appointment.title, date: parsed.data.date, startTime: parsed.data.startTime, stage: "TIME_SUGGESTED" } } });
+      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "สร้างนัดหมายให้", supportReason, targetType: "Appointment", targetId: appointment.id, targetName: resident.user.name ?? resident.user.email ?? appointment.title, actionUrl: `/admin/appointments/${appointment.id}`, metadata: { appointmentId: appointment.id, residentUserId: resident.userId, appointmentTitle: appointment.title, date: parsed.data.date, startTime: parsed.data.startTime } });
+      await tx.notification.create({ data: { villageId, userId: resident.userId, type: NotificationType.APPOINTMENT_UPDATE, title: "มีนัดหมายใหม่รอคุณยืนยันเวลา", body: `ผู้ดูแลระบบระดับสูงได้นัดหมาย “${appointment.title}” วันที่ ${parsed.data.date} เวลา ${parsed.data.startTime} กรุณาตรวจสอบและยืนยันเวลานัดหมาย`, metadata: notificationMetadata("APPOINTMENT", { appointmentId: appointment.id }) } });
+    });
+    refresh(villageId, "appointments", appointmentId);
+    revalidatePath("/admin/appointments"); revalidatePath(`/admin/appointments/${appointmentId}`); revalidatePath("/admin/notifications");
+    return { success: true, message: "สร้างนัดหมายแล้ว" };
+  } catch (error) { return { success: false, error: error instanceof Error ? error.message : "ไม่สามารถสร้างนัดหมายได้" }; }
+}
+
 async function changeSuperAdminAppointmentStageResultAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
   try {
     await village(villageId);
@@ -522,6 +561,10 @@ export async function deleteSuperAdminIssueAction(villageId: string, issueId: st
 
 export async function proposeSuperAdminAppointmentTimeAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
   return proposeSuperAdminAppointmentTimeResultAction(villageId, appointmentId, formData);
+}
+
+export async function createSuperAdminAppointmentAction(villageId: string, input: z.input<typeof superAdminCreatedAppointmentSchema>): Promise<Result> {
+  return createSuperAdminAppointmentResultAction(villageId, input);
 }
 
 export async function changeSuperAdminAppointmentStageAction(villageId: string, appointmentId: string, formData: FormData): Promise<Result> {
