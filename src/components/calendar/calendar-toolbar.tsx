@@ -11,6 +11,7 @@ import {
 } from "@/lib/calendar-month";
 import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
+import { useOptionalSuperAdminPageHeader } from "@/components/layout/superadmin-page-header-context";
 import { ResidentPageHeaderRegistration, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
 import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 
@@ -32,6 +33,7 @@ type CalendarToolbarProps = {
   residentCompact?: boolean;
   /** Lets the Resident calendar declare its semantic page title in the shared Topbar. */
   registerHeader?: boolean;
+  hideHeading?: boolean;
   search?: {
     keyword: string;
     placeholder: string;
@@ -56,18 +58,21 @@ export function CalendarToolbar({
   currentMonthLabel,
   residentCompact = false,
   registerHeader = false,
+  hideHeading = false,
   search,
   filters,
   adminFilterGroups = [],
 }: CalendarToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
+  const superAdminPageHeaderRegistry = useOptionalSuperAdminPageHeader();
   const residentPageHeaderRegistry = useOptionalResidentPageHeaderRegistry();
   const pathname = usePathname();
   const router = useRouter();
   const currentSearchParams = useSearchParams();
   const isAdminToolbar = Boolean(adminPageHeaderRegistry);
-  const hasTopbarHeader = isAdminToolbar || (registerHeader && Boolean(residentPageHeaderRegistry));
-  const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar || residentCompact);
+  const isSuperAdminToolbar = Boolean(superAdminPageHeaderRegistry);
+  const hasTopbarHeader = hideHeading || isAdminToolbar || isSuperAdminToolbar || (registerHeader && Boolean(residentPageHeaderRegistry));
+  const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar || isSuperAdminToolbar || residentCompact);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchValue, setSearchValue] = useState(search?.keyword ?? "");
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
@@ -80,7 +85,7 @@ export function CalendarToolbar({
   const monthIndex = currentMonth - 1;
   const monthLabel = formatThaiMonthYear(currentYear, monthIndex, "long");
   const compactMonthLabel = formatThaiMonthYear(currentYear, monthIndex, "short");
-  const filtersVisible = isAdminToolbar ? isFilterOpen : residentCompact ? isFilterOpen : true;
+  const filtersVisible = isAdminToolbar || isSuperAdminToolbar ? isFilterOpen : residentCompact ? isFilterOpen : true;
   const filterPersistenceKey = `calendar-toolbar:${pathname}:filters-open`;
   const years = Array.from({ length: yearEnd - yearStart + 1 }, (_, index) => yearStart + index);
 
@@ -106,10 +111,10 @@ export function CalendarToolbar({
   }, [currentYear, isMonthPickerOpen]);
 
   useEffect(() => {
-    if ((!isAdminToolbar && !residentCompact) || !sessionStorage.getItem(filterPersistenceKey)) return;
+    if ((!isAdminToolbar && !isSuperAdminToolbar && !residentCompact) || !sessionStorage.getItem(filterPersistenceKey)) return;
     sessionStorage.removeItem(filterPersistenceKey);
     setIsFilterOpen(true);
-  }, [filterPersistenceKey, isAdminToolbar]);
+  }, [filterPersistenceKey, isAdminToolbar, isSuperAdminToolbar]);
 
   const buildHref = (year: number, month: number) => {
     const params = new URLSearchParams(currentSearchParams.toString());
@@ -270,7 +275,7 @@ export function CalendarToolbar({
                 aria-expanded={isSearchOpen}
                 aria-controls={searchPanelId}
                 onClick={() => setIsSearchOpen((value) => !value)}
-                className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", (isAdminToolbar || residentCompact) && "hidden")}
+                className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", (isAdminToolbar || isSuperAdminToolbar || residentCompact) && "hidden")}
               >
                 <Search className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -283,10 +288,10 @@ export function CalendarToolbar({
                     if (debounceRef.current) clearTimeout(debounceRef.current);
                     applySearch(searchValue);
                   }}
-                  className={cn("relative flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto", isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]")}
+                  className={cn("relative flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto", (isAdminToolbar || isSuperAdminToolbar) && "sm:w-[clamp(14rem,28vw,24rem)]")}
                 >
                   <label htmlFor={`${namespace}-search-input`} className="sr-only">{search.label ?? "ค้นหากิจกรรม"}</label>
-                  {isAdminToolbar || residentCompact ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
+                  {isAdminToolbar || isSuperAdminToolbar || residentCompact ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
                   <input
                     ref={searchInputRef}
                     id={`${namespace}-search-input`}
@@ -296,14 +301,14 @@ export function CalendarToolbar({
                     onChange={(event) => setSearchValue(event.target.value)}
                     list={search.suggestions?.length ? suggestionsId : undefined}
                     placeholder={search.placeholder}
-                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
+                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || isSuperAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
                   />
-                  {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+                  {(isAdminToolbar || isSuperAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
                   <button
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
                     aria-label="ปิดช่องค้นหากิจกรรม"
-                    className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}
+                    className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || isSuperAdminToolbar || residentCompact) && "hidden")}
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
@@ -314,9 +319,9 @@ export function CalendarToolbar({
           ) : null}
 
           {filters ? <>
-            {(isAdminToolbar || residentCompact) ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
-            {filtersVisible ? <div className={cn(isAdminToolbar || residentCompact ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar && !residentCompact ? "hidden md:block" : "")} onClickCapture={() => { if (isAdminToolbar || residentCompact) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
-              <div className={cn("flex items-center gap-2", isAdminToolbar ? "flex-wrap" : "w-max whitespace-nowrap")}>{isAdminToolbar && adminFilterGroups.length ? adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />) : filters}</div>
+            {(isAdminToolbar || isSuperAdminToolbar || residentCompact) ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
+            {filtersVisible ? <div className={cn(isAdminToolbar || isSuperAdminToolbar || residentCompact ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar && !isSuperAdminToolbar && !residentCompact ? "hidden md:block" : "")} onClickCapture={() => { if (isAdminToolbar || isSuperAdminToolbar || residentCompact) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
+              <div className={cn("flex items-center gap-2", isAdminToolbar || isSuperAdminToolbar ? "flex-wrap" : "w-max whitespace-nowrap")}>{(isAdminToolbar || isSuperAdminToolbar) && adminFilterGroups.length ? adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />) : filters}</div>
             </div> : null}
           </> : null}
         </div>

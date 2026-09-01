@@ -63,3 +63,7 @@ export function useSuperAdminPageHeader() {
   if (!context) throw new Error("useSuperAdminPageHeader must be used inside SuperAdminPageHeaderProvider");
   return context;
 }
+
+export function useOptionalSuperAdminPageHeader() {
+  return useContext(SuperAdminPageHeaderContext);
+}
