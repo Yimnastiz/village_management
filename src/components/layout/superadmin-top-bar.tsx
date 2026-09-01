@@ -30,6 +30,7 @@ const pageHeaders = [
 ] as const;
 
 function resolveHeader(pathname: string) {
+  if (pathname === "/superadmin/dashboard") return { title: "ภาพรวมระบบ", description: "ติดตามสถานะสำคัญ งานที่ต้องดำเนินการ และภาพรวมทุกหมู่บ้าน" };
   if (pathname === "/superadmin/users") return { title: "ผู้ใช้งานระบบ", description: "ค้นหา ตรวจสอบ และสนับสนุนบัญชีผู้ใช้งานทุกหมู่บ้าน" };
   if (/^\/superadmin\/villages\/[^/]+/.test(pathname)) return { title: "พื้นที่ทำงานหมู่บ้าน", description: "จัดการข้อมูลและงานของหมู่บ้านที่เลือก" };
   return pageHeaders.find((item) => pathname === item.match || pathname.startsWith(`${item.match}/`)) ?? { title: "หน้าผู้ดูแลระบบ", description: "" };
