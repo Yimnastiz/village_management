@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Info, Menu, Plus, X } from "lucide-react";
+import { ArrowLeft, Menu, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SuperAdminLogoutButton } from "@/components/layout/superadmin-logout-button";
@@ -101,12 +101,11 @@ export function SuperAdminTopBar() {
           <h1 className="truncate text-sm font-semibold text-slate-900">{header.title}</h1>
           {header.description ? <p className="truncate text-xs text-slate-500">{header.description}</p> : null}
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2 [&>span]:hidden">
           <span title="การแก้ไขสำคัญจะถูกบันทึกในบันทึกการใช้งานของหมู่บ้านนี้" className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1.5 text-xs font-medium text-slate-600">
-            <Info className="h-3.5 w-3.5" aria-hidden="true" />
             <span className="hidden lg:inline">โหมดช่วยเหลือ</span>
           </span>
-          <span className={cn("hidden items-center gap-1.5 text-xs font-medium sm:inline-flex", workspace.isActive ? "text-emerald-700" : "text-slate-500")}>
+          <span className={cn("hidden", workspace.isActive ? "text-emerald-700" : "text-slate-500")}>
             <span className={cn("h-1.5 w-1.5 rounded-full", workspace.isActive ? "bg-emerald-500" : "bg-slate-400")} />
             {workspace.isActive ? "หมู่บ้านเปิดใช้งาน" : "หมู่บ้านปิดใช้งาน"}
           </span>
