@@ -26,7 +26,29 @@ export default async function SuperAdminVillageCalendarPage({ params, searchPara
   if (visibility === "RESIDENT_ONLY") where.isPublic = false;
   if (keyword) where.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { location: { contains: keyword, mode: "insensitive" } }, { description: { contains: keyword, mode: "insensitive" } }];
   const [events, pendingRequestCount] = await Promise.all([
-    prisma.villageEvent.findMany({ where, orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }], select: { id: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true, createdAt: true, updatedAt: true, createdBy: { select: { name: true } } }),
+    prisma.villageEvent.findMany({
+      where,
+      orderBy: [
+        { startsAt: "asc" },
+        { createdAt: "desc" },
+      ],
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        location: true,
+        startsAt: true,
+        endsAt: true,
+        isPublic: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    }),
     prisma.villageEventSubmission.count({ where: { villageId, status: "PENDING" } }),
   ]);
   const creationAudits = events.length ? await prisma.auditLog.findMany({ where: { villageId, resource: "VillageEvent", resourceId: { in: events.map((event) => event.id) }, action: "CREATE" }, select: { resourceId: true, metadata: true } }) : [];
