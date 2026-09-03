@@ -13,20 +13,18 @@ function maskPhone(phone: string) {
   return digits.length >= 4 ? `XXX-XXX-${digits.slice(-4)}` : "-";
 }
 
-type PageProps = { searchParams?: Promise<{ q?: string; systemRole?: string; adminRole?: string; page?: string }> };
+type PageProps = { searchParams?: Promise<{ q?: string; adminRole?: string; page?: string }> };
 
 export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
   await requireSuperAdminPageSession();
   await finalizeDueAccountDeletions();
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
-  const systemRole = (params.systemRole ?? "all").trim();
   const adminRole = (params.adminRole ?? "all").trim();
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 12;
   const where = {
     systemRole: { not: "SUPERADMIN" as const },
-    ...(systemRole === "USER" ? { systemRole: "USER" as const } : {}),
     ...(adminRole === "admin" ? { memberships: { some: { role: { in: [...ADMIN_ROLES] } } } } : {}),
     ...(adminRole !== "all" && adminRole !== "admin" ? { memberships: { some: { role: adminRole as (typeof ADMIN_ROLES)[number] } } } : {}),
     ...(keyword ? { OR: [
@@ -40,7 +38,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
     prisma.user.findMany({
       where, orderBy: { createdAt: "desc" }, skip: (page - 1) * pageSize, take: pageSize,
       select: {
-        id: true, name: true, phoneNumber: true, systemRole: true, accountStatus: true,
+        id: true, name: true, phoneNumber: true, accountStatus: true,
         registrationProvince: true, registrationDistrict: true, registrationSubdistrict: true,
         registrationVillage: { select: { name: true } },
         memberships: { select: { id: true, role: true, status: true, village: { select: { id: true, name: true, subdistrict: true, district: true, province: true } }, house: { select: { houseNumber: true } } }, orderBy: { updatedAt: "desc" } },
@@ -49,39 +47,63 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
     prisma.user.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const hasFilters = Boolean(keyword || systemRole !== "all" || adminRole !== "all");
+  const hasFilters = Boolean(keyword || adminRole !== "all");
   const withCurrentQuery = (extra: Record<string, string>) => {
     const query = new URLSearchParams();
     if (keyword) query.set("q", keyword);
+    if (adminRole !== "all") query.set("adminRole", adminRole);
     Object.entries(extra).forEach(([key, value]) => query.set(key, value));
+    query.delete("page");
     const value = query.toString();
     return value ? `/superadmin/users?${value}` : "/superadmin/users";
   };
 
-  return <div className="mx-auto w-full max-w-7xl space-y-4">
-    <AdminListToolbar title="ผู้ใช้งานระบบ" description="ค้นหา ตรวจสอบ และสนับสนุนบัญชีผู้ใช้งานทุกหมู่บ้าน" searchAction="/superadmin/users" clearHref="/superadmin/users" keyword={keyword} searchLabel="ค้นหาผู้ใช้งาน" searchPlaceholder="ค้นหาชื่อ เบอร์โทร หรือข้อมูลผู้ใช้" groups={[
-      { label: "ประเภทบัญชี", options: [
-        { label: "ทั้งหมด", href: withCurrentQuery({}), active: systemRole === "all", isDefault: true },
-        { label: "ผู้ใช้งานทั่วไป", href: withCurrentQuery({ systemRole: "USER" }), active: systemRole === "USER" },
-      ] },
-      { label: "บทบาทหมู่บ้าน", options: [
-        { label: "ทุกบทบาท", href: withCurrentQuery({}), active: adminRole === "all", isDefault: true },
-        { label: "ผู้บริหารหมู่บ้านทั้งหมด", href: withCurrentQuery({ adminRole: "admin" }), active: adminRole === "admin" },
-        { label: MEMBERSHIP_ROLE_LABELS.HEADMAN, href: withCurrentQuery({ adminRole: "HEADMAN" }), active: adminRole === "HEADMAN" },
-        { label: MEMBERSHIP_ROLE_LABELS.ASSISTANT_HEADMAN, href: withCurrentQuery({ adminRole: "ASSISTANT_HEADMAN" }), active: adminRole === "ASSISTANT_HEADMAN" },
-      ] },
-    ]} />
+  return (
+    <div className="workspace-list-page -mt-4 mx-auto flex min-h-0 w-full max-w-[1500px] flex-col space-y-4 sm:-mt-6 sm:overflow-visible">
+      <AdminListToolbar
+        compact
+        sticky
+        hideHeading
+        title="ผู้ใช้งานระบบ"
+        description="ค้นหา ตรวจสอบ และสนับสนุนบัญชีผู้ใช้งานทุกหมู่บ้าน"
+        searchAction="/superadmin/users"
+        clearHref="/superadmin/users"
+        keyword={keyword}
+        searchLabel="ค้นหาผู้ใช้งาน"
+        searchPlaceholder="ค้นหาชื่อ เบอร์โทร หรือข้อมูลผู้ใช้"
+        groups={[{
+          label: "บทบาทหมู่บ้าน",
+          options: [
+            { label: "ทุกบทบาท", href: withCurrentQuery({ adminRole: "all" }), active: adminRole === "all", isDefault: true },
+            { label: "ผู้บริหารหมู่บ้านทั้งหมด", href: withCurrentQuery({ adminRole: "admin" }), active: adminRole === "admin" },
+            { label: MEMBERSHIP_ROLE_LABELS.HEADMAN, href: withCurrentQuery({ adminRole: "HEADMAN" }), active: adminRole === "HEADMAN" },
+            { label: MEMBERSHIP_ROLE_LABELS.ASSISTANT_HEADMAN, href: withCurrentQuery({ adminRole: "ASSISTANT_HEADMAN" }), active: adminRole === "ASSISTANT_HEADMAN" },
+          ],
+        }]}
+      />
 
-    <div className="flex flex-wrap items-baseline justify-between gap-2 px-1">
-      <p className="text-sm font-medium text-gray-700">พบ {totalCount.toLocaleString("th-TH")} บัญชี</p>
-      {hasFilters ? <p className="text-xs text-gray-500">ผลลัพธ์จากเงื่อนไขที่เลือก</p> : null}
+      <section className="space-y-3">
+        <p className="px-1 text-sm text-gray-500">พบ {totalCount.toLocaleString("th-TH")} บัญชี</p>
+        {users.map((user) => (
+          <UserManagementCard
+            key={user.id}
+            user={{ ...user, phoneNumber: maskPhone(user.phoneNumber) }}
+          />
+        ))}
+        {users.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-gray-200 bg-white p-8 text-center">
+            <p className="font-medium text-gray-700">{hasFilters ? "ไม่พบผู้ใช้งานที่ตรงกับเงื่อนไข" : "ยังไม่มีผู้ใช้งาน"}</p>
+            <p className="mt-1 text-sm text-gray-500">{hasFilters ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อมีบัญชีผู้ใช้งาน รายการจะแสดงที่นี่"}</p>
+          </div>
+        ) : null}
+      </section>
+
+      <QueryPagination
+        pathname="/superadmin/users"
+        page={page}
+        totalPages={totalPages}
+        params={{ q: keyword || undefined, adminRole: adminRole !== "all" ? adminRole : undefined }}
+      />
     </div>
-
-    <div className="space-y-3">
-      {users.map((user) => <UserManagementCard key={user.id} user={{ ...user, phoneNumber: maskPhone(user.phoneNumber) }} />)}
-      {users.length === 0 ? <div className="rounded-xl border border-dashed border-gray-300 bg-white px-4 py-10 text-center"><p className="font-medium text-gray-700">{hasFilters ? "ไม่พบผู้ใช้งานที่ตรงกับเงื่อนไข" : "ยังไม่มีผู้ใช้งาน"}</p><p className="mt-1 text-sm text-gray-500">{hasFilters ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อมีบัญชีผู้ใช้งาน รายการจะแสดงที่นี่"}</p></div> : null}
-    </div>
-
-    <div className="flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-gray-500">หน้า {page} จาก {totalPages}</p><QueryPagination pathname="/superadmin/users" page={page} totalPages={totalPages} params={{ q: keyword || undefined, systemRole: systemRole !== "all" ? systemRole : undefined, adminRole: adminRole !== "all" ? adminRole : undefined }} /></div>
-  </div>;
+  );
 }

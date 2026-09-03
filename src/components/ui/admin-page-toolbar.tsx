@@ -37,6 +37,7 @@ type AdminPageToolbarProps = {
   /** Contextual controls that belong beneath the heading, such as request tabs. */
   secondaryActions?: ReactNode;
   sticky?: boolean;
+  compact?: boolean;
   search?: {
     keyword: string;
     placeholder: string;
@@ -71,6 +72,7 @@ export function AdminPageToolbar({
   actions,
   secondaryActions,
   sticky = false,
+  compact = false,
   search,
   filters,
   activeFilterCount = 0,
@@ -157,7 +159,10 @@ export function AdminPageToolbar({
   return (
     <section
       className={cn(
-        "relative z-30 -mx-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6 sm:py-4",
+        cn(
+          "relative z-30 -mx-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6",
+          compact ? "py-1.5 sm:py-1.5" : "py-3 sm:py-4",
+        ),
         sticky && "sticky top-[var(--app-sticky-top,4rem)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",
         className,
       )}

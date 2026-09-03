@@ -75,7 +75,7 @@ export function AdminFilterDropdown({ group }: { group: ToolbarGroup }) {
 /** Backward-compatible list adapter rendered through the shared admin toolbar. */
 export function AdminListToolbar({
   title, description, clearHref, keyword, searchPlaceholder, suggestionTitles = [], groups = [], actions,
-  sticky = false, searchLabel = "ค้นหา", extraFilters, hideHeading = false,
+  sticky = false, compact = false, searchLabel = "ค้นหา", extraFilters, hideHeading = false,
   searchAlwaysVisible = true, filtersInlineWithSearch = false, className,
 }: AdminListToolbarProps) {
   const activeFilterCount = groups.reduce(
@@ -97,5 +97,5 @@ export function AdminListToolbar({
     {extraFilters}
   </> : extraFilters;
 
-  return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} hideHeading={hideHeading} className={className} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} searchAlwaysVisible={searchAlwaysVisible} filtersInlineWithSearch={filtersInlineWithSearch} />;
+  return <AdminPageToolbar variant="list" title={title} description={description} actions={actions} sticky={sticky} compact={compact} hideHeading={hideHeading} className={className} search={{ keyword, placeholder: searchPlaceholder, label: searchLabel, suggestions: suggestionTitles }} filters={filters} activeFilterCount={activeFilterCount} searchAlwaysVisible={searchAlwaysVisible} filtersInlineWithSearch={filtersInlineWithSearch} />;
 }
