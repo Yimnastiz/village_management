@@ -1,14 +1,15 @@
 import Link from "next/link";
-import { AlertCircle, CalendarClock, Home, Link2, ShieldCheck, UserRoundCog, UsersRound } from "lucide-react";
+import { AlertCircle, CalendarClock, Database, Home, Link2, ShieldCheck, UserRoundCog, UserRoundPlus, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/ui/stat-card";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
-import { getVillageDashboard } from "@/features/village-workspace/server/queries";
+import { getVillageDashboard, getWorkspaceVillage } from "@/features/village-workspace/server/queries";
+import { VillageDangerZone } from "./village-danger-zone";
 
 export default async function VillageOverviewPage({ params }: { params: Promise<{ villageId: string }> }) {
   await requireSuperAdminPageSession();
   const { villageId } = await params;
-  const data = await getVillageDashboard(villageId);
+  const [data, village] = await Promise.all([getVillageDashboard(villageId), getWorkspaceVillage(villageId)]);
   const base = `/superadmin/villages/${villageId}`;
   const tasks = [
     { label: "คำขอผูกบ้านรอตรวจ", count: data.pendingBindings, href: `${base}/binding-requests?status=PENDING` },
@@ -16,7 +17,14 @@ export default async function VillageOverviewPage({ params }: { params: Promise<
     { label: "นัดหมายรอดำเนินการ", count: data.pendingAppointments, href: `${base}/appointments?status=PENDING_APPROVAL` },
   ];
 
-  return <div className="space-y-6">
+  return <div className="space-y-5">
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 sm:px-5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {village.catalogVillageId ? <Database className="h-4 w-4 shrink-0 text-sky-700" aria-hidden="true" /> : <UserRoundPlus className="h-4 w-4 shrink-0 text-violet-700" aria-hidden="true" />}
+        <div className="min-w-0"><p className="text-xs font-medium text-slate-500">แหล่งข้อมูล</p><p className="truncate text-sm font-medium text-slate-800">{village.catalogVillageId ? "ฐานข้อมูลอ้างอิง" : "เพิ่มโดยผู้ดูแลระบบ"}</p>{!village.catalogVillageId && village.sourceNote ? <p className="mt-0.5 truncate text-xs text-slate-500" title={village.sourceNote}>ที่มาเพิ่มเติม: {village.sourceNote}</p> : null}</div>
+      </div>
+      <Badge variant={village.isActive ? "success" : "outline"}>{village.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}</Badge>
+    </section>
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard title="สมาชิกที่ใช้งานอยู่" value={data.activeMembers} icon={UsersRound} color="blue" />
       <StatCard title="บ้านทั้งหมด" value={data.houses} icon={Home} color="green" />
@@ -41,5 +49,6 @@ export default async function VillageOverviewPage({ params }: { params: Promise<
         <div className="mt-3 divide-y divide-slate-100">{data.recentAudit.length ? data.recentAudit.map((log) => <div key={log.id} className="py-3 text-sm"><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-slate-400" /><p className="truncate font-medium text-slate-700">{log.action} · {log.resource}</p></div><p className="mt-1 pl-6 text-xs text-slate-400">{log.user?.name ?? "ระบบ"} · {log.createdAt.toLocaleString("th-TH")}</p></div>) : <p className="py-8 text-center text-sm text-slate-400">ยังไม่มีกิจกรรม</p>}</div>
       </section>
     </div>
+    <VillageDangerZone villageId={villageId} villageName={village.name} />
   </div>;
 }

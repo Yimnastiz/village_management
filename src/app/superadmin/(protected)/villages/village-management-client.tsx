@@ -29,6 +29,7 @@ const emptyForm: FormValues = { mode: "catalog", catalogVillageId: "", catalogSo
 const options = (values: string[]) => values.map((value) => ({ value }));
 const exact = (value: string, values: { value: string }[]) => values.some((item) => item.value === value.trim());
 const displayValue = (value: string | null | undefined, fallback: string) => value?.trim() ? value : fallback;
+const attentionLabels: Record<string, string> = { "pending-bindings": "คำขอผูกบ้านรอตรวจ", "open-issues": "ปัญหาที่ยังไม่ปิด", "pending-appointments": "นัดหมายรอดำเนินการ", "missing-headman": "ยังไม่มีผู้ใหญ่บ้าน" };
 
 function Field({ label, name, value, placeholder, error, type = "text", onChange, readOnly = false }: { label: string; name: keyof FormValues; value: string; placeholder: string; error?: string; type?: string; onChange: (name: keyof FormValues, value: string) => void; readOnly?: boolean }) {
   const isCatalogSlug = name === "slug" && catalogSlugLocked;
@@ -153,6 +154,7 @@ export function VillagesToolbar({ geography, initialQuery, initialStatus, initia
 
   return <div>
     <form onSubmit={submitSearch} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm sm:px-4">
+      {initialAttention ? <div className="flex w-full items-center gap-2 text-xs text-slate-500 sm:order-last sm:w-auto sm:grow"><span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 font-medium text-amber-800">มุมมอง: {attentionLabels[initialAttention] ?? initialAttention}</span></div> : null}
       <label className="min-w-[min(100%,18rem)] flex-1 sm:min-w-[22rem]"><span className="sr-only">ค้นหา</span><div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาชื่อหมู่บ้าน จังหวัด อำเภอ หรือตำบล" aria-label="ค้นหาหมู่บ้าน" className="h-9 w-full rounded-md border border-slate-300 py-1.5 pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-green-500" /></div></label>
       <label className="w-full sm:w-40"><span className="sr-only">สถานะ</span><select aria-label="สถานะ" value={status} onChange={(event) => setStatus(event.target.value)} className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-green-500"><option value="all">ทุกสถานะ</option><option value="active">เปิดใช้งาน</option><option value="inactive">ปิดใช้งาน</option></select></label>
       <div className="w-full sm:w-56"><SuggestCombobox id="village-filter-province" label="จังหวัด" value={province} options={provinceOptions} placeholder="เลือกจังหวัด" emptyMessage="ไม่พบจังหวัด" inputClassName="h-9 border-slate-300 focus:ring-green-500" onChange={setProvince} /></div>

@@ -22,6 +22,8 @@ export async function getWorkspaceVillage(villageId: string) {
       district: true,
       province: true,
       isActive: true,
+      catalogVillageId: true,
+      sourceNote: true,
     },
   });
   if (!village) notFound();
