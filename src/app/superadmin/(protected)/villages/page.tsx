@@ -46,7 +46,7 @@ export default async function SuperAdminVillagesPage({ searchParams }: PageProps
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   return (
-    <div className="space-y-6">
+    <div className="workspace-list-page -mt-4 mx-auto w-full max-w-[1500px] space-y-4 sm:-mt-6">
       <VillagesToolbar geography={geography} initialQuery={keyword} initialStatus={status} initialProvince={province} initialAttention={attention} />
       <section className="space-y-3">
         {!hasSearched ? <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center"><h2 className="text-base font-semibold text-slate-900">ยังไม่ได้ค้นหา</h2><p className="mt-2 text-sm text-slate-500">กรอกคำค้นหา เลือกตัวกรอง หรือกดค้นหาเพื่อแสดงข้อมูลหมู่บ้าน</p></div> : null}
