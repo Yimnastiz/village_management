@@ -3,12 +3,9 @@ import Link from "next/link";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
+import { IMPORTANT_AUDIT_RESOURCES } from "@/lib/audit-event";
 
 const ESSENTIAL_ACTIONS = ["CREATE", "UPDATE", "DELETE", "APPROVE", "REJECT", "EXPORT", "LOGIN", "LOGOUT"] as const;
-const ESSENTIAL_RESOURCES = [
-  "Village", "VillageStatus", "UserSystemRole", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval",
-  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemWideBroadcast",
-] as const;
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; view?: string; action?: string; resource?: string; dateFrom?: string; dateTo?: string; page?: string }>;
@@ -43,7 +40,7 @@ export default async function SuperAdminLogsPage({ searchParams }: PageProps) {
   const createdAt = startDate || endDate ? { ...(startDate ? { gte: startDate } : {}), ...(endDate ? { lte: endDate } : {}) } : undefined;
 
   const where: Prisma.AuditLogWhereInput = {
-    ...(view === "important" ? { action: { in: [...ESSENTIAL_ACTIONS] }, resource: { in: [...ESSENTIAL_RESOURCES] } } : {}),
+    ...(view === "important" ? { action: { in: [...ESSENTIAL_ACTIONS] }, resource: { in: [...IMPORTANT_AUDIT_RESOURCES] } } : {}),
     ...(selectedAction ? { action: selectedAction } : {}),
     ...(resource ? { resource: { contains: resource, mode: "insensitive" as const } } : {}),
     ...(createdAt ? { createdAt } : {}),

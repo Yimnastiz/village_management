@@ -10,6 +10,7 @@ import type { ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
+import { AdminCalendarGrid } from "./admin-calendar-grid";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; month?: string; date?: string }>;
@@ -87,7 +88,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
   });
 
   const todayKey = toDateKey(new Date());
-  const selectedDateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) ? params.date : null;
+  const selectedDateKey = params.date && /^\d{4}-\d{2}-\d{2}$/.test(params.date) && params.date.startsWith(`${year}-${String(monthIndex + 1).padStart(2, "0")}-`) ? params.date : "";
 
   const eventsByDay = new Map<string, typeof events>();
   for (const event of events) {
@@ -183,7 +184,17 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         adminFilterGroups={filterGroups}
       />
 
-      {daysInMonth === 0 ? (
+      <AdminCalendarGrid
+        key={`${toMonthKey(monthStart)}-${selectedDateKey ?? "none"}`}
+        year={year}
+        monthIndex={monthIndex}
+        todayKey={todayKey}
+        initialDate={selectedDateKey}
+        searchKeyword={keyword}
+        events={events.map((event) => ({ ...event, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null }))}
+        appointments={appointments.filter((apt) => apt.scheduledAt).map((apt) => ({ id: apt.id, title: apt.title, scheduledAt: apt.scheduledAt!.toISOString(), userName: apt.user.name }))}
+      />
+      {false && daysInMonth === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
           <CalendarPlus className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-600">ไม่พบข้อมูลปฏิทิน</p>
@@ -274,7 +285,7 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
         </section>
       )}
 
-      {selectedDateKey && (
+      {false && selectedDateKey && (
         <section className="space-y-3 rounded-xl border border-gray-200 bg-white p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-base font-semibold text-gray-900 sm:text-lg">

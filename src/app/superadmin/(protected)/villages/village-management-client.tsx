@@ -124,7 +124,7 @@ function VillageFormModal({ formMode, title, geography, initialValues, statusLab
   </div><div className="sticky bottom-0 -mx-4 mt-6 flex justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:-mx-6 sm:px-6"><Button type="button" variant="outline" onClick={onClose} disabled={pending}>ยกเลิก</Button><Button type="submit" isLoading={pending}>{formMode === "create" ? "เปิดใช้งานหมู่บ้าน" : "บันทึก"}</Button></div></form></div></div>;
 }
 
-export function VillagesToolbar({ geography, initialQuery, initialStatus, initialProvince }: { geography: ThaiProvince[]; initialQuery: string; initialStatus: string; initialProvince: string }) {
+export function VillagesToolbar({ geography, initialQuery, initialStatus, initialProvince, initialAttention }: { geography: ThaiProvince[]; initialQuery: string; initialStatus: string; initialProvince: string; initialAttention: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const { pushToast } = useToast();
@@ -147,6 +147,7 @@ export function VillagesToolbar({ geography, initialQuery, initialStatus, initia
     if (query.trim()) params.set("q", query.trim());
     if (status !== "all") params.set("status", status);
     if (province.trim()) params.set("province", province.trim());
+    if (initialAttention) params.set("attention", initialAttention);
     router.replace(params.toString() ? `${pathname}?${params}` : pathname);
   };
 

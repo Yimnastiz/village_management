@@ -22,6 +22,11 @@ export type FormattedAuditEvent = {
   isSuperAdminIntervention: boolean;
 };
 
+export const IMPORTANT_AUDIT_RESOURCES = [
+  "Village", "VillageStatus", "UserSystemRole", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval",
+  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemWideBroadcast",
+] as const;
+
 const resourceLabels: Record<string, string> = {
   News: "ข่าว",
   NewsSubmission: "คำขอข่าว",
