@@ -3,30 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
-import {
-  createUserMembershipAction,
-  deleteUserAccountAction,
-  deleteUserMembershipAction,
-  updateUserMembershipAction,
-  updateUserProfileAction,
-  updateUserSystemRoleAction,
-} from "./actions";
+import { ACCOUNT_STATUS_LABELS, MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS } from "@/lib/constants";
+import { updateUserProfileAction } from "./actions";
 
-type VillageOption = {
-  id: string;
-  name: string;
-};
-
-type MembershipOption = {
+type Membership = {
   id: string;
   villageId: string;
-  villageName: string;
   role: string;
   status: string;
-  houseId: string | null;
+  joinedAt: string | null;
+  village: { id: string; name: string; subdistrict: string | null; district: string | null; province: string | null };
+  houseNumber: string | null;
 };
 
 type UserDetail = {
@@ -36,270 +27,217 @@ type UserDetail = {
   email: string | null;
   image: string | null;
   systemRole: string;
+  accountStatus: string;
   registrationProvince: string | null;
   registrationDistrict: string | null;
   registrationSubdistrict: string | null;
+  registrationVillage: { name: string } | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
-type ConfirmState = {
-  title: string;
-  description: string;
-  tone: "default" | "danger";
-  action: () => Promise<void>;
-} | null;
+function accountStatusClass(status: string) {
+  if (status === "ACTIVE") return "bg-emerald-50 text-emerald-700";
+  if (status === "SUSPENDED" || status === "ANONYMIZED") return "bg-red-50 text-red-700";
+  if (status === "PENDING" || status === "DELETION_PENDING") return "bg-amber-50 text-amber-700";
+  return "bg-gray-100 text-gray-700";
+}
 
-export function UserDetailClient({
-  user,
-  villages,
-  memberships,
-}: {
-  user: UserDetail;
-  villages: VillageOption[];
-  memberships: MembershipOption[];
-}) {
+function membershipStatusClass(status: string) {
+  return status === "ACTIVE" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700";
+}
+
+function statusExplanation(status: string) {
+  if (status === "SUSPENDED") return "บัญชีถูกระงับการใช้งานอยู่";
+  if (status === "PENDING") return "บัญชียังอยู่ระหว่างการตรวจสอบ";
+  if (status === "DELETION_PENDING") return "บัญชีอยู่ระหว่างกระบวนการปิดบัญชี";
+  if (status === "ANONYMIZED") return "บัญชีนี้ถูกปิดและทำให้ไม่สามารถระบุตัวตนได้แล้ว";
+  if (status === "DUPLICATE_ID") return "ระบบระบุว่าข้อมูลระบุตัวตนของบัญชีนี้ซ้ำ";
+  return null;
+}
+
+function Detail({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      <dt className="text-xs font-medium text-gray-500">{label}</dt>
+      <dd className="mt-1 break-words text-sm text-gray-900">{children}</dd>
+    </div>
+  );
+}
+
+export function UserDetailClient({ user, memberships }: { user: UserDetail; memberships: Membership[] }) {
   const router = useRouter();
   const { pushToast } = useToast();
+  const [editOpen, setEditOpen] = useState(false);
   const [pending, setPending] = useState(false);
-  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+  const explanation = statusExplanation(user.accountStatus);
 
-  const runAction = async (work: () => Promise<void>, successTitle: string, successDescription?: string) => {
+  const submitProfile = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (pending) return;
+
     setPending(true);
     try {
-      await work();
-      pushToast({ tone: "success", title: successTitle, description: successDescription });
+      const formData = new FormData(event.currentTarget);
+      formData.set("userId", user.id);
+      await updateUserProfileAction(formData);
+      pushToast({ tone: "success", title: "บันทึกข้อมูลบัญชีแล้ว", description: user.name });
+      setEditOpen(false);
       router.refresh();
     } catch (error) {
       pushToast({
         tone: "error",
-        title: "ดำเนินการไม่สำเร็จ",
+        title: "บันทึกข้อมูลไม่สำเร็จ",
         description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด",
       });
     } finally {
       setPending(false);
-      setConfirmState(null);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">จัดการผู้ใช้แบบละเอียด</h1>
-          <p className="mt-1 text-sm text-slate-600">{user.name} • {user.phoneNumber} • {user.id}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/superadmin/users" className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            กลับหน้ารายการผู้ใช้
-          </Link>
-          <span className={`rounded-full px-2 py-1 text-xs font-semibold ${user.systemRole === "SUPERADMIN" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
-            {user.systemRole}
+    <div className="mx-auto -mt-4 w-full max-w-5xl space-y-4 sm:-mt-6">
+      <SuperAdminPageHeaderRegistration
+        priority={1}
+        context={{
+          title: user.name.trim() || "รายละเอียดผู้ใช้งาน",
+          description: "ตรวจสอบข้อมูลบัญชีและการสังกัดหมู่บ้าน",
+        }}
+      />
+
+      <nav className="flex flex-wrap items-center justify-between gap-2 border-y border-gray-200 bg-white/95 px-1 py-2" aria-label="การนำทางรายละเอียดผู้ใช้งาน">
+        <Link href="/superadmin/users" className="inline-flex min-h-9 items-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+          กลับรายการผู้ใช้งาน
+        </Link>
+        <Button type="button" size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+          แก้ไขข้อมูลบัญชี
+        </Button>
+      </nav>
+
+      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-3">
+          <h2 className="text-lg font-semibold text-gray-900">ข้อมูลบัญชี</h2>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${accountStatusClass(user.accountStatus)}`}>
+            {ACCOUNT_STATUS_LABELS[user.accountStatus] ?? "ไม่ทราบสถานะ"}
           </span>
         </div>
-      </div>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">ข้อมูลบัญชีผู้ใช้</h2>
-        <form
-          className="grid grid-cols-1 gap-3 md:grid-cols-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            formData.set("userId", user.id);
-            void runAction(() => updateUserProfileAction(formData), "บันทึกข้อมูลผู้ใช้แล้ว", user.name);
-          }}
-        >
-          <label className="text-sm text-slate-700">
-            ชื่อ
-            <input name="name" defaultValue={user.name} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required />
-          </label>
-          <label className="text-sm text-slate-700">
-            เบอร์โทรศัพท์
-            <input name="phoneNumber" defaultValue={user.phoneNumber} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" required />
-          </label>
-          <label className="text-sm text-slate-700">
-            อีเมล
-            <input name="email" defaultValue={user.email ?? ""} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <label className="text-sm text-slate-700">
-            URL รูปโปรไฟล์
-            <input name="image" defaultValue={user.image ?? ""} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <label className="text-sm text-slate-700">
-            จังหวัดตอนสมัคร
-            <input name="registrationProvince" defaultValue={user.registrationProvince ?? ""} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <label className="text-sm text-slate-700">
-            อำเภอตอนสมัคร
-            <input name="registrationDistrict" defaultValue={user.registrationDistrict ?? ""} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <label className="text-sm text-slate-700 md:col-span-2">
-            ตำบลตอนสมัคร
-            <input name="registrationSubdistrict" defaultValue={user.registrationSubdistrict ?? ""} className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <div className="md:col-span-2">
-            <Button type="submit">บันทึกข้อมูลผู้ใช้</Button>
-          </div>
-        </form>
+        {explanation ? <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">{explanation}</p> : null}
+        <dl className="grid gap-x-6 gap-y-4 pt-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <Detail label="ชื่อ">{user.name}</Detail>
+          <Detail label="เบอร์โทรศัพท์">{user.phoneNumber || "-"}</Detail>
+          <Detail label="อีเมล" className="break-all">{user.email ?? "-"}</Detail>
+          <Detail label="วันที่สร้างบัญชี">{new Date(user.createdAt).toLocaleDateString("th-TH")}</Detail>
+          <Detail label="อัปเดตล่าสุด">{new Date(user.updatedAt).toLocaleString("th-TH")}</Detail>
+          {user.systemRole === "SUPERADMIN" ? <Detail label="ประเภทบัญชี">ผู้ดูแลระบบระดับสูง</Detail> : null}
+        </dl>
       </section>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">บทบาทระดับระบบ</h2>
-        <form
-          className="flex flex-wrap items-center gap-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            formData.set("userId", user.id);
-            const nextRole = String(formData.get("systemRole") ?? "USER");
-            setConfirmState({
-              title: "ยืนยันเปลี่ยนบทบาทระดับระบบ",
-              description: `ต้องการเปลี่ยนบทบาทของ ${user.name} เป็น ${nextRole}`,
-              tone: nextRole === "SUPERADMIN" ? "danger" : "default",
-              action: async () => {
-                await runAction(() => updateUserSystemRoleAction(formData), "อัปเดตบทบาทระดับระบบแล้ว", `${user.name} → ${nextRole}`);
-              },
-            });
-          }}
-        >
-          <select name="systemRole" defaultValue={user.systemRole} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
-            <option value="USER">USER</option>
-            <option value="SUPERADMIN">SUPERADMIN</option>
-          </select>
-          <Button type="submit" variant="secondary">บันทึกบทบาทระบบ</Button>
-        </form>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">เพิ่ม/แก้ไขสมาชิกหมู่บ้าน</h2>
-        <form
-          className="grid grid-cols-1 gap-3 md:grid-cols-4"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            formData.set("userId", user.id);
-            void runAction(() => createUserMembershipAction(formData), "บันทึกสมาชิกหมู่บ้านแล้ว", user.name);
-          }}
-        >
-          <select name="villageId" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
-            <option value="">เลือกหมู่บ้าน</option>
-            {villages.map((village) => (
-              <option key={village.id} value={village.id}>{village.name}</option>
-            ))}
-          </select>
-          <select name="role" defaultValue="RESIDENT" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
-            <option value="RESIDENT">RESIDENT</option>
-            <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
-            <option value="HEADMAN">HEADMAN</option>
-          </select>
-          <select name="status" defaultValue="ACTIVE" className="rounded-md border border-slate-300 px-3 py-2 text-sm" required>
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="PENDING">PENDING</option>
-            <option value="SUSPENDED">SUSPENDED</option>
-            <option value="REJECTED">REJECTED</option>
-          </select>
-          <input name="houseId" placeholder="houseId (ไม่บังคับ)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
-          <div className="md:col-span-4">
-            <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500">เพิ่ม/บันทึกสมาชิกหมู่บ้าน</Button>
-          </div>
-        </form>
-      </section>
-
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">รายการสมาชิกที่มีอยู่</h2>
+      <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+        <div className="border-b border-gray-100 pb-3">
+          <h2 className="text-lg font-semibold text-gray-900">การสังกัดหมู่บ้าน</h2>
+          <p className="mt-1 text-sm text-gray-500">จัดการบทบาท สถานะสมาชิก และการผูกเลขบ้านจากพื้นที่ทำงานของหมู่บ้าน</p>
+        </div>
         {memberships.length === 0 ? (
-          <p className="text-sm text-slate-500">ยังไม่มีสมาชิกหมู่บ้าน</p>
+          <div className="py-6 text-sm text-gray-500">
+            <p className="font-medium text-gray-700">ยังไม่ได้สังกัดหมู่บ้าน</p>
+            <p className="mt-1">การเพิ่มหรือผูกสมาชิกต้องดำเนินการจากพื้นที่ทำงานของหมู่บ้าน</p>
+          </div>
         ) : (
-          <div className="space-y-3">
-            {memberships.map((membership) => (
-              <form
-                key={membership.id}
-                className="rounded-lg border border-slate-200 bg-slate-50 p-3"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const formData = new FormData(event.currentTarget);
-                  formData.set("membershipId", membership.id);
-                  formData.set("userId", user.id);
-                  void runAction(() => updateUserMembershipAction(formData), "อัปเดตสมาชิกหมู่บ้านแล้ว", membership.villageName);
-                }}
-              >
-                <p className="mb-2 text-sm font-medium text-slate-900">{membership.villageName}</p>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  <select name="role" defaultValue={membership.role} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
-                    <option value="RESIDENT">RESIDENT</option>
-                    <option value="ASSISTANT_HEADMAN">ASSISTANT_HEADMAN</option>
-                    <option value="HEADMAN">HEADMAN</option>
-                  </select>
-                  <select name="status" defaultValue={membership.status} className="rounded-md border border-slate-300 px-3 py-2 text-sm">
-                    <option value="ACTIVE">ACTIVE</option>
-                    <option value="PENDING">PENDING</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                    <option value="REJECTED">REJECTED</option>
-                  </select>
-                  <input name="houseId" defaultValue={membership.houseId ?? ""} placeholder="houseId (ไม่บังคับ)" className="rounded-md border border-slate-300 px-3 py-2 text-sm" />
-                  <div className="flex gap-2">
-                    <Button type="submit" variant="secondary">บันทึก</Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setConfirmState({
-                          title: "ยืนยันลบสมาชิกหมู่บ้าน",
-                          description: `ต้องการลบสมาชิกของ ${user.name} จาก ${membership.villageName}`,
-                          tone: "danger",
-                          action: async () => {
-                            const formData = new FormData();
-                            formData.set("membershipId", membership.id);
-                            formData.set("userId", user.id);
-                            await runAction(() => deleteUserMembershipAction(formData), "ลบสมาชิกหมู่บ้านแล้ว", membership.villageName);
-                          },
-                        });
-                      }}
-                    >
-                      ลบ
-                    </Button>
+          <div className="divide-y divide-gray-100">
+            {memberships.map((membership) => {
+              const location = [
+                membership.village.subdistrict && `ต.${membership.village.subdistrict}`,
+                membership.village.district && `อ.${membership.village.district}`,
+                membership.village.province && `จ.${membership.village.province}`,
+              ].filter(Boolean);
+              const manageLabel = ["HEADMAN", "ASSISTANT_HEADMAN"].includes(membership.role)
+                ? "จัดการบทบาทในหมู่บ้าน"
+                : "จัดการในหมู่บ้าน";
+
+              return (
+                <article key={membership.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="break-words font-medium text-gray-900">{membership.village.name}</p>
+                    {location.length ? <p className="mt-1 break-words text-xs text-gray-500">{location.join(" · ")}</p> : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
+                      <span>{MEMBERSHIP_ROLE_LABELS[membership.role] ?? "สมาชิกหมู่บ้าน"}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${membershipStatusClass(membership.status)}`}>
+                        {MEMBERSHIP_STATUS_LABELS[membership.status] ?? "ไม่ทราบสถานะ"}
+                      </span>
+                      {membership.houseNumber ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span>บ้านเลขที่ {membership.houseNumber}</span>
+                        </>
+                      ) : null}
+                      {membership.joinedAt ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="text-xs text-gray-500">เข้าร่วม {new Date(membership.joinedAt).toLocaleDateString("th-TH")}</span>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </form>
-            ))}
+                  <Link href={`/superadmin/villages/${membership.villageId}/users`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+                    {manageLabel}
+                  </Link>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
 
-      <section className="rounded-xl border border-red-200 bg-red-50 p-4 shadow-sm">
-        <h2 className="mb-2 text-lg font-semibold text-red-800">โซนอันตราย</h2>
-        <p className="mb-3 text-sm text-red-700">ลบบัญชีผู้ใช้นี้พร้อมข้อมูลที่ผูกกับผู้ใช้ตามกฎ onDelete ของระบบ</p>
-        <Button
-          type="button"
-          variant="danger"
-          onClick={() => {
-            setConfirmState({
-              title: "ยืนยันลบบัญชีผู้ใช้",
-              description: `ต้องการลบบัญชี ${user.name} อย่างถาวรใช่หรือไม่`,
-              tone: "danger",
-              action: async () => {
-                const formData = new FormData();
-                formData.set("userId", user.id);
-                await runAction(() => deleteUserAccountAction(formData), "ลบบัญชีผู้ใช้แล้ว", user.name);
-                router.push("/superadmin/users");
-              },
-            });
-          }}
-        >
-          ลบบัญชีผู้ใช้
-        </Button>
-      </section>
+      {(user.registrationVillage || user.registrationSubdistrict || user.registrationDistrict || user.registrationProvince) ? (
+        <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-gray-900">ข้อมูลที่ระบุตอนสมัคร</h2>
+          <p className="mt-1 text-sm text-gray-500">ข้อมูลนี้ใช้ประกอบการลงทะเบียน และไม่ใช่การสังกัดหมู่บ้านปัจจุบัน</p>
+          <dl className="mt-4 grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <Detail label="หมู่บ้าน">{user.registrationVillage?.name ?? "-"}</Detail>
+            <Detail label="ตำบล">{user.registrationSubdistrict ?? "-"}</Detail>
+            <Detail label="อำเภอ">{user.registrationDistrict ?? "-"}</Detail>
+            <Detail label="จังหวัด">{user.registrationProvince ?? "-"}</Detail>
+          </dl>
+        </section>
+      ) : null}
 
-      <ConfirmDialog
-        open={Boolean(confirmState)}
-        title={confirmState?.title ?? ""}
-        description={confirmState?.description}
-        tone={confirmState?.tone}
-        pending={pending}
-        onClose={() => !pending && setConfirmState(null)}
-        onConfirm={() => {
-          void confirmState?.action();
-        }}
-      />
+      <Dialog
+        open={editOpen}
+        title="แก้ไขข้อมูลบัญชี"
+        description="ปรับปรุงข้อมูลบัญชีที่รองรับ โดยไม่เปลี่ยนบทบาทหรือการสังกัดหมู่บ้าน"
+        onClose={() => !pending && setEditOpen(false)}
+        closeOnBackdrop={!pending}
+        closeOnEscape={!pending}
+        footer={(
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" disabled={pending} onClick={() => setEditOpen(false)}>ยกเลิก</Button>
+            <Button type="submit" form="user-profile-edit" isLoading={pending} disabled={pending}>บันทึกข้อมูล</Button>
+          </div>
+        )}
+      >
+        <form id="user-profile-edit" onSubmit={submitProfile} className="grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+            ชื่อ
+            <input name="name" defaultValue={user.name} required className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
+          </label>
+          <label className="grid gap-1.5 text-sm font-medium text-gray-700">
+            เบอร์โทรศัพท์
+            <input name="phoneNumber" type="tel" defaultValue={user.phoneNumber} required className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
+          </label>
+          <label className="grid gap-1.5 text-sm font-medium text-gray-700 sm:col-span-2">
+            อีเมล
+            <input name="email" type="email" defaultValue={user.email ?? ""} className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
+          </label>
+          <label className="grid gap-1.5 text-sm font-medium text-gray-700 sm:col-span-2">
+            URL รูปโปรไฟล์
+            <input name="image" type="url" defaultValue={user.image ?? ""} className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
+          </label>
+          <input type="hidden" name="registrationProvince" value={user.registrationProvince ?? ""} />
+          <input type="hidden" name="registrationDistrict" value={user.registrationDistrict ?? ""} />
+          <input type="hidden" name="registrationSubdistrict" value={user.registrationSubdistrict ?? ""} />
+        </form>
+      </Dialog>
     </div>
   );
 }

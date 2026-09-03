@@ -99,6 +99,15 @@ export const MEMBERSHIP_STATUS_LABELS: Record<string, string> = {
   REJECTED: "ปฏิเสธ",
 };
 
+export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "ใช้งานอยู่",
+  SUSPENDED: "ระงับการใช้งาน",
+  PENDING: "รอตรวจสอบ",
+  DELETION_PENDING: "รอปิดบัญชี",
+  ANONYMIZED: "ปิดบัญชีแล้ว",
+  DUPLICATE_ID: "ข้อมูลซ้ำ",
+};
+
 export const TRANSPARENCY_STAGE_LABELS: Record<string, string> = {
   DRAFT: "ร่าง",
   PUBLISHED: "เผยแพร่แล้ว",

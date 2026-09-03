@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS } from "@/lib/constants";
+import { ACCOUNT_STATUS_LABELS, MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS } from "@/lib/constants";
 
 type MembershipRow = {
   id: string;
@@ -19,15 +19,6 @@ type UserRow = {
   registrationSubdistrict: string | null;
   registrationVillage: { name: string } | null;
   memberships: MembershipRow[];
-};
-
-const ACCOUNT_STATUS_LABELS: Record<string, string> = {
-  ACTIVE: "ใช้งานอยู่",
-  SUSPENDED: "ระงับการใช้งาน",
-  PENDING: "รอตรวจสอบ",
-  DELETION_PENDING: "รอปิดบัญชี",
-  ANONYMIZED: "ปิดบัญชีแล้ว",
-  DUPLICATE_ID: "ข้อมูลซ้ำ",
 };
 
 function membershipStatusClass(status: string) {

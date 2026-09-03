@@ -11,7 +11,7 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
   await requireSuperAdminPageSession();
   const { userId } = await params;
 
-  const [user, villages, memberships] = await Promise.all([
+  const [user, memberships] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -21,19 +21,26 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
         email: true,
         image: true,
         systemRole: true,
+        accountStatus: true,
         registrationProvince: true,
         registrationDistrict: true,
         registrationSubdistrict: true,
+        registrationVillage: { select: { name: true } },
+        createdAt: true,
+        updatedAt: true,
       },
-    }),
-    prisma.village.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
     }),
     prisma.villageMembership.findMany({
       where: { userId },
-      include: { village: { select: { name: true } } },
+      select: {
+        id: true,
+        villageId: true,
+        role: true,
+        status: true,
+        joinedAt: true,
+        village: { select: { id: true, name: true, subdistrict: true, district: true, province: true } },
+        house: { select: { houseNumber: true } },
+      },
       orderBy: [{ updatedAt: "desc" }],
     }),
   ]);
@@ -44,15 +51,19 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
 
   return (
     <UserDetailClient
-      user={{ ...user, systemRole: user.systemRole }}
-      villages={villages}
+      user={{
+        ...user,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      }}
       memberships={memberships.map((membership) => ({
         id: membership.id,
         villageId: membership.villageId,
-        villageName: membership.village.name,
         role: membership.role,
         status: membership.status,
-        houseId: membership.houseId,
+        joinedAt: membership.joinedAt?.toISOString() ?? null,
+        village: membership.village,
+        houseNumber: membership.house?.houseNumber ?? null,
       }))}
     />
   );
