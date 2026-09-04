@@ -38,7 +38,7 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
         role: true,
         status: true,
         joinedAt: true,
-        village: { select: { id: true, name: true, subdistrict: true, district: true, province: true } },
+        village: { select: { id: true, name: true, moo: true, subdistrict: true, district: true, province: true } },
         house: { select: { houseNumber: true } },
       },
       orderBy: [{ updatedAt: "desc" }],
@@ -56,6 +56,7 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
         displayName: user.person ? `${user.person.firstName} ${user.person.lastName}`.trim() : user.name,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
+        linkedPersonId: user.person?.id ?? null,
       }}
       memberships={memberships.map((membership) => ({
         id: membership.id,
@@ -65,6 +66,7 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
         joinedAt: membership.joinedAt?.toISOString() ?? null,
         village: membership.village,
         houseNumber: membership.house?.houseNumber ?? null,
+        personId: user.person?.villageId === membership.villageId ? user.person.id : null,
       }))}
     />
   );

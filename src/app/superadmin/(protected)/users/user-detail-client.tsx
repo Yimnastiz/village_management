@@ -16,8 +16,9 @@ type Membership = {
   role: string;
   status: string;
   joinedAt: string | null;
-  village: { id: string; name: string; subdistrict: string | null; district: string | null; province: string | null };
+  village: { id: string; name: string; moo: string | null; subdistrict: string | null; district: string | null; province: string | null };
   houseNumber: string | null;
+  personId: string | null;
 };
 
 type UserDetail = {
@@ -33,6 +34,7 @@ type UserDetail = {
   registrationVillage: { name: string } | null;
   createdAt: string;
   updatedAt: string;
+  linkedPersonId: string | null;
 };
 
 function accountStatusClass(status: string) {
@@ -96,7 +98,7 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
   };
 
   return (
-    <div className="mx-auto -mt-4 w-full max-w-5xl space-y-4 sm:-mt-6">
+    <div className="-mt-4 w-full space-y-4 sm:-mt-6">
       <SuperAdminPageHeaderRegistration
         priority={1}
         context={{
@@ -105,14 +107,18 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
         }}
       />
 
-      <nav className="flex flex-wrap items-center justify-between gap-2 border-y border-gray-200 bg-white/95 px-1 py-2" aria-label="การนำทางรายละเอียดผู้ใช้งาน">
+      <nav className="sticky top-[var(--app-sticky-top,4rem)] z-30 -mx-4 flex flex-wrap items-center justify-between gap-2 border-y border-gray-200 bg-white/95 px-4 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 transition-[top] duration-[var(--app-topbar-motion,180ms)] sm:-mx-6 sm:px-6" aria-label="การนำทางรายละเอียดผู้ใช้งาน">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-2">
         <Link href="/superadmin/users" className="inline-flex min-h-9 items-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
           กลับรายการผู้ใช้งาน
         </Link>
         <Button type="button" size="sm" variant="outline" onClick={() => setEditOpen(true)}>
           แก้ไขข้อมูลบัญชี
         </Button>
+        </div>
       </nav>
+
+      <div className="mx-auto w-full max-w-5xl space-y-4">
 
       <section className="rounded-xl border border-gray-200 bg-white p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-3">
@@ -150,14 +156,10 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
                 membership.village.district && `อ.${membership.village.district}`,
                 membership.village.province && `จ.${membership.village.province}`,
               ].filter(Boolean);
-              const manageLabel = ["HEADMAN", "ASSISTANT_HEADMAN"].includes(membership.role)
-                ? "จัดการบทบาทในหมู่บ้าน"
-                : "จัดการในหมู่บ้าน";
-
               return (
                 <article key={membership.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="break-words font-medium text-gray-900">{membership.village.name}</p>
+                    <p className="break-words font-medium text-gray-900">{membership.village.name}{membership.village.moo ? ` · หมู่ ${membership.village.moo}` : ""}</p>
                     {location.length ? <p className="mt-1 break-words text-xs text-gray-500">{location.join(" · ")}</p> : null}
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-gray-600">
                       <span>{MEMBERSHIP_ROLE_LABELS[membership.role] ?? "สมาชิกหมู่บ้าน"}</span>
@@ -179,9 +181,12 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
                       ) : null}
                     </div>
                   </div>
-                  <Link href={`/superadmin/villages/${membership.villageId}/users`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
-                    {manageLabel}
+                  <div className="flex min-w-0 flex-wrap justify-end gap-2 sm:max-w-[18rem]">
+                  <Link href={`/superadmin/villages/${membership.villageId}/users?member=${encodeURIComponent(membership.id)}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">
+                    จัดการสมาชิกและบทบาท
                   </Link>
+                  {membership.personId ? <Link href={`/superadmin/villages/${membership.villageId}/people/${membership.personId}`} className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-md px-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">ดูข้อมูลทะเบียน</Link> : null}
+                  </div>
                 </article>
               );
             })}
@@ -201,6 +206,8 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
           </dl>
         </section>
       ) : null}
+
+      </div>
 
       <Dialog
         open={editOpen}

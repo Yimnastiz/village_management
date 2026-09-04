@@ -66,7 +66,7 @@ export function UserManagementCard({ user }: { user: UserRow; villages?: { id: s
                   {membership.house ? <><span aria-hidden="true">·</span><span>บ้านเลขที่ {membership.house.houseNumber}</span></> : null}
                 </div>
               </div>
-              <Link href={`/superadmin/villages/${membership.village.id}/users`} aria-label={`จัดการสมาชิกใน ${membership.village.name}${membership.village.moo ? ` หมู่ ${membership.village.moo}` : ""}`} className="inline-flex min-h-8 max-w-full shrink-0 items-center justify-center rounded-md px-2 text-xs font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">จัดการในหมู่บ้าน</Link>
+              <Link href={`/superadmin/villages/${membership.village.id}/users?member=${encodeURIComponent(membership.id)}`} aria-label={`จัดการสมาชิกใน ${membership.village.name}${membership.village.moo ? ` หมู่ ${membership.village.moo}` : ""}`} className="inline-flex min-h-8 max-w-full shrink-0 items-center justify-center rounded-md px-2 text-xs font-medium text-gray-500 transition-colors hover:bg-white hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 focus-visible:ring-offset-2">จัดการในหมู่บ้าน</Link>
             </div>)}
           </div>}
         </section>
