@@ -16,6 +16,7 @@ import {
   ListChecks,
   ChevronLeft,
   ChevronRight,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SidebarTooltip } from "@/components/ui/sidebar-tooltip";
