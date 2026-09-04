@@ -16,10 +16,10 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
   const status = readText(formData, "status");
 
   if (!notificationId) {
-    throw new Error("ไม่พบรายการ feedback");
+    throw new Error("ไม่พบรายการความคิดเห็น");
   }
 
-  if (!Object.values(NotificationStatus).includes(status as NotificationStatus)) {
+  if (![NotificationStatus.UNREAD, NotificationStatus.READ, NotificationStatus.ARCHIVED].includes(status as NotificationStatus)) {
     throw new Error("สถานะไม่ถูกต้อง");
   }
 
@@ -29,19 +29,19 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
   });
 
   if (!row) {
-    throw new Error("ไม่พบรายการ feedback");
+    throw new Error("ไม่พบรายการความคิดเห็น");
   }
 
   const metadata = row.metadata as Record<string, unknown> | null;
   if (metadata?.source !== "PUBLIC_FEEDBACK") {
-    throw new Error("รายการนี้ไม่ใช่ feedback");
+    throw new Error("รายการนี้ไม่ใช่ความคิดเห็น");
   }
 
   await prisma.notification.update({
     where: { id: row.id },
     data: {
       status: status as NotificationStatus,
-      readAt: status === NotificationStatus.READ ? new Date() : null,
+      ...(status === NotificationStatus.READ ? { readAt: new Date() } : status === NotificationStatus.UNREAD ? { readAt: null } : {}),
     },
   });
 

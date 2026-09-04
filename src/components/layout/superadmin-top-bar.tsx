@@ -23,7 +23,7 @@ const pageHeaders = [
   { match: "/superadmin/data-quality", title: "Data Quality", description: "ตรวจสอบคุณภาพข้อมูลโดยระบบจะไม่แก้ไขข้อมูลอัตโนมัติ" },
   { match: "/superadmin/roles", title: "บทบาทและสิทธิ์", description: "จัดการสิทธิ์การเข้าถึงระดับระบบ" },
   { match: "/superadmin/broadcasts", title: "ประกาศส่วนกลาง", description: "ส่งและจัดการประกาศสำคัญที่ต้องการแจ้งให้ผู้ใช้งานทั่วทั้งระบบทราบ" },
-  { match: "/superadmin/feedback", title: "Feedback จากผู้ใช้งาน", description: "ติดตามข้อเสนอแนะและประเด็นจากผู้ใช้งาน" },
+  { match: "/superadmin/feedback", title: "ความคิดเห็นและข้อเสนอแนะ", description: "ตรวจสอบข้อเสนอแนะ การร้องเรียน และรายงานปัญหาที่ส่งเข้ามาจากผู้ใช้งาน" },
   { match: "/superadmin/logs", title: "บันทึกกิจกรรมระบบ", description: "ตรวจสอบกิจกรรมสำคัญและประวัติการดำเนินการ" },
   { match: "/superadmin/settings", title: "ตั้งค่ากลางระบบ", description: "จัดการการตั้งค่าพื้นฐานของระบบ" },
   { match: "/superadmin/activities", title: "กิจกรรมระบบ", description: "ติดตามกิจกรรมส่วนกลางของระบบ" },
