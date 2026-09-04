@@ -181,6 +181,11 @@ enum NotificationStatus {
   ARCHIVED
 }
 
+enum SystemBroadcastStatus {
+  ACTIVE
+  CANCELLED
+}
+
 enum ContactRequestStatus {
   PENDING
   APPROVED
@@ -323,6 +328,7 @@ model User {
   bindingRequests         BindingRequest[]
   contactRequests         ContactRequest[]
   notifications           Notification[]
+  systemBroadcastsCreated SystemBroadcast[] @relation("SystemBroadcastCreator")
   auditLogs               AuditLog[]
   savedItems              SavedItem[]
   authoredNews            News[]
@@ -1172,22 +1178,45 @@ model PopulationImportJob {
 }
 
 model Notification {
-  id        String             @id @default(cuid())
-  villageId String?
-  userId    String
-  type      NotificationType
-  status    NotificationStatus @default(UNREAD)
-  title     String
-  body      String?
-  metadata  Json?
-  readAt    DateTime?
-  createdAt DateTime           @default(now())
+  id                String             @id @default(cuid())
+  villageId         String?
+  userId            String
+  systemBroadcastId String?
+  type              NotificationType
+  status            NotificationStatus @default(UNREAD)
+  title             String
+  body              String?
+  metadata          Json?
+  readAt            DateTime?
+  createdAt         DateTime           @default(now())
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  village Village? @relation(fields: [villageId], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village         Village?         @relation(fields: [villageId], references: [id])
+  systemBroadcast SystemBroadcast? @relation(fields: [systemBroadcastId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([status])
+  @@index([systemBroadcastId])
+}
+
+model SystemBroadcast {
+  id              String                @id
+  title           String
+  body            String                @db.Text
+  status          SystemBroadcastStatus @default(ACTIVE)
+  expiresAt       DateTime?
+  cancelledAt     DateTime?
+  createdByUserId String?
+  audienceCount   Int
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  createdBy    User?          @relation("SystemBroadcastCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  notifications Notification[]
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@index([expiresAt])
 }
 
 model AuditLog {
