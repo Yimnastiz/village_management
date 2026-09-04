@@ -1,5 +1,6 @@
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { QueryPagination } from "@/components/ui/query-pagination";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 import { prisma } from "@/lib/prisma";
 import { requireSuperAdminPageSession } from "@/lib/superadmin";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
@@ -40,8 +41,8 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
       select: {
         id: true, name: true, phoneNumber: true, accountStatus: true,
         registrationProvince: true, registrationDistrict: true, registrationSubdistrict: true,
-        registrationVillage: { select: { name: true } },
-        memberships: { select: { id: true, role: true, status: true, village: { select: { id: true, name: true, subdistrict: true, district: true, province: true } }, house: { select: { houseNumber: true } } }, orderBy: { updatedAt: "desc" } },
+        registrationVillage: { select: { name: true, moo: true } },
+        memberships: { select: { id: true, role: true, status: true, village: { select: { id: true, name: true, moo: true, subdistrict: true, district: true, province: true } }, house: { select: { houseNumber: true } } }, orderBy: { updatedAt: "desc" } },
       },
     }),
     prisma.user.count({ where }),
@@ -59,7 +60,8 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
   };
 
   return (
-    <div className="workspace-list-page -mt-4 mx-auto flex min-h-0 w-full max-w-[1500px] flex-col space-y-4 sm:-mt-6 sm:overflow-visible">
+    <div className="workspace-list-page -mt-4 mx-auto flex min-h-0 w-full max-w-[1500px] flex-col gap-2 sm:-mt-6 sm:overflow-visible">
+      <SuperAdminPageHeaderRegistration context={{ title: "ผู้ใช้งานระบบ", description: "ค้นหา ตรวจสอบ และสนับสนุนบัญชีผู้ใช้งานทุกหมู่บ้าน" }} />
       <AdminListToolbar
         compact
         sticky
@@ -82,7 +84,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
         }]}
       />
 
-      <section className="space-y-3">
+      <section className="space-y-2">
         <p className="px-1 text-sm text-gray-500">พบ {totalCount.toLocaleString("th-TH")} บัญชี</p>
         {users.map((user) => (
           <UserManagementCard
