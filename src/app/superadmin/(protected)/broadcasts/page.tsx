@@ -5,84 +5,23 @@ import { BroadcastForm } from "./broadcast-form";
 export default async function SuperAdminBroadcastsPage() {
   await requireSuperAdminPageSession();
   const now = new Date();
-
-  const rawNotifications = await prisma.notification.findMany({
-    where: {
-      type: "SYSTEM",
-      status: { in: ["UNREAD", "READ"] },
-      metadata: {
-        path: ["source"],
-        equals: "SUPERADMIN_BROADCAST",
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 600,
-    select: {
-      id: true,
-      title: true,
-      body: true,
-      metadata: true,
-      createdAt: true,
-      userId: true,
-    },
-  });
-
-  const grouped = new Map<string, {
-    groupId: string;
-    title: string;
-    body: string;
-    expiresAt: string | null;
-    createdAtIso: string;
-    audienceCount: number;
-    active: boolean;
-  }>();
-
-  for (const notification of rawNotifications) {
+  // There is no Broadcast entity yet. Reading every row avoids the former 600-row window
+  // splitting a broadcast group and reporting a false recipient count.
+  const notifications = await prisma.notification.findMany({ where: { type: "SYSTEM", metadata: { path: ["source"], equals: "SUPERADMIN_BROADCAST" } }, orderBy: { createdAt: "desc" }, select: { title: true, body: true, metadata: true, createdAt: true, status: true, userId: true } });
+  const grouped = new Map<string, { groupId: string; title: string; body: string; expiresAt: string | null; createdAtIso: string; recipientIds: Set<string>; status: "ACTIVE" | "EXPIRED" | "ARCHIVED" }>();
+  for (const notification of notifications) {
     const metadata = notification.metadata as Record<string, unknown> | null;
-    const source = typeof metadata?.source === "string" ? metadata.source : "";
     const groupId = typeof metadata?.broadcastGroupId === "string" ? metadata.broadcastGroupId : "";
-    const expiresAtRaw = typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null;
-    if (source !== "SUPERADMIN_BROADCAST" || !groupId) {
-      continue;
-    }
-
-    const expiresAtDate = expiresAtRaw ? new Date(expiresAtRaw) : null;
-    const active = !expiresAtDate || expiresAtDate > now;
+    if (!groupId) continue;
+    const expiresAt = typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null;
+    const status = notification.status === "ARCHIVED" ? "ARCHIVED" : expiresAt && new Date(expiresAt) <= now ? "EXPIRED" : "ACTIVE";
     const existing = grouped.get(groupId);
-
-    if (!existing) {
-      grouped.set(groupId, {
-        groupId,
-        title: notification.title,
-        body: notification.body ?? "",
-        expiresAt: expiresAtRaw,
-        createdAtIso: notification.createdAt.toISOString(),
-        audienceCount: 1,
-        active,
-      });
-      continue;
-    }
-
-    existing.audienceCount += 1;
-    if (notification.createdAt.toISOString() > existing.createdAtIso) {
-      existing.createdAtIso = notification.createdAt.toISOString();
-      existing.title = notification.title;
-      existing.body = notification.body ?? "";
-      existing.expiresAt = expiresAtRaw;
-      existing.active = active;
+    if (!existing) grouped.set(groupId, { groupId, title: notification.title, body: notification.body ?? "", expiresAt, createdAtIso: notification.createdAt.toISOString(), recipientIds: new Set([notification.userId]), status });
+    else {
+      existing.recipientIds.add(notification.userId);
+      if (notification.createdAt.toISOString() > existing.createdAtIso) Object.assign(existing, { title: notification.title, body: notification.body ?? "", expiresAt, createdAtIso: notification.createdAt.toISOString(), status });
     }
   }
-
-  const broadcasts = Array.from(grouped.values()).sort(
-    (left, right) => new Date(right.createdAtIso).getTime() - new Date(left.createdAtIso).getTime()
-  );
-
-  return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">จัดการประกาศส่วนกลาง</h2>
-        <BroadcastForm broadcasts={broadcasts} />
-      </section>
-    </div>
-  );
+  const broadcasts = Array.from(grouped.values()).map(({ recipientIds, ...broadcast }) => ({ ...broadcast, audienceCount: recipientIds.size })).sort((a, b) => new Date(b.createdAtIso).getTime() - new Date(a.createdAtIso).getTime());
+  return <BroadcastForm broadcasts={broadcasts} />;
 }

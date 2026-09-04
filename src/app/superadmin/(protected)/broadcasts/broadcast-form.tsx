@@ -2,270 +2,50 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { SuperAdminPageHeaderRegistration } from "@/components/layout/superadmin-page-header-context";
 import { useToast } from "@/components/ui/toast";
-import {
-  broadcastAnnouncementAction,
-  deleteBroadcastAnnouncementAction,
-  updateBroadcastAnnouncementAction,
-} from "./actions";
+import { archiveBroadcastAnnouncementAction, broadcastAnnouncementAction, updateBroadcastAnnouncementAction } from "./actions";
 
-type BroadcastRow = {
-  groupId: string;
-  title: string;
-  body: string;
-  expiresAt: string | null;
-  createdAtIso: string;
-  audienceCount: number;
-  active: boolean;
-};
+type BroadcastRow = { groupId: string; title: string; body: string; expiresAt: string | null; createdAtIso: string; audienceCount: number; status: "ACTIVE" | "EXPIRED" | "ARCHIVED" };
+type Operation = "create" | "edit" | "archive";
+type ExpiryMode = "ONE_HOUR" | "ONE_DAY" | "THREE_DAYS" | "SEVEN_DAYS" | "CUSTOM" | "NEVER" | "PRESERVE";
+const labels = { ACTIVE: "กำลังแสดง", EXPIRED: "หมดอายุแล้ว", ARCHIVED: "ยกเลิกแล้ว" } as const;
+const variants = { ACTIVE: "success", EXPIRED: "warning", ARCHIVED: "default" } as const;
 
 export function BroadcastForm({ broadcasts }: { broadcasts: BroadcastRow[] }) {
-  const router = useRouter();
-  const { pushToast } = useToast();
-  const [mode, setMode] = useState<"create" | "edit">("create");
-  const [editingId, setEditingId] = useState<string>("");
-
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [expiryMode, setExpiryMode] = useState<"NEVER" | "ONE_HOUR" | "ONE_DAY" | "CUSTOM">("ONE_DAY");
-  const [customHours, setCustomHours] = useState("24");
-
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [pending, setPending] = useState(false);
-  const [draftData, setDraftData] = useState<FormData | null>(null);
-
-  const fillFromBroadcast = (groupId: string) => {
-    const target = broadcasts.find((item) => item.groupId === groupId);
-    if (!target) {
-      return;
-    }
-
-    setMode("edit");
-    setEditingId(groupId);
-    setTitle(target.title);
-    setBody(target.body);
-
-    if (!target.expiresAt) {
-      setExpiryMode("NEVER");
-      setCustomHours("24");
-      return;
-    }
-
-    const diffMs = new Date(target.expiresAt).getTime() - Date.now();
-    const diffHours = Math.max(1, Math.round(diffMs / (60 * 60 * 1000)));
-    if (diffHours <= 1) {
-      setExpiryMode("ONE_HOUR");
-      setCustomHours("1");
-      return;
-    }
-
-    if (diffHours <= 24) {
-      setExpiryMode("ONE_DAY");
-      setCustomHours("24");
-      return;
-    }
-
-    setExpiryMode("CUSTOM");
-    setCustomHours(String(diffHours));
-  };
-
-  const resetForm = () => {
-    setMode("create");
-    setEditingId("");
-    setTitle("");
-    setBody("");
-    setExpiryMode("ONE_DAY");
-    setCustomHours("24");
-  };
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    if (mode === "edit") {
-      formData.set("broadcastGroupId", editingId);
-    }
-    setDraftData(formData);
-    setDialogOpen(true);
-  };
-
-  const handleConfirm = async () => {
-    if (!draftData) {
-      return;
-    }
-
+  const router = useRouter(); const { pushToast } = useToast();
+  const [operation, setOperation] = useState<Operation>("create"); const [groupId, setGroupId] = useState<string | null>(null);
+  const [title, setTitle] = useState(""); const [body, setBody] = useState(""); const [expiryMode, setExpiryMode] = useState<ExpiryMode>("ONE_DAY");
+  const [customValue, setCustomValue] = useState(""); const [customUnit, setCustomUnit] = useState<"MINUTES" | "HOURS">("HOURS");
+  const [formOpen, setFormOpen] = useState(false); const [confirmOpen, setConfirmOpen] = useState(false); const [pending, setPending] = useState(false); const [draftData, setDraftData] = useState<FormData | null>(null);
+  const reset = () => { setOperation("create"); setGroupId(null); setTitle(""); setBody(""); setExpiryMode("ONE_DAY"); setCustomValue(""); setCustomUnit("HOURS"); };
+  const openCreate = () => { reset(); setFormOpen(true); };
+  const openEdit = (broadcast: BroadcastRow) => { setOperation("edit"); setGroupId(broadcast.groupId); setTitle(broadcast.title); setBody(broadcast.body); setExpiryMode("PRESERVE"); setCustomValue(""); setFormOpen(true); };
+  const requestArchive = (id: string) => { setOperation("archive"); setGroupId(id); setDraftData(null); setConfirmOpen(true); };
+  const submitForm = (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (expiryMode === "CUSTOM" && (!/^\d+$/.test(customValue) || Number(customValue) < 1)) { pushToast({ tone: "error", title: "ระยะเวลาไม่ถูกต้อง", description: "กรุณาระบุจำนวนเต็มอย่างน้อย 1 นาที" }); return; } const data = new FormData(event.currentTarget); if (operation === "edit" && groupId) data.set("broadcastGroupId", groupId); setDraftData(data); setConfirmOpen(true); };
+  const confirm = async () => {
     setPending(true);
     try {
-      if (mode === "create") {
-        await broadcastAnnouncementAction(draftData);
-        pushToast({ tone: "success", title: "ส่งประกาศทั่วระบบแล้ว", description: "ระบบได้กระจายประกาศไปยังทุกผู้ใช้ที่มีสมาชิกหมู่บ้าน" });
-      } else {
-        await updateBroadcastAnnouncementAction(draftData);
-        pushToast({ tone: "success", title: "อัปเดตประกาศแล้ว", description: "ระบบได้ปรับเนื้อหาและเงื่อนไขประกาศเรียบร้อย" });
-      }
-      router.refresh();
-      resetForm();
-      setDialogOpen(false);
-    } catch (error) {
-      pushToast({ tone: "error", title: mode === "create" ? "ส่งประกาศไม่สำเร็จ" : "อัปเดตประกาศไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" });
-    } finally {
-      setPending(false);
-    }
+      if (operation === "archive") { const data = new FormData(); data.set("broadcastGroupId", groupId ?? ""); await archiveBroadcastAnnouncementAction(data); pushToast({ tone: "success", title: "ยกเลิกประกาศแล้ว", description: "ประกาศจะหยุดแสดงแก่ผู้รับ แต่ประวัติยังคงอยู่" }); }
+      else if (operation === "edit") { await updateBroadcastAnnouncementAction(draftData!); pushToast({ tone: "success", title: "อัปเดตประกาศแล้ว", description: "อัปเดตประกาศของผู้รับทั้งหมดแล้ว" }); }
+      else { await broadcastAnnouncementAction(draftData!); pushToast({ tone: "success", title: "ส่งประกาศแล้ว", description: "ระบบส่งประกาศให้ผู้ใช้ที่มีสมาชิกหมู่บ้านอยู่" }); }
+      router.refresh(); setConfirmOpen(false); setFormOpen(false); reset();
+    } catch (error) { pushToast({ tone: "error", title: operation === "archive" ? "ยกเลิกประกาศไม่สำเร็จ" : "บันทึกประกาศไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" }); }
+    finally { setPending(false); }
   };
-
-  const handleDelete = async (groupId: string) => {
-    setPending(true);
-    try {
-      const formData = new FormData();
-      formData.set("broadcastGroupId", groupId);
-      await deleteBroadcastAnnouncementAction(formData);
-      pushToast({ tone: "success", title: "ลบประกาศแล้ว", description: "ประกาศจะไม่แสดงในข่าวและการแจ้งเตือนอีก" });
-      if (editingId === groupId) {
-        resetForm();
-      }
-      router.refresh();
-    } catch (error) {
-      pushToast({ tone: "error", title: "ลบประกาศไม่สำเร็จ", description: error instanceof Error ? error.message : "เกิดข้อผิดพลาด" });
-    } finally {
-      setPending(false);
-    }
-  };
-
-  return (
-    <>
-      <form onSubmit={handleSubmit} className="mt-3 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-            {mode === "create" ? "โหมดสร้างประกาศ" : "โหมดแก้ไขประกาศ"}
-          </span>
-          {mode === "edit" ? (
-            <button
-              type="button"
-              className="text-xs font-semibold text-cyan-700 hover:underline"
-              onClick={resetForm}
-            >
-              ยกเลิกการแก้ไข
-            </button>
-          ) : null}
-        </div>
-
-        <input
-          name="title"
-          placeholder="หัวข้อประกาศ"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          required
-        />
-        <textarea
-          name="body"
-          placeholder="เนื้อหาประกาศ"
-          value={body}
-          onChange={(event) => setBody(event.target.value)}
-          rows={4}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          required
-        />
-
-        <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-          <select
-            name="expiryMode"
-            value={expiryMode}
-            onChange={(event) => setExpiryMode(event.target.value as "NEVER" | "ONE_HOUR" | "ONE_DAY" | "CUSTOM")}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="ONE_HOUR">หมดอายุใน 1 ชั่วโมง</option>
-            <option value="ONE_DAY">หมดอายุใน 1 วัน</option>
-            <option value="CUSTOM">กำหนดชั่วโมงเอง</option>
-            <option value="NEVER">ไม่หมดอายุอัตโนมัติ</option>
-          </select>
-          <input
-            name="customHours"
-            type="number"
-            min={1}
-            step={1}
-            value={customHours}
-            onChange={(event) => setCustomHours(event.target.value)}
-            disabled={expiryMode !== "CUSTOM"}
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
-            placeholder="จำนวนชั่วโมง"
-          />
-          <div className="flex gap-2">
-            <Button type="submit" className="bg-cyan-600 hover:bg-cyan-700 focus:ring-cyan-500">
-              {mode === "create" ? "ส่งประกาศทั่วระบบ" : "บันทึกการแก้ไขประกาศ"}
-            </Button>
-          </div>
-        </div>
-      </form>
-
-      <div className="mt-6 space-y-2">
-        <h3 className="text-sm font-semibold text-slate-900">ประกาศล่าสุดที่จัดการได้</h3>
-        {broadcasts.length === 0 ? (
-          <p className="text-sm text-slate-500">ยังไม่มีประวัติประกาศ</p>
-        ) : (
-          <div className="space-y-2">
-            {broadcasts.map((broadcast) => (
-              <div key={broadcast.groupId} className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">{broadcast.title}</p>
-                    <p className="mt-0.5 text-xs text-slate-600 whitespace-pre-wrap">{broadcast.body}</p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      ผู้รับ {broadcast.audienceCount} ราย • สร้างเมื่อ {new Date(broadcast.createdAtIso).toLocaleString("th-TH")}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      {broadcast.expiresAt ? `หมดอายุ: ${new Date(broadcast.expiresAt).toLocaleString("th-TH")}` : "ไม่หมดอายุอัตโนมัติ"}
-                      {broadcast.active ? " • Active" : " • หมดอายุแล้ว"}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => fillFromBroadcast(broadcast.groupId)}>
-                      แก้ไข
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="danger"
-                      onClick={() => {
-                        setDialogOpen(true);
-                        const formData = new FormData();
-                        formData.set("broadcastGroupId", broadcast.groupId);
-                        setDraftData(formData);
-                      }}
-                    >
-                      ลบ
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <ConfirmDialog
-        open={dialogOpen}
-        title={draftData?.get("broadcastGroupId") ? "ยืนยันลบประกาศ" : mode === "create" ? "ยืนยันส่งประกาศทั่วระบบ" : "ยืนยันแก้ไขประกาศ"}
-        description={
-          draftData?.get("broadcastGroupId")
-            ? "ประกาศนี้จะถูกยกเลิกการแสดงผลจากข่าวและการแจ้งเตือน"
-            : mode === "create"
-              ? "ประกาศนี้จะถูกส่งถึงผู้ใช้ที่มีสมาชิกหมู่บ้านทั้งหมดทันที"
-              : "ระบบจะอัปเดตประกาศนี้กับผู้รับทุกคนทันที"
-        }
-        confirmLabel={draftData?.get("broadcastGroupId") ? "ลบประกาศ" : mode === "create" ? "ส่งประกาศ" : "บันทึกการแก้ไข"}
-        tone={draftData?.get("broadcastGroupId") ? "danger" : "default"}
-        pending={pending}
-        onClose={() => !pending && setDialogOpen(false)}
-        onConfirm={() => {
-          if (draftData?.get("broadcastGroupId")) {
-            void handleDelete(String(draftData.get("broadcastGroupId")));
-            setDialogOpen(false);
-            return;
-          }
-          void handleConfirm();
-        }}
-      />
-    </>
-  );
+  const confirmation = operation === "archive" ? { title: "ยืนยันการยกเลิกประกาศ", description: "ประกาศจะหยุดแสดงแก่ผู้รับ แต่ข้อมูลประวัติจะยังคงอยู่", label: "ยกเลิกประกาศ", tone: "danger" as const } : operation === "edit" ? { title: "ยืนยันการแก้ไขประกาศ", description: "การแก้ไขจะอัปเดตประกาศของผู้รับทั้งหมด", label: "บันทึกการแก้ไข", tone: "default" as const } : { title: "ยืนยันการส่งประกาศ", description: "ประกาศนี้จะถูกส่งถึงผู้ใช้ที่มีสมาชิกหมู่บ้านทั้งหมด", label: "ส่งประกาศ", tone: "default" as const };
+  return <div className="-mt-4 space-y-4 sm:-mt-6">
+    <SuperAdminPageHeaderRegistration context={{ title: "ประกาศส่วนกลาง", description: "ส่งและจัดการประกาศสำคัญที่ต้องการแจ้งให้ผู้ใช้งานทั่วทั้งระบบทราบ" }} />
+    <AdminPageToolbar sticky compact hideHeading title="ประกาศส่วนกลาง" actions={<Button type="button" onClick={openCreate} className="min-h-9 bg-cyan-600 hover:bg-cyan-700"><Plus className="mr-1.5 h-4 w-4" />สร้างประกาศ</Button>} />
+    <section className="space-y-2 px-0 sm:px-0" aria-label="ประวัติประกาศ">
+      {broadcasts.length ? broadcasts.map((broadcast) => <article key={broadcast.groupId} className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h2 className="min-w-0 break-words font-semibold text-slate-900">{broadcast.title}</h2><Badge variant={variants[broadcast.status]}>{labels[broadcast.status]}</Badge></div><p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-slate-600">{broadcast.body}</p><div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500"><span>ผู้รับ {broadcast.audienceCount.toLocaleString("th-TH")} คน</span><span>สร้างเมื่อ {new Date(broadcast.createdAtIso).toLocaleString("th-TH")}</span><span>{broadcast.expiresAt ? `หมดอายุ: ${new Date(broadcast.expiresAt).toLocaleString("th-TH")}` : "ไม่หมดอายุ"}</span></div></div>{broadcast.status === "ACTIVE" ? <div className="flex shrink-0 flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => openEdit(broadcast)}>แก้ไข</Button><Button type="button" variant="danger" onClick={() => requestArchive(broadcast.groupId)}>ยกเลิกประกาศ</Button></div> : null}</div></article>) : <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">ยังไม่มีประวัติประกาศ</div>}
+    </section>
+    {formOpen ? <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="broadcast-form-title"><form onSubmit={submitForm} className="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl"><div className="flex items-start justify-between gap-4"><div><h2 id="broadcast-form-title" className="text-lg font-semibold text-slate-900">{operation === "edit" ? "แก้ไขประกาศ" : "สร้างประกาศ"}</h2><p className="mt-1 text-sm text-slate-500">ส่งประกาศส่วนกลางถึงผู้รับตามสมาชิกหมู่บ้านที่ใช้งานอยู่</p></div><button type="button" onClick={() => { setFormOpen(false); reset(); }} className="text-sm text-slate-500 hover:text-slate-900">ปิด</button></div><div className="mt-5 space-y-4"><label className="block text-sm font-medium text-slate-700">หัวข้อ<input name="title" required value={title} onChange={(e) => setTitle(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label><label className="block text-sm font-medium text-slate-700">เนื้อหา<textarea name="body" required rows={5} value={body} onChange={(e) => setBody(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label><div><p className="text-sm font-medium text-slate-700">ผู้รับ</p><p className="mt-1 text-sm text-slate-500">ผู้ใช้งานที่มีสถานะสมาชิกหมู่บ้านที่ใช้งานอยู่ โดยผู้ใช้หนึ่งคนจะได้รับประกาศเพียงหนึ่งครั้ง</p></div><label className="block text-sm font-medium text-slate-700">ระยะเวลาประกาศ<select name="expiryMode" value={expiryMode} onChange={(e) => setExpiryMode(e.target.value as ExpiryMode)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{operation === "edit" ? <option value="PRESERVE">คงวันหมดอายุเดิม</option> : null}<option value="ONE_HOUR">1 ชั่วโมง</option><option value="ONE_DAY">1 วัน</option><option value="THREE_DAYS">3 วัน</option><option value="SEVEN_DAYS">7 วัน</option><option value="CUSTOM">กำหนดเอง</option><option value="NEVER">ไม่หมดอายุ</option></select></label>{expiryMode === "CUSTOM" ? <div className="grid grid-cols-1 gap-2 sm:grid-cols-2"><label className="text-sm font-medium text-slate-700">จำนวน<input name="customValue" type="number" min="1" max={customUnit === "HOURS" ? 8760 : 525600} step="1" inputMode="numeric" required value={customValue} onChange={(e) => setCustomValue(e.target.value)} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label><label className="text-sm font-medium text-slate-700">หน่วย<select name="customUnit" aria-label="หน่วยระยะเวลา" value={customUnit} onChange={(e) => setCustomUnit(e.target.value as "MINUTES" | "HOURS")} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="MINUTES">นาที</option><option value="HOURS">ชั่วโมง</option></select></label></div> : null}</div><div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => { setFormOpen(false); reset(); }}>ยกเลิก</Button><Button type="submit">{operation === "edit" ? "บันทึกการแก้ไข" : "ส่งประกาศ"}</Button></div></form></div> : null}
+    <ConfirmDialog open={confirmOpen} title={confirmation.title} description={confirmation.description} confirmLabel={confirmation.label} tone={confirmation.tone} pending={pending} onClose={() => !pending && setConfirmOpen(false)} onConfirm={() => void confirm()} />
+  </div>;
 }
