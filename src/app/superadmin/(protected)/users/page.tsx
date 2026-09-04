@@ -14,7 +14,7 @@ function maskPhone(phone: string) {
   return digits.length >= 4 ? `XXX-XXX-${digits.slice(-4)}` : "-";
 }
 
-type PageProps = { searchParams?: Promise<{ q?: string; adminRole?: string; page?: string }> };
+type PageProps = { searchParams?: Promise<{ q?: string; adminRole?: string; accountStatus?: string; page?: string }> };
 
 export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
   await requireSuperAdminPageSession();
@@ -22,16 +22,21 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim();
   const adminRole = (params.adminRole ?? "all").trim();
+  const accountStatus = (params.accountStatus ?? "all").trim();
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 12;
   const where = {
     systemRole: { not: "SUPERADMIN" as const },
+    ...(accountStatus === "duplicate" ? { AND: [{ OR: [{ accountStatus: "DUPLICATE_ID" as const }, { duplicateOfUserId: { not: null }, duplicateResolvedAt: null }] }] } : {}),
     ...(adminRole === "admin" ? { memberships: { some: { role: { in: [...ADMIN_ROLES] } } } } : {}),
     ...(adminRole !== "all" && adminRole !== "admin" ? { memberships: { some: { role: adminRole as (typeof ADMIN_ROLES)[number] } } } : {}),
-    ...(keyword ? { OR: [
-      { name: { contains: keyword, mode: "insensitive" as const } },
-      { phoneNumber: { contains: keyword, mode: "insensitive" as const } },
-      { email: { contains: keyword, mode: "insensitive" as const } },
+    ...(keyword ? { AND: [
+      ...(accountStatus === "duplicate" ? [{ OR: [{ accountStatus: "DUPLICATE_ID" as const }, { duplicateOfUserId: { not: null }, duplicateResolvedAt: null }] }] : []),
+      { OR: [
+        { name: { contains: keyword, mode: "insensitive" as const } },
+        { phoneNumber: { contains: keyword, mode: "insensitive" as const } },
+        { email: { contains: keyword, mode: "insensitive" as const } },
+      ] },
     ] } : {}),
   };
 
@@ -48,11 +53,12 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
     prisma.user.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const hasFilters = Boolean(keyword || adminRole !== "all");
+  const hasFilters = Boolean(keyword || adminRole !== "all" || accountStatus !== "all");
   const withCurrentQuery = (extra: Record<string, string>) => {
     const query = new URLSearchParams();
     if (keyword) query.set("q", keyword);
     if (adminRole !== "all") query.set("adminRole", adminRole);
+    if (accountStatus !== "all") query.set("accountStatus", accountStatus);
     Object.entries(extra).forEach(([key, value]) => query.set(key, value));
     query.delete("page");
     const value = query.toString();
@@ -80,6 +86,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
             { label: "ผู้บริหารหมู่บ้านทั้งหมด", href: withCurrentQuery({ adminRole: "admin" }), active: adminRole === "admin" },
             { label: MEMBERSHIP_ROLE_LABELS.HEADMAN, href: withCurrentQuery({ adminRole: "HEADMAN" }), active: adminRole === "HEADMAN" },
             { label: MEMBERSHIP_ROLE_LABELS.ASSISTANT_HEADMAN, href: withCurrentQuery({ adminRole: "ASSISTANT_HEADMAN" }), active: adminRole === "ASSISTANT_HEADMAN" },
+            { label: "บัญชีที่ต้องตรวจสอบข้อมูลซ้ำ", href: withCurrentQuery({ accountStatus: "duplicate" }), active: accountStatus === "duplicate" },
           ],
         }]}
       />
@@ -104,7 +111,7 @@ export default async function SuperAdminUsersPage({ searchParams }: PageProps) {
         pathname="/superadmin/users"
         page={page}
         totalPages={totalPages}
-        params={{ q: keyword || undefined, adminRole: adminRole !== "all" ? adminRole : undefined }}
+        params={{ q: keyword || undefined, adminRole: adminRole !== "all" ? adminRole : undefined, accountStatus: accountStatus !== "all" ? accountStatus : undefined }}
       />
     </div>
   );
