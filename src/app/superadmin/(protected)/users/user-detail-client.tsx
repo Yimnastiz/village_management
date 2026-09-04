@@ -22,10 +22,9 @@ type Membership = {
 
 type UserDetail = {
   id: string;
-  name: string;
+  displayName: string;
   phoneNumber: string;
   email: string | null;
-  image: string | null;
   systemRole: string;
   accountStatus: string;
   registrationProvince: string | null;
@@ -70,6 +69,7 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
   const { pushToast } = useToast();
   const [editOpen, setEditOpen] = useState(false);
   const [pending, setPending] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState(user.phoneNumber);
   const explanation = statusExplanation(user.accountStatus);
 
   const submitProfile = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -81,7 +81,7 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
       const formData = new FormData(event.currentTarget);
       formData.set("userId", user.id);
       await updateUserProfileAction(formData);
-      pushToast({ tone: "success", title: "บันทึกข้อมูลบัญชีแล้ว", description: user.name });
+      pushToast({ tone: "success", title: "บันทึกข้อมูลบัญชีแล้ว", description: user.displayName });
       setEditOpen(false);
       router.refresh();
     } catch (error) {
@@ -100,7 +100,7 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
       <SuperAdminPageHeaderRegistration
         priority={1}
         context={{
-          title: user.name.trim() || "รายละเอียดผู้ใช้งาน",
+          title: user.displayName.trim() || "รายละเอียดผู้ใช้งาน",
           description: "ตรวจสอบข้อมูลบัญชีและการสังกัดหมู่บ้าน",
         }}
       />
@@ -123,7 +123,7 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
         </div>
         {explanation ? <p className="mt-3 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">{explanation}</p> : null}
         <dl className="grid gap-x-6 gap-y-4 pt-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
-          <Detail label="ชื่อ">{user.name}</Detail>
+          <Detail label="ชื่อ นามสกุล">{user.displayName || "-"}</Detail>
           <Detail label="เบอร์โทรศัพท์">{user.phoneNumber || "-"}</Detail>
           <Detail label="อีเมล" className="break-all">{user.email ?? "-"}</Detail>
           <Detail label="วันที่สร้างบัญชี">{new Date(user.createdAt).toLocaleDateString("th-TH")}</Detail>
@@ -205,7 +205,7 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
       <Dialog
         open={editOpen}
         title="แก้ไขข้อมูลบัญชี"
-        description="ปรับปรุงข้อมูลบัญชีที่รองรับ โดยไม่เปลี่ยนบทบาทหรือการสังกัดหมู่บ้าน"
+        description="แก้ไขได้เฉพาะเบอร์โทรศัพท์และอีเมลของบัญชี โดยไม่เปลี่ยนข้อมูลทะเบียนหรือการสังกัดหมู่บ้าน"
         onClose={() => !pending && setEditOpen(false)}
         closeOnBackdrop={!pending}
         closeOnEscape={!pending}
@@ -216,26 +216,15 @@ export function UserDetailClient({ user, memberships }: { user: UserDetail; memb
           </div>
         )}
       >
-        <form id="user-profile-edit" onSubmit={submitProfile} className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1.5 text-sm font-medium text-gray-700">
-            ชื่อ
-            <input name="name" defaultValue={user.name} required className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
-          </label>
+        <form id="user-profile-edit" onSubmit={submitProfile} className="grid gap-4">
           <label className="grid gap-1.5 text-sm font-medium text-gray-700">
             เบอร์โทรศัพท์
-            <input name="phoneNumber" type="tel" defaultValue={user.phoneNumber} required className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
+            <input name="phoneNumber" type="tel" value={phoneNumber} onChange={(event) => setPhoneNumber(event.target.value.replace(/\D/g, "").slice(0, 10))} inputMode="numeric" pattern="[0-9]{10}" maxLength={10} required className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium text-gray-700 sm:col-span-2">
+          <label className="grid gap-1.5 text-sm font-medium text-gray-700">
             อีเมล
             <input name="email" type="email" defaultValue={user.email ?? ""} className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
           </label>
-          <label className="grid gap-1.5 text-sm font-medium text-gray-700 sm:col-span-2">
-            URL รูปโปรไฟล์
-            <input name="image" type="url" defaultValue={user.image ?? ""} className="min-h-10 rounded-lg border border-gray-300 px-3 font-normal focus:border-cyan-600 focus:outline-none focus:ring-1 focus:ring-cyan-600" />
-          </label>
-          <input type="hidden" name="registrationProvince" value={user.registrationProvince ?? ""} />
-          <input type="hidden" name="registrationDistrict" value={user.registrationDistrict ?? ""} />
-          <input type="hidden" name="registrationSubdistrict" value={user.registrationSubdistrict ?? ""} />
         </form>
       </Dialog>
     </div>

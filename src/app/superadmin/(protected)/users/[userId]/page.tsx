@@ -19,13 +19,13 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
         name: true,
         phoneNumber: true,
         email: true,
-        image: true,
         systemRole: true,
         accountStatus: true,
         registrationProvince: true,
         registrationDistrict: true,
         registrationSubdistrict: true,
         registrationVillage: { select: { name: true } },
+        person: { select: { id: true, villageId: true, firstName: true, lastName: true } },
         createdAt: true,
         updatedAt: true,
       },
@@ -53,6 +53,7 @@ export default async function SuperAdminUserDetailPage({ params }: PageProps) {
     <UserDetailClient
       user={{
         ...user,
+        displayName: user.person ? `${user.person.firstName} ${user.person.lastName}`.trim() : user.name,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       }}

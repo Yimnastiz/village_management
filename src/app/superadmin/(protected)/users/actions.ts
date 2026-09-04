@@ -3,6 +3,7 @@
 import { AuditAction, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { normalizePhone10 } from "@/lib/registration-temp";
 import { requireSuperAdminActionSession, writeSuperAdminAuditLog } from "@/lib/superadmin";
 
 function getString(formData: FormData, key: string) {
@@ -99,35 +100,33 @@ export async function suspendUserMembershipsAction(formData: FormData) {
 }
 
 export async function updateUserProfileAction(formData: FormData) {
-  const session = await requireSuperAdminActionSession();
+  await requireSuperAdminActionSession();
 
   const userId = getString(formData, "userId");
   if (!userId) {
     throw new Error("ไม่พบผู้ใช้");
   }
 
-  const name = getString(formData, "name");
-  const phoneNumber = getString(formData, "phoneNumber");
-  const email = getString(formData, "email") || null;
-  const image = getString(formData, "image") || null;
-  const registrationProvince = getString(formData, "registrationProvince") || null;
-  const registrationDistrict = getString(formData, "registrationDistrict") || null;
-  const registrationSubdistrict = getString(formData, "registrationSubdistrict") || null;
+  const phoneNumber = normalizePhone10(getString(formData, "phoneNumber"));
+  const email = getString(formData, "email").toLocaleLowerCase("en-US") || null;
 
-  if (!name || !phoneNumber) {
-    throw new Error("กรุณากรอกชื่อและเบอร์โทรศัพท์");
+  if (!phoneNumber) {
+    throw new Error("กรุณากรอกเบอร์โทรศัพท์ 10 หลัก");
   }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("รูปแบบอีเมลไม่ถูกต้อง");
+
+  const [phoneConflict, emailConflict] = await Promise.all([
+    prisma.user.findFirst({ where: { phoneNumber, id: { not: userId } }, select: { id: true } }),
+    email ? prisma.user.findFirst({ where: { email, id: { not: userId } }, select: { id: true } }) : null,
+  ]);
+  if (phoneConflict) throw new Error("เบอร์โทรศัพท์นี้ถูกใช้งานแล้ว");
+  if (emailConflict) throw new Error("อีเมลนี้ถูกใช้งานแล้ว");
 
   await prisma.user.update({
     where: { id: userId },
     data: {
-      name,
       phoneNumber,
       email,
-      image,
-      registrationProvince,
-      registrationDistrict,
-      registrationSubdistrict,
     },
   });
 
