@@ -5,7 +5,7 @@ import { ArrowLeft, Menu, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SuperAdminLogoutButton } from "@/components/layout/superadmin-logout-button";
-import { useSuperAdminPageHeader } from "@/components/layout/superadmin-page-header-context";
+import { useSuperAdminPageHeader, type SuperAdminHeaderContext } from "@/components/layout/superadmin-page-header-context";
 import { superAdminMenuItems } from "@/components/layout/superadmin-sidebar";
 import { cn } from "@/lib/utils";
 import { useAutoHideTopBar } from "@/components/layout/use-auto-hide-top-bar";
@@ -29,7 +29,8 @@ const pageHeaders = [
   { match: "/superadmin/activities", title: "กิจกรรมระบบ", description: "ติดตามกิจกรรมส่วนกลางของระบบ" },
 ] as const;
 
-function resolveHeader(pathname: string) {
+function resolveHeader(pathname: string): SuperAdminHeaderContext {
+  if (pathname === "/superadmin/data-quality") return { title: "คุณภาพข้อมูล", description: "ตรวจสอบข้อมูลที่ไม่ครบถ้วน ผิดปกติ หรือควรได้รับการตรวจสอบทั่วทั้งระบบ" };
   if (pathname === "/superadmin/dashboard") return { title: "ภาพรวมระบบ", description: "ติดตามสถานะสำคัญ งานที่ต้องดำเนินการ และภาพรวมทุกหมู่บ้าน" };
   if (pathname === "/superadmin/users") return { title: "ผู้ใช้งานระบบ", description: "ค้นหา ตรวจสอบ และสนับสนุนบัญชีผู้ใช้งานทุกหมู่บ้าน" };
   if (/^\/superadmin\/villages\/[^/]+/.test(pathname)) return { title: "พื้นที่ทำงานหมู่บ้าน", description: "จัดการข้อมูลและงานของหมู่บ้านที่เลือก" };
