@@ -24,7 +24,7 @@ export type FormattedAuditEvent = {
 
 export const IMPORTANT_AUDIT_RESOURCES = [
   "Village", "VillageStatus", "UserSystemRole", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval",
-  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemWideBroadcast",
+  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemSettings", "SystemWideBroadcast",
 ] as const;
 
 /** Business-facing resource groups used by investigation tools. Values remain technical internally. */
@@ -37,7 +37,7 @@ export const AUDIT_MODULE_RESOURCES: Record<string, readonly string[]> = {
   NEWS: ["News", "NewsSubmission"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], APPOINTMENT: ["Appointment"],
   ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItem", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
   DOWNLOAD: ["DownloadFile"], TRANSPARENCY: ["TransparencyRecord"],
-  SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemWideBroadcast"],
+  SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemSettings", "SystemWideBroadcast"],
 };
 
 export function auditResourcesForModule(module: string) {
@@ -82,6 +82,7 @@ const resourceLabels: Record<string, string> = {
 };
 
 const investigationResourceLabels: Record<string, string> = {
+  SystemSettings: "การตั้งค่าระบบ",
   Village: "หมู่บ้าน", VillageStatus: "สถานะหมู่บ้าน", UserAccount: "บัญชีผู้ใช้", UserProfile: "ข้อมูลผู้ใช้", UserSystemRole: "บทบาทผู้ใช้",
   VillageMembership: "สมาชิกหมู่บ้าน", UserMembership: "สมาชิกหมู่บ้าน", UserMembershipSuspension: "การระงับสมาชิก", VillageAdminRoleAssignment: "การกำหนดบทบาท", VillageAdminRoleRemoval: "การถอดบทบาท", VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน", MembershipSupport: "สมาชิกและบทบาท",
   Person: "ข้อมูลบุคคล", House: "ทะเบียนบ้าน", BindingRequest: "คำขอผูกเลขที่บ้าน", BindingRequestSupport: "คำขอผูกเลขที่บ้าน", News: "ข่าวสาร", NewsSubmission: "คำขอข่าวสาร",
@@ -91,6 +92,7 @@ const investigationResourceLabels: Record<string, string> = {
 };
 
 const actionNameLabels: Record<string, string> = {
+  SYSTEM_SETTINGS_UPDATED: "เปลี่ยนการตั้งค่าระบบ",
   MEMBER_ROLE_CHANGED: "เปลี่ยนบทบาทของ",
   MEMBER_SUSPENDED: "ระงับการใช้งานของ",
   MEMBER_REACTIVATED: "เปิดใช้งานอีกครั้งให้",
@@ -129,6 +131,10 @@ const actionNameLabels: Record<string, string> = {
 };
 
 const fieldLabels: Record<string, string> = {
+  maintenanceMode: "โหมดปิดปรับปรุงระบบ",
+  maintenanceMessage: "ข้อความขณะปิดปรับปรุง",
+  registrationEnabled: "เปิดรับสมัครสมาชิกใหม่",
+  publicFeedbackEnabled: "เปิดรับความคิดเห็นจากบุคคลทั่วไป",
   title: "ชื่อเรื่อง",
   name: "ชื่อ",
   status: "สถานะ",
@@ -152,6 +158,8 @@ const fieldLabels: Record<string, string> = {
 };
 
 const valueLabels: Record<string, string> = {
+  true: "เปิดใช้งาน",
+  false: "ปิดใช้งาน",
   ACTIVE: "ใช้งานอยู่",
   SUSPENDED: "ระงับการใช้งาน",
   PENDING: "รอดำเนินการ",
@@ -288,6 +296,6 @@ export function auditModuleForResource(resource: string) {
   if (resource === "DownloadFile") return "DOWNLOAD";
   if (resource.includes("VillageEvent")) return "CALENDAR";
   if (resource === "Issue") return "ISSUE";
-  if (["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord"].includes(resource)) return "SETTINGS";
+  if (["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord", "SystemSettings"].includes(resource)) return "SETTINGS";
   return "OTHER";
 }

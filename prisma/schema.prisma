@@ -1225,7 +1225,6 @@ model SystemSettings {
   maintenanceMessage    String   @default("ขณะนี้ระบบอยู่ระหว่างการปรับปรุง กรุณาลองใหม่อีกครั้งภายหลัง") @db.Text
   registrationEnabled   Boolean  @default(true)
   publicFeedbackEnabled Boolean  @default(true)
-  updatedById           String?
   updatedAt             DateTime @updatedAt
 }
 

@@ -3,16 +3,28 @@ import { prisma } from "@/lib/prisma";
 export const SYSTEM_SETTINGS_ID = "global";
 export const DEFAULT_MAINTENANCE_MESSAGE = "ขณะนี้ระบบอยู่ระหว่างการปรับปรุง กรุณาลองใหม่อีกครั้งภายหลัง";
 
-const defaults = {
+export type SystemSettingsState = {
+  id: string;
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  registrationEnabled: boolean;
+  publicFeedbackEnabled: boolean;
+  updatedAt: Date | null;
+};
+
+const defaults: SystemSettingsState = {
+  id: SYSTEM_SETTINGS_ID,
   maintenanceMode: false,
   maintenanceMessage: DEFAULT_MAINTENANCE_MESSAGE,
   registrationEnabled: true,
   publicFeedbackEnabled: true,
-} as const;
+  updatedAt: null,
+};
 
 /** Returns the singleton and safely initializes a fresh database on first use. */
 export async function getSystemSettings() {
-  return prisma.systemSettings.upsert({ where: { id: SYSTEM_SETTINGS_ID }, update: {}, create: { id: SYSTEM_SETTINGS_ID, ...defaults } });
+  const settings = await prisma.systemSettings.findUnique({ where: { id: SYSTEM_SETTINGS_ID } });
+  return settings ?? defaults;
 }
 
 export async function isMaintenanceModeEnabled() {
