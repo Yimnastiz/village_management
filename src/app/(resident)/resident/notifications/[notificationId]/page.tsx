@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { NotificationDetailHeader, notificationDetailAccent } from "@/components/notifications/notification-detail-header";
 import { prisma } from "@/lib/prisma";
 
 type PageProps = {
@@ -32,16 +33,15 @@ export default async function ResidentNotificationDetailPage({ params }: PagePro
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl space-y-4">
       <Link href="/resident/notifications" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700">
         <ArrowLeft className="h-4 w-4" /> กลับไปหน้าแจ้งเตือน
       </Link>
 
-      <article className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-        <h1 className="text-xl font-bold text-gray-900">{notification.title}</h1>
-        <p className="mt-2 text-xs text-gray-500">{notification.createdAt.toLocaleString("th-TH")}</p>
+      <article className={`rounded-xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6 ${notificationDetailAccent(notification)}`}>
+        <NotificationDetailHeader notification={notification} title={notification.title} />
         <div className="mt-4 border-t border-gray-100 pt-4">
-          <p className="whitespace-pre-wrap text-sm leading-7 text-gray-700">{notification.body || "-"}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-7 text-gray-700">{notification.body || "-"}</p>
         </div>
       </article>
     </div>

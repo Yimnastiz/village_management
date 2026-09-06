@@ -55,7 +55,8 @@ export function NotificationCard({ notification, title, body, destination, markA
         <span className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg ${presentation.iconContainerClassName}`} aria-hidden="true"><ModuleIcon className={`size-4 ${presentation.iconClassName}`} /></span>
         <span className="min-w-0 flex-1">
           <span className="flex items-start gap-2"><span className="min-w-0 flex-1 break-words text-sm font-semibold text-gray-900 sm:text-base">{title}</span>{presentation.badge ? <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${presentation.badgeClassName ?? ""}`}>{presentation.badge}</span> : null}{!isRead ? <span className="mt-1.5 size-2 shrink-0 rounded-full bg-blue-600" aria-label="ยังไม่ได้อ่าน" /> : null}</span>
-          {body ? <span className="mt-1 block break-words text-sm leading-6 text-gray-600">{body}</span> : null}
+          {body ? <span className={`mt-1 block whitespace-pre-wrap break-words text-sm leading-6 text-gray-600 ${presentation.sourceAttribution ? "line-clamp-2" : ""}`}>{body}</span> : null}
+          {presentation.sourceAttribution ? <span className="mt-2 block break-words text-xs text-gray-500">{presentation.sourceAttribution}</span> : null}
           <span className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500"><time dateTime={notification.createdAt.toISOString()}>{formatNotificationTimestamp(notification.createdAt)}</time>{destination ? <ChevronRight className="size-4 shrink-0 text-gray-400" aria-hidden="true" /> : null}</span>
         </span>
       </button>

@@ -4,7 +4,7 @@ import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, I
 
 type NotificationMetadata = Record<string, Prisma.JsonValue | undefined>;
 
-export type NotificationPresentation = { icon: LucideIcon; iconClassName: string; iconContainerClassName: string; accentClassName?: string; badge?: string; badgeClassName?: string };
+export type NotificationPresentation = { icon: LucideIcon; iconClassName: string; iconContainerClassName: string; accentClassName?: string; badge?: string; badgeClassName?: string; sourceAttribution?: string };
 
 const DEFAULT_PRESENTATION: NotificationPresentation = { icon: Bell, iconClassName: "text-slate-600", iconContainerClassName: "bg-slate-100", accentClassName: "" };
 const PRESENTATIONS = {
@@ -18,7 +18,7 @@ const PRESENTATIONS = {
   downloads: { icon: FileDown, iconClassName: "text-indigo-700", iconContainerClassName: "bg-indigo-50" },
   transparency: { icon: FileSearch, iconClassName: "text-teal-700", iconContainerClassName: "bg-teal-50" },
   household: { icon: UsersRound, iconClassName: "text-orange-700", iconContainerClassName: "bg-orange-50" },
-  broadcast: { icon: Megaphone, iconClassName: "text-rose-700", iconContainerClassName: "bg-rose-50" },
+  broadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศส่วนกลาง", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ดูแลระบบระดับสูง" },
   superadmin: { icon: ShieldCheck, iconClassName: "text-sky-700", iconContainerClassName: "bg-sky-50", accentClassName: "border-l-4 border-l-sky-500", badge: "ผู้ดูแลระดับสูง", badgeClassName: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200" },
 } satisfies Record<string, NotificationPresentation>;
 

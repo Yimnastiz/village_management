@@ -36,7 +36,7 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   }
   if (stringValue(metadata, "action")?.includes("ISSUE_DELETED")) return "/resident/issues";
   if (explicitUrl?.startsWith("/resident/")) return explicitUrl;
-  if (notification.type === "SYSTEM" && source === "SUPERADMIN_BROADCAST") return `/resident/notifications/${notification.id}`;
+  if (source?.toUpperCase() === "SUPERADMIN_BROADCAST") return `/resident/notifications/${notification.id}`;
 
   const appointmentId = stringValue(metadata, "appointmentId");
   const issueId = stringValue(metadata, "issueId");
