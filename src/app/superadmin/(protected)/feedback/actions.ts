@@ -25,7 +25,7 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
 
   const row = await prisma.notification.findUnique({
     where: { id: notificationId },
-    select: { id: true, metadata: true },
+    select: { id: true, metadata: true, readAt: true },
   });
 
   if (!row) {
@@ -41,7 +41,7 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
     where: { id: row.id },
     data: {
       status: status as NotificationStatus,
-      ...(status === NotificationStatus.READ ? { readAt: new Date() } : status === NotificationStatus.UNREAD ? { readAt: null } : {}),
+      ...(status === NotificationStatus.READ && !row.readAt ? { readAt: new Date() } : status === NotificationStatus.UNREAD ? { readAt: null } : {}),
     },
   });
 

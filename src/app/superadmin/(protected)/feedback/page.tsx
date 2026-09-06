@@ -97,12 +97,24 @@ export default async function SuperAdminFeedbackPage({ searchParams }: PageProps
   await requireSuperAdminPageSession();
   const params = (searchParams ? await searchParams : {}) ?? {};
   const keyword = (params.q ?? "").trim(); const category = normalizeCategory(params.category); const status = normalizeStatus(params.status); const sort = normalizeSort(params.sort); const requestedPage = normalizePage(params.page);
-  const where: Prisma.NotificationWhereInput = { AND: [
-    { metadata: { path: ["source"], equals: FEEDBACK_SOURCE } },
-    ...(category !== "all" ? [{ metadata: { path: ["category"], equals: category } }] : []),
-    ...(status === "active" ? [{ status: { in: [NotificationStatus.UNREAD, NotificationStatus.READ] } }] : status !== "all" ? [{ status }] : []),
-    ...(keyword ? [{ OR: [{ title: { contains: keyword, mode: "insensitive" } }, { body: { contains: keyword, mode: "insensitive" } }, { metadata: { path: ["name"], string_contains: keyword } }, { metadata: { path: ["email"], string_contains: keyword } }] }] : []),
-  ] };
+  const keywordFilter: Prisma.NotificationWhereInput | undefined = keyword
+    ? {
+        OR: [
+          { title: { contains: keyword, mode: "insensitive" } },
+          { body: { contains: keyword, mode: "insensitive" } },
+          { metadata: { path: ["name"], string_contains: keyword } },
+          { metadata: { path: ["email"], string_contains: keyword } },
+        ],
+      }
+    : undefined;
+  const where: Prisma.NotificationWhereInput = {
+    AND: [
+      { metadata: { path: ["source"], equals: FEEDBACK_SOURCE } },
+      ...(category !== "all" ? [{ metadata: { path: ["category"], equals: category } }] : []),
+      ...(status === "active" ? [{ status: { in: [NotificationStatus.UNREAD, NotificationStatus.READ] } }] : status !== "all" ? [{ status }] : []),
+      ...(keywordFilter ? [keywordFilter] : []),
+    ],
+  };
   const total = await prisma.notification.count({ where });
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const currentPage = Math.min(requestedPage, totalPages);
