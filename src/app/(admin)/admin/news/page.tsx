@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -9,6 +8,8 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { formatNewsAuthor } from "@/lib/news-author";
 import { AdminNewsToolbar } from "./admin-news-toolbar";
 import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
+import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
+import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
@@ -51,7 +52,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       ? [{ isPinned: "desc" as const }, { createdAt: "asc" as const }]
       : [{ isPinned: "desc" as const }, { createdAt: "desc" as const }];
 
-  const [newsList, pendingNewsRequestCount] = await Promise.all([prisma.news.findMany({
+  const [newsList, pendingNewsRequestCount, tickerItems] = await Promise.all([prisma.news.findMany({
     where,
     orderBy,
     select: {
@@ -70,63 +71,14 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
         select: { name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
       },
     },
-  }), getPendingNewsSubmissionCount(membership.villageId)]);
-
-  const now = new Date();
-  const superAdminAnnouncements = await prisma.notification.findMany({
-    where: {
-      userId: session.id,
-      type: "SYSTEM",
-      status: { in: ["UNREAD", "READ"] },
-      metadata: {
-        path: ["source"],
-        equals: "SUPERADMIN_BROADCAST",
-      },
-    },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    select: {
-      id: true,
-      title: true,
-      body: true,
-      metadata: true,
-      createdAt: true,
-    },
-  });
-
-  const visibleSuperAdminAnnouncements = superAdminAnnouncements.filter((item) => {
-    const metadata = item.metadata as Record<string, unknown> | null;
-    const expiresAtRaw = typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null;
-    if (!expiresAtRaw) {
-      return true;
-    }
-    return new Date(expiresAtRaw) > now;
-  });
+  }), getPendingNewsSubmissionCount(membership.villageId), getActiveSystemBroadcastTickerItems(session.id, "admin")]);
 
   const suggestionTitles = Array.from(new Set(newsList.map((news) => news.title))).slice(0, 12);
 
   return (
     <div data-admin-compact-top className="space-y-3">
       <AdminNewsToolbar key={`${keyword}|${activeStage}|${activeVisibility}|${activeSort}`} keyword={keyword} stage={activeStage} visibility={activeVisibility} sort={activeSort} suggestionTitles={suggestionTitles} pendingCount={pendingNewsRequestCount} />
-
-      {visibleSuperAdminAnnouncements.length > 0 ? (
-        <section className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 sm:p-5">
-          <h2 className="text-sm font-semibold text-cyan-900">ประกาศจาก Super Admin</h2>
-          <div className="mt-3 space-y-2">
-            {visibleSuperAdminAnnouncements.map((announcement) => (
-              <Link
-                key={announcement.id}
-                href={`/admin/notifications/${announcement.id}`}
-                className="block rounded-lg border border-cyan-100 bg-white px-3 py-2 hover:bg-cyan-50"
-              >
-                <p className="text-sm font-medium text-gray-900">{announcement.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{announcement.body || "-"}</p>
-                <p className="mt-1 text-xs text-gray-400">{announcement.createdAt.toLocaleString("th-TH")}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <SystemBroadcastTicker items={tickerItems} />
 
       {newsList.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">

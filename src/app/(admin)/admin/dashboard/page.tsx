@@ -13,6 +13,8 @@ import { prisma } from "@/lib/prisma";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
+import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
+import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
 import {
   ISSUE_STAGE_LABELS,
   APPOINTMENT_STAGE_LABELS,
@@ -91,6 +93,7 @@ export default async function AdminDashboard() {
     recentIssues,
     todayAppointments,
     recentNews,
+    tickerItems,
   ] = await Promise.all([
     prisma.villageMembership.count({
       where: {
@@ -198,6 +201,7 @@ export default async function AdminDashboard() {
         createdAt: true,
       },
     }),
+    getActiveSystemBroadcastTickerItems(session.id, "admin"),
   ]);
 
   return (
@@ -215,6 +219,8 @@ export default async function AdminDashboard() {
           ภาพรวมระบบหมู่บ้าน {villageName}
         </p>
       </div>
+
+      <SystemBroadcastTicker items={tickerItems} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

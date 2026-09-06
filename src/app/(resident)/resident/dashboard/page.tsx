@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
+import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
+import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -253,6 +255,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
     villageEventsToday,
     housePersons,
     houseMemberships,
+    tickerItems,
   ] = await Promise.all([
     prisma.issue.groupBy({
       by: ["stage"],
@@ -351,6 +354,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           orderBy: { updatedAt: "desc" },
         })
       : Promise.resolve([]),
+    getActiveSystemBroadcastTickerItems(session.id, "resident"),
   ]);
 
   const personEntries = housePersons.map((person) => ({
@@ -403,6 +407,8 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
         userRole="resident"
         userName={session.name}
       />
+
+      <SystemBroadcastTicker items={tickerItems} />
 
       <div>
       <p className="text-gray-500 text-sm mt-1"> ภาพรวมข้อมูลของคุณ</p>

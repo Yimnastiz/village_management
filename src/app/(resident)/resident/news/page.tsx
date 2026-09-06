@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
@@ -11,6 +10,8 @@ import { NewsCard } from "@/components/news/news-card";
 import { formatNewsAuthor } from "@/lib/news-author";
 import { residentContentVisibility } from "@/lib/resident-content-access";
 import { newsDetailHref, type ResidentNewsContext } from "@/lib/resident-news-navigation";
+import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
+import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
 
 interface PageProps {
   searchParams: Promise<{ sort?: string; source?: string; visibility?: string; q?: string }>;
@@ -69,9 +70,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
       ? [{ isPinned: "desc" as const }, { publishedAt: "asc" as const }, { createdAt: "asc" as const }]
       : [{ isPinned: "desc" as const }, { publishedAt: "desc" as const }, { createdAt: "desc" as const }];
 
-  const now = new Date();
-
-  const [newsList, superAdminAnnouncements] = await Promise.all([
+  const [newsList, tickerItems] = await Promise.all([
     prisma.news.findMany({
       where: {
         villageId: membership.villageId,
@@ -108,38 +107,8 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
       },
       take: 100,
     }),
-    prisma.notification.findMany({
-      where: {
-        userId: session.id,
-        type: "SYSTEM",
-        status: { in: ["UNREAD", "READ"] },
-        metadata: {
-          path: ["source"],
-          equals: "SUPERADMIN_BROADCAST",
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 40,
-      select: {
-        id: true,
-        title: true,
-        body: true,
-        metadata: true,
-        createdAt: true,
-      },
-    }),
+    getActiveSystemBroadcastTickerItems(session.id, "resident"),
   ]);
-
-  const visibleSuperAdminAnnouncements = superAdminAnnouncements.filter((item) => {
-    const metadata = item.metadata as Record<string, unknown> | null;
-    const expiresAtRaw = typeof metadata?.expiresAt === "string" ? metadata.expiresAt : null;
-    if (!expiresAtRaw) {
-      return true;
-    }
-
-    const expiresAt = new Date(expiresAtRaw);
-    return expiresAt > now;
-  });
 
   const filteredNewsList = newsList.filter((newsItem) => {
     if (source === "all") return true;
@@ -172,25 +141,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
       canSubmit={membership.hasResidentAccess}
       hasResidentAccess={membership.hasResidentAccess}
       />
-
-      {source !== "resident" && visibleSuperAdminAnnouncements.length > 0 ? (
-        <div className="rounded-xl border border-cyan-200 bg-cyan-50 p-4 sm:p-5">
-          <p className="text-sm font-semibold text-cyan-900">ประกาศจาก Super Admin</p>
-          <div className="mt-3 space-y-2">
-            {visibleSuperAdminAnnouncements.map((announcement) => (
-              <Link
-                key={announcement.id}
-                href={`/resident/notifications/${announcement.id}`}
-                className="block rounded-lg border border-cyan-100 bg-white px-3 py-2 hover:bg-cyan-50"
-              >
-                <p className="text-sm font-medium text-gray-900">{announcement.title}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">{announcement.body || "-"}</p>
-                <p className="mt-1 text-xs text-gray-400">{announcement.createdAt.toLocaleString("th-TH")}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {source !== "resident" ? <SystemBroadcastTicker items={tickerItems} /> : null}
 
       {filteredNewsList.length === 0 ? (
         <EmptyState
