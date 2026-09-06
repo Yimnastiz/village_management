@@ -62,4 +62,5 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
   }
 
   revalidateFeedback(notificationId);
+  if (requestedStatus === NotificationStatus.UNREAD) redirect("/superadmin/feedback");
 }

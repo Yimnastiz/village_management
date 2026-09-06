@@ -73,7 +73,6 @@ export default async function SuperAdminFeedbackDetailPage({ params }: PageProps
             </dl>
           </section>
         </article>
-        <Link href="/superadmin/feedback" className="mt-4 inline-flex text-sm font-medium text-cyan-700 hover:text-cyan-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600">กลับกล่องความคิดเห็น</Link>
       </main>
     </div>
   );
