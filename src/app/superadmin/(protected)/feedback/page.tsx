@@ -60,21 +60,27 @@ function queryHref(values: { q: string; category: string; status: StatusFilter; 
   return query ? `/superadmin/feedback?${query}` : "/superadmin/feedback";
 }
 
-function badgeClass(kind: "unread" | "read" | "archived" | "category") {
+function statusBadgeClass(kind: "unread" | "read" | "archived") {
   if (kind === "unread") return "border-amber-200 bg-amber-50 text-amber-800";
   if (kind === "read") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (kind === "archived") return "border-slate-200 bg-slate-100 text-slate-600";
-  return "border-cyan-200 bg-cyan-50 text-cyan-800";
+}
+
+function categoryBadgeClass(category: string | null) {
+  if (category === "suggestion") return "border-blue-200 bg-blue-50 text-blue-800";
+  if (category === "complaint") return "border-rose-200 bg-rose-50 text-rose-800";
+  if (category === "bug") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
 function StatusBadge({ status }: { status: NotificationStatus }) {
   const kind = status === NotificationStatus.UNREAD ? "unread" : status === NotificationStatus.READ ? "read" : "archived";
-  return <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${badgeClass(kind)}`}>{STATUS_LABELS[status]}</span>;
+  return <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusBadgeClass(kind)}`}>{STATUS_LABELS[status]}</span>;
 }
 
 function CategoryBadge({ category }: { category: string | null }) {
   if (!category) return null;
-  return <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${badgeClass("category")}`}>{CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? "อื่น ๆ"}</span>;
+  return <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${categoryBadgeClass(category)}`}>{CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? "อื่น ๆ"}</span>;
 }
 
 export default async function SuperAdminFeedbackPage({ searchParams }: PageProps) {
@@ -143,10 +149,10 @@ export default async function SuperAdminFeedbackPage({ searchParams }: PageProps
         ) : (
           <div className="space-y-2">
             {feedbackRows.map((row) => (
-              <article key={row.id} className={`rounded-xl border bg-white p-4 shadow-sm transition sm:p-5 ${row.status === NotificationStatus.UNREAD ? "border-cyan-200" : "border-slate-200"}`}>
+              <article key={row.id} className={`rounded-xl border p-4 shadow-sm transition sm:p-5 ${row.status === NotificationStatus.UNREAD ? "border-blue-200 bg-blue-50/70" : "border-slate-200 bg-white"}`}>
                 <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5"><CategoryBadge category={row.category} /><StatusBadge status={row.status} /></div>
+                    <div className="flex flex-wrap items-center gap-1.5"><CategoryBadge category={row.category} /><StatusBadge status={row.status} />{row.status === NotificationStatus.UNREAD ? <span className="size-2 shrink-0 rounded-full bg-blue-600" title="ยังไม่อ่าน" aria-label="ยังไม่อ่าน" /> : null}</div>
                     <Link href={`/superadmin/feedback/${row.id}`} className={`mt-2 block break-words text-base text-slate-900 hover:text-cyan-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600 ${row.status === NotificationStatus.UNREAD ? "font-bold" : "font-semibold"}`}>{row.title}</Link>
                   </div>
                   <time dateTime={row.createdAt.toISOString()} className="shrink-0 text-xs text-slate-500">{row.createdAt.toLocaleString("th-TH")}</time>

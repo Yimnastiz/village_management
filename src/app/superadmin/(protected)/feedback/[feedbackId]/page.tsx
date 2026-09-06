@@ -13,12 +13,6 @@ const CATEGORY_LABELS = {
   bug: "รายงานข้อผิดพลาด",
   other: "อื่น ๆ",
 } as const;
-const STATUS_LABELS: Record<NotificationStatus, string> = {
-  UNREAD: "ยังไม่อ่าน",
-  READ: "อ่านแล้ว",
-  ARCHIVED: "เก็บถาวร",
-};
-
 type PageProps = { params: Promise<{ feedbackId: string }> };
 
 function metadataString(metadata: Prisma.JsonValue | null, key: string) {
@@ -27,11 +21,11 @@ function metadataString(metadata: Prisma.JsonValue | null, key: string) {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function badgeClass(kind: "status" | "category", status?: NotificationStatus) {
-  if (kind === "category") return "border-cyan-200 bg-cyan-50 text-cyan-800";
-  if (status === NotificationStatus.UNREAD) return "border-amber-200 bg-amber-50 text-amber-800";
-  if (status === NotificationStatus.READ) return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  return "border-slate-200 bg-slate-100 text-slate-600";
+function categoryBadgeClass(category: string | null) {
+  if (category === "suggestion") return "border-blue-200 bg-blue-50 text-blue-800";
+  if (category === "complaint") return "border-rose-200 bg-rose-50 text-rose-800";
+  if (category === "bug") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
 function StatusAction({ notificationId, status, label }: { notificationId: string; status?: NotificationStatus; label: string }) {
@@ -64,8 +58,7 @@ export default async function SuperAdminFeedbackDetailPage({ params }: PageProps
       <main className="mx-auto w-full max-w-3xl min-w-0">
         <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
           <div className="flex flex-wrap items-center gap-2">
-            {category ? <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass("category")}`}>{CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? "อื่น ๆ"}</span> : null}
-            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${badgeClass("status", feedback.status)}`}>{STATUS_LABELS[feedback.status]}</span>
+            {category ? <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${categoryBadgeClass(category)}`}>{CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS] ?? "อื่น ๆ"}</span> : null}
           </div>
           <h1 className="mt-4 break-words text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
           <div className="mt-6 border-t border-slate-100 pt-6">
