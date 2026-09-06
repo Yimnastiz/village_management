@@ -12,7 +12,7 @@ type BroadcastMetadata = { source: "SUPERADMIN_BROADCAST"; broadcastGroupId: str
 
 function readText(formData: FormData, key: string) { const value = formData.get(key); return typeof value === "string" ? value.trim() : ""; }
 function metadata(id: string, expiresAt: Date | null): BroadcastMetadata { return { source: "SUPERADMIN_BROADCAST", broadcastGroupId: id, expiresAt: expiresAt?.toISOString() ?? null }; }
-function revalidateBroadcastPaths() { ["/superadmin/broadcasts", "/superadmin/dashboard", "/resident/news", "/resident/notifications", "/admin/news", "/admin/notifications"].forEach((path) => revalidatePath(path)); }
+function revalidateBroadcastPaths(id?: string) { ["/superadmin/broadcasts", ...(id ? [`/superadmin/broadcasts/${id}`] : []), "/superadmin/dashboard", "/resident/news", "/resident/notifications", "/admin/news", "/admin/notifications"].forEach((path) => revalidatePath(path)); }
 
 function expiresAtFromForm(formData: FormData, currentExpiresAt?: Date | null) {
   const mode = readText(formData, "expiryMode");
@@ -47,7 +47,7 @@ export async function broadcastAnnouncementAction(formData: FormData) {
     }
     await tx.auditLog.create({ data: { userId: session.id, action: AuditAction.CREATE, resource: "SystemWideBroadcast", resourceId: id, metadata: { title, audienceCount: recipients.length, expiresAt: expiresAt?.toISOString() ?? null, actorType: "SUPERADMIN_ENV" } } });
   }, { timeout: 60_000 });
-  revalidateBroadcastPaths();
+  revalidateBroadcastPaths(id);
 }
 
 export async function updateBroadcastAnnouncementAction(formData: FormData) {
@@ -62,7 +62,7 @@ export async function updateBroadcastAnnouncementAction(formData: FormData) {
     await tx.notification.updateMany({ where: { systemBroadcastId: id, type: NotificationType.SYSTEM, status: { in: ["UNREAD", "READ"] } }, data: { title, body, metadata: metadata(id, expiresAt) } });
     await tx.auditLog.create({ data: { userId: session.id, action: AuditAction.UPDATE, resource: "SystemWideBroadcast", resourceId: id, metadata: { title, expiresAt: expiresAt?.toISOString() ?? null, actorType: "SUPERADMIN_ENV" } } });
   }, { timeout: 60_000 });
-  revalidateBroadcastPaths();
+  revalidateBroadcastPaths(id);
 }
 
 export async function archiveBroadcastAnnouncementAction(formData: FormData) {
@@ -76,5 +76,5 @@ export async function archiveBroadcastAnnouncementAction(formData: FormData) {
     const result = await tx.notification.updateMany({ where: { systemBroadcastId: id, type: NotificationType.SYSTEM, status: { in: ["UNREAD", "READ"] } }, data: { status: "ARCHIVED" } });
     await tx.auditLog.create({ data: { userId: session.id, action: AuditAction.DELETE, resource: "SystemWideBroadcast", resourceId: id, metadata: { archivedNotifications: result.count, cancelledAt: cancelledAt.toISOString(), actorType: "SUPERADMIN_ENV" } } });
   }, { timeout: 60_000 });
-  revalidateBroadcastPaths();
+  revalidateBroadcastPaths(id);
 }

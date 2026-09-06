@@ -24,6 +24,6 @@ export default async function SuperAdminBroadcastsPage({ searchParams }: PagePro
     prisma.systemBroadcast.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const broadcasts = rows.map((row) => ({ groupId: row.id, title: row.title, body: row.body, expiresAt: row.expiresAt?.toISOString() ?? null, createdAtIso: row.createdAt.toISOString(), audienceCount: row.audienceCount, createdByName: row.createdBy?.name ?? null, status: row.status === "CANCELLED" ? "ARCHIVED" as const : row.expiresAt && row.expiresAt <= now ? "EXPIRED" as const : "ACTIVE" as const }));
+  const broadcasts = rows.map((row) => ({ id: row.id, title: row.title, body: row.body, expiresAt: row.expiresAt?.toISOString() ?? null, createdAtIso: row.createdAt.toISOString(), audienceCount: row.audienceCount, createdByName: row.createdBy?.name ?? null, status: row.status === "CANCELLED" ? "ARCHIVED" as const : row.expiresAt && row.expiresAt <= now ? "EXPIRED" as const : "ACTIVE" as const }));
   return <div className="-mt-4 space-y-4 sm:-mt-6"><BroadcastForm broadcasts={broadcasts} keyword={q} status={selectedStatus} total={total} />{totalPages > 1 ? <QueryPagination pathname="/superadmin/broadcasts" page={page} totalPages={totalPages} params={{ q: q || undefined, status: selectedStatus === "all" ? undefined : selectedStatus }} /> : null}</div>;
 }
