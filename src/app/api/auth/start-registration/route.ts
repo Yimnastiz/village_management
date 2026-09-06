@@ -11,6 +11,7 @@ import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 import { findBoundIdentityByNationalId } from "@/lib/identity";
 import { isValidStrictThaiNationalId, isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 import { normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
+import { getSystemSettings } from "@/lib/system-settings";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
@@ -25,6 +26,7 @@ function ipHash(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await getSystemSettings()).registrationEnabled) return NextResponse.json({ error: "ขณะนี้ปิดรับสมัครสมาชิกใหม่ชั่วคราว" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
   const phoneNumber = normalizePhone10(parsed.data.phoneNumber);

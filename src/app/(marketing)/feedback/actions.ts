@@ -3,6 +3,7 @@
 import { randomUUID } from "crypto";
 import { NotificationType, SystemRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getSystemSettings } from "@/lib/system-settings";
 
 function readText(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -10,6 +11,9 @@ function readText(formData: FormData, key: string): string {
 }
 
 export async function submitPublicFeedbackAction(formData: FormData): Promise<{ success: true } | { success: false; error: string }> {
+  if (!(await getSystemSettings()).publicFeedbackEnabled) {
+    return { success: false, error: "ขณะนี้ปิดรับความคิดเห็นชั่วคราว" };
+  }
   const name = readText(formData, "name");
   const email = readText(formData, "email");
   const category = readText(formData, "category");

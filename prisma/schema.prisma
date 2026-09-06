@@ -1219,6 +1219,16 @@ model SystemBroadcast {
   @@index([expiresAt])
 }
 
+model SystemSettings {
+  id                    String   @id
+  maintenanceMode       Boolean  @default(false)
+  maintenanceMessage    String   @default("ขณะนี้ระบบอยู่ระหว่างการปรับปรุง กรุณาลองใหม่อีกครั้งภายหลัง") @db.Text
+  registrationEnabled   Boolean  @default(true)
+  publicFeedbackEnabled Boolean  @default(true)
+  updatedById           String?
+  updatedAt             DateTime @updatedAt
+}
+
 model AuditLog {
   id         String      @id @default(cuid())
   villageId  String?

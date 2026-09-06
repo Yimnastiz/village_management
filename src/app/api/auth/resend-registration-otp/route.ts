@@ -4,8 +4,10 @@ import { auth } from "@/lib/auth";
 import { getRegistrationFromRequest, normalizePhone10, REGISTRATION_OTP_TTL_SECONDS } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
+import { getSystemSettings } from "@/lib/system-settings";
 
 export async function POST(request: NextRequest) {
+  if (!(await getSystemSettings()).registrationEnabled) return NextResponse.json({ error: "ขณะนี้ปิดรับสมัครสมาชิกใหม่ชั่วคราว" }, { status: 403 });
   const draft = await getRegistrationFromRequest(request);
   if (!draft) return NextResponse.json({ error: "No pending registration." }, { status: 404 });
   const phoneNumber = normalizePhone10(draft.phoneNumber);

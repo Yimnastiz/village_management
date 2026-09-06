@@ -12,6 +12,8 @@ import {
 } from "@/lib/access-control";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { getAdminSidebarActionCounts } from "@/lib/admin-sidebar-action-counts";
+import { getSystemSettings } from "@/lib/system-settings";
+import { MaintenanceNotice } from "@/components/system/maintenance-notice";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionContextFromServerCookies();
@@ -24,6 +26,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!adminMembership || !isAdminUser(session)) {
     redirect(await getAuthenticatedAccessRedirectPath(session));
   }
+
+  const systemSettings = await getSystemSettings();
+  if (systemSettings.maintenanceMode) return <MaintenanceNotice message={systemSettings.maintenanceMessage} />;
 
   const [userProfile, unreadNotificationCount, villageProfile, sidebarActionCounts] = await Promise.all([
     prisma.user.findUnique({

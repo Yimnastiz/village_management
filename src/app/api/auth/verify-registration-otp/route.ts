@@ -4,11 +4,13 @@ import { z } from "zod";
 import { clearRegistrationCookie, getRegistrationFromRequest, normalizePhone10, toPhoneCandidates } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
 import { DUPLICATE_NATIONAL_ID_REASON, findBoundIdentityByNationalId } from "@/lib/identity";
+import { getSystemSettings } from "@/lib/system-settings";
 
 const schema = z.object({ code: z.string().trim().regex(/^\d{6}$/), registrationId: z.string().min(1), challengeId: z.string().min(1) });
 const DELAYS = [2, 5, 15, 30, 30] as const;
 
 export async function POST(request: NextRequest) {
+  if (!(await getSystemSettings()).registrationEnabled) return NextResponse.json({ error: "ขณะนี้ปิดรับสมัครสมาชิกใหม่ชั่วคราว" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid OTP payload" }, { status: 400 });
   const draft = await getRegistrationFromRequest(request);

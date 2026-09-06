@@ -11,9 +11,19 @@ import {
   superAdminSessionCookieOptions,
 } from "@/lib/superadmin-auth";
 import { expireSessionCookies } from "@/lib/session-cookie";
+import { isMaintenanceModeEnabled } from "@/lib/system-settings";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  // Super Admin has a separate session and deliberately remains available to
+  // recover the system. Normal operational requests are stopped here before a
+  // Server Action or route handler can mutate data.
+  const isOperationalApi = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/superadmin/") && pathname !== "/api/system/public-feedback-availability";
+  if ((pathname.startsWith("/resident") || pathname.startsWith("/admin") || isOperationalApi) && await isMaintenanceModeEnabled()) {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return NextResponse.json({ error: "ระบบอยู่ระหว่างการปรับปรุง" }, { status: 503 });
+    }
+  }
   if (pathname === "/superadmin/access") {
     const token = request.cookies.get(SUPERADMIN_SESSION_COOKIE)?.value;
     const superAdminSession = await readSuperAdminSession(token);
@@ -137,5 +147,6 @@ export const config = {
     "/auth/account-duplicate",
     "/auth/login",
     "/auth/register",
+    "/api/:path*",
   ],
 };

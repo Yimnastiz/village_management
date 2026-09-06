@@ -10,6 +10,8 @@ import {
   getSessionContextFromServerCookies,
   isAdminUser,
 } from "@/lib/access-control";
+import { getSystemSettings } from "@/lib/system-settings";
+import { MaintenanceNotice } from "@/components/system/maintenance-notice";
 
 export default async function ResidentLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionContextFromServerCookies();
@@ -21,6 +23,9 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   if (isAdminUser(session)) {
     redirect(await getAuthenticatedAccessRedirectPath(session));
   }
+
+  const systemSettings = await getSystemSettings();
+  if (systemSettings.maintenanceMode) return <MaintenanceNotice message={systemSettings.maintenanceMessage} />;
 
   const residentMembership = getResidentMembership(session);
   const latestBindingRequest = residentMembership

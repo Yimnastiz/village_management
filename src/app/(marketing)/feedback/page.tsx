@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
@@ -15,12 +15,15 @@ const feedbackCategoryOptions = [
 ];
 
 export default function FeedbackPage() {
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [categoryLabel, setCategoryLabel] = useState("");
   const [categoryValue, setCategoryValue] = useState("");
   const [isPending, startTransition] = useTransition();
   const { success, error: showError } = useToast();
+  useEffect(() => { void fetch("/api/system/public-feedback-availability").then((response) => response.json()).then((data: { enabled?: boolean }) => setAvailable(data.enabled === true)).catch(() => setAvailable(false)); }, []);
+  if (available !== true) return <div className="mx-auto max-w-2xl px-4 py-12"><div className="rounded-2xl border border-amber-200 bg-amber-50 p-6"><h1 className="text-xl font-semibold text-amber-950">ขณะนี้ปิดรับความคิดเห็นชั่วคราว</h1><p className="mt-2 text-sm leading-6 text-amber-900">กรุณาลองใหม่อีกครั้งภายหลัง</p></div></div>;
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-gray-900 mb-2">เสนอแนะ / ร้องเรียน</h1>
