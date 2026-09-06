@@ -27,6 +27,27 @@ export const IMPORTANT_AUDIT_RESOURCES = [
   "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemWideBroadcast",
 ] as const;
 
+/** Business-facing resource groups used by investigation tools. Values remain technical internally. */
+export const AUDIT_MODULE_RESOURCES: Record<string, readonly string[]> = {
+  VILLAGE: ["Village", "VillageStatus"],
+  ACCOUNTS: ["UserAccount", "UserSystemRole", "UserProfile"],
+  MEMBERS: ["VillageMembership", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval", "UserMembership", "UserMembershipSuspension"],
+  POPULATION: ["Person", "PopulationImportJob", "PopulationExport"],
+  HOUSEHOLD: ["House"], BINDING: ["BindingRequest", "BindingRequestSupport"],
+  NEWS: ["News", "NewsSubmission"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], APPOINTMENT: ["Appointment"],
+  ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
+  DOWNLOAD: ["DownloadFile"], TRANSPARENCY: ["TransparencyRecord"],
+  SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemWideBroadcast"],
+};
+
+export function auditResourcesForModule(module: string) {
+  return AUDIT_MODULE_RESOURCES[module] ?? [];
+}
+
+export function auditModuleLabel(module: string) {
+  return ({ VILLAGE: "หมู่บ้าน", ACCOUNTS: "บัญชีผู้ใช้", MEMBERS: "สมาชิกและบทบาท", POPULATION: "ทะเบียนประชากร", HOUSEHOLD: "บ้านและครัวเรือน", BINDING: "การผูกเลขที่บ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", SETTINGS: "การตั้งค่าระบบ" } as Record<string, string>)[module] ?? module;
+}
+
 const resourceLabels: Record<string, string> = {
   News: "ข่าว",
   NewsSubmission: "คำขอข่าว",
@@ -54,6 +75,15 @@ const resourceLabels: Record<string, string> = {
   NationalIdClaim: "การยืนยันตัวตน",
   PopulationImportJob: "การนำเข้าข้อมูลประชากร",
   PopulationExport: "การส่งออกข้อมูลประชากร",
+};
+
+const investigationResourceLabels: Record<string, string> = {
+  Village: "หมู่บ้าน", VillageStatus: "สถานะหมู่บ้าน", UserAccount: "บัญชีผู้ใช้", UserProfile: "ข้อมูลผู้ใช้", UserSystemRole: "บทบาทผู้ใช้",
+  VillageMembership: "สมาชิกหมู่บ้าน", UserMembership: "สมาชิกหมู่บ้าน", UserMembershipSuspension: "การระงับสมาชิก", VillageAdminRoleAssignment: "การกำหนดบทบาท", VillageAdminRoleRemoval: "การถอดบทบาท",
+  Person: "ข้อมูลบุคคล", House: "ทะเบียนบ้าน", BindingRequest: "คำขอผูกเลขที่บ้าน", BindingRequestSupport: "คำขอผูกเลขที่บ้าน", News: "ข่าวสาร", NewsSubmission: "คำขอข่าวสาร",
+  VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
+  VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "ความโปร่งใส", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
+  PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศส่วนกลาง",
 };
 
 const actionNameLabels: Record<string, string> = {
@@ -202,7 +232,8 @@ const actionLabels: Partial<Record<AuditAction, string>> = {
 };
 
 export function auditActionLabel(action: AuditAction) {
-  return actionLabels[action] ?? action;
+  const labels: Partial<Record<AuditAction, string>> = { CREATE: "สร้าง", UPDATE: "แก้ไข", DELETE: "ลบ", APPROVE: "อนุมัติ", REJECT: "ปฏิเสธ", LOGIN: "เข้าสู่ระบบ", LOGOUT: "ออกจากระบบ", EXPORT: "ส่งออก", VIEW_SENSITIVE: "เปิดดูข้อมูลสำคัญ" };
+  return labels[action] ?? actionLabels[action] ?? action;
 }
 
 function usefulChanges(metadata: Record<string, Prisma.JsonValue>) {
@@ -218,7 +249,7 @@ function usefulChanges(metadata: Record<string, Prisma.JsonValue>) {
 /** Converts storage-oriented audit fields into safe, village-user-facing content. */
 export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
   const metadata = asObject(input.metadata);
-  const resourceLabel = resourceLabels[input.resource] ?? input.resource;
+  const resourceLabel = investigationResourceLabels[input.resource] ?? resourceLabels[input.resource] ?? input.resource;
   const actionName = text(metadata.actionName);
   const targetFromMetadata = [metadata.targetName, metadata.title, metadata.name, metadata.subject, metadata.houseNumber, metadata.fileName]
     .map(text)

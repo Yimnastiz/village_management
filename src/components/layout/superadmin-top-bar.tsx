@@ -30,6 +30,7 @@ const pageHeaders = [
 ] as const;
 
 function resolveHeader(pathname: string): SuperAdminHeaderContext {
+  if (pathname === "/superadmin/logs") return { title: "บันทึกกิจกรรม", description: "ตรวจสอบการดำเนินการที่สำคัญและประวัติการเปลี่ยนแปลงภายในระบบ" };
   if (pathname === "/superadmin/data-quality") return { title: "คุณภาพข้อมูล", description: "ตรวจสอบข้อมูลที่ไม่ครบถ้วน ผิดปกติ หรือควรได้รับการตรวจสอบทั่วทั้งระบบ" };
   if (pathname === "/superadmin/dashboard") return { title: "ภาพรวมระบบ", description: "ติดตามสถานะสำคัญ งานที่ต้องดำเนินการ และภาพรวมทุกหมู่บ้าน" };
   if (pathname === "/superadmin/users") return { title: "ผู้ใช้งานระบบ", description: "ค้นหา ตรวจสอบ และสนับสนุนบัญชีผู้ใช้งานทุกหมู่บ้าน" };
