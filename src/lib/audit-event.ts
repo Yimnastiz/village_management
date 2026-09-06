@@ -31,11 +31,11 @@ export const IMPORTANT_AUDIT_RESOURCES = [
 export const AUDIT_MODULE_RESOURCES: Record<string, readonly string[]> = {
   VILLAGE: ["Village", "VillageStatus"],
   ACCOUNTS: ["UserAccount", "UserSystemRole", "UserProfile"],
-  MEMBERS: ["VillageMembership", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval", "UserMembership", "UserMembershipSuspension"],
+  MEMBERS: ["VillageMembership", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval", "VillageAdminSupport", "MembershipSupport", "UserMembership", "UserMembershipSuspension"],
   POPULATION: ["Person", "PopulationImportJob", "PopulationExport"],
   HOUSEHOLD: ["House"], BINDING: ["BindingRequest", "BindingRequestSupport"],
   NEWS: ["News", "NewsSubmission"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], APPOINTMENT: ["Appointment"],
-  ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
+  ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItem", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
   DOWNLOAD: ["DownloadFile"], TRANSPARENCY: ["TransparencyRecord"],
   SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemWideBroadcast"],
 };
@@ -46,6 +46,10 @@ export function auditResourcesForModule(module: string) {
 
 export function auditModuleLabel(module: string) {
   return ({ VILLAGE: "หมู่บ้าน", ACCOUNTS: "บัญชีผู้ใช้", MEMBERS: "สมาชิกและบทบาท", POPULATION: "ทะเบียนประชากร", HOUSEHOLD: "บ้านและครัวเรือน", BINDING: "การผูกเลขที่บ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", SETTINGS: "การตั้งค่าระบบ" } as Record<string, string>)[module] ?? module;
+}
+
+export function auditActorRoleLabel(role?: string | null) {
+  return ({ HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", SUPERADMIN: "ผู้ดูแลระบบระดับสูง", ADMIN: "ผู้ดูแลระบบระดับสูง", USER: "ผู้ใช้งาน", RESIDENT: "ลูกบ้าน" } as Record<string, string>)[role ?? ""] ?? role ?? null;
 }
 
 const resourceLabels: Record<string, string> = {
@@ -79,9 +83,9 @@ const resourceLabels: Record<string, string> = {
 
 const investigationResourceLabels: Record<string, string> = {
   Village: "หมู่บ้าน", VillageStatus: "สถานะหมู่บ้าน", UserAccount: "บัญชีผู้ใช้", UserProfile: "ข้อมูลผู้ใช้", UserSystemRole: "บทบาทผู้ใช้",
-  VillageMembership: "สมาชิกหมู่บ้าน", UserMembership: "สมาชิกหมู่บ้าน", UserMembershipSuspension: "การระงับสมาชิก", VillageAdminRoleAssignment: "การกำหนดบทบาท", VillageAdminRoleRemoval: "การถอดบทบาท",
+  VillageMembership: "สมาชิกหมู่บ้าน", UserMembership: "สมาชิกหมู่บ้าน", UserMembershipSuspension: "การระงับสมาชิก", VillageAdminRoleAssignment: "การกำหนดบทบาท", VillageAdminRoleRemoval: "การถอดบทบาท", VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน", MembershipSupport: "สมาชิกและบทบาท",
   Person: "ข้อมูลบุคคล", House: "ทะเบียนบ้าน", BindingRequest: "คำขอผูกเลขที่บ้าน", BindingRequestSupport: "คำขอผูกเลขที่บ้าน", News: "ข่าวสาร", NewsSubmission: "คำขอข่าวสาร",
-  VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
+  VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItem: "รูปภาพในแกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
   VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "ความโปร่งใส", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
   PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศส่วนกลาง",
 };
