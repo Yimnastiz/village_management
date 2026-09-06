@@ -2,6 +2,7 @@
 
 import { NotificationStatus } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { getFeedbackById, markFeedbackAsReadIfUnread as markFeedbackAsReadIfUnreadService } from "./feedback-service";
 import { prisma } from "@/lib/prisma";
@@ -39,10 +40,13 @@ export async function updateFeedbackNotificationStatusAction(formData: FormData)
 
   if (operation === "restore") {
     if (row.status !== NotificationStatus.ARCHIVED) throw new Error("รายการนี้ยังไม่ได้เก็บถาวร");
+    const restoreStatus = row.readAt ? NotificationStatus.READ : NotificationStatus.UNREAD;
     await prisma.notification.updateMany({
       where: { id: row.id, status: NotificationStatus.ARCHIVED },
-      data: { status: row.readAt ? NotificationStatus.READ : NotificationStatus.UNREAD },
+      data: { status: restoreStatus },
     });
+    revalidateFeedback(notificationId);
+    if (restoreStatus === NotificationStatus.UNREAD) redirect("/superadmin/feedback");
   } else {
     if (![NotificationStatus.UNREAD, NotificationStatus.READ, NotificationStatus.ARCHIVED].includes(requestedStatus)) throw new Error("สถานะไม่ถูกต้อง");
     if (row.status === NotificationStatus.ARCHIVED) throw new Error("ไม่สามารถเปลี่ยนสถานะรายการที่เก็บถาวรแล้ว");
