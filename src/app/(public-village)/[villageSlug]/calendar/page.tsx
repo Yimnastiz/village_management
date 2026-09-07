@@ -1,55 +1,66 @@
-import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getPublicVillageBySlug, getVillageCalendarEvents } from "@/features/public-village/server/public-village-data";
+import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 import { ResidentCalendarGrid } from "@/app/(resident)/resident/calendar/resident-calendar-grid";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
-  searchParams: Promise<{ month?: string; date?: string }>;
+  searchParams: Promise<{ month?: string; date?: string; q?: string }>;
+}
+
+function parseSelectedDate(value: string | undefined, monthKey: string) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value) || !value.startsWith(`${monthKey}-`)) return null;
+  const parsed = new Date(`${value}T00:00:00+07:00`);
+  return !Number.isNaN(parsed.getTime()) && toDateKey(parsed) === value ? value : null;
 }
 
 export default async function Page({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
-  const { month, date } = await searchParams;
+  const { month, date, q } = await searchParams;
   const village = await getPublicVillageBySlug(rawVillageSlug);
   if (!village) notFound();
 
   const villageSlug = village.slug;
-  const { year, monthIndex } = parseCalendarMonth(month);
-  const expectedMonth = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
-  const initialDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) && date.startsWith(`${expectedMonth}-`) && !Number.isNaN(new Date(`${date}T00:00:00`).getTime()) ? date : null;
+  const { year, monthIndex, yearStart, yearEnd } = parseCalendarMonth(month);
+  const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const initialDate = parseSelectedDate(date, monthKey);
+  const keyword = q?.trim() ?? "";
   const monthStart = new Date(year, monthIndex, 1);
   const nextMonthStart = new Date(year, monthIndex + 1, 1);
-  const events = await getVillageCalendarEvents({ villageId: village.id, startsAt: monthStart, endsBefore: nextMonthStart, publicOnly: true });
-  const prevMonth = new Date(year, monthIndex - 1, 1);
-  const nextMonth = new Date(year, monthIndex + 1, 1);
+  const events = await getVillageCalendarEvents({
+    villageId: village.id,
+    startsAt: monthStart,
+    endsBefore: nextMonthStart,
+    publicOnly: true,
+    keyword,
+  });
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900">ปฏิทินกิจกรรม</h1>
-          <p className="mt-1 text-sm text-gray-500">กิจกรรมสาธารณะของ {village.name}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Link href={`/${villageSlug}/calendar?month=${toMonthKey(prevMonth)}`} aria-label="เดือนก่อนหน้า" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-          <p className="hidden min-w-28 text-center text-sm font-medium text-gray-800 sm:block">{monthStart.toLocaleDateString("th-TH", { month: "long", year: "numeric" })}</p>
-          <Link href={`/${villageSlug}/calendar?month=${toMonthKey(nextMonth)}`} aria-label="เดือนถัดไป" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <CalendarToolbar
+        namespace="public-calendar"
+        hideHeading
+        residentCompact
+        currentYear={year}
+        currentMonth={monthIndex + 1}
+        yearStart={yearStart}
+        yearEnd={yearEnd}
+        todayMonthKey={toMonthKey(new Date())}
+        todayDateKey={toDateKey(new Date())}
+        selectToday
+        search={{ keyword, placeholder: "ค้นหากิจกรรม", label: "ค้นหากิจกรรม" }}
+        className="mx-0 mt-0 rounded-lg border-x px-3 py-2 sm:px-4 sm:py-2.5"
+      />
+      {events.length === 0 ? <p className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">ไม่พบกิจกรรมตามเงื่อนไขที่เลือก</p> : null}
       <ResidentCalendarGrid
-        key={`${expectedMonth}-${initialDate ?? "none"}`}
+        key={`${monthKey}-${initialDate ?? "none"}-${keyword}`}
         year={year}
         monthIndex={monthIndex}
         todayKey={toDateKey(new Date())}
         initialDate={initialDate}
         showAppointments={false}
+        searchKeyword={keyword}
         eventHrefBase={`/${villageSlug}/calendar`}
         events={events.map((event) => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))}
         appointments={[]}

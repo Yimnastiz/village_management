@@ -17,7 +17,7 @@ import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-li
 
 type CalendarToolbarProps = {
   namespace: string;
-  title: string;
+  title?: string;
   description?: string;
   /** Actions that should precede calendar navigation, such as a contextual back link. */
   leadingActions?: ReactNode;
@@ -42,6 +42,9 @@ type CalendarToolbarProps = {
   };
   filters?: ReactNode;
   adminFilterGroups?: ToolbarGroup[];
+  className?: string;
+  todayDateKey?: string;
+  selectToday?: boolean;
 };
 
 export function CalendarToolbar({
@@ -62,6 +65,9 @@ export function CalendarToolbar({
   search,
   filters,
   adminFilterGroups = [],
+  className,
+  todayDateKey,
+  selectToday = false,
 }: CalendarToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   const superAdminPageHeaderRegistry = useOptionalSuperAdminPageHeader();
@@ -127,7 +133,7 @@ export function CalendarToolbar({
   const todayHref = () => {
     const params = new URLSearchParams(currentSearchParams.toString());
     params.set("month", todayMonthKey);
-    params.delete("date");
+    if (selectToday && todayDateKey) params.set("date", todayDateKey); else params.delete("date");
     const query = params.toString();
     return query ? `${pathname}?${query}` : pathname;
   };
@@ -165,11 +171,12 @@ export function CalendarToolbar({
       className={cn(
         "sticky top-[var(--app-sticky-top)] z-30 border-gray-200 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)]",
         isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+        className,
       )}
-      aria-label={`เครื่องมือ${title}`}
+      aria-label={`เครื่องมือ${title ?? "ปฏิทิน"}`}
     >
-      {adminPageHeaderRegistry ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
-      {registerHeader && residentPageHeaderRegistry ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
+      {adminPageHeaderRegistry && title ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
+      {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
       <div className="flex min-w-0 items-center justify-between gap-2">
         {!hasTopbarHeader ? <div className="min-w-0">
           <h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>

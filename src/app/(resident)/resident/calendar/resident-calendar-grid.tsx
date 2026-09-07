@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Clock, MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { toDateKey } from "@/lib/calendar-month";
 
 type EventItem = { id: string; title: string; startsAt: string; endsAt: string | null; location: string | null; isPublic: boolean };
 type AppointmentItem = { id: string; title: string; stage: string; date: string; startTime: string | null; endTime: string | null };
@@ -27,13 +28,23 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
   const visibleEvents = itemType === "appointment" ? [] : events.filter((item) => matches([item.title, item.location ?? ""].join(" ")));
   const visibleAppointments = itemType === "event" ? [] : appointments.filter((item) => matches(item.title));
   const eventsByDate = new Map<string, EventItem[]>(), appointmentsByDate = new Map<string, AppointmentItem[]>();
-  for (const item of visibleEvents) { const key = item.startsAt.slice(0, 10); eventsByDate.set(key, [...(eventsByDate.get(key) ?? []), item]); }
+  for (const item of visibleEvents) {
+    const startKey = toDateKey(new Date(item.startsAt));
+    const endKey = item.endsAt ? toDateKey(new Date(item.endsAt)) : startKey;
+    const cursor = new Date(`${startKey}T00:00:00+07:00`);
+    const end = new Date(`${endKey}T00:00:00+07:00`);
+    while (cursor <= end) {
+      const key = toDateKey(cursor);
+      eventsByDate.set(key, [...(eventsByDate.get(key) ?? []), item]);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+  }
   if (showAppointments) for (const item of visibleAppointments) appointmentsByDate.set(item.date, [...(appointmentsByDate.get(item.date) ?? []), item]);
   for (const items of eventsByDate.values()) items.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   for (const items of appointmentsByDate.values()) items.sort((a, b) => !a.startTime ? (b.startTime ? 1 : 0) : !b.startTime ? -1 : a.startTime.localeCompare(b.startTime));
   const selectDate = (date: string) => {
     const nextDate = selectedDate === date ? null : date;
-    const hasDateContent = events.some((item) => item.startsAt.slice(0, 10) === date) || (showAppointments && appointments.some((item) => item.date === date));
+    const hasDateContent = (eventsByDate.get(date)?.length ?? 0) > 0 || (showAppointments && appointments.some((item) => item.date === date));
     shouldScrollToDetailRef.current = Boolean(nextDate && hasDateContent);
     setSelectedDate(nextDate);
     const params = new URLSearchParams(searchParams.toString()); if (nextDate) params.set("date", nextDate); else params.delete("date"); const query = params.toString(); router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -42,7 +53,7 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
   const days = new Date(year, monthIndex + 1, 0).getDate(), blanks = new Date(year, monthIndex, 1).getDay();
   const selectedEvents = selectedDate ? eventsByDate.get(selectedDate) ?? [] : [], selectedAppointments = selectedDate ? appointmentsByDate.get(selectedDate) ?? [] : [];
   const totalSelected = selectedEvents.length + selectedAppointments.length;
-  const selectedHadItems = Boolean(selectedDate && ((showAppointments && appointments.some((item) => item.date === selectedDate)) || events.some((item) => item.startsAt.slice(0, 10) === selectedDate)));
+  const selectedHadItems = Boolean(selectedDate && ((showAppointments && appointments.some((item) => item.date === selectedDate)) || (eventsByDate.get(selectedDate)?.length ?? 0) > 0));
   const hasActiveFilter = Boolean(normalizedSearch) || itemType !== "all";
   useEffect(() => {
     if (!shouldScrollToDetailRef.current || !selectedDateDetailRef.current) return;

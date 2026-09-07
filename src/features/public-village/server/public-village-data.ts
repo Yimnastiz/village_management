@@ -14,12 +14,18 @@ export async function getVillageCalendarEvents(params: {
   startsAt: Date;
   endsBefore: Date;
   publicOnly: boolean;
+  keyword?: string;
 }) {
+  const keyword = params.keyword?.trim();
   return prisma.villageEvent.findMany({
     where: {
       villageId: params.villageId,
       ...(params.publicOnly ? { isPublic: true } : {}),
-      startsAt: { gte: params.startsAt, lt: params.endsBefore },
+      AND: [
+        { startsAt: { lt: params.endsBefore } },
+        { OR: [{ endsAt: { gte: params.startsAt } }, { endsAt: null, startsAt: { gte: params.startsAt } }] },
+        ...(keyword ? [{ OR: [{ title: { contains: keyword, mode: "insensitive" as const } }, { location: { contains: keyword, mode: "insensitive" as const } }] }] : []),
+      ],
     },
     orderBy: [{ startsAt: "asc" }],
     select: {
