@@ -26,6 +26,8 @@ export default async function Page({ params, searchParams }: PageProps) {
   const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
   const initialDate = parseSelectedDate(date, monthKey);
   const keyword = q?.trim() ?? "";
+  const hasSearch = keyword.length > 0;
+  const hasSelectedDate = initialDate !== null;
   const monthStart = new Date(year, monthIndex, 1);
   const nextMonthStart = new Date(year, monthIndex + 1, 1);
   const events = await getVillageCalendarEvents({
@@ -35,6 +37,23 @@ export default async function Page({ params, searchParams }: PageProps) {
     publicOnly: true,
     keyword,
   });
+  const hasSelectedDateEvent = initialDate
+    ? events.some((event) => {
+        const startKey = toDateKey(event.startsAt);
+        const endKey = event.endsAt ? toDateKey(event.endsAt) : startKey;
+        return initialDate >= startKey && initialDate <= endKey;
+      })
+    : false;
+  const hasNoMatchingEvents = hasSelectedDate ? !hasSelectedDateEvent : events.length === 0;
+  const showFilteredEmptyState = hasNoMatchingEvents && (hasSearch || hasSelectedDate);
+  let emptyStateMessage: string | null = null;
+  if (hasSearch && hasSelectedDate) {
+    emptyStateMessage = "ไม่พบกิจกรรมตามเงื่อนไขที่เลือก";
+  } else if (hasSearch) {
+    emptyStateMessage = "ไม่พบกิจกรรมที่ตรงกับคำค้นหา";
+  } else if (hasSelectedDate) {
+    emptyStateMessage = "ไม่มีกิจกรรมในวันที่เลือก";
+  }
 
   return (
     <div className="space-y-4">
@@ -49,10 +68,11 @@ export default async function Page({ params, searchParams }: PageProps) {
         todayMonthKey={toMonthKey(new Date())}
         todayDateKey={toDateKey(new Date())}
         selectToday
+        publicFullBleed
         search={{ keyword, placeholder: "ค้นหากิจกรรม", label: "ค้นหากิจกรรม" }}
-        className="mx-0 mt-0 rounded-lg border-x px-3 py-2 sm:px-4 sm:py-2.5"
+        className="mt-0"
       />
-      {events.length === 0 ? <p className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">ไม่พบกิจกรรมตามเงื่อนไขที่เลือก</p> : null}
+      {showFilteredEmptyState && emptyStateMessage ? <p className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">{emptyStateMessage}</p> : null}
       <ResidentCalendarGrid
         key={`${monthKey}-${initialDate ?? "none"}-${keyword}`}
         year={year}

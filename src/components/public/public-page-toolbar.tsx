@@ -20,6 +20,6 @@ export function PublicPageToolbar({ namespace, keyword, placeholder, suggestions
     search={{ keyword, placeholder, label: "ค้นหา", suggestions }}
     activeFilterCount={activeFilterCount}
     filters={filters}
-    className="mx-0 mt-0 rounded-lg border-x px-3 py-2 sm:px-4 sm:py-2.5"
+    className="-mx-4 mt-0 rounded-none border-x-0 px-3 py-2 sm:-mx-6 sm:px-4 sm:py-2.5 lg:-mx-8 lg:px-8"
   />;
 }
