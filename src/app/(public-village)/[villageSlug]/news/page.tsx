@@ -10,7 +10,7 @@ import { NewsCard } from "@/components/news/news-card";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
-  searchParams?: Promise<{ q?: string; sort?: string; source?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string }>;
 }
 
 const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; description: string }> = {
@@ -34,7 +34,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
-  const source = query.source === "admin" || query.source === "resident" ? query.source : "all";
+  const source = "all" as const;
   const adminRoles = ["HEADMAN", "ASSISTANT_HEADMAN"] as const;
 
   const village = await prisma.village.findFirst({
@@ -97,36 +97,20 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   });
 
   const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
-  const filteredNewsList = newsList.filter((news) => {
-    if (source === "all") {
-      return true;
-    }
-
-    if (!news.authorId) {
-      return false;
-    }
-
-    const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
-    const isAdminSource = roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number]));
-    return source === "admin" ? isAdminSource : !isAdminSource;
-  });
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PublicNewsToolbar
         villageSlug={villageSlug}
-        villageName={village.name}
         keyword={keyword}
         sort={sort}
-        source={source}
         suggestionTitles={suggestionTitles}
       />
 
-      {filteredNewsList.length === 0 ? (
+      {newsList.length === 0 ? (
         <EmptyState icon={Newspaper} title={SOURCE_EMPTY_STATE[source].title} description={SOURCE_EMPTY_STATE[source].description} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredNewsList.map((news) => (
+          {newsList.map((news) => (
             <NewsCard
               key={news.id}
               href={`/${villageSlug}/news/${news.id}`}

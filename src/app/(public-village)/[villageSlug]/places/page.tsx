@@ -39,7 +39,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
   const keyword = query.q?.trim() ?? "";
   const category = query.category?.trim() ?? "ALL";
   const featured = query.featured === "1";
-  const sort = query.sort === "oldest" || query.sort === "name_asc" || query.sort === "name_desc" ? query.sort : "newest";
+  const sort = query.sort === "name_desc" ? "name_desc" : "name_asc";
   const page = Number.parseInt(query.page ?? "1", 10);
   const currentPage = Number.isNaN(page) || page < 1 ? 1 : page;
   const pageSize = 9;
@@ -68,14 +68,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
       : {}),
   };
 
-  const orderBy =
-    sort === "oldest"
-      ? [{ createdAt: "asc" as const }]
-      : sort === "name_asc"
-        ? [{ name: "asc" as const }]
-        : sort === "name_desc"
-          ? [{ name: "desc" as const }]
-          : [{ createdAt: "desc" as const }];
+  const orderBy = sort === "name_desc" ? [{ name: "desc" as const }] : [{ name: "asc" as const }];
 
   const [places, totalCount] = await Promise.all([
     villagePlace.findMany({
@@ -119,10 +112,9 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PublicPlacesToolbar
         villageSlug={villagePathSlug}
-        villageName={village.name}
         keyword={keyword}
         category={category}
         featured={featured}

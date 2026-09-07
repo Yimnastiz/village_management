@@ -66,10 +66,9 @@ export default async function DownloadsPage({ params, searchParams }: PageProps)
   const suggestionTitles = Array.from(new Set(titleSuggestions.map((item) => item.title))).slice(0, 20);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PublicDownloadsToolbar
         villageSlug={villageSlug}
-        villageName={village.name}
         keyword={keyword}
         sort={sort}
         suggestionTitles={suggestionTitles}

@@ -81,7 +81,7 @@ export function ResidentMultiFilterDropdown({ label, options, clearHref }: { lab
 type ResidentPageToolbarProps = {
   /** A page-owned, deterministic prefix. It must be unique within the route. */
   namespace: string;
-  title: string;
+  title?: string;
   description?: string;
   actions?: ReactNode;
   backHref?: string;
@@ -182,7 +182,7 @@ export function ResidentPageToolbar({
     aria-label={`เครื่องมือ${title}`}
     data-resident-page-toolbar
   >
-    {registerHeader && residentPageHeaderRegistry ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
+    {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
     {backLink ? <div className="mb-2">{backLink}</div> : null}
 
     {!shouldHideHeading ? <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">

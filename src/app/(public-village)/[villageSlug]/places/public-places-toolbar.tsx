@@ -1,8 +1,36 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+"use client";
+
 import { PublicPageToolbar } from "@/components/public/public-page-toolbar";
+import { ResidentFilterDropdown } from "@/components/resident/resident-page-toolbar";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 
-type Props = { villageSlug: string; villageName: string; keyword: string; category: string; featured: boolean; sort: string; suggestionTitles: string[] };
-function href(villageSlug: string, keyword: string, category: string, featured: boolean, sort: string) { const query = new URLSearchParams(); if (keyword) query.set("q", keyword); if (category !== "ALL") query.set("category", category); if (featured) query.set("featured", "1"); if (sort !== "newest") query.set("sort", sort); return query.size ? `/${villageSlug}/places?${query}` : `/${villageSlug}/places`; }
-export function PublicPlacesToolbar({ villageSlug, villageName, keyword, category, featured, sort, suggestionTitles }: Props) { const chip = (on: boolean) => cn("rounded-lg px-3 py-1.5 text-xs font-medium", on ? "bg-green-700 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"); return <PublicPageToolbar namespace="public-places" title={`สถานที่ในหมู่บ้าน ${villageName}`} description="ค้นหาและกรองเฉพาะสถานที่ที่เผยแพร่สาธารณะ" keyword={keyword} placeholder="ค้นหาชื่อ รายละเอียด หรือที่อยู่" suggestions={suggestionTitles} activeFilterCount={Number(category !== "ALL") + Number(featured) + Number(sort !== "newest")} filters={<><span className="text-xs font-semibold text-gray-500">หมวดหมู่</span><Link href={href(villageSlug, keyword, "ALL", featured, sort)} className={chip(category === "ALL")}>ทั้งหมด</Link>{Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => <Link key={value} href={href(villageSlug, keyword, value, featured, sort)} className={chip(category === value)}>{label}</Link>)}<span className="ml-1 text-xs font-semibold text-gray-500">ความสำคัญ</span><Link href={href(villageSlug, keyword, category, false, sort)} className={chip(!featured)}>ทั้งหมด</Link><Link href={href(villageSlug, keyword, category, true, sort)} className={chip(featured)}>สถานที่สำคัญ</Link><span className="ml-1 text-xs font-semibold text-gray-500">เรียง</span>{([['newest','ล่าสุด'],['oldest','เก่าสุด'],['name_asc','ชื่อ ก-ฮ'],['name_desc','ชื่อ ฮ-ก']] as const).map(([value,label]) => <Link key={value} href={href(villageSlug, keyword, category, featured, value)} className={chip(sort === value)}>{label}</Link>)}<Link href={`/${villageSlug}/places`} className={chip(false)}>ล้างตัวกรอง</Link></>} />; }
+type SortValue = "name_asc" | "name_desc";
+type Props = { villageSlug: string; keyword: string; category: string; featured: boolean; sort: SortValue; suggestionTitles: string[] };
+
+function href(villageSlug: string, keyword: string, category: string, featured: boolean, sort: SortValue) {
+  const params = new URLSearchParams();
+  if (keyword.trim()) params.set("q", keyword.trim());
+  if (category !== "ALL") params.set("category", category);
+  if (featured) params.set("featured", "1");
+  if (sort !== "name_asc") params.set("sort", sort);
+  const query = params.toString();
+  return query ? `/${villageSlug}/places?${query}` : `/${villageSlug}/places`;
+}
+
+export function PublicPlacesToolbar({ villageSlug, keyword, category, featured, sort, suggestionTitles }: Props) {
+  const categoryOptions = [
+    { label: "ทั้งหมด", value: "ALL" },
+    ...Object.entries(VILLAGE_PLACE_CATEGORY_LABELS).map(([value, label]) => ({ value, label })),
+  ];
+  return <PublicPageToolbar namespace="public-places" keyword={keyword} placeholder="ค้นหาสถานที่" suggestions={suggestionTitles} activeFilterCount={Number(category !== "ALL") + Number(featured) + Number(sort !== "name_asc")} filters={<>
+    <ResidentFilterDropdown label="หมวดหมู่" options={categoryOptions.map((option) => ({ label: option.label, href: href(villageSlug, keyword, option.value, featured, sort), active: category === option.value }))} />
+    <ResidentFilterDropdown label="ความสำคัญ" options={[
+      { label: "ทั้งหมด", href: href(villageSlug, keyword, category, false, sort), active: !featured },
+      { label: "สถานที่สำคัญ", href: href(villageSlug, keyword, category, true, sort), active: featured },
+    ]} />
+    <ResidentFilterDropdown label="เรียง" options={[
+      { label: "ชื่อ ก-ฮ", href: href(villageSlug, keyword, category, featured, "name_asc"), active: sort === "name_asc" },
+      { label: "ชื่อ ฮ-ก", href: href(villageSlug, keyword, category, featured, "name_desc"), active: sort === "name_desc" },
+    ]} />
+  </>} />;
+}

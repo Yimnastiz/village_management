@@ -5,8 +5,6 @@ import { ResidentPageToolbar } from "@/components/resident/resident-page-toolbar
 
 type PublicPageToolbarProps = {
   namespace: string;
-  title: string;
-  description: string;
   keyword: string;
   placeholder: string;
   suggestions?: string[];
@@ -14,14 +12,14 @@ type PublicPageToolbarProps = {
   filters?: ReactNode;
 };
 
-/** Shared public-safe list chrome. It intentionally inherits the resident toolbar's sticky and mobile behaviour. */
-export function PublicPageToolbar({ namespace, title, description, keyword, placeholder, suggestions, activeFilterCount = 0, filters }: PublicPageToolbarProps) {
+/** Compact public list controls. Page context is supplied by the public Topbar. */
+export function PublicPageToolbar({ namespace, keyword, placeholder, suggestions, activeFilterCount = 0, filters }: PublicPageToolbarProps) {
   return <ResidentPageToolbar
     namespace={namespace}
-    title={title}
-    description={description}
-    search={{ keyword, placeholder, label: "ค้นหาข้อมูลสาธารณะ", suggestions }}
+    hideHeading
+    search={{ keyword, placeholder, label: "ค้นหา", suggestions }}
     activeFilterCount={activeFilterCount}
     filters={filters}
+    className="mx-0 mt-0 rounded-lg border-x px-3 py-2 sm:px-4 sm:py-2.5"
   />;
 }

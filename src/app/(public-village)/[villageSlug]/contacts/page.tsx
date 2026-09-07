@@ -42,10 +42,9 @@ export default async function Page({ params, searchParams }: PageProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <PublicContactsToolbar
         villageSlug={villageSlug}
-        villageName={village.name}
         keyword={keyword}
       />
 
