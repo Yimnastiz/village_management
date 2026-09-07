@@ -9,6 +9,7 @@ import { VillageSwitcher } from "./village-switcher";
 import { VillagePublicMobileNav } from "./village-mobile-nav";
 import { isPublicVillageNavItemActive, PUBLIC_VILLAGE_NAV_ITEMS } from "./public-village-nav";
 import { BrandLogo } from "@/components/brand-logo";
+import { Tooltip } from "@/components/ui/tooltip";
 
 type VillageOption = { id: string; slug: string; name: string; moo: string | null; province: string | null; district: string | null; subdistrict: string | null };
 type Props = { base: string; villageName: string; villages: VillageOption[]; currentSlug: string };
@@ -37,9 +38,11 @@ export function GuestVillageTopbar({ base, villageName, villages, currentSlug }:
 
         <VillagePublicMobileNav base={base} villageName={villageName} villages={villages} currentSlug={currentSlug} />
         <div className="flex min-w-0 shrink-0 items-center"><VillageSwitcher villages={villages} currentSlug={currentSlug} /></div>
-        <Link href="/" aria-label="กลับหน้าหลัก" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/20 xl:px-3">
-          <ArrowLeft className="h-4 w-4" /><span className="hidden 2xl:inline">กลับหน้าหลัก</span>
-        </Link>
+        <Tooltip label="กลับหน้าหลัก">
+          <Link href="/" aria-label="กลับหน้าหลัก" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-800 xl:px-3">
+            <ArrowLeft className="h-4 w-4" /><span className="hidden 2xl:inline">กลับหน้าหลัก</span>
+          </Link>
+        </Tooltip>
         <Link href="/auth/login" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/10 px-2.5 text-xs font-medium hover:bg-white/20 xl:px-3">
           <LogIn className="h-4 w-4" /><span className="hidden sm:inline">เข้าสู่ระบบ</span>
         </Link>
