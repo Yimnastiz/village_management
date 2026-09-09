@@ -154,6 +154,8 @@ const fieldLabels: Record<string, string> = {
   dateOfDeath: "วันที่เสียชีวิต",
   phone: "เบอร์โทรสำหรับติดต่อ",
   email: "อีเมลสำหรับติดต่อ",
+  description: "คำอธิบายหมู่บ้าน",
+  website: "เว็บไซต์",
   accountStatus: "สถานะบัญชี",
 };
 

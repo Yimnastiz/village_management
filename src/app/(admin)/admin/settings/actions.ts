@@ -40,6 +40,11 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
   const { session, membership, villageId } = await requireAdminVillageContext();
   requireVillagePermission(membership, "village.settings.manage");
 
+  const name = cleanString(formData, "name");
+  if (!name) return { success: false, error: "กรุณาระบุชื่อหมู่บ้าน" };
+  if (name.length > 160) return { success: false, error: "ชื่อหมู่บ้านยาวเกินกำหนด" };
+  const phone = cleanString(formData, "phone");
+  if (phone && phone.length > 50) return { success: false, error: "หมายเลขโทรศัพท์ยาวเกินกำหนด" };
   const email = cleanString(formData, "email");
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
   const website = cleanString(formData, "website");
@@ -52,18 +57,19 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
     }
   }
 
+  const current = await prisma.village.findUnique({ where: { id: villageId }, select: { name: true, description: true, address: true, phone: true, email: true, website: true } });
+  if (!current) return { success: false, error: "ไม่พบข้อมูลหมู่บ้าน" };
+  const next = { name, description: cleanString(formData, "description"), address: cleanString(formData, "address"), phone, email, website };
+  const oldValue = Object.fromEntries(Object.entries(current).filter(([key, value]) => value !== next[key as keyof typeof next]));
+  const newValue = Object.fromEntries(Object.entries(next).filter(([key]) => key in oldValue));
   const village = await prisma.village.update({
     where: { id: villageId },
     data: {
-      description: cleanString(formData, "description"),
-      address: cleanString(formData, "address"),
-      phone: cleanString(formData, "phone"),
-      email,
-      website,
+      ...next,
     },
     select: { slug: true },
   });
-  await writeVillagePolicyAuditLog(prisma, { villageId, actorUserId: session.id, actorRole: membership.role, action: AuditAction.UPDATE, policyAction: "village.settings.update", targetType: "Village", targetId: villageId });
+  if (Object.keys(oldValue).length) await writeVillagePolicyAuditLog(prisma, { villageId, actorUserId: session.id, actorRole: membership.role, action: AuditAction.UPDATE, policyAction: "village.settings.update", targetType: "Village", targetId: villageId, metadata: { targetName: name, oldValue, newValue } });
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin/settings/village");
