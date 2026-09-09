@@ -24,6 +24,8 @@ HEADMAN is the sole active `/admin` actor and receives all surviving operations 
 
 Headman also owns Village Broadcasts at `/admin/broadcasts`. New broadcasts are durably scoped to the Headman's Village, target its active memberships only, and use `VILLAGE_BROADCAST` notification metadata. Legacy `SUPERADMIN_BROADCAST` records remain readable during the transition; `/superadmin/broadcasts` also remains transitional until Phase 4.
 
+Headman has a Village-scoped diagnostic Data Quality view at `/admin/data-quality`. It checks only duplicate-marked accounts with an active or suspended membership in the current Village and active Residents in that Village without a linked house. The global/multi-Village Data Quality page remains transitional Super Admin code until Phase 4.
+
 Headman owns the singleton System Settings at `/admin/settings/system`. During Maintenance Mode, normal operational Admin work remains unavailable, but the Headman can log in and use this recovery page to disable Maintenance Mode. The transitional `/superadmin/settings` remains available until a later phase.
 
 Legacy `ASSISTANT_HEADMAN` rows may remain readable while data migration is pending, but do not grant `/admin` access, permissions, reviewer status, or administrator notifications. Exact server-authorized capability names are maintained in [ADMIN_PERMISSION_MATRIX.md](ADMIN_PERMISSION_MATRIX.md) and `src/lib/village-permissions.ts`.

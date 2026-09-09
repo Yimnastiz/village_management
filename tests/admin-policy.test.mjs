@@ -25,7 +25,7 @@ test("only HEADMAN receives operational permissions", () => {
     "places.manage", "places.requests.review", "contacts.manage", "contacts.requests.review", "downloads.manage",
     "transparency.manage", "calendar.manage", "calendar.requests.review", "issues.manage", "appointments.manage",
     "population.view", "population.person.manage", "population.house.manage",
-    "binding.review", "members.view", "members.status.manage", "audit.view", "feedback.manage", "broadcasts.manage",
+    "binding.review", "members.view", "members.status.manage", "audit.view", "feedback.manage", "broadcasts.manage", "data-quality.view",
   ]) {
     assert.equal(hasVillagePermission(HEADMAN, permission), true);
     assert.equal(hasVillagePermission(ASSISTANT, permission), false);

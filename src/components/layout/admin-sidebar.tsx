@@ -42,6 +42,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp, permission: "population.import" },
   { href: "/admin/notifications", label: "การแจ้งเตือน", icon: Bell, permission: "dashboard.view" },
   { href: "/admin/security", label: "ความปลอดภัย", icon: ShieldCheck, permission: "audit.view" },
+  { href: "/admin/data-quality", label: "คุณภาพข้อมูล", icon: ClipboardCheck, permission: "data-quality.view" },
   { href: "/admin/settings/access", label: "สมาชิก", icon: Users, permission: "members.view" },
   { href: "/admin/settings/village", label: "ตั้งค่าหมู่บ้าน", icon: Settings, permission: "village.settings.manage" },
 ];
