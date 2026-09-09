@@ -48,15 +48,13 @@ Super Admin เป็นผู้ดำเนินการระดับร�
 
 1. สร้างไฟล์ `.env.local` (ไม่ commit) และตั้งค่าสำหรับ Development เช่น
    ```env
-   SUPERADMIN_ACCESS_CODE="123456"
-   SUPERADMIN_SESSION_SECRET="dev-superadmin-session-secret-change-this"
    ```
 2. หลังแก้ `.env.local` ให้ restart server เสมอ เพราะ Fast Refresh ไม่ควรใช้คาดหวังการ reload ENV ฝั่ง Server:
    ```bash
    Ctrl + C
    npm run dev
    ```
-3. เปิด `http://localhost:3000/superadmin` แล้วกรอกรหัส
+3. เข้าสู่ระบบด้วย OTP ของ Headman แล้วใช้พื้นที่จัดการที่ `/admin`
 
 รายละเอียดเพิ่มเติมอยู่ที่ [SUPERADMIN_ACCESS.md](SUPERADMIN_ACCESS.md)
 
@@ -96,7 +94,7 @@ npm run dev
 npm run catalog:status
 ```
 
-ถ้าเป็นข้อมูลฉบับเต็ม จำนวนควรมีอย่างน้อยหลายหมื่นรายการ แล้วเปิดหน้า `/superadmin/villages` เพื่อค้นหาและเลือกหมู่บ้านจาก Catalog
+ถ้าเป็นข้อมูลฉบับเต็ม จำนวนควรมีอย่างน้อยหลายหมื่นรายการ โดย Catalog ใช้รองรับการลงทะเบียนและการค้นหาหมู่บ้าน
 
 คำสั่ง Catalog เดิมยังใช้ได้:
 

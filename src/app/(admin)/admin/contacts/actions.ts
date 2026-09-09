@@ -10,7 +10,7 @@ import {
   updateContact,
   type ContactInput,
   type ContactUpdateInput,
-} from "@/features/village-public-content/server/service";
+} from "@/features/contacts/server/contact-service";
 import { prisma } from "@/lib/prisma";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 

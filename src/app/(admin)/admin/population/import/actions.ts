@@ -103,7 +103,7 @@ type RowImportResult = {
 type AdminVillageContext = {
   userId: string | null;
   actorId: string;
-  actorType: "ADMIN" | "SUPERADMIN_ENV";
+  actorType: "ADMIN";
   role: string;
   villageId: string;
   importJobId?: string;
@@ -1000,7 +1000,6 @@ export async function importPopulationWorkbookAction(
     });
     await prisma.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.POPULATION_IMPORT_VALIDATED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole: ctx.role, actorType: ctx.actorType, jobId, fileName: fileEntry.name, totalRows: spreadsheetRows.length, createdRows: preview.createdRows, updatedRows: preview.updatedRows, conflictRows: preview.conflictRows, failedRows: preview.failedRows } } });
     revalidatePath("/admin/population/import");
-    if (ctx.actorType === "SUPERADMIN_ENV") revalidatePath(`/superadmin/villages/${ctx.villageId}/population/import`);
     return { success: true, message: `ตรวจสอบไฟล์แล้ว กรุณาเปิดงาน ${jobId} เพื่อดู Preview และยืนยัน`, summary: { fileName: fileEntry.name, totalRows: spreadsheetRows.length, importedRows: 0, failedRows: preview.failedRows + preview.conflictRows, stage: PopulationImportStage.PENDING }, errors: previewErrors };
 
     let importedRows = 0;

@@ -19,7 +19,7 @@ export async function POST(request: Request) {
         metadata: { actorRole: "HEADMAN", actionName: "SYSTEM_SETTINGS_UPDATED", changedKeys, oldValue, newValue } as Prisma.InputJsonValue,
       } });
     });
-    ["/admin/settings/system", "/admin/maintenance", "/superadmin/settings", "/auth/register", "/feedback"].forEach((path) => revalidatePath(path));
+    ["/admin/settings/system", "/admin/maintenance", "/auth/register", "/feedback"].forEach((path) => revalidatePath(path));
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update system settings" }, { status: 400 });

@@ -12,5 +12,5 @@
 - Phase 2A makes HEADMAN the sole active village administrator.
 - `ASSISTANT_HEADMAN` deliberately remains in the Prisma schema and legacy records for the forthcoming data migration, but grants no runtime administrative access or recipient status.
 - Legacy Assistant values remain displayable in membership and historical/audit presentation.
-- The separate signed-cookie Super Admin runtime remains transitional and is not part of this `/admin` permission matrix.
+- The legacy Super Admin runtime has been removed; Headman is the only active `/admin` administrator.
 - Existing sensitive-action reason requirements remain defined by `src/lib/sensitive-action-policy.ts`.

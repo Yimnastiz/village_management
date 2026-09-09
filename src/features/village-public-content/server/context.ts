@@ -1,16 +1,11 @@
-import { notFound } from "next/navigation";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { prisma } from "@/lib/prisma";
-import { requireSuperAdminActionSession } from "@/lib/superadmin";
 import { hasVillagePermission, type VillagePermission } from "@/lib/village-permissions";
 
 export type VillageActorContext = {
-  actorUserId: string | null;
-  actorRole: "HEADMAN" | "SUPERADMIN";
+  actorUserId: string;
+  actorRole: "HEADMAN";
   villageId: string;
-  villageName?: string;
   villageSlug?: string;
-  supportReason?: string;
 };
 
 export async function requireAdminVillageContext(permission: VillagePermission = "dashboard.view"): Promise<
@@ -27,39 +22,9 @@ export async function requireAdminVillageContext(permission: VillagePermission =
     ok: true,
     context: {
       actorUserId: session.id,
-      actorRole: membership.role,
+      actorRole: "HEADMAN",
       villageId: membership.villageId,
       villageSlug: membership.villageSlug ?? undefined,
     },
   };
-}
-
-export async function requireSuperAdminVillageContext(villageId: string): Promise<VillageActorContext> {
-  await requireSuperAdminActionSession();
-
-  const village = await prisma.village.findUnique({
-    where: { id: villageId },
-    select: { id: true, name: true, slug: true },
-  });
-
-  if (!village) notFound();
-
-  return {
-    actorUserId: null,
-    actorRole: "SUPERADMIN",
-    villageId: village.id,
-    villageName: village.name,
-    villageSlug: village.slug,
-  };
-}
-
-export function requireSupportReason(reason: string | null | undefined): string {
-  const value = (reason ?? "").trim();
-  if (value.length < 5) {
-    throw new Error("กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร");
-  }
-  if (value.length > 500) {
-    throw new Error("เหตุผลต้องไม่เกิน 500 ตัวอักษร");
-  }
-  return value;
 }

@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
-import { SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/superadmin-auth";
+import { LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/legacy-superadmin-history";
 import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
@@ -65,7 +65,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   const superAdminDisplay = { name: "Super Admin", systemRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const timelineItems = issue.timeline.map((item) => {
-    const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
+    const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
     return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
@@ -143,7 +143,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         ) : (
           <div className="space-y-3 mb-4">
             {issue.messages.map((msg) => {
-              const sender = userById.get(msg.senderId) ?? (msg.senderId === SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined);
+              const sender = userById.get(msg.senderId) ?? (msg.senderId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined);
               return <div key={msg.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm sm:p-4">
                 <p className="break-words font-medium text-gray-900">{msg.senderId === session.id ? "คุณ" : getUserDisplayName(sender)} <span className="font-normal text-gray-500">· {sender ? getUserRoleLabel(sender) : "ผู้ใช้งาน"}</span></p>
                 <time className="mt-1 block text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</time>

@@ -11,7 +11,6 @@ import {
 } from "@/lib/calendar-month";
 import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
-import { useOptionalSuperAdminPageHeader } from "@/components/layout/superadmin-page-header-context";
 import { ResidentPageHeaderRegistration, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
 import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 
@@ -73,13 +72,12 @@ export function CalendarToolbar({
   publicFullBleed = false,
 }: CalendarToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
-  const superAdminPageHeaderRegistry = useOptionalSuperAdminPageHeader();
   const residentPageHeaderRegistry = useOptionalResidentPageHeaderRegistry();
   const pathname = usePathname();
   const router = useRouter();
   const currentSearchParams = useSearchParams();
   const isAdminToolbar = Boolean(adminPageHeaderRegistry);
-  const isSuperAdminToolbar = Boolean(superAdminPageHeaderRegistry);
+  const isSuperAdminToolbar = false;
   const hasTopbarHeader = hideHeading || isAdminToolbar || isSuperAdminToolbar || (registerHeader && Boolean(residentPageHeaderRegistry));
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar || isSuperAdminToolbar || residentCompact);
   const [isFilterOpen, setIsFilterOpen] = useState(false);

@@ -3,7 +3,6 @@
 import { AuditAction, PopulationImportStage, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { notifyVillageAdministrationOfSuperAdminIntervention } from "@/lib/superadmin-village-intervention";
 import { applyStoredImportRow, type StoredImportRow } from "../actions";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { type VillagePermission } from "@/lib/village-permissions";
@@ -126,20 +125,11 @@ export async function confirmPopulationImportAction(formData: FormData) {
     const actorRole = access.actorRole;
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: AuditAction.POPULATION_IMPORT_CONFIRMED, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, actorType: access.actorType, jobId, fileName: access.fileName, supportReason: reason } } });
     await tx.auditLog.create({ data: { userId: access.userId, villageId: access.villageId, action: stage === PopulationImportStage.COMPLETED ? AuditAction.POPULATION_IMPORT_COMPLETED : AuditAction.POPULATION_IMPORT_PARTIAL, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, actorType: access.actorType, jobId, fileName: access.fileName, totalRows: access.sourceRows.length, importedRows, failedRows, supportReason: reason } } });
-    if (access.actorType === "SUPERADMIN_ENV") {
-      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId: access.villageId, actionLabel: "นำเข้าทะเบียนประชากร", supportReason: reason, targetType: "PopulationImportJob", targetId: jobId, targetName: access.fileName, actionUrl: "/admin/population/import", metadata: { importJobId: jobId } });
-    }
   });
   revalidatePath(`/admin/population/import/${jobId}`);
   revalidatePath("/admin/population/import");
   revalidatePath("/admin/population/houses");
   revalidatePath("/admin/population/people");
-  if (targetVillageId) {
-    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import`);
-    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import/${jobId}`);
-    revalidatePath(`/superadmin/villages/${targetVillageId}/houses`);
-    revalidatePath(`/superadmin/villages/${targetVillageId}/people`);
-  }
   return { importedRows, failedRows, skippedRows, stage: finalStage };
 }
 
@@ -256,28 +246,19 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     const skipped = [...assessment.skipped.filter((item) => item.kind === "person"), ...finalAssessment.skipped];
     const skippedReasonCounts = countSkipReasons(skipped);
     const cleanupHistory = [...(payload.cleanupHistory ?? []), {
-      cleanedAt: new Date().toISOString(), actorId, actorName: actor?.name ?? (actorType === "SUPERADMIN_ENV" ? "Super Admin" : null), actorRole,
+      cleanedAt: new Date().toISOString(), actorId, actorName: actor?.name ?? null, actorRole,
       reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts,
       deletedItems: [...assessment.deletablePersonIds.map((id) => ({ kind: "person" as const, label: personLabels.get(id) ?? "บุคคล" })), ...afterPeople.deletableHouseIds.map((id) => ({ kind: "house" as const, label: houseLabels.get(id) ?? "บ้าน" }))],
       retainedItems: skipped,
     }].slice(-10);
     await tx.populationImportJob.update({ where: { id: jobId }, data: { errors: { ...payload, cleanupHistory } } });
     await tx.auditLog.create({ data: { userId, villageId, action: AuditAction.POPULATION_IMPORT_ROLLBACK, resource: "PopulationImportJob", resourceId: jobId, metadata: { actorRole, actorType, policyAction: "population.import.rollback", jobId, reason, deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts } } });
-    if (actorType === "SUPERADMIN_ENV") {
-      await notifyVillageAdministrationOfSuperAdminIntervention(tx, { villageId, actionLabel: "ย้อนกลับข้อมูลจากการนำเข้าทะเบียนประชากร", supportReason: reason, targetType: "PopulationImportJob", targetId: jobId, actionUrl: "/admin/population/import", metadata: { importJobId: jobId } });
-    }
     return { deletedPeople, deletedHouses, skippedCount: skipped.length, skippedReasonCounts };
   });
   revalidatePath("/admin/population/import");
   revalidatePath(`/admin/population/import/${jobId}`);
   revalidatePath("/admin/population/houses");
   revalidatePath("/admin/population/people");
-  if (targetVillageId) {
-    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import`);
-    revalidatePath(`/superadmin/villages/${targetVillageId}/population/import/${jobId}`);
-    revalidatePath(`/superadmin/villages/${targetVillageId}/houses`);
-    revalidatePath(`/superadmin/villages/${targetVillageId}/people`);
-  }
   return result;
 }
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
-import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, PersonStatus, Prisma, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, BindingRequestStatus, HouseSourceType, MembershipStatus, MovementType, NotificationType, PersonStatus, Prisma, RegistrationTempStatus, VillageMembershipRole } from "@prisma/client";
 import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser, computeLandingPath } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isRequestPlaceholderStatus } from "@/lib/settings-access";
@@ -465,7 +465,7 @@ export default async function Page({ searchParams }: PageProps) {
   const manageableVillageIds = session.memberships
     .filter((membership) => membership.status === MembershipStatus.ACTIVE && hasVillagePermission(membership.role, "population.view"))
     .map((membership) => membership.villageId);
-  const overviewWhere = session.systemRole === SystemRole.SUPERADMIN ? {} : { villageId: { in: manageableVillageIds } };
+  const overviewWhere = { villageId: { in: manageableVillageIds } };
   const [overviewHouses, overviewPeople, overviewBoundMembers, overviewPendingBindings] = await Promise.all([
     prisma.house.count({ where: overviewWhere }),
     prisma.person.count({ where: { ...overviewWhere, status: PersonStatus.ACTIVE } }),
@@ -516,7 +516,7 @@ export default async function Page({ searchParams }: PageProps) {
     .filter((m) => hasVillagePermission(m.role, "population.view"))
     .map((m) => m.villageId);
 
-  const isSuperAdmin = session!.systemRole === SystemRole.SUPERADMIN;
+  const isSuperAdmin = false;
   const houseKeyword = params.q?.trim() ?? "";
   const historyKeyword = params.historyQ?.trim() ?? "";
   const activeOccupancy = params.occupancy ?? "ALL";

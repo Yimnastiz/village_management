@@ -5,21 +5,12 @@ import {
   getAuthenticatedAccessRedirectPath,
   getSessionContextFromServerCookies,
 } from "@/lib/access-control";
-import { readSuperAdminSessionFromServerCookies } from "@/lib/superadmin-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotFound() {
-  const [session, superAdminSession] = await Promise.all([
-    getSessionContextFromServerCookies(),
-    readSuperAdminSessionFromServerCookies(),
-  ]);
-
-  const dashboardHref = superAdminSession
-    ? "/superadmin/dashboard"
-    : session
-      ? await getAuthenticatedAccessRedirectPath(session)
-      : null;
+  const session = await getSessionContextFromServerCookies();
+  const dashboardHref = session ? await getAuthenticatedAccessRedirectPath(session) : null;
 
   return (
     <main className="flex min-h-[100dvh] items-center justify-center bg-gradient-to-b from-green-50 via-white to-white px-4 py-8 sm:px-6 sm:py-12">

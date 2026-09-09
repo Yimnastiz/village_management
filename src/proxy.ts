@@ -5,42 +5,20 @@ import {
   getResidentAreaAccessInfo,
   isAdminUser,
 } from "@/lib/access-control";
-import {
-  readSuperAdminSession,
-  SUPERADMIN_SESSION_COOKIE,
-  superAdminSessionCookieOptions,
-} from "@/lib/superadmin-auth";
 import { expireSessionCookies } from "@/lib/session-cookie";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
 import { ADMIN_MAINTENANCE_PATH, isMaintenanceBlockedAdminPath, isMaintenanceBlockedMutation, isMaintenanceRecoveryApiPath } from "@/lib/maintenance-policy";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  // Super Admin has a separate session and deliberately remains available to
-  // recover the system. Normal operational requests are stopped here before a
-  // Server Action or route handler can mutate data.
-  const isOperationalApi = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/superadmin/") && pathname !== "/api/system/public-feedback-availability";
+  // System Settings is the Headman's sole maintenance recovery path. Normal
+  // operational requests are stopped before a Server Action can mutate data.
+  const isOperationalApi = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && pathname !== "/api/system/public-feedback-availability";
   const maintenanceEnabled = await isMaintenanceModeEnabled();
   if (maintenanceEnabled && (isMaintenanceBlockedMutation(pathname) || (isOperationalApi && !isMaintenanceRecoveryApiPath(pathname)))) {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return NextResponse.json({ error: "ระบบอยู่ระหว่างการปรับปรุง" }, { status: 503 });
     }
-  }
-  if (pathname === "/superadmin/access") {
-    const token = request.cookies.get(SUPERADMIN_SESSION_COOKIE)?.value;
-    const superAdminSession = await readSuperAdminSession(token);
-    if (superAdminSession) {
-      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
-    }
-
-    const response = NextResponse.next();
-    if (token) {
-      response.cookies.set(SUPERADMIN_SESSION_COOKIE, "", {
-        ...superAdminSessionCookieOptions,
-        maxAge: 0,
-      });
-    }
-    return response;
   }
   const authState = await getDuplicateAccountRoutingStateFromRequest(request);
   const session = authState.kind === "ACTIVE_SESSION" ? authState.session : null;
@@ -132,11 +110,6 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/superadmin")) {
-    const superAdminSession = await readSuperAdminSession(request.cookies.get(SUPERADMIN_SESSION_COOKIE)?.value);
-    if (!superAdminSession) return NextResponse.redirect(new URL("/superadmin/access", request.url));
-  }
-
   if (pathname === "/auth/register" && session) {
     return NextResponse.redirect(new URL("/auth/landing", request.url));
   }
@@ -148,7 +121,6 @@ export const config = {
   matcher: [
     "/resident/:path*",
     "/admin/:path*",
-    "/superadmin/:path*",
     "/auth/account-duplicate",
     "/auth/login",
     "/auth/register",
