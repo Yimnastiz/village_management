@@ -14,6 +14,7 @@ export async function requirePopulationImportWorkspaceAccess(
   _requestedVillageId = "",
   permission: VillagePermission = "population.import",
 ): Promise<PopulationImportWorkspaceAccess> {
+  void _requestedVillageId;
   const session = await getSessionContextFromServerCookies();
   if (!session?.id || !isAdminUser(session)) throw new Error("ไม่มีสิทธิ์ใช้งาน");
 

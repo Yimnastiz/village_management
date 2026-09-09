@@ -26,12 +26,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSessionContextFromRequest(request);
-  const membership = session ? getAdminMembership(session) ?? getResidentMembership(session) : null;
-  if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const fileKey = request.nextUrl.searchParams.get("fileKey")?.trim();
-  if (!fileKey) return NextResponse.json({ error: "Missing file key" }, { status: 400 });
-  const file = await readPlaceUpload(fileKey);
-  if (!file) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return new NextResponse(Buffer.from(file.bytes), { headers: { "Content-Type": file.mimeType, "Cache-Control": "private, max-age=300" } });
+  const key = request.nextUrl.searchParams.get("key") ?? "";
+  const file = await readPlaceUpload(key);
+  if (!file) return new NextResponse(null, { status: 404 });
+  const body = new Blob([Uint8Array.from(file.bytes)], { type: file.mimeType });
+  return new NextResponse(body, { headers: { "Content-Type": file.mimeType, "Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff" } });
 }

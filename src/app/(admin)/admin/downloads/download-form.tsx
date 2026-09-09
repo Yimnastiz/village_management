@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, type UseFormRegisterReturn } from "react-hook-form";
 import { FileText, LoaderCircle, Plus, Trash2, UploadCloud } from "lucide-react";
@@ -41,7 +41,6 @@ export function DownloadForm({ mode, fileId, defaultValues, initialAttachments =
   const applyErrors = (result: { error: string; fieldErrors?: Record<string, string> }) => { if (result.fieldErrors) Object.entries(result.fieldErrors).forEach(([name, message]) => { if (name !== "attachments") setError(name as keyof FormValues, { message }); }); toast.error("บันทึกไม่สำเร็จ", result.error); };
   const payload = (data: FormValues): DownloadFormInput => ({ title: data.title, description: data.description, category: data.category, categoryLabel: data.categoryLabel, visibility: data.isPublic ? "PUBLIC" : "RESIDENT_ONLY", attachments: attachments.map(({ localId: _localId, status: _status, error: _error, ...item }) => item) });
   const onSubmit = async (data: FormValues) => { if (uploadsBusy || attachments.some((item) => item.status !== "uploaded") || !attachments.length) { setError("root", { message: "กรุณาเพิ่มไฟล์เอกสาร" }); return; } const result = mode === "create" ? await createDownloadAction(payload(data), submitStage.current) : await updateDownloadAction(fileId ?? "", payload(data)); if (!result.success) { applyErrors(result); return; } toast.success("บันทึกเอกสารเรียบร้อยแล้ว"); router.push(mode === "create" ? `/admin/downloads/${result.id}` : `/admin/downloads/${fileId}`); router.refresh(); };
-  const submitFor = (stage: "DRAFT" | "PUBLISHED") => (event: MouseEvent<HTMLButtonElement>) => { event.preventDefault(); submitStage.current = stage; void handleSubmit(onSubmit)(); };
   const back = mode === "create" ? "/admin/downloads" : `/admin/downloads/${fileId}`;
   return <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
     <div><h2 className="mb-3 text-sm font-semibold text-gray-900">ข้อมูลเอกสาร</h2><Input label="ชื่อเอกสาร" required {...register("title")} error={errors.title?.message} /><Textarea label="รายละเอียดเอกสาร" {...register("description")} error={errors.description?.message} rows={8} /></div>

@@ -56,7 +56,6 @@ Super Admin เป็นผู้ดำเนินการระดับร�
    ```
 3. เข้าสู่ระบบด้วย OTP ของ Headman แล้วใช้พื้นที่จัดการที่ `/admin`
 
-รายละเอียดเพิ่มเติมอยู่ที่ [SUPERADMIN_ACCESS.md](SUPERADMIN_ACCESS.md)
 
 ## `npm run setup` ทำอะไรบ้าง
 
