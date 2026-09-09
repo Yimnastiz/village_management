@@ -25,7 +25,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { ActionReasonError, requireActionReason, type SensitiveAction } from "@/lib/sensitive-action-policy";
 
-export type PopulationActor = { id: string | null; role: "HEADMAN" | "ASSISTANT_HEADMAN" | "ADMIN" | "SUPERADMIN" };
+export type PopulationActor = { id: string | null; role: "HEADMAN" | "ADMIN" | "SUPERADMIN" };
 export type VillagePersonInput = {
   firstName: string; lastName: string; nationalId: string; dateOfBirth: string;
   gender: string; phone: string; email: string; status?: string; houseId: string; reason?: string;
@@ -561,7 +561,7 @@ export async function createVillagePerson(villageId: string, data: VillagePerson
     if (value.houseId && value.phone) {
       const user = await tx.user.findUnique({ where: { phoneNumber: value.phone }, select: { id: true, systemRole: true } });
       if (user?.systemRole !== "SUPERADMIN" && user) {
-        const activeAdmin = await tx.villageMembership.findFirst({ where: { userId: user.id, villageId, status: MembershipStatus.ACTIVE, role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] } }, select: { id: true } });
+        const activeAdmin = await tx.villageMembership.findFirst({ where: { userId: user.id, villageId, status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { id: true } });
         if (!activeAdmin) await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId }, create: { userId: user.id, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId } });
       }
     }

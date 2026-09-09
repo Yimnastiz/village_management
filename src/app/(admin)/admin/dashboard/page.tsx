@@ -70,11 +70,7 @@ export default async function AdminDashboard() {
     redirect("/auth/login");
   }
 
-  const userRole = adminMembership.role === "HEADMAN"
-    ? "headman"
-    : adminMembership.role === "ASSISTANT_HEADMAN"
-      ? "assistant"
-      : "admin";
+  const userRole = "headman";
   const membership = adminMembership;
   const villageName = await getVillageDisplayName(village);
 

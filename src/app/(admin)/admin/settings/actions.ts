@@ -130,6 +130,8 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
   if (!roleChanged && !statusChanged) return { success: true };
 
   if (roleChanged) {
+    // Phase 2A retains legacy rows but has no live role-assignment workflow.
+    if (roleChanged) return { success: false, error: "การเปลี่ยนบทบาทสมาชิกไม่พร้อมใช้งานในขณะนี้" };
     requireVillagePermission(membership, "members.roles.manage");
     if (!canManageVillageRole(membership.role, target.role, nextRole)) {
       return { success: false, error: "ผู้ใหญ่บ้านจัดการได้เฉพาะบทบาทผู้ช่วยผู้ใหญ่บ้าน และการจัดการผู้ใหญ่บ้านเป็นหน้าที่ของผู้ดูแลระบบส่วนกลางเท่านั้น" };
@@ -143,9 +145,7 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
     }
   }
 
-  const policyAction = roleChanged
-    ? (nextRole === VillageMembershipRole.ASSISTANT_HEADMAN ? "member.role.assign" : "member.role.remove")
-    : (nextStatus === MembershipStatus.SUSPENDED ? "member.suspend" : "member.reactivate");
+  const policyAction = nextStatus === MembershipStatus.SUSPENDED ? "member.suspend" : "member.reactivate";
   let reason: string;
   try { reason = requireActionReason(policyAction, reasonInput); }
   catch { return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; }

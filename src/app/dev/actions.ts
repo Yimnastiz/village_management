@@ -262,11 +262,9 @@ export async function registerAdminAction(formData: FormData) {
     throw new Error("Invalid phone number format.");
   }
 
-  const membershipRole =
-    membershipRoleRaw === VillageMembershipRole.HEADMAN ||
-    membershipRoleRaw === VillageMembershipRole.ASSISTANT_HEADMAN
-      ? (membershipRoleRaw as VillageMembershipRole)
-      : VillageMembershipRole.RESIDENT;
+  const membershipRole = membershipRoleRaw === VillageMembershipRole.HEADMAN
+    ? VillageMembershipRole.HEADMAN
+    : VillageMembershipRole.RESIDENT;
 
   // Verify village exists
   const village = await prisma.village.findUnique({
@@ -287,17 +285,6 @@ export async function registerAdminAction(formData: FormData) {
     });
     if (headmanCount >= 1) {
       throw new Error("Village already has 1 headman. Cannot add more.");
-    }
-  } else if (membershipRole === VillageMembershipRole.ASSISTANT_HEADMAN) {
-    const assistantCount = await prisma.villageMembership.count({
-      where: {
-        villageId,
-        role: VillageMembershipRole.ASSISTANT_HEADMAN,
-        status: MembershipStatus.ACTIVE,
-      },
-    });
-    if (assistantCount >= 2) {
-      throw new Error("Village already has 2 assistant headmen. Cannot add more.");
     }
   }
 

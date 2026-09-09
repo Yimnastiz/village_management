@@ -9,7 +9,6 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 
 const ADMIN_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
 ];
 
 function readText(formData: FormData, key: string): string {

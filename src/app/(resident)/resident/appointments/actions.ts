@@ -40,7 +40,6 @@ const suggestTimeSchema = z.object({
 
 const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   "HEADMAN",
-  "ASSISTANT_HEADMAN",
 ];
 
 function getAppointmentAdminMembership(session: SessionContext, villageId?: string) {

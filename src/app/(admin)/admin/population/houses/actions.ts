@@ -11,7 +11,7 @@ export type HouseBatchActionResult = { success: true; count: number; message: st
 
 async function getPopulationContext() {
   const context = await getVillagePermissionContext("population.house.manage");
-  return context ? { villageId: context.villageId, actor: { id: context.session.id, role: context.membership.role as "HEADMAN" | "ASSISTANT_HEADMAN" } } : null;
+  return context ? { villageId: context.villageId, actor: { id: context.session.id, role: context.membership.role } } : null;
 }
 
 export async function createHouseAction(formData: FormData): Promise<HouseActionResult> {

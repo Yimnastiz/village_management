@@ -68,7 +68,7 @@ export async function getVillageAdministrators(
     : undefined;
   const where: Prisma.VillageMembershipWhereInput = {
     villageId,
-    role: role ?? { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] },
+    role: role ?? VillageMembershipRole.HEADMAN,
     ...(status ? { status } : {}),
     ...(query ? { OR: [
       { user: { is: { name: { contains: query, mode: "insensitive" } } } },
@@ -97,7 +97,7 @@ export async function getVillageMembers(
   const query = input.query?.trim() ?? "";
   const role = parseActiveMembershipRole(input.role);
   const roles = input.adminOnly
-    ? [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN]
+    ? [VillageMembershipRole.HEADMAN]
     : undefined;
   if (input.adminOnly && role === VillageMembershipRole.RESIDENT) {
     throw new Error("Invalid village administrator role filter.");
@@ -141,7 +141,7 @@ export async function getVillageMembers(
 }
 
 export async function getVillageDashboard(villageId: string) {
-  const adminRoles = [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN];
+  const adminRoles = [VillageMembershipRole.HEADMAN];
   const [activeMembers, houses, people, pendingBindings, openIssues, pendingAppointments, admins, recentIssues, recentAppointments, recentAudit] = await Promise.all([
     prisma.villageMembership.count({ where: { villageId, status: MembershipStatus.ACTIVE } }),
     prisma.house.count({ where: { villageId } }),

@@ -30,7 +30,8 @@ export const VILLAGE_PERMISSIONS = [
 ] as const;
 
 export type VillagePermission = (typeof VILLAGE_PERMISSIONS)[number];
-export type VillageAdminRole = "HEADMAN" | "ASSISTANT_HEADMAN";
+/** Active runtime administrator role. Legacy membership values remain parseable in Prisma. */
+export type VillageAdminRole = "HEADMAN";
 
 const OPERATIONAL_PERMISSIONS = [
   "dashboard.view",
@@ -68,11 +69,10 @@ const GOVERNANCE_PERMISSIONS = [
 /** The one authoritative role-to-permission matrix for the shared /admin workspace. */
 export const VILLAGE_ROLE_PERMISSIONS: Readonly<Record<VillageAdminRole, ReadonlySet<VillagePermission>>> = {
   HEADMAN: new Set([...OPERATIONAL_PERMISSIONS, ...GOVERNANCE_PERMISSIONS]),
-  ASSISTANT_HEADMAN: new Set(OPERATIONAL_PERMISSIONS),
 };
 
 export function isVillageAdminRole(role: string): role is VillageAdminRole {
-  return role === "HEADMAN" || role === "ASSISTANT_HEADMAN";
+  return role === "HEADMAN";
 }
 
 export function hasVillagePermission(role: string | null | undefined, permission: VillagePermission): boolean {
@@ -99,9 +99,10 @@ export function requireVillagePermission<T extends { role: string }>(context: T,
   return context;
 }
 
-/** HEADMAN management is deliberately absent: it belongs to SUPERADMIN only. */
+/** Role mutation is retired during the transitional single-Headman refactor. */
 export function canManageVillageRole(actorRole: string, targetRole: string, nextRole: string): boolean {
-  if (!hasVillagePermission(actorRole, "members.roles.manage")) return false;
-  if (targetRole === "HEADMAN" || nextRole === "HEADMAN") return false;
-  return targetRole === "RESIDENT" || targetRole === "ASSISTANT_HEADMAN";
+  void actorRole;
+  void targetRole;
+  void nextRole;
+  return false;
 }

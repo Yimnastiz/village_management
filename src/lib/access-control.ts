@@ -5,7 +5,6 @@ import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFro
 
 export const ADMIN_MEMBERSHIP_ROLES = [
   VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
 ] as const;
 
 const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHIP_ROLES);
@@ -25,6 +24,10 @@ export type SessionContext = {
     role: VillageMembershipRole;
     status: MembershipStatus;
   }>;
+};
+
+type ActiveHeadmanMembership = SessionContext["memberships"][number] & {
+  role: "HEADMAN";
 };
 
 export type DuplicateNoticeSession = {
@@ -267,7 +270,7 @@ export function canManagePopulation(role: VillageMembershipRole): boolean {
 }
 
 export function canReviewBinding(role: VillageMembershipRole): boolean {
-  return role === VillageMembershipRole.HEADMAN || role === VillageMembershipRole.ASSISTANT_HEADMAN;
+  return role === VillageMembershipRole.HEADMAN;
 }
 
 export function isSuperAdminUser(session: SessionContext): boolean {
@@ -297,17 +300,15 @@ export function getAdminMembership(
   session: SessionContext,
   options: {
     villageId?: string | null;
-    roles?: readonly VillageMembershipRole[];
   } = {}
 ) {
   if (session.systemRole === SystemRole.SUPERADMIN) return null;
 
-  const allowedRoles = new Set<VillageMembershipRole>(options.roles ?? ADMIN_MEMBERSHIP_ROLES);
   const targetVillageId = options.villageId ?? session.activeVillageId;
   const eligible = session.memberships.filter(
-    (membership) =>
+    (membership): membership is ActiveHeadmanMembership =>
       membership.status === MembershipStatus.ACTIVE &&
-      allowedRoles.has(membership.role) &&
+      membership.role === VillageMembershipRole.HEADMAN &&
       (!targetVillageId || membership.villageId === targetVillageId)
   );
 
@@ -380,7 +381,7 @@ export async function setActiveVillageForCurrentSession(villageId: string): Prom
 }
 
 export function getHeadmanMembership(session: SessionContext) {
-  return getAdminMembership(session, { roles: [VillageMembershipRole.HEADMAN] });
+  return getAdminMembership(session);
 }
 
 export function computeLandingPath(session: SessionContext): string {

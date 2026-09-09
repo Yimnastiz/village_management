@@ -152,6 +152,7 @@ export async function setVillageAdminSupportAction(targetVillageId: string, form
   const actor = await requireSuperAdminActionSession();
   const userId = value(formData, "userId"); const roleValue = value(formData, "role"); const reason = requireReason(formData);
   await requireVillage(targetVillageId);
+  if (roleValue === VillageMembershipRole.ASSISTANT_HEADMAN) throw new Error("Assistant Headman assignment is no longer available.");
   if (roleValue !== VillageMembershipRole.HEADMAN && roleValue !== VillageMembershipRole.ASSISTANT_HEADMAN) throw new Error("บทบาทไม่ถูกต้อง");
   const role = roleValue === VillageMembershipRole.HEADMAN ? VillageMembershipRole.HEADMAN : VillageMembershipRole.ASSISTANT_HEADMAN;
   await prisma.$transaction(async (tx) => {
@@ -189,6 +190,8 @@ export async function changeMembershipSupportAction(targetVillageId: string, for
     if (membership.status === MembershipStatus.SUSPENDED && operation !== "ACTIVATE") throw new Error("สมาชิกที่ถูกระงับสามารถเปิดใช้งานได้เท่านั้น");
     if (![MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED].includes(membership.status)) throw new Error("สถานะสมาชิกนี้ไม่มีการเปลี่ยนแปลงที่อนุญาตผ่านหน้านี้");
     const targetRole = targetRoleValue as VillageMembershipRole;
+    if (membership.role === VillageMembershipRole.ASSISTANT_HEADMAN) throw new Error("Legacy Assistant Headman memberships cannot be changed during Phase 2A.");
+    if (operation === "CHANGE_ROLE" && targetRole === VillageMembershipRole.ASSISTANT_HEADMAN) throw new Error("Assistant Headman assignment is no longer available.");
     if (operation === "CHANGE_ROLE" && ![VillageMembershipRole.RESIDENT, VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN].includes(targetRole)) throw new Error("บทบาทใหม่ไม่ถูกต้อง");
     if (operation === "CHANGE_ROLE" && targetRole === membership.role) throw new Error("ต้องเลือกบทบาทใหม่ที่ต่างจากบทบาทปัจจุบัน");
     if (membership.role === VillageMembershipRole.HEADMAN && (operation === "SUSPEND" || (operation === "CHANGE_ROLE" && targetRole !== VillageMembershipRole.HEADMAN)) && value(formData, "confirmVacant") !== "true") throw new Error("การเปลี่ยนผู้ใหญ่บ้านต้องยืนยันการเว้นว่างตำแหน่ง หรือแต่งตั้งผู้ใหม่ก่อน");

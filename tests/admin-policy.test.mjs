@@ -19,7 +19,7 @@ test("governance permissions belong only to HEADMAN", () => {
   }
 });
 
-test("both village admin roles receive operational permissions", () => {
+test("only HEADMAN receives operational permissions", () => {
   for (const permission of [
     "dashboard.view", "news.manage", "news.requests.review", "gallery.manage", "gallery.requests.review",
     "places.manage", "places.requests.review", "contacts.manage", "contacts.requests.review", "downloads.manage",
@@ -28,19 +28,21 @@ test("both village admin roles receive operational permissions", () => {
     "binding.review", "members.view", "members.status.manage", "audit.view",
   ]) {
     assert.equal(hasVillagePermission(HEADMAN, permission), true);
-    assert.equal(hasVillagePermission(ASSISTANT, permission), true);
+    assert.equal(hasVillagePermission(ASSISTANT, permission), false);
   }
 });
 
-test("neither village role can manage HEADMAN accounts", () => {
+test("runtime role management is retired", () => {
   assert.equal(canManageVillageRole(HEADMAN, "HEADMAN", "RESIDENT"), false);
   assert.equal(canManageVillageRole(HEADMAN, "RESIDENT", "HEADMAN"), false);
   assert.equal(canManageVillageRole(ASSISTANT, "RESIDENT", "ASSISTANT_HEADMAN"), false);
-  assert.equal(canManageVillageRole(HEADMAN, "RESIDENT", "ASSISTANT_HEADMAN"), true);
+  assert.equal(canManageVillageRole(HEADMAN, "RESIDENT", "ASSISTANT_HEADMAN"), false);
 });
 
-test("server permission guard denies a bypassed Assistant import", () => {
-  assert.throws(() => requireVillagePermission({ role: ASSISTANT }, "population.import"), VillagePermissionError);
+test("server permission guard denies every bypassed Assistant action", () => {
+  for (const permission of ["population.import", "news.manage", "binding.review", "members.status.manage"]) {
+    assert.throws(() => requireVillagePermission({ role: ASSISTANT }, permission), VillagePermissionError);
+  }
 });
 
 test("binding approval policy distinguishes routine and override decisions", () => {

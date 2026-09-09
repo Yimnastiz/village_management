@@ -8,7 +8,7 @@ type PersonActionResult = { success: true; id?: string } | { success: false; err
 
 async function context() {
   const current = await getVillagePermissionContext("population.person.manage");
-  return current ? { actor: { id: current.session.id, role: current.membership.role as "HEADMAN" | "ASSISTANT_HEADMAN" }, villageId: current.villageId } : null;
+  return current ? { actor: { id: current.session.id, role: current.membership.role }, villageId: current.villageId } : null;
 }
 
 function toActionError(error: unknown) {

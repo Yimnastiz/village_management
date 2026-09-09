@@ -23,7 +23,7 @@ export async function notifyVillageAdministrationOfSuperAdminIntervention(
     where: {
       villageId: input.villageId,
       status: MembershipStatus.ACTIVE,
-      role: { in: [VillageMembershipRole.HEADMAN, VillageMembershipRole.ASSISTANT_HEADMAN] },
+      role: VillageMembershipRole.HEADMAN,
     },
     select: { userId: true },
   });

@@ -6,7 +6,7 @@ import { hasVillagePermission, type VillagePermission } from "@/lib/village-perm
 
 export type VillageActorContext = {
   actorUserId: string | null;
-  actorRole: "HEADMAN" | "ASSISTANT_HEADMAN" | "SUPERADMIN";
+  actorRole: "HEADMAN" | "SUPERADMIN";
   villageId: string;
   villageName?: string;
   villageSlug?: string;
@@ -27,7 +27,7 @@ export async function requireAdminVillageContext(permission: VillagePermission =
     ok: true,
     context: {
       actorUserId: session.id,
-      actorRole: membership.role as "HEADMAN" | "ASSISTANT_HEADMAN",
+      actorRole: membership.role,
       villageId: membership.villageId,
       villageSlug: membership.villageSlug ?? undefined,
     },

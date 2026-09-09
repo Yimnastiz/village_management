@@ -4,7 +4,7 @@
 
 ## Active actors and scope
 
-The only active actors are: **Public / Guest**, **Resident**, **Headman**, **Assistant Headman**, and **Super Admin**.
+The active runtime actors are: **Public / Guest**, **Resident**, **Headman**, and the transitional separate **Super Admin** runtime. `ASSISTANT_HEADMAN` remains a legacy storage value only during Phase 2A; it has no active `/admin` authority.
 
 Not active: Village Committee role; SOS/Emergency feature; post-resolution Issue rating/scoring; and HouseholdCorrectionRequest or any Resident population/household-correction-request workflow.
 
@@ -12,26 +12,21 @@ Public / Guest can access public village information. A Resident can access inte
 
 ## Registration and resident registry corrections
 
-`Register → validate registration data → OTP verification → User account created/verified → Resident may submit house-binding request → Headman / Assistant Headman / authorized Super Admin support review Binding`
+`Register → validate registration data → OTP verification → User account created/verified → Resident may submit house-binding request → Headman / authorized Super Admin support review Binding`
 
-Headman and Assistant Headman do **not** approve user registration. There is no registration approval/rejection workflow for village administrators.
+Headman does **not** approve user registration. There is no registration approval/rejection workflow for village administrators.
 
-Residents cannot submit population or household correction requests in the system. For incorrect registry information, the Resident contacts the Headman or Assistant Headman; an authorized village administrator corrects House/Person data directly through population-management functions.
+Residents cannot submit population or household correction requests in the system. For incorrect registry information, the Resident contacts the Headman; an authorized village administrator corrects House/Person data directly through population-management functions.
 
 ## Village administration
 
-Both roles use the same `/admin` workspace; there is no separate Assistant application.
+HEADMAN is the sole active `/admin` actor and receives all surviving operations and governance capabilities: News, Gallery, Places, Contacts, Downloads, Transparency, Calendar, Issues, Appointments, Houses, People, Binding review, member status management, Audit Log viewing, population import/export, and village settings. Live village role management is retired.
 
-- **HEADMAN = Governance + Operations.**
-- **ASSISTANT_HEADMAN = Operations.**
-
-Both perform operational work: News, Gallery, Places, Contacts, Downloads, Transparency, Calendar, Issues, Appointments, Houses, People, Binding review, member operational status, and village Audit Log viewing.
-
-Headman-only governance capabilities are population import, import rollback, sensitive/full population export, Assistant role management, and village settings. A Headman cannot manage another Headman; Headman assignment/management belongs to Super Admin. Exact server-authorized capability names are maintained in [ADMIN_PERMISSION_MATRIX.md](ADMIN_PERMISSION_MATRIX.md) and `src/lib/village-permissions.ts`.
+Legacy `ASSISTANT_HEADMAN` rows may remain readable while data migration is pending, but do not grant `/admin` access, permissions, reviewer status, or administrator notifications. Exact server-authorized capability names are maintained in [ADMIN_PERMISSION_MATRIX.md](ADMIN_PERMISSION_MATRIX.md) and `src/lib/village-permissions.ts`.
 
 ### Sensitive action reason policy
 
-Headman/Assistant do not need a generic reason for ordinary CRUD. A trimmed reason of at least five characters is required only where the centralized `src/lib/sensitive-action-policy.ts` policy requires it, including rejection, destructive removal/finalization, suspend/reactivate, cancellation, override or conflict handling, role change, import, rollback, and sensitive export. The policy, not UI visibility, is authoritative.
+Headman does not need a generic reason for ordinary CRUD. A trimmed reason of at least five characters is required only where the centralized `src/lib/sensitive-action-policy.ts` policy requires it, including rejection, destructive removal/finalization, suspend/reactivate, cancellation, override or conflict handling, import, rollback, and sensitive export. The policy, not UI visibility, is authoritative.
 
 ## Super Admin
 
@@ -54,9 +49,9 @@ This behavior is shared by all authorized Binding reviewers, while authorization
 
 ## Audit and notifications
 
-Audit Log is the accountability mechanism. Headman/Assistant may view village audit information according to permissions, and Super Admin support mutations are audited. Audit Log records are not user-editable or user-deletable. Do not infer that harmless reads are logged.
+Audit Log is the accountability mechanism. Headman may view village audit information according to permissions, and Super Admin support mutations are audited. Historical Assistant records remain readable. Audit Log records are not user-editable or user-deletable. Do not infer that harmless reads are logged.
 
-Notifications are workflow-specific: affected users receive meaningful outcomes (for example Binding approval/rejection and other policy-driven affected-user notifications). Avoid notification spam; Headman is not notified for every Assistant action. Use Audit Log, rather than routine notifications, for accountability.
+Notifications are workflow-specific: affected users receive meaningful outcomes (for example Binding approval/rejection and other policy-driven affected-user notifications). New administrator notifications target the Headman. Use Audit Log, rather than routine notifications, for accountability.
 
 ## Active modules
 
@@ -70,4 +65,4 @@ Historical migrations can retain references to old Committee, SOS/Emergency, or 
 
 For a Context Diagram, use one central Process 0, the five actor types above, no data store, and one-way data flows. Do not invent registration approval or include removed features.
 
-For DFD and Use Case diagrams, use the final permission matrix: Assistant = Operations; Headman = Governance + Operations; Super Admin = system administration plus Headman-equivalent village support. Binding must show that an imported matching Person can be explicitly reused rather than duplicated.
+For DFD and Use Case diagrams, use the Phase 2A runtime matrix: Headman = all `/admin` operations and governance; Assistant = legacy storage/presentation only; Super Admin = transitional system administration plus Headman-equivalent village support. Binding must show that an imported matching Person can be explicitly reused rather than duplicated.

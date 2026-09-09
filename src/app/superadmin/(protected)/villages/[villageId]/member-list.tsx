@@ -10,7 +10,7 @@ import { MEMBER_ROLE_LABEL, MEMBER_STATUS_LABEL } from "@/features/village-works
 import type { HouseOption, MemberRole, MemberRow } from "@/features/village-workspace/types";
 import { changeMembershipSupportAction } from "./actions";
 
-const choices = (role: MemberRole): MemberRole[] => role === "RESIDENT" ? ["ASSISTANT_HEADMAN", "HEADMAN"] : role === "ASSISTANT_HEADMAN" ? ["RESIDENT", "HEADMAN"] : ["RESIDENT", "ASSISTANT_HEADMAN"];
+const choices = (role: MemberRole): MemberRole[] => role === "RESIDENT" ? ["HEADMAN"] : role === "ASSISTANT_HEADMAN" ? ["ASSISTANT_HEADMAN"] : ["RESIDENT"];
 const roleClass = (role: MemberRole) => role === "HEADMAN" ? "border-slate-400 bg-slate-100 text-slate-800" : role === "ASSISTANT_HEADMAN" ? "border-cyan-200 bg-cyan-50 text-cyan-800" : "border-slate-200 bg-white text-slate-600";
 
 function MemberAction({ row, villageId, houses }: { row: MemberRow; villageId: string; houses: HouseOption[] }) {

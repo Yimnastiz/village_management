@@ -443,9 +443,6 @@ export default async function DevPage() {
               className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
             >
               <option value={VillageMembershipRole.RESIDENT}>Resident</option>
-              <option value={VillageMembershipRole.ASSISTANT_HEADMAN}>
-                Assistant Headman
-              </option>
               <option value={VillageMembershipRole.HEADMAN}>Headman</option>
             </select>
             <button

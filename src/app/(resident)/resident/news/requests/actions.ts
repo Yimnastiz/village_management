@@ -28,7 +28,6 @@ const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
 const VALID_STAGE: NewsStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.HEADMAN,
-  VillageMembershipRole.ASSISTANT_HEADMAN,
 ];
 
 async function requireResidentVillage() {
