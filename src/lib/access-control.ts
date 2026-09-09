@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { AccountStatus, MembershipStatus, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
+import { isMaintenanceModeEnabled } from "@/lib/system-settings";
 
 export const ADMIN_MEMBERSHIP_ROLES = [
   VillageMembershipRole.HEADMAN,
@@ -404,7 +405,7 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
     return "/auth/account-duplicate";
   }
   if (isAdminUser(session)) {
-    return "/admin/dashboard";
+    return (await isMaintenanceModeEnabled()) ? "/admin/settings/system" : "/admin/dashboard";
   }
 
   const latestResidentMembership = await prisma.villageMembership.findFirst({

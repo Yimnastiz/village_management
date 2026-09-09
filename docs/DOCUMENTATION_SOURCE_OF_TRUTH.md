@@ -22,6 +22,8 @@ Residents cannot submit population or household correction requests in the syste
 
 HEADMAN is the sole active `/admin` actor and receives all surviving operations and governance capabilities: News, Gallery, Places, Contacts, Downloads, Transparency, Calendar, Issues, Appointments, Houses, People, Binding review, member status management, Audit Log viewing, population import/export, and village settings. Live village role management is retired.
 
+Headman owns the singleton System Settings at `/admin/settings/system`. During Maintenance Mode, normal operational Admin work remains unavailable, but the Headman can log in and use this recovery page to disable Maintenance Mode. The transitional `/superadmin/settings` remains available until a later phase.
+
 Legacy `ASSISTANT_HEADMAN` rows may remain readable while data migration is pending, but do not grant `/admin` access, permissions, reviewer status, or administrator notifications. Exact server-authorized capability names are maintained in [ADMIN_PERMISSION_MATRIX.md](ADMIN_PERMISSION_MATRIX.md) and `src/lib/village-permissions.ts`.
 
 ### Sensitive action reason policy
@@ -65,4 +67,4 @@ Historical migrations can retain references to old Committee, SOS/Emergency, or 
 
 For a Context Diagram, use one central Process 0, the five actor types above, no data store, and one-way data flows. Do not invent registration approval or include removed features.
 
-For DFD and Use Case diagrams, use the Phase 2A runtime matrix: Headman = all `/admin` operations and governance; Assistant = legacy storage/presentation only; Super Admin = transitional system administration plus Headman-equivalent village support. Binding must show that an imported matching Person can be explicitly reused rather than duplicated.
+For DFD and Use Case diagrams, use the Phase 2B runtime matrix: Headman = all `/admin` operations, governance, and System Settings recovery; Assistant = legacy storage/presentation only; Super Admin = transitional system administration plus Headman-equivalent village support. Binding must show that an imported matching Person can be explicitly reused rather than duplicated.

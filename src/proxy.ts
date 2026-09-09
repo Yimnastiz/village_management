@@ -12,6 +12,7 @@ import {
 } from "@/lib/superadmin-auth";
 import { expireSessionCookies } from "@/lib/session-cookie";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
+import { ADMIN_MAINTENANCE_PATH, isMaintenanceBlockedAdminPath, isMaintenanceBlockedMutation, isMaintenanceRecoveryApiPath } from "@/lib/maintenance-policy";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -19,7 +20,8 @@ export async function proxy(request: NextRequest) {
   // recover the system. Normal operational requests are stopped here before a
   // Server Action or route handler can mutate data.
   const isOperationalApi = pathname.startsWith("/api/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/superadmin/") && pathname !== "/api/system/public-feedback-availability";
-  if ((pathname.startsWith("/resident") || pathname.startsWith("/admin") || isOperationalApi) && await isMaintenanceModeEnabled()) {
+  const maintenanceEnabled = await isMaintenanceModeEnabled();
+  if (maintenanceEnabled && (isMaintenanceBlockedMutation(pathname) || (isOperationalApi && !isMaintenanceRecoveryApiPath(pathname)))) {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return NextResponse.json({ error: "ระบบอยู่ระหว่างการปรับปรุง" }, { status: 503 });
     }
@@ -124,6 +126,9 @@ export async function proxy(request: NextRequest) {
     const redirectPath = await getAuthenticatedAccessRedirectPath(session);
     if (!isAdminUser(session)) {
       return NextResponse.redirect(new URL(redirectPath, request.url));
+    }
+    if (maintenanceEnabled && isMaintenanceBlockedAdminPath(pathname)) {
+      return NextResponse.redirect(new URL(ADMIN_MAINTENANCE_PATH, request.url));
     }
   }
 

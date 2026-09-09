@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BindingRequestStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { ACCESS_MEMBERSHIP_ROLES, belongsInAccessManagement, isRequestPlaceholderStatus } from "../src/lib/settings-access.ts";
+import { hasVillagePermission } from "../src/lib/village-permissions.ts";
 
 test("pending binding applicant is not an access target", () => {
   assert.equal(belongsInAccessManagement(MembershipStatus.PENDING), false);
@@ -28,6 +29,12 @@ test("rejected request cannot overwrite an existing active or suspended membersh
   assert.equal(isRequestPlaceholderStatus(MembershipStatus.PENDING), true);
 });
 
-test("existing project roles remain manageable", () => {
-  assert.deepEqual(new Set(ACCESS_MEMBERSHIP_ROLES), new Set(Object.values(VillageMembershipRole)));
+test("active access filters exclude the legacy Assistant role", () => {
+  assert.deepEqual(new Set(ACCESS_MEMBERSHIP_ROLES), new Set([VillageMembershipRole.HEADMAN, VillageMembershipRole.RESIDENT]));
+});
+
+test("only HEADMAN has system-settings authority", () => {
+  assert.equal(hasVillagePermission(VillageMembershipRole.HEADMAN, "village.settings.manage"), true);
+  assert.equal(hasVillagePermission(VillageMembershipRole.ASSISTANT_HEADMAN, "village.settings.manage"), false);
+  assert.equal(hasVillagePermission(VillageMembershipRole.RESIDENT, "village.settings.manage"), false);
 });
