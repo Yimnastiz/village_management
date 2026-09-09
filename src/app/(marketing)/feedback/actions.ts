@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "crypto";
-import { NotificationType, SystemRole } from "@prisma/client";
+import { MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSystemSettings } from "@/lib/system-settings";
 
@@ -27,19 +27,20 @@ export async function submitPublicFeedbackAction(formData: FormData): Promise<{ 
     return { success: false, error: "กรุณากรอกรายละเอียดอย่างน้อย 10 ตัวอักษร" };
   }
 
-  const superAdmins = await prisma.user.findMany({
-    where: { systemRole: SystemRole.SUPERADMIN },
-    select: { id: true },
+  const headmen = await prisma.villageMembership.findMany({
+    where: { role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE },
+    select: { userId: true, villageId: true },
   });
 
-  if (superAdmins.length === 0) {
+  if (headmen.length === 0) {
     return { success: true };
   }
 
   const feedbackId = randomUUID();
   await prisma.notification.createMany({
-    data: superAdmins.map((admin) => ({
-      userId: admin.id,
+    data: headmen.map((headman) => ({
+      userId: headman.userId,
+      villageId: headman.villageId,
       type: NotificationType.SYSTEM,
       title: `Feedback ใหม่ (${category})`,
       body: detail,
