@@ -424,6 +424,7 @@ model Village {
   contactRequests         ContactRequest[]
   faqItems                FAQItem[]
   notifications           Notification[]
+  systemBroadcasts        SystemBroadcast[]
   authSessions            AuthSession[]
   importJobs              PopulationImportJob[]
   auditLogs               AuditLog[]
@@ -1207,16 +1208,19 @@ model SystemBroadcast {
   expiresAt       DateTime?
   cancelledAt     DateTime?
   createdByUserId String?
+  villageId       String?
   audienceCount   Int
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
   createdBy    User?          @relation("SystemBroadcastCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  village      Village?       @relation(fields: [villageId], references: [id], onDelete: SetNull)
   notifications Notification[]
 
   @@index([createdAt])
   @@index([status, createdAt])
   @@index([expiresAt])
+  @@index([villageId, createdAt])
 }
 
 model SystemSettings {

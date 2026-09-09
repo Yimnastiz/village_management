@@ -46,7 +46,7 @@ export function SystemBroadcastTicker({ items }: { items: SystemBroadcastTickerI
     <Link
       href={item.href}
       aria-label={`อ่านประกาศส่วนกลาง: ${item.title}`}
-      title="ประกาศโดยผู้ดูแลระบบระดับสูง"
+      title="ประกาศโดยผู้ใหญ่บ้าน"
       className="group block rounded-xl border border-amber-200 bg-white shadow-sm transition hover:border-amber-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
       <div className="flex min-h-12 items-center gap-3 px-3 py-2.5 sm:px-4">

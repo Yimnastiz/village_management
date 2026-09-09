@@ -47,7 +47,7 @@ export function resolveAdminNotificationDestination(
 
   const fromNotifications = (path: string) => `${path}${path.includes("?") ? "&" : "?"}from=notifications`;
   const actionUrl = stringValue(metadata, "actionUrl");
-  if (source?.toUpperCase() === "SUPERADMIN_BROADCAST") return `/admin/notifications/${notification.id}`;
+  if (["SUPERADMIN_BROADCAST", "VILLAGE_BROADCAST"].includes(source?.toUpperCase() ?? "")) return `/admin/notifications/${notification.id}`;
   if (source === "SUPERADMIN_INTERVENTION" && actionUrl?.startsWith("/admin/")) return fromNotifications(actionUrl);
   if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
   if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);

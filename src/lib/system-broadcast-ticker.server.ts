@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { BROADCAST_SOURCES } from "@/features/broadcasts/server/broadcast-service";
 
 export type SystemBroadcastTickerItem = {
   id: string;
@@ -23,7 +24,7 @@ export async function getActiveSystemBroadcastTickerItems(userId: string, audien
       userId,
       type: "SYSTEM",
       status: { in: ["UNREAD", "READ"] },
-      metadata: { path: ["source"], equals: "SUPERADMIN_BROADCAST" },
+      OR: BROADCAST_SOURCES.map((source) => ({ metadata: { path: ["source"], equals: source } })),
     },
     orderBy: { createdAt: "desc" },
     take: 20,

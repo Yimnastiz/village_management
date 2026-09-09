@@ -18,7 +18,8 @@ const PRESENTATIONS = {
   downloads: { icon: FileDown, iconClassName: "text-indigo-700", iconContainerClassName: "bg-indigo-50" },
   transparency: { icon: FileSearch, iconClassName: "text-teal-700", iconContainerClassName: "bg-teal-50" },
   household: { icon: UsersRound, iconClassName: "text-orange-700", iconContainerClassName: "bg-orange-50" },
-  broadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศส่วนกลาง", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ดูแลระบบระดับสูง" },
+  broadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศส่วนกลาง", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ใหญ่บ้าน" },
+  legacyBroadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศส่วนกลาง", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ดูแลระบบระดับสูง" },
   superadmin: { icon: ShieldCheck, iconClassName: "text-sky-700", iconContainerClassName: "bg-sky-50", accentClassName: "border-l-4 border-l-sky-500", badge: "ผู้ดูแลระดับสูง", badgeClassName: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200" },
 } satisfies Record<string, NotificationPresentation>;
 
@@ -51,7 +52,8 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   if (hasString(metadata, "fileId") || source.includes("DOWNLOAD") || actionUrl.includes("/downloads")) return PRESENTATIONS.downloads;
   if (hasString(metadata, "transparencyId") || source.includes("TRANSPARENCY") || actionUrl.includes("/transparency")) return PRESENTATIONS.transparency;
   if (notification.type === "BINDING_REQUEST" || hasString(metadata, "bindingRequestId") || actionUrl.includes("/binding") || actionUrl.includes("/household")) return PRESENTATIONS.household;
-  if (source === "SUPERADMIN_BROADCAST") return PRESENTATIONS.broadcast;
+  if (source === "VILLAGE_BROADCAST") return PRESENTATIONS.broadcast;
+  if (source === "SUPERADMIN_BROADCAST") return PRESENTATIONS.legacyBroadcast;
   if (notification.type === "SYSTEM" && hasString(metadata, "personId")) return PRESENTATIONS.household;
   return DEFAULT_PRESENTATION;
 }

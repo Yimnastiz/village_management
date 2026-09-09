@@ -24,7 +24,7 @@ export type FormattedAuditEvent = {
 
 export const IMPORTANT_AUDIT_RESOURCES = [
   "Village", "VillageStatus", "UserSystemRole", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval",
-  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemSettings", "SystemWideBroadcast",
+  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemSettings", "SystemWideBroadcast", "VillageBroadcast",
 ] as const;
 
 /** Business-facing resource groups used by investigation tools. Values remain technical internally. */
@@ -37,7 +37,7 @@ export const AUDIT_MODULE_RESOURCES: Record<string, readonly string[]> = {
   NEWS: ["News", "NewsSubmission"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], APPOINTMENT: ["Appointment"],
   ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItem", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
   DOWNLOAD: ["DownloadFile"], TRANSPARENCY: ["TransparencyRecord"],
-  SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemSettings", "SystemWideBroadcast"],
+  SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemSettings", "SystemWideBroadcast", "VillageBroadcast"],
 };
 
 export function auditResourcesForModule(module: string) {
@@ -88,7 +88,7 @@ const investigationResourceLabels: Record<string, string> = {
   Person: "ข้อมูลบุคคล", House: "ทะเบียนบ้าน", BindingRequest: "คำขอผูกเลขที่บ้าน", BindingRequestSupport: "คำขอผูกเลขที่บ้าน", News: "ข่าวสาร", NewsSubmission: "คำขอข่าวสาร",
   VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItem: "รูปภาพในแกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
   VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "ความโปร่งใส", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
-  PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศส่วนกลาง",
+  PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศส่วนกลาง", VillageBroadcast: "ประกาศส่วนกลาง",
 };
 
 const actionNameLabels: Record<string, string> = {
@@ -296,6 +296,6 @@ export function auditModuleForResource(resource: string) {
   if (resource === "DownloadFile") return "DOWNLOAD";
   if (resource.includes("VillageEvent")) return "CALENDAR";
   if (resource === "Issue") return "ISSUE";
-  if (["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord", "SystemSettings"].includes(resource)) return "SETTINGS";
+  if (["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord", "SystemSettings", "VillageBroadcast"].includes(resource)) return "SETTINGS";
   return "OTHER";
 }

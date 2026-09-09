@@ -22,6 +22,8 @@ Residents cannot submit population or household correction requests in the syste
 
 HEADMAN is the sole active `/admin` actor and receives all surviving operations and governance capabilities: News, Gallery, Places, Contacts, Downloads, Transparency, Calendar, Issues, Appointments, Feedback Inbox, Houses, People, Binding review, member status management, Audit Log viewing, population import/export, and village settings. Live village role management is retired. The operational Feedback Inbox is `/admin/feedback`; the transitional `/superadmin/feedback` remains temporarily available pending Phase 4. Public submission at `/feedback` remains controlled server-side by `publicFeedbackEnabled`.
 
+Headman also owns Village Broadcasts at `/admin/broadcasts`. New broadcasts are durably scoped to the Headman's Village, target its active memberships only, and use `VILLAGE_BROADCAST` notification metadata. Legacy `SUPERADMIN_BROADCAST` records remain readable during the transition; `/superadmin/broadcasts` also remains transitional until Phase 4.
+
 Headman owns the singleton System Settings at `/admin/settings/system`. During Maintenance Mode, normal operational Admin work remains unavailable, but the Headman can log in and use this recovery page to disable Maintenance Mode. The transitional `/superadmin/settings` remains available until a later phase.
 
 Legacy `ASSISTANT_HEADMAN` rows may remain readable while data migration is pending, but do not grant `/admin` access, permissions, reviewer status, or administrator notifications. Exact server-authorized capability names are maintained in [ADMIN_PERMISSION_MATRIX.md](ADMIN_PERMISSION_MATRIX.md) and `src/lib/village-permissions.ts`.

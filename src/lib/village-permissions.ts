@@ -28,6 +28,7 @@ export const VILLAGE_PERMISSIONS = [
   "village.settings.manage",
   "audit.view",
   "feedback.manage",
+  "broadcasts.manage",
 ] as const;
 
 export type VillagePermission = (typeof VILLAGE_PERMISSIONS)[number];
@@ -58,6 +59,7 @@ const OPERATIONAL_PERMISSIONS = [
   "members.status.manage",
   "audit.view",
   "feedback.manage",
+  "broadcasts.manage",
 ] as const satisfies readonly VillagePermission[];
 
 const GOVERNANCE_PERMISSIONS = [
