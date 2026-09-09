@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "กรุณาเลือกไฟล์เอกสาร" }, { status: 400 });
     if (file.size <= 0 || file.size > MAX_DOWNLOAD_ATTACHMENT_BYTES) return NextResponse.json({ error: "ไฟล์ต้องมีขนาดไม่เกิน 25 MB" }, { status: 400 });
-    if (!isAllowedDownloadFile(file.name, file.type)) return NextResponse.json({ error: "รองรับ PDF, Office, TXT, CSV, JPG และ PNG เท่านั้น" }, { status: 400 });
+    if (!isAllowedDownloadFile(file.name, file.type)) return NextResponse.json({ error: "รองรับเฉพาะ PDF, Word, Excel, PowerPoint, TXT, CSV, JPG และ PNG" }, { status: 400 });
     const saved = await saveDownloadUpload(new Uint8Array(await file.arrayBuffer()), file.name, file.type, membership.villageId);
-    return NextResponse.json({ ...saved, fileName: file.name, mimeType: file.type, fileSize: file.size, uploadToken: createDownloadUploadToken(saved.fileKey, membership.villageId, session.id) });
+    return NextResponse.json({ ...saved, fileName: file.name, fileSize: file.size, uploadToken: createDownloadUploadToken(saved.fileKey, membership.villageId, session.id) });
   } catch (error) {
     console.error("download upload", error);
     return NextResponse.json({ error: "อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, { status: 500 });

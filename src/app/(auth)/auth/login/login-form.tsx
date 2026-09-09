@@ -141,7 +141,7 @@ function LoginContent() {
 
       <div className="mt-2 text-center text-sm text-gray-600">
         <Link href="/auth/forgot" className="text-green-600 hover:underline">
-          ลืมรหัสผ่าน?
+          ลืมเบอร์โทรศัพท์ที่ใช้เข้าสู่ระบบ?
         </Link>
       </div>
     </div>

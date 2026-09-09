@@ -4,7 +4,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { getDownloadExtension, isAllowedDownloadFile } from "@/lib/download-upload";
+import { getCanonicalDownloadMimeType, getDownloadExtension } from "@/lib/download-upload";
 
 const KEY_PATTERN = /^downloads\/([a-zA-Z0-9_-]+)\/([a-f0-9-]{36})\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv|jpg|jpeg|png)$/;
 const bucket = process.env.PLACE_UPLOAD_S3_BUCKET;
@@ -47,16 +47,17 @@ export function verifyDownloadUploadToken(token: string | undefined, fileKey: st
 
 export async function saveDownloadUpload(bytes: Uint8Array, fileName: string, mimeType: string, villageId: string) {
   const extension = getDownloadExtension(fileName);
-  if (!isAllowedDownloadFile(fileName, mimeType)) throw new Error("INVALID_DOWNLOAD_TYPE");
+  const canonicalMimeType = getCanonicalDownloadMimeType(fileName, mimeType);
+  if (!canonicalMimeType) throw new Error("INVALID_DOWNLOAD_TYPE");
   const fileKey = `downloads/${villageId}/${crypto.randomUUID()}.${extension}`;
   if (s3 && bucket) {
-    await s3.send(new PutObjectCommand({ Bucket: bucket, Key: fileKey, Body: bytes, ContentType: mimeType, ContentDisposition: "attachment" }));
+    await s3.send(new PutObjectCommand({ Bucket: bucket, Key: fileKey, Body: bytes, ContentType: canonicalMimeType, ContentDisposition: "attachment" }));
   } else {
     const target = absolutePath(fileKey);
     await mkdir(path.dirname(target), { recursive: true });
     await writeFile(target, bytes, { flag: "wx" });
   }
-  return { fileKey, url: `/api/downloads/storage?key=${encodeURIComponent(fileKey)}` };
+  return { fileKey, url: `/api/downloads/storage?key=${encodeURIComponent(fileKey)}`, mimeType: canonicalMimeType };
 }
 
 export async function readDownloadUpload(fileKey: string) {
@@ -67,7 +68,7 @@ export async function readDownloadUpload(fileKey: string) {
       if (!object.Body) return null;
       return { bytes: await object.Body.transformToByteArray(), mimeType: object.ContentType || "application/octet-stream" };
     }
-    return { bytes: await readFile(absolutePath(fileKey)), mimeType: "application/octet-stream" };
+    return { bytes: await readFile(absolutePath(fileKey)), mimeType: getCanonicalDownloadMimeType(fileKey, "") ?? "application/octet-stream" };
   } catch { return null; }
 }
 
