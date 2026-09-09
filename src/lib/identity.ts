@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus, RegistrationTempStatus, SystemRole } from "@prisma/client";
+import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus, RegistrationTempStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeNationalId } from "@/lib/thai-identity";
 import { maskNationalId } from "@/lib/utils";
@@ -9,7 +9,7 @@ export { isValidThaiNationalId, normalizeNationalId } from "@/lib/thai-identity"
 type IdentityDb = typeof prisma | Prisma.TransactionClient;
 
 export const DUPLICATE_NATIONAL_ID_REASON =
-  "บัญชีนี้ใช้เลขบัตรประชาชนซ้ำกับบัญชีที่ได้รับการผูกบ้านแล้ว กรุณาสมัครใหม่ด้วยข้อมูลที่ถูกต้อง หากคิดว่าเป็นความผิดพลาด กรุณาแจ้งผู้ใหญ่บ้านของหมู่บ้านที่ท่านลงทะเบียนไว้ เพื่อให้ผู้ใหญ่บ้านประสานงานกับ Super Admin";
+  "บัญชีนี้ใช้เลขบัตรประชาชนซ้ำกับบัญชีที่ได้รับการผูกบ้านแล้ว กรุณาสมัครใหม่ด้วยข้อมูลที่ถูกต้อง หากคิดว่าเป็นความผิดพลาด กรุณาแจ้งผู้ใหญ่บ้านของหมู่บ้านที่ท่านลงทะเบียนไว้";
 export const DUPLICATE_NATIONAL_ID_REASON_CODE = "NATIONAL_ID_ALREADY_VERIFIED_BY_ANOTHER_ACCOUNT";
 
 function archivedPhoneNumber(userId: string) {
@@ -116,7 +116,6 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
         where: {
           id: { not: winnerUserId },
           accountStatus: AccountStatus.ACTIVE,
-          systemRole: { not: SystemRole.SUPERADMIN },
           OR: [
             ...(personUserIds.length ? [{ id: { in: personUserIds } }] : []),
             ...(registrationUserIds.length ? [{ id: { in: registrationUserIds }, person: { is: null } }] : []),

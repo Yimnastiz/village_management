@@ -1,6 +1,5 @@
 import {
   MembershipStatus,
-  SystemRole,
   VillageMembershipRole,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -85,18 +84,10 @@ export default async function DevPage() {
           },
         },
       },
-    }).then(async (vills) => {
-      const result: Record<string, { headman: number; assistant: number }> = {};
+    }).then((vills) => {
+      const result: Record<string, { headman: number }> = {};
       for (const v of vills) {
-        const headmanCount = v._count.memberships;
-        const assistantCount = await prisma.villageMembership.count({
-          where: {
-            villageId: v.id,
-            role: VillageMembershipRole.ASSISTANT_HEADMAN,
-            status: MembershipStatus.ACTIVE,
-          },
-        });
-        result[v.id] = { headman: headmanCount, assistant: assistantCount };
+        result[v.id] = { headman: v._count.memberships };
       }
       return result;
     }),
@@ -114,10 +105,10 @@ export default async function DevPage() {
     }),
   ]);
 
-  const systemRoleOptions = Object.values(SystemRole) as SystemRole[];
-  const membershipRoleOptions = Object.values(
-    VillageMembershipRole
-  ) as VillageMembershipRole[];
+  const membershipRoleOptions = [
+    VillageMembershipRole.HEADMAN,
+    VillageMembershipRole.RESIDENT,
+  ] as const;
   const membershipStatusOptions = Object.values(
     MembershipStatus
   ) as MembershipStatus[];
@@ -222,14 +213,6 @@ export default async function DevPage() {
               </option>
             ))}
           </select>
-          <select name="systemRole" className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-            <option value="">No system override</option>
-            {systemRoleOptions.map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
-          </select>
           <input
             name="note"
             placeholder="Note (optional)"
@@ -314,19 +297,8 @@ export default async function DevPage() {
                       {user.citizenVerifiedAt ? "verified" : "pending"}
                     </td>
                     <td className="px-3 py-2">
-                      <form action={updateUserRoleAction} className="grid gap-2 md:grid-cols-4">
+                      <form action={updateUserRoleAction} className="grid gap-2 md:grid-cols-3">
                         <input type="hidden" name="userId" value={user.id} />
-                        <select
-                          name="systemRole"
-                          className="rounded-lg border border-gray-300 px-2 py-1 text-xs"
-                          defaultValue={user.systemRole}
-                        >
-                          {systemRoleOptions.map((role) => (
-                            <option key={role} value={role}>
-                              {role}
-                            </option>
-                          ))}
-                        </select>
                         <select
                           name="villageId"
                           className="rounded-lg border border-gray-300 px-2 py-1 text-xs"
@@ -342,7 +314,7 @@ export default async function DevPage() {
                         <select
                           name="membershipRole"
                           className="rounded-lg border border-gray-300 px-2 py-1 text-xs"
-                          defaultValue={currentMembership?.role ?? VillageMembershipRole.RESIDENT}
+                          defaultValue={currentMembership?.role === VillageMembershipRole.HEADMAN ? VillageMembershipRole.HEADMAN : VillageMembershipRole.RESIDENT}
                         >
                           {membershipRoleOptions.map((role) => (
                             <option key={role} value={role}>
@@ -363,7 +335,7 @@ export default async function DevPage() {
                         </select>
                         <button
                           type="submit"
-                          className="rounded-lg bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-black md:col-span-4"
+                          className="rounded-lg bg-gray-900 px-3 py-1 text-xs font-medium text-white hover:bg-black md:col-span-3"
                         >
                           Save User Role Mapping
                         </button>
@@ -463,7 +435,7 @@ export default async function DevPage() {
                   <div key={village.id} className="rounded border border-gray-200 bg-gray-50 p-3">
                     <p className="font-medium text-gray-900">{village.name}</p>
                     <p className="text-xs text-gray-600">
-                      Headmen: {counts.headman}/1 | Assistants: {counts.assistant}/2
+                      Headmen: {counts.headman}/1
                     </p>
                   </div>
                 );

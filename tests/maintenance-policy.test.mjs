@@ -23,6 +23,6 @@ test("only the explicit system-settings API is a maintenance recovery mutation",
   assert.equal(isMaintenanceRecoveryApiPath("/api/admin/population/export"), false);
   assert.equal(isMaintenanceBlockedMutation("/admin/news"), true);
   assert.equal(isMaintenanceBlockedMutation("/resident/issues"), true);
-  assert.equal(isMaintenanceBlockedMutation("/superadmin/settings"), false);
+  assert.equal(isMaintenanceBlockedMutation(ADMIN_SYSTEM_SETTINGS_PATH), false);
   assert.equal(isMaintenanceBlockedMutation("/api/auth/login-otp/verify"), false);
 });

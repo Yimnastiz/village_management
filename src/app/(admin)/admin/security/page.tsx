@@ -82,7 +82,7 @@ export default async function SecurityPage({ searchParams }: PageProps) {
   const filtered = rawLogs.flatMap((log) => {
     const event = formatAuditEvent(log); const target = names.get(log.id) ?? event.targetFromMetadata; const searchable = `${log.user?.name ?? ""} ${event.label} ${event.resourceLabel} ${target ?? ""}`.toLocaleLowerCase("th-TH");
     if (!auditCategoryMatches(event, eventFilter) || (moduleFilter !== "ALL" && auditModuleForResource(log.resource) !== moduleFilter) || (q && !searchable.includes(loweredQuery))) return [];
-    const isSuperAdmin = event.isSuperAdminIntervention || log.user?.systemRole === "SUPERADMIN";
+    const isSuperAdmin = event.isSuperAdminIntervention;
     const actor = isSuperAdmin ? (log.user?.name?.trim() ? `${log.user.name.trim()} (ผู้ดูแลระบบระดับสูง)` : "ผู้ดูแลระบบระดับสูง") : log.user ? formatNewsAuthor(log.user.name, log.user.systemRole, log.user.memberships[0]?.role) : "ผู้ดูแลหมู่บ้านเดิม";
     return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), formattedTime: fullAuditTime(log.createdAt), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes, reason: event.reason, reasonLabel: isSuperAdmin ? "เหตุผลในการดำเนินการ" : "เหตุผล" } satisfies AuditListEvent];
   });

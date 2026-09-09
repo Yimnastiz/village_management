@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 function parseActiveMembershipRole(value?: string): VillageMembershipRole | undefined {
   if (!value || value === "ALL") return undefined;
   if (value === VillageMembershipRole.HEADMAN) return VillageMembershipRole.HEADMAN;
-  if (value === VillageMembershipRole.ASSISTANT_HEADMAN) return VillageMembershipRole.ASSISTANT_HEADMAN;
   if (value === VillageMembershipRole.RESIDENT) return VillageMembershipRole.RESIDENT;
   throw new Error("Invalid village membership role filter.");
 }
@@ -34,7 +33,6 @@ export async function getVillageEligibleAdminUsers(villageId: string) {
   return prisma.user.findMany({
     where: {
       accountStatus: "ACTIVE",
-      systemRole: { not: "SUPERADMIN" },
       OR: [
         { memberships: { some: { villageId } } },
         { registrationVillageId: villageId },
@@ -55,7 +53,7 @@ export async function getVillageEligibleAdminUsers(villageId: string) {
   });
 }
 
-/** Administrator-only projection for the Super Admin village workspace. */
+/** Administrator-only projection for the village workspace. */
 export async function getVillageAdministrators(
   villageId: string,
   input: { query?: string; role?: string; status?: string } = {},

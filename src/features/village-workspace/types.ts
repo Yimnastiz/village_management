@@ -1,4 +1,4 @@
-export type MemberRole = "HEADMAN" | "ASSISTANT_HEADMAN" | "RESIDENT";
+export type MemberRole = "HEADMAN" | "RESIDENT";
 export type MemberStatus = "ACTIVE" | "PENDING" | "SUSPENDED" | "REJECTED";
 
 export type MemberRow = {

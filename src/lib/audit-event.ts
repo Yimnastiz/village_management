@@ -268,7 +268,12 @@ export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
   const targetFromMetadata = [metadata.targetName, metadata.title, metadata.name, metadata.subject, metadata.houseNumber, metadata.fileName]
     .map(text)
     .find((value): value is string => Boolean(value && value.trim()));
-  const isSuperAdminIntervention = text(metadata.actorRole) === "SUPERADMIN" || text(metadata.actorType) === "SUPERADMIN_ENV" || Boolean(text(metadata.supportReason));
+  const actorRole = text(metadata.actorRole);
+  const actorType = text(metadata.actorType);
+  // Current Headman-sensitive actions also store supportReason. It is only a
+  // legacy intervention marker when old metadata has no current actor identity.
+  const isLegacySupportIntervention = Boolean(text(metadata.supportReason)) && !actorRole && !actorType;
+  const isSuperAdminIntervention = actorRole === "SUPERADMIN" || actorType === "SUPERADMIN_ENV" || isLegacySupportIntervention;
   const reason = [metadata.supportReason, metadata.reason]
     .map(text)
     .find((value): value is string => Boolean(value && value.trim())) ?? null;

@@ -541,8 +541,8 @@ export async function createVillagePerson(villageId: string, data: VillagePerson
     const person = await tx.person.create({ data: { villageId, ...value, status: PersonStatus.ACTIVE }, select: { id: true } });
     if (value.houseId) await tx.personMovement.create({ data: { personId: person.id, houseId: value.houseId, movementType: MovementType.MOVE_IN, date: new Date() } });
     if (value.houseId && value.phone) {
-      const user = await tx.user.findUnique({ where: { phoneNumber: value.phone }, select: { id: true, systemRole: true } });
-      if (user?.systemRole !== "SUPERADMIN" && user) {
+      const user = await tx.user.findUnique({ where: { phoneNumber: value.phone }, select: { id: true } });
+      if (user) {
         const activeAdmin = await tx.villageMembership.findFirst({ where: { userId: user.id, villageId, status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { id: true } });
         if (!activeAdmin) await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId }, create: { userId: user.id, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId } });
       }

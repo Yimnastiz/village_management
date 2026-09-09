@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     where: { phoneNumber },
     update: {
       phoneNumberVerified: true,
-      systemRole: seed.systemRole ?? SystemRole.USER,
+      systemRole: SystemRole.USER,
       citizenVerifiedAt: seed.isCitizenVerified ? now : null,
       registrationVillageId: seed.villageId,
       name: phoneNumber,
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     create: {
       phoneNumber,
       phoneNumberVerified: true,
-      systemRole: seed.systemRole ?? SystemRole.USER,
+      systemRole: SystemRole.USER,
       citizenVerifiedAt: seed.isCitizenVerified ? now : null,
       registrationVillageId: seed.villageId,
       name: phoneNumber,

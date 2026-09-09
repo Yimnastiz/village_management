@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus, RegistrationTempStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus, RegistrationTempStatus, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const ACCOUNT_DELETION_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -16,10 +16,9 @@ export function createRecoveryToken() {
 export async function assertSelfDeletionAllowed(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { systemRole: true, memberships: { where: { status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { role: true } } },
+    select: { memberships: { where: { status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { role: true } } },
   });
   if (!user) throw new Error("Account not found.");
-  if (user.systemRole === SystemRole.SUPERADMIN) throw new Error("ต้องถอดสิทธิ์ Super Admin ก่อนปิดบัญชี");
   if (user.memberships.length > 0) throw new Error("ต้องถอดหรือโอนหน้าที่ผู้ดูแลหมู่บ้านก่อนปิดบัญชี");
 }
 

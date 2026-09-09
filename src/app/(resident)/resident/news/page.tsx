@@ -113,7 +113,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
   const filteredNewsList = newsList.filter((newsItem) => {
     if (source === "all") return true;
     const roles = newsItem.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
-    const isAdminSource = roles.some((role) => ["HEADMAN", "ASSISTANT_HEADMAN"].includes(role));
+    const isAdminSource = roles.some((role) => role === "HEADMAN");
     return source === "admin" ? isAdminSource : !isAdminSource;
   });
 

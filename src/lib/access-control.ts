@@ -259,7 +259,7 @@ export async function getActiveAuthRedirectPathFromRequest(
 }
 
 export function isAdminUser(session: SessionContext): boolean {
-  return session.systemRole !== SystemRole.SUPERADMIN && session.memberships.some(
+  return session.memberships.some(
     (membership) =>
       membership.status === MembershipStatus.ACTIVE &&
       ADMIN_MEMBERSHIP_ROLE_SET.has(membership.role)
@@ -303,8 +303,6 @@ export function getAdminMembership(
     villageId?: string | null;
   } = {}
 ) {
-  if (session.systemRole === SystemRole.SUPERADMIN) return null;
-
   const targetVillageId = options.villageId ?? session.activeVillageId;
   const eligible = session.memberships.filter(
     (membership): membership is ActiveHeadmanMembership =>

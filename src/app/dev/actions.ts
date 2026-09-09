@@ -29,6 +29,22 @@ function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s-]/g, "");
 }
 
+function parseActiveMembershipRole(
+  value: string | null,
+  fallback: typeof VillageMembershipRole.HEADMAN | typeof VillageMembershipRole.RESIDENT = VillageMembershipRole.RESIDENT,
+): typeof VillageMembershipRole.HEADMAN | typeof VillageMembershipRole.RESIDENT {
+  if (!value) return fallback;
+  if (value === VillageMembershipRole.HEADMAN) return VillageMembershipRole.HEADMAN;
+  if (value === VillageMembershipRole.RESIDENT) return VillageMembershipRole.RESIDENT;
+  throw new Error("Only HEADMAN and RESIDENT are valid development membership roles.");
+}
+
+function rejectSystemRoleInput(value: FormDataEntryValue | null): void {
+  if (toNonEmptyString(value)) {
+    throw new Error("System role assignment is no longer available in development tools.");
+  }
+}
+
 export type VillageActionState = { success: boolean; message: string };
 
 export async function createVillageAction(
@@ -140,7 +156,6 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
   const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
   const villageId = toNonEmptyString(formData.get("villageId"));
   const membershipRoleRaw = toNonEmptyString(formData.get("membershipRole"));
-  const systemRoleRaw = toNonEmptyString(formData.get("systemRole"));
   const note = toNonEmptyString(formData.get("note"));
   const isCitizenVerified = formData.get("isCitizenVerified") === "on";
 
@@ -153,22 +168,14 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
     throw new Error("Invalid phone number format.");
   }
 
-  const membershipRole =
-    membershipRoleRaw && membershipRoleRaw in VillageMembershipRole
-      ? (membershipRoleRaw as VillageMembershipRole)
-      : VillageMembershipRole.RESIDENT;
-
-  const systemRole =
-    systemRoleRaw && systemRoleRaw in SystemRole
-      ? (systemRoleRaw as SystemRole)
-      : null;
+  rejectSystemRoleInput(formData.get("systemRole"));
+  const membershipRole = parseActiveMembershipRole(membershipRoleRaw);
 
   await prisma.phoneRoleSeed.upsert({
     where: { phoneNumber },
     update: {
       villageId,
       membershipRole,
-      systemRole,
       note,
       isCitizenVerified,
     },
@@ -176,7 +183,7 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
       phoneNumber,
       villageId,
       membershipRole,
-      systemRole,
+      systemRole: null,
       note,
       isCitizenVerified,
     },
@@ -188,7 +195,6 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
 export async function updateUserRoleAction(formData: FormData) {
   assertDevelopment();
   const userId = toNonEmptyString(formData.get("userId"));
-  const systemRoleRaw = toNonEmptyString(formData.get("systemRole"));
   const villageId = toNonEmptyString(formData.get("villageId"));
   const membershipRoleRaw = toNonEmptyString(formData.get("membershipRole"));
   const membershipStatusRaw = toNonEmptyString(formData.get("membershipStatus"));
@@ -197,21 +203,10 @@ export async function updateUserRoleAction(formData: FormData) {
     throw new Error("Missing userId.");
   }
 
-  const systemRole =
-    systemRoleRaw && systemRoleRaw in SystemRole
-      ? (systemRoleRaw as SystemRole)
-      : SystemRole.USER;
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { systemRole },
-  });
+  rejectSystemRoleInput(formData.get("systemRole"));
 
   if (villageId) {
-    const membershipRole =
-      membershipRoleRaw && membershipRoleRaw in VillageMembershipRole
-        ? (membershipRoleRaw as VillageMembershipRole)
-        : VillageMembershipRole.RESIDENT;
+    const membershipRole = parseActiveMembershipRole(membershipRoleRaw);
 
     const membershipStatus =
       membershipStatusRaw && membershipStatusRaw in MembershipStatus
@@ -245,6 +240,7 @@ export async function updateUserRoleAction(formData: FormData) {
 
 export async function registerAdminAction(formData: FormData) {
   assertDevelopment();
+  rejectSystemRoleInput(formData.get("systemRole"));
   const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
   const adminName = toNonEmptyString(formData.get("adminName"));
   const adminLastName = toNonEmptyString(formData.get("lastName"));
@@ -262,9 +258,7 @@ export async function registerAdminAction(formData: FormData) {
     throw new Error("Invalid phone number format.");
   }
 
-  const membershipRole = membershipRoleRaw === VillageMembershipRole.HEADMAN
-    ? VillageMembershipRole.HEADMAN
-    : VillageMembershipRole.RESIDENT;
+  const membershipRole = parseActiveMembershipRole(membershipRoleRaw);
 
   // Verify village exists
   const village = await prisma.village.findUnique({
