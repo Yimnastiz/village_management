@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { getSlugVariants, normalizeVillageSlugParam } from "@/lib/village-slug";
+import { getConfiguredVillage } from "@/lib/configured-village";
 import { GuestVillageTopbar } from "./guest-village-topbar";
 
 interface VillageLayoutProps {
@@ -11,32 +11,13 @@ interface VillageLayoutProps {
 export default async function VillageLayout({ children, params }: VillageLayoutProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const requestedSlug = normalizeVillageSlugParam(rawVillageSlug);
-  const currentVillage = await prisma.village.findFirst({
-    where: { slug: { in: getSlugVariants(requestedSlug) }, isActive: true },
-    select: { slug: true, name: true, moo: true, province: true, district: true, subdistrict: true },
-  });
-  if (!currentVillage) notFound();
-
-  // Switching is intentionally scoped to the current administrative subdistrict.
-  const hasCompleteLocation = Boolean(currentVillage.province && currentVillage.district && currentVillage.subdistrict);
-  const villages = await prisma.village.findMany({
-    where: hasCompleteLocation ? {
-      isActive: true,
-      province: currentVillage.province,
-      district: currentVillage.district,
-      subdistrict: currentVillage.subdistrict,
-    } : {
-      isActive: true,
-      slug: currentVillage.slug,
-    },
-    orderBy: [{ moo: "asc" }, { name: "asc" }],
-    select: { id: true, slug: true, name: true, moo: true, province: true, district: true, subdistrict: true },
-  });
+  const currentVillage = await getConfiguredVillage();
+  if (!getSlugVariants(requestedSlug).includes(currentVillage.slug)) notFound();
   const base = `/${currentVillage.slug}`;
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-gray-50 [--app-sticky-top:6rem] xl:[--app-sticky-top:4rem]">
-      <GuestVillageTopbar base={base} villageName={currentVillage.name} villages={villages} currentSlug={currentVillage.slug} />
+      <GuestVillageTopbar base={base} villageName={currentVillage.name} />
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-3 sm:px-6 sm:py-5 lg:px-8">
         {children}
       </main>

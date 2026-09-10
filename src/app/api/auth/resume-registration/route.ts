@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRegistrationFromRequest } from "@/lib/registration-temp";
 import { prisma } from "@/lib/prisma";
+import { configuredVillageProblemResponse, getConfiguredVillage } from "@/lib/configured-village";
 
 export async function GET(request: NextRequest) {
   const registration = await getRegistrationFromRequest(request);
@@ -8,6 +9,9 @@ export async function GET(request: NextRequest) {
   if (!registration) {
     return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 200 });
   }
+  try {
+    if (registration.villageId !== (await getConfiguredVillage()).id) return NextResponse.json({ ok: false, error: "No pending registration." }, { status: 404 });
+  } catch (error) { return NextResponse.json(configuredVillageProblemResponse(error) ?? { error: "Unable to resume registration." }, { status: 503 }); }
   const [challenge, verifier, village] = await Promise.all([
     prisma.registrationOtpChallenge.findUnique({ where: { phoneNumber: registration.phoneNumber } }),
     prisma.registrationVerifierSession.findUnique({ where: { registrationId: registration.id } }),

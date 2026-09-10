@@ -30,8 +30,7 @@ type VillageOption = {
 };
 
 type RegisterFormProps = {
-  villages: VillageOption[];
-  thaiGeography: ThaiProvince[];
+  village: VillageOption;
   callbackUrl?: string;
 };
 
@@ -45,10 +44,6 @@ type RegistrationDraft = {
   gender: string;
   phone: string;
   nationalId: string;
-  province: string;
-  district: string;
-  subdistrict: string;
-  villageId: string;
   callbackUrl?: string;
   savedAt: number;
 };
@@ -162,7 +157,11 @@ function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
   );
 }
 
-export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterFormProps) {
+export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
+  // The API binds the registration to this server-resolved Village. Empty
+  // legacy option lists keep pre-existing local draft state harmless.
+  const villages: VillageOption[] = [];
+  const thaiGeography: ThaiProvince[] = [];
   const router = useRouter();
   const { success, error: showError } = useToast();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -208,10 +207,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
         setGender(storedDraft.gender ?? "");
         setPhone(storedDraft.phone);
         setNationalId(storedDraft.nationalId);
-        setProvince(storedDraft.province);
-        setDistrict(storedDraft.district);
-        setSubdistrict(storedDraft.subdistrict);
-        setVillageId(storedDraft.villageId);
       }
       setDraftLoaded(true);
     }
@@ -248,13 +243,9 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       gender,
       phone,
       nationalId,
-      province,
-      district,
-      subdistrict,
-      villageId,
       callbackUrl,
     });
-  }, [callbackUrl, dateOfBirth, draftLoaded, district, firstName, gender, lastName, nationalId, phone, province, registrationMode, subdistrict, villageId]);
+  }, [callbackUrl, dateOfBirth, draftLoaded, firstName, gender, lastName, nationalId, phone, registrationMode]);
 
   useEffect(() => {
     if (!isPrivacyModalOpen) {
@@ -419,27 +410,27 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       nextFieldErrors.gender = "กรุณาเลือกเพศ";
     }
 
-    if (!province) {
+    if (false && !province) {
       nextFieldErrors.province = "กรุณาเลือกจังหวัด";
-    } else if (!provinceOptions.includes(province)) {
+    } else if (false && !provinceOptions.includes(province)) {
       nextFieldErrors.province = "กรุณาเลือกจังหวัดจากรายการ";
     }
 
-    if (!district) {
+    if (false && !district) {
       nextFieldErrors.district = province ? "กรุณาเลือกอำเภอ" : "กรุณาเลือกจังหวัดก่อน";
-    } else if (!districtOptions.includes(district)) {
+    } else if (false && !districtOptions.includes(district)) {
       nextFieldErrors.district = "กรุณาเลือกอำเภอจากรายการ";
     }
 
-    if (!subdistrict) {
+    if (false && !subdistrict) {
       nextFieldErrors.subdistrict = district ? "กรุณาเลือกตำบล" : "กรุณาเลือกอำเภอก่อน";
-    } else if (!subdistrictOptions.includes(subdistrict)) {
+    } else if (false && !subdistrictOptions.includes(subdistrict)) {
       nextFieldErrors.subdistrict = "กรุณาเลือกตำบลจากรายการ";
     }
 
-    if (!villageId) {
+    if (false && !villageId) {
       nextFieldErrors.villageId = subdistrict ? "กรุณาเลือกหมู่บ้าน" : "กรุณาเลือกตำบลก่อน";
-    } else if (!villageOptions.some((village) => village.value === villageId)) {
+    } else if (false && !villageOptions.some((village) => village.value === villageId)) {
       nextFieldErrors.villageId = "กรุณาเลือกหมู่บ้านจากรายการ";
     }
 
@@ -465,10 +456,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
       gender: normalizedGender ?? "",
       phone: normalizedPhone,
       nationalId: normalizedNationalId,
-      province,
-      district,
-      subdistrict,
-      villageId,
       callbackUrl,
     });
 
@@ -504,10 +491,6 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
           nationalId: normalizedNationalId,
           dateOfBirth,
           gender: normalizedGender,
-          province,
-          district,
-          subdistrict,
-          villageId,
           callbackUrl,
         }),
       });
@@ -723,7 +706,13 @@ export function RegisterForm({ villages, thaiGeography, callbackUrl }: RegisterF
 
         </section>
 
-        <section className="space-y-4 border-t border-gray-100 pt-5">
+        <section className="space-y-2 border-t border-gray-100 pt-5">
+          <h3 className="text-sm font-semibold text-gray-900">สมัครสมาชิกสำหรับหมู่บ้าน</h3>
+          <p className="font-medium text-gray-800">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</p>
+          <p className="text-sm text-gray-500">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" · ")}</p>
+        </section>
+
+        <section className="hidden" aria-hidden="true">
           <h3 className="text-sm font-semibold text-gray-900">พื้นที่และหมู่บ้านที่เกี่ยวข้อง</h3>
         <SuggestCombobox
           id="register-province"

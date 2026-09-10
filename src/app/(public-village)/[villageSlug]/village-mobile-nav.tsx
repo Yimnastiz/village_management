@@ -9,27 +9,14 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { VillageSwitcher } from "./village-switcher";
 import { isPublicVillageNavItemActive, PUBLIC_VILLAGE_NAV_ITEMS } from "./public-village-nav";
-
-type VillageOption = {
-  id: string;
-  slug: string;
-  name: string;
-  moo: string | null;
-  province: string | null;
-  district: string | null;
-  subdistrict: string | null;
-};
 
 type Props = {
   base: string;
   villageName: string;
-  villages: VillageOption[];
-  currentSlug: string;
 };
 
-export function VillagePublicMobileNav({ base, villageName, villages, currentSlug }: Props) {
+export function VillagePublicMobileNav({ base, villageName }: Props) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -118,9 +105,8 @@ export function VillagePublicMobileNav({ base, villageName, villages, currentSlu
               })}
             </nav>
 
-            {/* Footer: village switcher + action links */}
+            {/* Footer actions */}
             <div className="space-y-2 border-t border-green-600 p-4">
-              <VillageSwitcher villages={villages} currentSlug={currentSlug} />
               <Link
                 href="/"
                 onClick={() => setOpen(false)}

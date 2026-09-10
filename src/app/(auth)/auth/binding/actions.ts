@@ -8,6 +8,7 @@ import { getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { isAccessMembershipStatus } from "@/lib/settings-access";
+import { getConfiguredVillage } from "@/lib/configured-village";
 
 async function ensurePendingBindingMembership(userId: string, villageId: string) {
   const existing = await prisma.villageMembership.findUnique({ where: { userId_villageId: { userId, villageId } }, select: { status: true } });
@@ -57,7 +58,10 @@ export async function submitBindingRequestAction(
     throw new Error("Village is required.");
   }
   if (!requestedHouseId && !rawHouseNumber) throw new Error("กรุณาเลือกบ้าน หรือเสนอเลขบ้านให้ผู้ใหญ่บ้านตรวจสอบ");
-  const villageExists = await prisma.village.findFirst({ where: { id: villageId, isActive: true }, select: { id: true } });
+  const villageExists = await getConfiguredVillage();
+  if (villageId !== villageExists.id) {
+    return { success: false, fieldErrors: { village: "This Village is not available." } };
+  }
   if (!villageExists) return { success: false, fieldErrors: { village: "ไม่พบหมู่บ้านที่เลือก" } };
   if (!villageExists) throw new Error("Village not found.");
 

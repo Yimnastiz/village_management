@@ -5,11 +5,15 @@ import { getRegistrationFromRequest, normalizePhone10, REGISTRATION_OTP_TTL_SECO
 import { prisma } from "@/lib/prisma";
 import { getDevOtpCode, isDevOtpBypassEnabled } from "@/lib/dev-otp";
 import { getSystemSettings } from "@/lib/system-settings";
+import { configuredVillageProblemResponse, getConfiguredVillage } from "@/lib/configured-village";
 
 export async function POST(request: NextRequest) {
   if (!(await getSystemSettings()).registrationEnabled) return NextResponse.json({ error: "ขณะนี้ปิดรับสมัครสมาชิกใหม่ชั่วคราว" }, { status: 403 });
   const draft = await getRegistrationFromRequest(request);
   if (!draft) return NextResponse.json({ error: "No pending registration." }, { status: 404 });
+  try {
+    if (draft.villageId !== (await getConfiguredVillage()).id) return NextResponse.json({ error: "No pending registration." }, { status: 404 });
+  } catch (error) { return NextResponse.json(configuredVillageProblemResponse(error) ?? { error: "Unable to resend OTP." }, { status: 503 }); }
   const phoneNumber = normalizePhone10(draft.phoneNumber);
   const now = new Date();
   const reserved = await prisma.$transaction(async (tx) => {

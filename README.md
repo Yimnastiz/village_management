@@ -1,123 +1,27 @@
-# วิธีติดตั้ง Village Management System
+# Village Management System
 
-เอกสารนี้สำหรับเพื่อนหรืออาจารย์ที่เพิ่ง clone โปรเจกต์บน Windows PowerShell
+This deployment serves exactly one configured active Village. Public pages, registration, and authenticated workspaces resolve that Village on the server. The application shows a controlled configuration error when zero or multiple active Village rows exist.
 
-## สิ่งที่ต้องมี
+Active actors are Public / Guest, Resident, and Headman. Headman is the only active administrator and works in `/admin`.
 
-- Node.js 20.9 ขึ้นไป
-- Docker Desktop ที่เปิดอยู่
-- Git
-
-## วิธีติดตั้งแบบสั้น
+## Local setup
 
 ```powershell
-git clone <repo-url>
-cd village_management
 npm install
 npm run db:up
 npm run setup
 npm run dev
 ```
 
-จากนั้นเปิด [http://localhost:3000](http://localhost:3000)
+`npm run setup` creates `.env` when needed, generates Prisma Client, deploys migrations, and runs the configured seed. It does not import the Thailand Village catalog by default.
 
-`npm run db:up` จะสร้าง PostgreSQL local ผ่าน Docker Compose ที่ port `55432` และ `npm run setup` จะสร้าง `.env` จาก `.env.example` ให้อัตโนมัติเมื่อยังไม่มีไฟล์
-
-## Development ผ่าน LAN
-
-Better Auth และ Next.js จะอนุญาต LAN origin ที่ระบุไว้อย่างชัดเจนใน Development เท่านั้น
-
-1. หา IPv4 ของเครื่องที่รัน Next.js เช่นรัน `ipconfig` แล้วดูค่า IPv4 Address
-2. เพิ่ม origin ของเครื่องนั้นลงใน `.env.local` (ไฟล์นี้ถูก ignore และห้าม commit) โดยเปลี่ยน IP ให้ตรงกับเครื่องปัจจุบัน:
-   ```env
-   BETTER_AUTH_DEV_ORIGINS="http://192.168.1.35:3000"
-   ```
-3. restart dev server เพื่อให้โหลด ENV ใหม่:
-   ```powershell
-   npm run dev
-   ```
-4. เปิดเว็บจากโทรศัพท์หรือเครื่องใน LAN ที่ `http://<IPv4>:3000`
-
-`localhost:3000` และ `127.0.0.1:3000` ใช้ได้ใน Development โดยไม่ต้องเพิ่มค่า ENV นี้ หาก IP เปลี่ยน ให้แก้เฉพาะ `.env.local` แล้ว restart server; ห้ามใช้ wildcard LAN หรือกำหนดค่านี้ใน Production.
-
-## การเข้าถึง Super Admin
-
-Super Admin สามารถดำเนินการแทนผู้ใหญ่บ้านภายในพื้นที่หมู่บ้านที่เลือกได้ โดยทุกการเปลี่ยนแปลงต้องระบุเหตุผลในการดำเนินการอย่างน้อย 5 ตัวอักษรและถูกบันทึกใน Audit Log. Super Admin จัดการบัญชี HEADMAN และทบทวนคำขอผูกบ้านได้. ระบบไม่มี Household Correction Request และการสมัครสมาชิกไม่มีขั้นตอนอนุมัติโดยผู้ดูแล: สมัคร → OTP → บัญชี → คำขอผูกบ้าน.
-
-Super Admin เป็นผู้ดำเนินการระดับระบบจาก ENV ไม่ใช่บัญชี Better Auth และไม่ต้องมีชื่อ เบอร์โทร อีเมล หรือ OTP
-
-1. สร้างไฟล์ `.env.local` (ไม่ commit) และตั้งค่าสำหรับ Development เช่น
-   ```env
-   ```
-2. หลังแก้ `.env.local` ให้ restart server เสมอ เพราะ Fast Refresh ไม่ควรใช้คาดหวังการ reload ENV ฝั่ง Server:
-   ```bash
-   Ctrl + C
-   npm run dev
-   ```
-3. เข้าสู่ระบบด้วย OTP ของ Headman แล้วใช้พื้นที่จัดการที่ `/admin`
-
-
-## `npm run setup` ทำอะไรบ้าง
-
-1. ตรวจเวอร์ชัน Node.js และไฟล์ `.env`
-2. ตรวจว่า PostgreSQL เชื่อมต่อได้
-3. รัน Prisma generate และ `prisma migrate deploy`
-4. รัน seed เดิมของโปรเจกต์เมื่อมี (เวอร์ชันปัจจุบันยังไม่มี seed script)
-5. นำเข้าข้อมูล Thailand Village Catalog และตรวจสถานะ
-
-การรัน `npm run setup` ซ้ำปลอดภัย: ถ้ามี Catalog ฉบับเต็มในฐานข้อมูลแล้ว จะข้ามการนำเข้าซ้ำ เพื่อไม่ให้เสียเวลานาน
-
-## ใช้ PostgreSQL ที่มีอยู่แล้ว
-
-สร้าง `.env` โดยคัดลอกจาก `.env.example` แล้วแก้ `DATABASE_URL` ให้ชี้ไปยัง PostgreSQL ของคุณ จากนั้นรัน:
+Catalog utilities are optional maintenance tooling:
 
 ```powershell
-npm install
-npm run setup
-npm run dev
-```
-
-ไม่ต้องรัน `npm run db:up` หากไม่ได้ใช้ฐานข้อมูล Docker ของโปรเจกต์
-
-## ข้อมูลหมู่บ้าน
-
-ระบบเลือกแหล่งข้อมูลตามลำดับนี้:
-
-1. `data/processed/thailand-villages.json` — นำเข้าได้ทันที
-2. JSON ดิบใน `data/raw/gdcatalog-villages/` — ระบบจะเตรียมเป็น processed แล้วนำเข้า
-3. `data/demo/thailand-villages.demo.json` — ใช้เฉพาะข้อมูลทดลองเมื่อไม่มีข้อมูลฉบับเต็ม
-
-หลังติดตั้ง ตรวจจำนวนข้อมูลได้ด้วย:
-
-```powershell
-npm run catalog:status
-```
-
-ถ้าเป็นข้อมูลฉบับเต็ม จำนวนควรมีอย่างน้อยหลายหมื่นรายการ โดย Catalog ใช้รองรับการลงทะเบียนและการค้นหาหมู่บ้าน
-
-คำสั่ง Catalog เดิมยังใช้ได้:
-
-```powershell
-npm run catalog:prepare
-npm run catalog:import
-npm run catalog:status
 npm run catalog:setup
+npm run catalog:status
 ```
 
-## คำสั่งฐานข้อมูลที่ใช้บ่อย
+Catalog data is not required for public navigation or registration. Do not use `npm run db:reset` against data that must be retained.
 
-```powershell
-npm run db:up       # เปิด PostgreSQL
-npm run db:down     # หยุดและลบ container (เก็บข้อมูลใน volume)
-npm run db:reset    # ล้างข้อมูล local ทั้งหมดแล้วเริ่มใหม่
-npm run setup:db    # ตรวจ DB, Prisma generate, migrations และ seed โดยไม่ import Catalog
-```
-
-`db:reset` ลบข้อมูล PostgreSQL local ใน Docker volume; อย่าใช้กับข้อมูลที่ต้องเก็บไว้
-
-## แก้ปัญหาเบื้องต้น
-
-- เชื่อมต่อ PostgreSQL ไม่ได้: เปิด Docker Desktop แล้วรัน `npm run db:up` ก่อน
-- Port `55432` ถูกใช้: เปลี่ยน port ใน `docker-compose.yml` และ `DATABASE_URL` ใน `.env` ให้ตรงกัน
-- ไม่มีข้อมูลหมู่บ้าน: วาง JSON ดิบใน `data/raw/gdcatalog-villages/` หรือใส่ `data/processed/thailand-villages.json` แล้วรัน `npm run setup` อีกครั้ง
-- ต้องการรายละเอียด Docker/Prisma เพิ่มเติม: ดู [DATABASE_SETUP.md](DATABASE_SETUP.md)
+See [DATABASE_SETUP.md](DATABASE_SETUP.md) for database notes and `docs/` for the active permission model.

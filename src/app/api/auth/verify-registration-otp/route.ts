@@ -5,6 +5,7 @@ import { clearRegistrationCookie, getRegistrationFromRequest, normalizePhone10, 
 import { prisma } from "@/lib/prisma";
 import { DUPLICATE_NATIONAL_ID_REASON, findBoundIdentityByNationalId } from "@/lib/identity";
 import { getSystemSettings } from "@/lib/system-settings";
+import { configuredVillageProblemResponse, getConfiguredVillage } from "@/lib/configured-village";
 
 const schema = z.object({ code: z.string().trim().regex(/^\d{6}$/), registrationId: z.string().min(1), challengeId: z.string().min(1) });
 const DELAYS = [2, 5, 15, 30, 30] as const;
@@ -17,6 +18,8 @@ export async function POST(request: NextRequest) {
   if (!draft || draft.status !== RegistrationTempStatus.WAITING_OTP) return NextResponse.json({ error: "No pending registration." }, { status: 404 });
   if (draft.id !== parsed.data.registrationId) return NextResponse.json({ error: "Registration draft mismatch." }, { status: 403 });
   const phoneNumber = normalizePhone10(draft.phoneNumber);
+  let configuredVillage;
+  try { configuredVillage = await getConfiguredVillage(); } catch (error) { return NextResponse.json(configuredVillageProblemResponse(error) ?? { error: "Unable to verify registration." }, { status: 503 }); }
   const now = new Date();
 
   const result = await prisma.$transaction(async (tx) => {
@@ -27,6 +30,7 @@ export async function POST(request: NextRequest) {
       tx.registrationOtpChallenge.findUnique({ where: { phoneNumber } }),
     ]);
     if (!currentDraft || currentDraft.status !== RegistrationTempStatus.WAITING_OTP || !verifier || !challenge || challenge.id !== parsed.data.challengeId || challenge.status !== RegistrationOtpChallengeStatus.ACTIVE) return { type: "inactive" as const };
+    if (currentDraft.villageId !== configuredVillage.id) return { type: "inactive" as const };
     if (!challenge.otpExpiresAt || challenge.otpExpiresAt <= now) return { type: "expired" as const };
     if (verifier.lockedUntil && verifier.lockedUntil > now) return { type: "limited" as const, retryAt: verifier.lockedUntil };
     if (verifier.nextAttemptAt && verifier.nextAttemptAt > now) return { type: "limited" as const, retryAt: verifier.nextAttemptAt };
@@ -64,8 +68,8 @@ export async function POST(request: NextRequest) {
     const user = await tx.user.create({
       data: {
         phoneNumber, phoneNumberVerified: true, name: currentDraft.name,
-        registrationProvince: currentDraft.province, registrationDistrict: currentDraft.district,
-        registrationSubdistrict: currentDraft.subdistrict, registrationVillageId: currentDraft.villageId,
+        registrationProvince: configuredVillage.province, registrationDistrict: configuredVillage.district,
+        registrationSubdistrict: configuredVillage.subdistrict, registrationVillageId: configuredVillage.id,
         citizenVerifiedAt: null, consentAt: now,
       },
       select: { id: true },

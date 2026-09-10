@@ -13,3 +13,4 @@
 - The live membership enum contains only HEADMAN and RESIDENT; Headman is the only active `/admin` administrator.
 - Legacy Assistant and Super Admin metadata remains displayable only through explicit historical presentation helpers.
 - Existing sensitive-action reason requirements remain defined by `src/lib/sensitive-action-policy.ts`.
+- All capabilities are constrained to the one server-resolved configured Village; no Village-switching workspace exists.

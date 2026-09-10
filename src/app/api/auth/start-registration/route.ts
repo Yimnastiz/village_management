@@ -12,12 +12,12 @@ import { findBoundIdentityByNationalId } from "@/lib/identity";
 import { isValidStrictThaiNationalId, isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 import { normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
 import { getSystemSettings } from "@/lib/system-settings";
+import { configuredVillageProblemResponse, getConfiguredVillage } from "@/lib/configured-village";
 
 const schema = z.object({
   phoneNumber: z.string().trim().min(1), registrationMode: z.literal("resident").optional(),
   name: z.string().trim().min(1).optional(), firstName: z.string().trim().min(1), lastName: z.string().trim().min(1),
-  nationalId: z.string().trim().min(1), dateOfBirth: z.string().trim().min(1), gender: z.string().trim().min(1), province: z.string().trim().min(1), district: z.string().trim().min(1),
-  subdistrict: z.string().trim().min(1), villageId: z.string().trim().min(1), callbackUrl: z.string().trim().nullable().optional(),
+  nationalId: z.string().trim().min(1), dateOfBirth: z.string().trim().min(1), gender: z.string().trim().min(1), callbackUrl: z.string().trim().nullable().optional(),
 });
 
 function ipHash(request: NextRequest) {
@@ -29,6 +29,10 @@ export async function POST(request: NextRequest) {
   if (!(await getSystemSettings()).registrationEnabled) return NextResponse.json({ error: "ขณะนี้ปิดรับสมัครสมาชิกใหม่ชั่วคราว" }, { status: 403 });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
+  let configuredVillage;
+  try { configuredVillage = await getConfiguredVillage(); } catch (error) {
+    return NextResponse.json(configuredVillageProblemResponse(error) ?? { error: "Unable to start registration." }, { status: 503 });
+  }
   const phoneNumber = normalizePhone10(parsed.data.phoneNumber);
   if (!phoneNumber) return NextResponse.json({ error: "Invalid registration payload" }, { status: 400 });
   if (!isValidThaiName(parsed.data.firstName)) return NextResponse.json({ error: "กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น" }, { status: 400 });
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
   const hash = ipHash(request);
   const prepared = await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`registration-otp:${phoneNumber}`}))`;
-    const claimedIdentity = await findBoundIdentityByNationalId(tx, nationalId, undefined, parsed.data.villageId);
+    const claimedIdentity = await findBoundIdentityByNationalId(tx, nationalId, undefined, configuredVillage.id);
     if (claimedIdentity) return { limited: false as const, claimed: true as const };
     const recentSessions = await tx.registrationVerifierSession.count({ where: { ipHash: hash, createdAt: { gt: new Date(now.getTime() - 15 * 60_000) } } });
     if (recentSessions >= 10) return { limited: true as const };
@@ -64,8 +68,8 @@ export async function POST(request: NextRequest) {
     const draft = await tx.registrationTemp.create({
       data: {
         phoneNumber, registrationMode: "RESIDENT", name, firstName, lastName, nationalId, dateOfBirth: dateOfBirth.value, gender,
-        province: parsed.data.province, district: parsed.data.district, subdistrict: parsed.data.subdistrict,
-        villageId: parsed.data.villageId, callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
+        province: configuredVillage.province ?? "", district: configuredVillage.district ?? "", subdistrict: configuredVillage.subdistrict ?? "",
+        villageId: configuredVillage.id, callbackUrl: sanitizeInternalCallbackUrl(parsed.data.callbackUrl),
         expiresAt: challenge?.otpExpiresAt && challenge.otpExpiresAt > now ? challenge.otpExpiresAt : new Date(now.getTime() + REGISTRATION_OTP_TTL_SECONDS * 1000),
       },
     });

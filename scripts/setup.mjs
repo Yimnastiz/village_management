@@ -11,6 +11,7 @@ const processedCatalogPath = path.join(projectRoot, "data", "processed", "thaila
 const rawCatalogDirectory = path.join(projectRoot, "data", "raw", "gdcatalog-villages");
 const demoCatalogPath = path.join(projectRoot, "data", "demo", "thailand-villages.demo.json");
 const databaseOnly = process.argv.includes("--database-only");
+const importCatalogDuringSetup = process.env.IMPORT_CATALOG_DURING_SETUP === "true";
 
 function commandName(name) {
   return process.platform === "win32" ? `${name}.cmd` : name;
@@ -179,7 +180,8 @@ async function main() {
     console.log("ไม่พบ seed script เดิม — ข้ามขั้นตอนนี้");
   }
 
-  if (databaseOnly) {
+  if (databaseOnly || !importCatalogDuringSetup) {
+    if (!databaseOnly) console.log("\nCatalog import is optional. Run npm run catalog:setup only when catalog data is explicitly needed.");
     console.log("\nฐานข้อมูลพร้อมใช้งานแล้ว");
     return;
   }
@@ -190,9 +192,8 @@ async function main() {
   console.log("[8/8] ตรวจสถานะ Catalog");
   await run(process.execPath, ["scripts/catalog-status.mjs"], "การตรวจสถานะ Catalog");
 
-  const superAdmins = 1;
   console.log("\nพร้อมใช้งานแล้ว: รัน npm run dev แล้วเปิด http://localhost:3000");
-  if (superAdmins === 0) {
+  if (false) {
     console.log("เข้าสู่ระบบด้วยบัญชี Headman เพื่อเริ่มจัดการหมู่บ้าน");
   }
 }

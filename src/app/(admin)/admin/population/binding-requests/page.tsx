@@ -5,7 +5,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { RequestViewTabs } from "@/components/ui/request-view-tabs";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
-import { maskPhone } from "@/features/village-workspace/server/queries";
+import { maskPhone } from "@/lib/mask-phone";
 import { prisma } from "@/lib/prisma";
 
 const PAGE_SIZE = 20;

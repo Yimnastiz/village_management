@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSystemSettings } from "@/lib/system-settings";
+import { ConfiguredVillageError, getConfiguredVillage } from "@/lib/configured-village";
 
 function readText(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -27,8 +28,18 @@ export async function submitPublicFeedbackAction(formData: FormData): Promise<{ 
     return { success: false, error: "กรุณากรอกรายละเอียดอย่างน้อย 10 ตัวอักษร" };
   }
 
+  let village;
+  try {
+    village = await getConfiguredVillage();
+  } catch (error) {
+    if (error instanceof ConfiguredVillageError) {
+      return { success: false, error: "ระบบยังไม่พร้อมใช้งาน กรุณาติดต่อผู้ดูแลระบบ" };
+    }
+    throw error;
+  }
+
   const headmen = await prisma.villageMembership.findMany({
-    where: { role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE },
+    where: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE },
     select: { userId: true, villageId: true },
   });
 

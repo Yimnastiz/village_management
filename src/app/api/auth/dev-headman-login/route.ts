@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { computeLandingPath } from "@/lib/access-control";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { prisma } from "@/lib/prisma";
+import { configuredVillageProblemResponse, getConfiguredVillage } from "@/lib/configured-village";
 
 function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s-]/g, "");
@@ -43,6 +44,18 @@ export async function POST(request: NextRequest) {
       { error: "This phone is not configured as HEADMAN." },
       { status: 404 }
     );
+  }
+
+  let configuredVillage;
+  try {
+    configuredVillage = await getConfiguredVillage();
+  } catch (error) {
+    const problem = configuredVillageProblemResponse(error);
+    if (problem) return NextResponse.json(problem, { status: 503 });
+    throw error;
+  }
+  if (seed.villageId !== configuredVillage.id) {
+    return NextResponse.json({ error: "This phone is not configured for the active Village." }, { status: 404 });
   }
 
   const now = new Date();

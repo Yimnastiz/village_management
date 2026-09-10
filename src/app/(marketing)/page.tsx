@@ -1,6 +1,30 @@
 import Link from "next/link";
-import { CalendarCheck, CalendarDays, FileDown, Images, MessageSquareWarning, Newspaper } from "lucide-react";
-import { getThaiGeographyHierarchy } from "@/lib/thai-geography";
-import { VillagePublicSearch } from "./village-public-search";
-const features=[{icon:Newspaper,title:"ข่าวสารชุมชน",description:"ติดตามประกาศ ข่าวสาร และข้อมูลสำคัญจากผู้ดูแลหมู่บ้านได้จากพื้นที่เดียว"},{icon:MessageSquareWarning,title:"แจ้งปัญหา",description:"แจ้งปัญหาภายในชุมชนและติดตามสถานะการดำเนินการได้อย่างเป็นระบบ"},{icon:CalendarCheck,title:"นัดหมายผู้ดูแล",description:"ส่งคำขอนัดหมายและติดตามสถานะการนัดหมายกับผู้ดูแลหมู่บ้านได้สะดวก"},{icon:CalendarDays,title:"ปฏิทินและกิจกรรม",description:"ดูวันสำคัญ กิจกรรม ประชุม และกำหนดการต่าง ๆ ของชุมชน"},{icon:Images,title:"แกลเลอรีชุมชน",description:"ชมภาพกิจกรรมและร่วมส่งภาพเข้าสู่อัลบั้มของหมู่บ้านที่เปิดรับ"},{icon:FileDown,title:"เอกสารดาวน์โหลด",description:"เข้าถึงแบบฟอร์ม ประกาศ คู่มือ และเอกสารสำคัญของหมู่บ้านได้ง่าย"}];
-export default function HomePage(){return <div><section className="bg-gradient-to-br from-green-800 to-green-950 pt-10 pb-14 text-white sm:pt-12 sm:pb-16 lg:pt-14 lg:pb-20"><div className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8"><h1 className="mx-auto max-w-4xl text-3xl font-bold leading-tight sm:text-4xl lg:text-5xl">หมู่บ้านอัจฉริยะ<br className="hidden sm:block"/> จัดการได้ง่ายขึ้นในที่เดียว</h1><p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-green-100 sm:text-lg">ติดตามข่าวสาร แจ้งปัญหา ดูกิจกรรม นัดหมายผู้ดูแล ดาวน์โหลดเอกสาร และเข้าถึงบริการของชุมชนได้สะดวกขึ้น พร้อมช่วยให้ผู้ดูแลหมู่บ้านทำงานอย่างเป็นระบบ โปร่งใส และใกล้ชิดกับลูกบ้านมากกว่าเดิม</p><div className="mx-auto mt-8 flex w-full max-w-md flex-col gap-3 sm:w-auto sm:max-w-none sm:flex-row sm:justify-center"><Link href="/auth/login" className="min-h-11 rounded-xl bg-white px-7 py-3 font-semibold text-green-800 hover:bg-green-50">เข้าสู่ระบบ</Link><Link href="/auth/register" className="min-h-11 rounded-xl border border-white/70 px-7 py-3 font-semibold hover:bg-white/10">สมัครสมาชิก</Link></div><VillagePublicSearch thaiGeography={getThaiGeographyHierarchy()}/></div></section><section className="bg-white py-14 sm:py-16"><div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><div className="mx-auto mb-8 max-w-2xl text-center"><h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">ฟีเจอร์สำหรับชุมชน</h2><p className="mt-3 text-gray-600">เครื่องมือสำคัญที่เชื่อมการสื่อสารและบริการของหมู่บ้านให้เป็นที่เดียว</p></div><div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{features.map(({icon:Icon,title,description})=><article key={title} className="rounded-xl border border-gray-200 p-5"><Icon aria-hidden="true" className="mb-4 h-5 w-5 text-green-700"/><h3 className="font-semibold text-gray-900">{title}</h3><p className="mt-2 text-sm leading-6 text-gray-600">{description}</p></article>)}</div><p className="mt-6 text-center text-sm text-gray-500">พร้อมข้อมูลสถานที่ ความโปร่งใส ช่องทางติดต่อ และบริการอื่น ๆ ของหมู่บ้าน</p></div></section><section className="bg-gray-50 py-14 sm:py-16"><div className="mx-auto max-w-3xl px-4 text-center"><h2 className="text-2xl font-bold text-gray-900">พร้อมเริ่มต้นใช้งานแล้วหรือยัง?</h2><p className="mt-3 text-gray-600">ค้นหาหมู่บ้านของคุณ หรือสมัครเพื่อใช้งานบริการของชุมชน</p><Link href="/auth/register" className="mt-7 inline-flex min-h-11 items-center rounded-xl bg-green-700 px-7 py-3 font-semibold text-white hover:bg-green-800">เริ่มต้นใช้งาน</Link></div></section></div>}
+import { ConfiguredVillageError, getConfiguredVillage } from "@/lib/configured-village";
+
+export default async function HomePage() {
+  try {
+    const village = await getConfiguredVillage();
+    const location = [village.subdistrict, village.district, village.province].filter(Boolean).join(" · ");
+
+    return (
+      <main className="bg-gradient-to-br from-green-800 to-green-950 px-4 py-20 text-white sm:py-28">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="text-sm font-medium text-green-200">Village Management System</p>
+          <h1 className="mt-3 text-4xl font-bold sm:text-5xl">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</h1>
+          {location ? <p className="mt-4 text-green-100">{location}</p> : null}
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-green-100">ข่าวสาร บริการ และพื้นที่ทำงานของหมู่บ้านนี้อยู่ในที่เดียว</p>
+          <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link href={`/${village.slug}`} className="rounded-xl bg-white px-6 py-3 font-semibold text-green-800 hover:bg-green-50">ดูข้อมูลหมู่บ้าน</Link>
+            <Link href="/auth/login" className="rounded-xl border border-white/70 px-6 py-3 font-semibold hover:bg-white/10">เข้าสู่ระบบ</Link>
+            <Link href="/auth/register" className="rounded-xl border border-white/70 px-6 py-3 font-semibold hover:bg-white/10">สมัครสมาชิก</Link>
+          </div>
+        </div>
+      </main>
+    );
+  } catch (error) {
+    if (error instanceof ConfiguredVillageError) {
+      return <main className="mx-auto max-w-xl px-4 py-20"><div className="rounded-2xl border border-amber-200 bg-amber-50 p-6"><h1 className="text-xl font-semibold text-amber-950">ระบบยังไม่พร้อมใช้งาน</h1><p className="mt-2 text-sm leading-6 text-amber-900">กรุณาติดต่อผู้ดูแลระบบเพื่อตรวจสอบการตั้งค่าหมู่บ้าน</p></div></main>;
+    }
+    throw error;
+  }
+}

@@ -19,7 +19,7 @@ export default async function ContactDetailPage({ params }: PageProps) {
   if (!isAdminUser(session)) redirect("/resident");
 
   const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
+    where: { userId: session.id, villageId: session.activeVillageId!, status: "ACTIVE" },
     select: { villageId: true },
   });
   if (!membership) redirect("/auth/login");

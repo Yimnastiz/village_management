@@ -19,7 +19,7 @@ export default async function Page({ searchParams }: PageProps) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
   if (!isAdminUser(session)) redirect("/resident");
-  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, status: "ACTIVE" }, select: { villageId: true } });
+  const membership = await prisma.villageMembership.findFirst({ where: { userId: session.id, villageId: session.activeVillageId!, status: "ACTIVE" }, select: { villageId: true } });
   if (!membership) redirect("/auth/login");
 
   const keyword = params.q?.trim() ?? "";

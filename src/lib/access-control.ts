@@ -3,6 +3,7 @@ import { AccountStatus, MembershipStatus, Prisma, VillageMembershipRole } from "
 import { prisma } from "@/lib/prisma";
 import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
+import { getConfiguredVillage } from "@/lib/configured-village";
 
 export const ADMIN_MEMBERSHIP_ROLES = [
   VillageMembershipRole.HEADMAN,
@@ -98,6 +99,21 @@ async function loadAuthSession(unsignedToken: string): Promise<AuthSessionWithUs
   });
 }
 
+async function toConfiguredSessionContext(session: AuthSessionWithUser): Promise<SessionContext> {
+  const configuredVillage = await getConfiguredVillage();
+  return {
+    id: session.user.id,
+    phoneNumber: session.user.phoneNumber,
+    name: session.user.name,
+    accountStatus: session.user.accountStatus,
+    citizenVerifiedAt: session.user.citizenVerifiedAt,
+    activeVillageId: configuredVillage.id,
+    memberships: session.user.memberships
+      .filter((membership) => membership.villageId === configuredVillage.id)
+      .map((membership) => ({ villageId: membership.villageId, villageSlug: membership.village?.slug ?? null, houseId: membership.houseId, role: membership.role, status: membership.status })),
+  };
+}
+
 export async function getSessionContextByToken(token: string | null): Promise<SessionContext | null> {
   if (!token) {
     return null;
@@ -135,21 +151,7 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
   }
   if (session.user.accountStatus !== AccountStatus.ACTIVE) return null;
 
-  return {
-    id: session.user.id,
-    phoneNumber: session.user.phoneNumber,
-    name: session.user.name,
-    accountStatus: session.user.accountStatus,
-    citizenVerifiedAt: session.user.citizenVerifiedAt,
-    activeVillageId: session.activeVillageId ?? null,
-    memberships: session.user.memberships.map((membership) => ({
-      villageId: membership.villageId,
-      villageSlug: membership.village?.slug ?? null,
-      houseId: membership.houseId,
-      role: membership.role,
-      status: membership.status,
-    })),
-  };
+  return toConfiguredSessionContext(session);
 }
 
 export async function getSessionContextFromServerCookies(): Promise<SessionContext | null> {
@@ -186,24 +188,7 @@ export async function getDuplicateAccountRoutingStateByToken(
     return { kind: "RESTRICTED_SESSION" };
   }
 
-  return {
-    kind: "ACTIVE_SESSION",
-    session: {
-      id: session.user.id,
-      phoneNumber: session.user.phoneNumber,
-      name: session.user.name,
-      accountStatus: session.user.accountStatus,
-      citizenVerifiedAt: session.user.citizenVerifiedAt,
-      activeVillageId: session.activeVillageId ?? null,
-      memberships: session.user.memberships.map((membership) => ({
-        villageId: membership.villageId,
-        villageSlug: membership.village?.slug ?? null,
-        houseId: membership.houseId,
-        role: membership.role,
-        status: membership.status,
-      })),
-    },
-  };
+  return { kind: "ACTIVE_SESSION", session: await toConfiguredSessionContext(session) };
 }
 
 export async function getDuplicateAccountRoutingStateFromServerCookies(): Promise<DuplicateAccountRoutingState> {
@@ -341,12 +326,15 @@ export async function getResidentVillageAccess(session: SessionContext) {
     where: { id: session.id },
     select: { registrationVillageId: true },
   });
-  return user?.registrationVillageId
-    ? { villageId: user.registrationVillageId, hasResidentAccess: false } as const
+  const configuredVillage = await getConfiguredVillage();
+  return user?.registrationVillageId === configuredVillage.id
+    ? { villageId: configuredVillage.id, hasResidentAccess: false } as const
     : null;
 }
 
 export async function setActiveVillageForCurrentSession(villageId: string): Promise<boolean> {
+  const configuredVillage = await getConfiguredVillage();
+  if (villageId !== configuredVillage.id) return false;
   const token = await readSessionCookieFromServer();
 
   if (!token) {
@@ -360,9 +348,7 @@ export async function setActiveVillageForCurrentSession(villageId: string): Prom
     return false;
   }
 
-  const canAccessVillage = session.user.memberships.some(
-    (membership) => membership.status === MembershipStatus.ACTIVE && membership.villageId === villageId
-  );
+  const canAccessVillage = session.user.memberships.some((membership) => membership.status === MembershipStatus.ACTIVE && membership.villageId === configuredVillage.id);
 
   if (!canAccessVillage) {
     return false;
@@ -407,6 +393,7 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
     where: {
       userId: session.id,
       role: VillageMembershipRole.RESIDENT,
+      villageId: session.activeVillageId ?? undefined,
     },
     orderBy: { updatedAt: "desc" },
     select: {
@@ -460,6 +447,7 @@ export async function getResidentAreaAccessInfo(session: SessionContext): Promis
     where: {
       userId: session.id,
       role: VillageMembershipRole.RESIDENT,
+      villageId: session.activeVillageId ?? undefined,
     },
     orderBy: { updatedAt: "desc" },
     select: {
