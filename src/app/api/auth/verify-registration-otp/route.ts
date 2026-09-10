@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
     const user = await tx.user.create({
       data: {
-        phoneNumber, phoneNumberVerified: true, name: currentDraft.name, systemRole: "USER",
+        phoneNumber, phoneNumberVerified: true, name: currentDraft.name,
         registrationProvince: currentDraft.province, registrationDistrict: currentDraft.district,
         registrationSubdistrict: currentDraft.subdistrict, registrationVillageId: currentDraft.villageId,
         citizenVerifiedAt: null, consentAt: now,

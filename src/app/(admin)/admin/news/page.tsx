@@ -68,7 +68,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       publishedAt: true,
       createdAt: true,
       author: {
-        select: { name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
+        select: { name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
       },
     },
   }), getPendingNewsSubmissionCount(membership.villageId), getActiveSystemBroadcastTickerItems(session.id, "admin")]);
@@ -96,7 +96,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               metadata={<NewsMetadata stage={news.stage} visibility={news.visibility} isPinned={news.isPinned} showPinned={false} />}
-              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
+              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.memberships[0]?.role)}`}
             />
           ))}
         </div>

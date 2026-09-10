@@ -35,7 +35,6 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
       createdBy: {
         select: {
           name: true,
-          systemRole: true,
           memberships: {
             where: { villageId: village.id, status: "ACTIVE" },
             select: { role: true },

@@ -8,6 +8,7 @@ import {
   VillagePermissionError,
 } from "../src/lib/village-permissions.ts";
 import { getActionPolicy, requireActionReason, ActionReasonError } from "../src/lib/sensitive-action-policy.ts";
+import { getLegacyActorRoleLabel } from "../src/lib/legacy-actor-role.ts";
 
 const HEADMAN = "HEADMAN";
 const ASSISTANT = "ASSISTANT_HEADMAN";
@@ -43,6 +44,10 @@ test("server permission guard denies every bypassed Assistant action", () => {
   for (const permission of ["population.import", "news.manage", "binding.review", "members.status.manage"]) {
     assert.throws(() => requireVillagePermission({ role: ASSISTANT }, permission), VillagePermissionError);
   }
+});
+
+test("legacy Assistant metadata retains its historical Thai label", () => {
+  assert.equal(getLegacyActorRoleLabel("ASSISTANT_HEADMAN"), "ผู้ช่วยผู้ใหญ่บ้าน");
 });
 
 test("binding approval policy distinguishes routine and override decisions", () => {

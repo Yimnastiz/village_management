@@ -1,16 +1,11 @@
 type CalendarPerson = {
   name?: string | null;
-  systemRole?: string | null;
   memberships?: Array<{ role?: string | null }>;
 };
 
-const privilegedRoleLabels: Record<string, string> = {
+const membershipRoleLabels: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
-  DEPUTY_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
-  ADMIN: "เจ้าหน้าที่",
-  STAFF: "เจ้าหน้าที่",
-  SUPERADMIN: "ผู้ดูแลระบบสูงสุด",
+  RESIDENT: "ลูกบ้าน",
 };
 
 export function formatCalendarPerson(
@@ -21,8 +16,8 @@ export function formatCalendarPerson(
   if (!name) return fallback;
 
   const membershipRole = person?.memberships?.[0]?.role ?? null;
-  const role = membershipRole && membershipRole !== "RESIDENT" ? membershipRole : person?.systemRole;
-  const position = role ? privilegedRoleLabels[role] : undefined;
+  const role = membershipRole;
+  const position = role ? membershipRoleLabels[role] : undefined;
 
   return position ? `${name} (${position})` : name;
 }

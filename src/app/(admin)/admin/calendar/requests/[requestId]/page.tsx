@@ -57,7 +57,6 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
         where: { id: request.reviewedBy },
         select: {
           name: true,
-          systemRole: true,
           memberships: {
             where: { villageId: membership.villageId, status: "ACTIVE" },
             select: { role: true },

@@ -95,7 +95,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
         authorId: true,
         author: {
           select: {
-            name: true, systemRole: true, memberships: {
+            name: true, memberships: {
               where: {
                 villageId: membership.villageId,
                 status: "ACTIVE",
@@ -160,7 +160,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               metadata={<NewsMetadata visibility={news.visibility} isPinned={news.isPinned} showPinned={false} showStage={false} />}
-              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}`}
+              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.memberships[0]?.role)}`}
             />
           ))}
         </div>

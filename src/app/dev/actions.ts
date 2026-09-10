@@ -2,7 +2,6 @@
 
 import {
   MembershipStatus,
-  SystemRole,
   VillageMembershipRole,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -37,12 +36,6 @@ function parseActiveMembershipRole(
   if (value === VillageMembershipRole.HEADMAN) return VillageMembershipRole.HEADMAN;
   if (value === VillageMembershipRole.RESIDENT) return VillageMembershipRole.RESIDENT;
   throw new Error("Only HEADMAN and RESIDENT are valid development membership roles.");
-}
-
-function rejectSystemRoleInput(value: FormDataEntryValue | null): void {
-  if (toNonEmptyString(value)) {
-    throw new Error("System role assignment is no longer available in development tools.");
-  }
 }
 
 export type VillageActionState = { success: boolean; message: string };
@@ -168,7 +161,6 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
     throw new Error("Invalid phone number format.");
   }
 
-  rejectSystemRoleInput(formData.get("systemRole"));
   const membershipRole = parseActiveMembershipRole(membershipRoleRaw);
 
   await prisma.phoneRoleSeed.upsert({
@@ -183,7 +175,6 @@ export async function upsertPhoneRoleSeedAction(formData: FormData) {
       phoneNumber,
       villageId,
       membershipRole,
-      systemRole: null,
       note,
       isCitizenVerified,
     },
@@ -202,8 +193,6 @@ export async function updateUserRoleAction(formData: FormData) {
   if (!userId) {
     throw new Error("Missing userId.");
   }
-
-  rejectSystemRoleInput(formData.get("systemRole"));
 
   if (villageId) {
     const membershipRole = parseActiveMembershipRole(membershipRoleRaw);
@@ -240,7 +229,6 @@ export async function updateUserRoleAction(formData: FormData) {
 
 export async function registerAdminAction(formData: FormData) {
   assertDevelopment();
-  rejectSystemRoleInput(formData.get("systemRole"));
   const rawPhone = toNonEmptyString(formData.get("phoneNumber"));
   const adminName = toNonEmptyString(formData.get("adminName"));
   const adminLastName = toNonEmptyString(formData.get("lastName"));
@@ -295,7 +283,6 @@ export async function registerAdminAction(formData: FormData) {
         phoneNumber,
         phoneNumberVerified: true,
         name: fullName,
-        systemRole: SystemRole.USER,
         citizenVerifiedAt: new Date(),
       },
     });
@@ -389,7 +376,6 @@ export async function registerAdminAction(formData: FormData) {
     update: {
       villageId,
       membershipRole,
-      systemRole: null,
       isCitizenVerified: true,
       note: `Admin: ${adminName} (${membershipRole})`,
     },
@@ -600,7 +586,6 @@ export async function importResidentSeedAction(formData: FormData) {
       update: {
         villageId,
         membershipRole: VillageMembershipRole.RESIDENT,
-        systemRole: null,
         isCitizenVerified,
         note:
           note ??

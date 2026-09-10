@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { AccountStatus, MembershipStatus, Prisma, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AccountStatus, MembershipStatus, Prisma, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
@@ -15,7 +15,6 @@ export type SessionContext = {
   phoneNumber: string;
   name: string;
   accountStatus: AccountStatus;
-  systemRole: SystemRole;
   citizenVerifiedAt: Date | null;
   activeVillageId: string | null;
   memberships: Array<{
@@ -141,7 +140,6 @@ export async function getSessionContextByToken(token: string | null): Promise<Se
     phoneNumber: session.user.phoneNumber,
     name: session.user.name,
     accountStatus: session.user.accountStatus,
-    systemRole: session.user.systemRole,
     citizenVerifiedAt: session.user.citizenVerifiedAt,
     activeVillageId: session.activeVillageId ?? null,
     memberships: session.user.memberships.map((membership) => ({
@@ -195,7 +193,6 @@ export async function getDuplicateAccountRoutingStateByToken(
       phoneNumber: session.user.phoneNumber,
       name: session.user.name,
       accountStatus: session.user.accountStatus,
-      systemRole: session.user.systemRole,
       citizenVerifiedAt: session.user.citizenVerifiedAt,
       activeVillageId: session.activeVillageId ?? null,
       memberships: session.user.memberships.map((membership) => ({
@@ -275,7 +272,7 @@ export function canReviewBinding(role: VillageMembershipRole): boolean {
 }
 
 export function isSuperAdminUser(session: SessionContext): boolean {
-  // SUPERADMIN is retained in the database enum only for migration compatibility.
+  // Super Admin is a legacy historical label, never a browser-authenticated role.
   // Browser-authenticated users never receive SuperAdmin access.
   void session;
   return false;

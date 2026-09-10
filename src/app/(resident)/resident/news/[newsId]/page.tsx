@@ -39,7 +39,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
       include: {
         author: {
           select: {
-            name: true, systemRole: true,
+            name: true,
             memberships: {
               where: {
                 villageId: membership.villageId,
@@ -96,7 +96,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
             {sourceLabel} · {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            ผู้สร้างข่าว: {formatNewsAuthor(news.author?.name, news.author?.systemRole, news.author?.memberships[0]?.role)}
+            ผู้สร้างข่าว: {formatNewsAuthor(news.author?.name, news.author?.memberships[0]?.role)}
           </p>
           {news.summary && <p className="text-sm text-gray-600 mt-3">{news.summary}</p>}
         </div>

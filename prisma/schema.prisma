@@ -8,14 +8,8 @@ datasource db {
 
 // ========== ENUMS ==========
 
-enum SystemRole {
-  SUPERADMIN
-  USER
-}
-
 enum VillageMembershipRole {
   HEADMAN
-  ASSISTANT_HEADMAN
   RESIDENT
 }
 
@@ -300,7 +294,6 @@ model User {
   email                      String?       @unique
   emailVerified              Boolean       @default(false)
   image                      String?
-  systemRole                 SystemRole    @default(USER)
   registrationProvince       String?
   registrationDistrict       String?
   registrationSubdistrict    String?
@@ -328,7 +321,7 @@ model User {
   bindingRequests         BindingRequest[]
   contactRequests         ContactRequest[]
   notifications           Notification[]
-  systemBroadcastsCreated SystemBroadcast[] @relation("SystemBroadcastCreator")
+  systemBroadcastsCreated SystemBroadcast[]        @relation("SystemBroadcastCreator")
   auditLogs               AuditLog[]
   savedItems              SavedItem[]
   authoredNews            News[]
@@ -428,10 +421,10 @@ model Village {
   authSessions            AuthSession[]
   importJobs              PopulationImportJob[]
   auditLogs               AuditLog[]
-  registeredUsers         User[]                       @relation("UserRegistrationVillage")
+  registeredUsers         User[]                   @relation("UserRegistrationVillage")
   phoneRoleSeeds          PhoneRoleSeed[]
   bindingRequests         BindingRequest[]
-  catalogVillage          ThailandVillageMaster?       @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
+  catalogVillage          ThailandVillageMaster?   @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
 
   @@unique([province, district, subdistrict, moo], map: "village_area_moo_key")
   @@index([slug])
@@ -530,12 +523,12 @@ model House {
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
-  village            Village                      @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  zone               VillageZone?                 @relation(fields: [zoneId], references: [id])
-  persons            Person[]
-  memberships        VillageMembership[]
-  bindingRequests    BindingRequest[]
-  movementHistory    PersonMovement[]
+  village         Village             @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  zone            VillageZone?        @relation(fields: [zoneId], references: [id])
+  persons         Person[]
+  memberships     VillageMembership[]
+  bindingRequests BindingRequest[]
+  movementHistory PersonMovement[]
 
   @@unique([villageId, normalizedHouseNumber])
   @@index([villageId])
@@ -1213,8 +1206,8 @@ model SystemBroadcast {
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt
 
-  createdBy    User?          @relation("SystemBroadcastCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  village      Village?       @relation(fields: [villageId], references: [id], onDelete: SetNull)
+  createdBy     User?          @relation("SystemBroadcastCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  village       Village?       @relation(fields: [villageId], references: [id], onDelete: SetNull)
   notifications Notification[]
 
   @@index([createdAt])
@@ -1388,7 +1381,6 @@ model PhoneRoleSeed {
   phoneNumber       String                @unique
   villageId         String?
   membershipRole    VillageMembershipRole @default(RESIDENT)
-  systemRole        SystemRole?
   isCitizenVerified Boolean               @default(true)
   note              String?
   createdAt         DateTime              @default(now())

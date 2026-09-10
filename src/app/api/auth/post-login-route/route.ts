@@ -15,7 +15,6 @@ export async function GET(request: NextRequest) {
     if (duplicateSession) {
       return NextResponse.json({
         landingPath: "/auth/account-duplicate",
-        systemRole: null,
         isAdmin: false,
         isResident: false,
         citizenVerified: false,
@@ -29,7 +28,6 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     landingPath,
-    systemRole: session.systemRole,
     isAdmin: isAdminUser(session),
     isResident: isResidentUser(session),
     citizenVerified: Boolean(session.citizenVerifiedAt),

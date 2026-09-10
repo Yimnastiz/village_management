@@ -237,7 +237,6 @@ export default async function DevPage() {
                 <th className="px-3 py-2">Phone</th>
                 <th className="px-3 py-2">Village</th>
                 <th className="px-3 py-2">Membership Role</th>
-                <th className="px-3 py-2">System Role</th>
                 <th className="px-3 py-2">Citizen Verified</th>
                 <th className="px-3 py-2">Note</th>
               </tr>
@@ -250,14 +249,13 @@ export default async function DevPage() {
                     {seed.village ? `${seed.village.name} (${seed.village.slug})` : "-"}
                   </td>
                   <td className="px-3 py-2">{seed.membershipRole}</td>
-                  <td className="px-3 py-2">{seed.systemRole ?? "-"}</td>
                   <td className="px-3 py-2">{seed.isCitizenVerified ? "yes" : "no"}</td>
                   <td className="px-3 py-2 text-gray-600">{seed.note ?? "-"}</td>
                 </tr>
               ))}
               {seeds.length === 0 && (
                 <tr>
-                  <td className="px-3 py-3 text-gray-500" colSpan={6}>
+                  <td className="px-3 py-3 text-gray-500" colSpan={5}>
                     No phone seed data yet.
                   </td>
                 </tr>
@@ -270,7 +268,7 @@ export default async function DevPage() {
       <section className="rounded-xl border border-gray-200 bg-white p-6">
         <h2 className="text-lg font-semibold text-gray-900">3) User and Role Management</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Update system role and active membership mapping per user.
+          Update active village-membership mapping per user.
         </p>
 
         <div className="mt-4 overflow-x-auto">

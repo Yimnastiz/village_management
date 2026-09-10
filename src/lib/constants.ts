@@ -88,7 +88,6 @@ export const VILLAGE_PLACE_SUBMISSION_TYPE_LABELS: Record<string, string> = {
 
 export const MEMBERSHIP_ROLE_LABELS: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
   RESIDENT: "ลูกบ้าน",
 };
 

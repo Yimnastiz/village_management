@@ -1,4 +1,5 @@
 import type { AuditAction, Prisma } from "@prisma/client";
+import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
 
 export type AuditEventCategory = "CREATE" | "UPDATE" | "DELETE" | "REVIEW" | "AUTH" | "SECURITY";
 export type AuditEventTone = "success" | "info" | "danger" | "warning" | "neutral";
@@ -16,6 +17,7 @@ export type FormattedAuditEvent = {
   tone: AuditEventTone;
   icon: AuditEventIcon;
   resourceLabel: string;
+  actorRole: string | null;
   targetFromMetadata: string | null;
   changes: Array<{ label: string; before: string | null; after: string | null }>;
   reason: string | null;
@@ -49,7 +51,7 @@ export function auditModuleLabel(module: string) {
 }
 
 export function auditActorRoleLabel(role?: string | null) {
-  return ({ HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", SUPERADMIN: "ผู้ดูแลระบบระดับสูง", ADMIN: "ผู้ดูแลระบบระดับสูง", USER: "ผู้ใช้งาน", RESIDENT: "ลูกบ้าน" } as Record<string, string>)[role ?? ""] ?? role ?? null;
+  return getLegacyActorRoleLabel(role) ?? role ?? null;
 }
 
 const resourceLabels: Record<string, string> = {
@@ -281,6 +283,7 @@ export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
     label: actionName === "HOUSE_BATCH_CREATED" && typeof metadata.count === "number" ? `เพิ่มบ้าน ${metadata.count} หลัง` : actionName && actionNameLabels[actionName] ? actionNameLabels[actionName] : fallbackLabel(input.action, resourceLabel),
     ...classify(input.action, input.resource),
     resourceLabel,
+    actorRole,
     targetFromMetadata: targetFromMetadata ?? null,
     changes: usefulChanges(metadata),
     reason,

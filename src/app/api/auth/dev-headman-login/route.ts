@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { AccountStatus, MembershipStatus, SystemRole, VillageMembershipRole } from "@prisma/client";
+import { AccountStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { computeLandingPath } from "@/lib/access-control";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
@@ -52,7 +52,6 @@ export async function POST(request: NextRequest) {
     where: { phoneNumber },
     update: {
       phoneNumberVerified: true,
-      systemRole: SystemRole.USER,
       citizenVerifiedAt: seed.isCitizenVerified ? now : null,
       registrationVillageId: seed.villageId,
       name: phoneNumber,
@@ -60,7 +59,6 @@ export async function POST(request: NextRequest) {
     create: {
       phoneNumber,
       phoneNumberVerified: true,
-      systemRole: SystemRole.USER,
       citizenVerifiedAt: seed.isCitizenVerified ? now : null,
       registrationVillageId: seed.villageId,
       name: phoneNumber,
@@ -108,7 +106,6 @@ export async function POST(request: NextRequest) {
     name: user.name,
     phoneNumber: user.phoneNumber,
     accountStatus: AccountStatus.ACTIVE,
-    systemRole: user.systemRole,
     citizenVerifiedAt: user.citizenVerifiedAt,
     activeVillageId: seed.villageId,
     memberships: [

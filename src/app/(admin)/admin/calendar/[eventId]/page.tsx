@@ -30,7 +30,6 @@ export default async function VillageEventDetailPage({ params }: PageProps) {
       createdBy: {
         select: {
           name: true,
-          systemRole: true,
           memberships: {
             where: { villageId: membership.villageId, status: "ACTIVE" },
             select: { role: true },

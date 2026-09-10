@@ -59,10 +59,10 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
   // Deliberately exclude phoneNumber: this object is serialized to the resident client view.
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
-    select: { id: true, name: true, systemRole: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } },
+    select: { id: true, name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
-  const superAdminDisplay = { name: "Super Admin", systemRole: "SUPERADMIN", memberships: [] };
+  const superAdminDisplay = { name: "Super Admin", legacyRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const timelineItems = issue.timeline.map((item) => {
     const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;

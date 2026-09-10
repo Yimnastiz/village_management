@@ -6,4 +6,4 @@ The active actors are exactly:
 2. Resident
 3. Headman
 
-Headman is the sole active `/admin` administrator. `ASSISTANT_HEADMAN` and `SUPERADMIN` values remain temporarily in the Prisma schema and historical records for later Phase 4C migration, but grant no runtime privileges.
+Headman is the sole active `/admin` administrator. The live Prisma membership enum contains only `HEADMAN` and `RESIDENT`; there is no `SystemRole` field or enum. Historical metadata may still contain legacy Assistant and Super Admin strings for presentation only, and those strings grant no runtime privileges.

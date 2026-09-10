@@ -4,14 +4,13 @@ import type { Prisma, VillageMembershipRole } from "@prisma/client";
 import { Clock } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
+import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
 import { Badge } from "@/components/ui/badge";
 import { APPOINTMENT_STAGE_LABELS } from "@/lib/constants";
 import { formatThaiDate, formatThaiDateTime } from "@/lib/utils";
 import { ProposeTimeForm } from "./propose-time-form";
 import { AppointmentStatusActions } from "./appointment-status-actions";
 import { AppointmentTimeline } from "@/components/appointments/appointment-timeline";
-
-const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", RESIDENT: "ลูกบ้าน" };
 
 function getAppointmentSource(timeline: Array<{ action: string; actorId: string | null; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }>) {
   const entry = timeline[0]; const actor = entry?.actor;
@@ -20,8 +19,8 @@ function getAppointmentSource(timeline: Array<{ action: string; actorId: string 
   const name = typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
   if (!name) return { label: null, isAdminCreated: metadata?.adminCreated === true, creatorId: entry.actorId };
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
-  if (metadata?.adminCreated === true) return { label: `สร้างโดย ${name} (${ROLE_LABELS[role as VillageMembershipRole] ?? "เจ้าหน้าที่"})`, isAdminCreated: true, creatorId: entry.actorId };
-  if (entry.action === "CREATED") return { label: `ส่งคำขอโดย ${name} (${ROLE_LABELS[role as VillageMembershipRole] ?? "ลูกบ้าน"})`, isAdminCreated: false, creatorId: null };
+  if (metadata?.adminCreated === true) return { label: `สร้างโดย ${name} (${getLegacyActorRoleLabel(role) ?? "เจ้าหน้าที่"})`, isAdminCreated: true, creatorId: entry.actorId };
+  if (entry.action === "CREATED") return { label: `ส่งคำขอโดย ${name} (${getLegacyActorRoleLabel(role) ?? "ลูกบ้าน"})`, isAdminCreated: false, creatorId: null };
   return { label: null, isAdminCreated: false, creatorId: null };
 }
 
@@ -64,7 +63,7 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const cancellationReason = stringValue(cancellationMetadata, "reason");
   const cancellationMembership = cancellationEntry?.actor?.memberships.find((item) => item.villageId === appointment.villageId);
   const cancellationActorName = cancellationEntry?.actor?.name || cancellationEntry?.actor?.email || null;
-  const cancellationActor = cancellationActorName ? `${cancellationActorName}${cancellationMembership ? ` (${ROLE_LABELS[cancellationMembership.role] ?? "ผู้ดำเนินการ"})` : ""}` : null;
+  const cancellationActor = cancellationActorName ? `${cancellationActorName}${cancellationMembership ? ` (${getLegacyActorRoleLabel(cancellationMembership.role) ?? "ผู้ดำเนินการ"})` : ""}` : null;
   return <div className="mx-auto max-w-3xl space-y-5">
     <Link href="/admin/appointments" className="text-sm text-gray-500 hover:text-gray-800">← กลับไปรายการนัดหมาย</Link>
     <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">

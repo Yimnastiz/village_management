@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
+import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Prisma, type VillageMembershipRole } from "@prisma/client";
@@ -95,8 +96,6 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   return { appointments, totalCount };
 }
 
-const ROLE_LABELS: Partial<Record<VillageMembershipRole, string>> = { HEADMAN: "ผู้ใหญ่บ้าน", ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน", RESIDENT: "ลูกบ้าน" };
-
 function getAppointmentSource(appointment: { timeline: Array<{ action: string; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }> }) {
   const entry = appointment.timeline[0];
   const actor = entry?.actor;
@@ -105,8 +104,8 @@ function getAppointmentSource(appointment: { timeline: Array<{ action: string; m
   const name = typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
   if (!name) return null;
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
-  if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${ROLE_LABELS[role as VillageMembershipRole] ?? "เจ้าหน้าที่"})`;
-  if (entry.action === "CREATED") return `ส่งคำขอโดย ${name} (${ROLE_LABELS[role as VillageMembershipRole] ?? "ลูกบ้าน"})`;
+  if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${getLegacyActorRoleLabel(role) ?? "เจ้าหน้าที่"})`;
+  if (entry.action === "CREATED") return `ส่งคำขอโดย ${name} (${getLegacyActorRoleLabel(role) ?? "ลูกบ้าน"})`;
   return null;
 }
 

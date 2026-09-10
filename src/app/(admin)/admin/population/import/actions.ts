@@ -680,7 +680,6 @@ async function importRowIntoVillage(
         update: {
           villageId: ctx.villageId,
           membershipRole: VillageMembershipRole.RESIDENT,
-          systemRole: null,
           isCitizenVerified: false,
           note:
             row.note ?? `Imported from admin population import / house ${row.houseNumber}`,

@@ -55,12 +55,12 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
     select: {
-      id: true, name: true, phoneNumber: true, systemRole: true,
+      id: true, name: true, phoneNumber: true,
       memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 },
     },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
-  const superAdminDisplay = { name: "Super Admin", phoneNumber: "", systemRole: "SUPERADMIN", memberships: [] };
+  const superAdminDisplay = { name: "Super Admin", phoneNumber: "", legacyRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const initialTimeline = issue.timeline[0];
   const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
@@ -200,7 +200,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   );
 }
 
-function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: { name: string; phoneNumber: string; systemRole: string; memberships: { role: string }[] }; internal?: boolean }) {
+function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: { name: string; phoneNumber: string; legacyRole?: string; memberships: { role: string }[] }; internal?: boolean }) {
   return <div className={`rounded-xl border p-3 text-sm sm:p-4 ${internal ? "border-amber-100 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
     <p className="break-words font-medium text-gray-900">{getUserDisplayName(user)} <span className="font-normal text-gray-500">· {user ? getUserRoleLabel(user) : "ผู้ใช้งาน"}</span></p>
     <p className="mt-1 text-xs text-gray-500">{user?.phoneNumber ? <a className="hover:underline" href={`tel:${user.phoneNumber}`}>{user.phoneNumber}</a> : "ไม่พบข้อมูลผู้ใช้งาน"}</p>

@@ -1,6 +1,5 @@
 export const MEMBER_ROLE_LABEL: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
   RESIDENT: "ลูกบ้าน",
 };
 
