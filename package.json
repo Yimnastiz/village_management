@@ -12,6 +12,7 @@
     "lint": "eslint",
     "setup": "node scripts/setup.mjs",
     "setup:db": "node scripts/setup.mjs --database-only",
+    "setup:bootstrap": "node scripts/bootstrap-village-headman.mjs",
     "identity:backfill": "node scripts/backfill-resident-identity.mjs",
     "identity:duplicate-report": "node scripts/report-duplicate-identity.mjs",
     "population:legacy-registration-report": "node scripts/report-legacy-registration-person-placeholders.mjs",
