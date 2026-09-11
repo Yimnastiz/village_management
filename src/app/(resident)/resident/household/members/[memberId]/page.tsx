@@ -46,15 +46,8 @@ export default async function MemberDetailPage({ params }: PageProps) {
 
   const residency = getResidentMembership(session);
 
-  // Get the current user's primary active house
-  const primaryHouse = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: MembershipStatus.ACTIVE },
-    orderBy: { updatedAt: "desc" },
-    select: { houseId: true },
-  });
-
-  const effectiveHouseId = residency?.houseId ?? primaryHouse?.houseId;
-  if (!effectiveHouseId) notFound();
+  if (!residency?.houseId) notFound();
+  const effectiveHouseId = residency.houseId;
 
   // Parse memberId: format is "person-{id}" or "membership-{id}"
   const dashIdx = memberId.indexOf("-");
@@ -81,7 +74,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
 
   if (type === "person") {
     const person = await prisma.person.findFirst({
-      where: { id: actualId, houseId: effectiveHouseId },
+      where: { id: actualId, houseId: effectiveHouseId, villageId: residency.villageId },
       select: {
         firstName: true,
         lastName: true,
@@ -113,7 +106,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
     };
   } else if (type === "membership") {
     const membership = await prisma.villageMembership.findFirst({
-      where: { id: actualId, houseId: effectiveHouseId, status: MembershipStatus.ACTIVE },
+      where: { id: actualId, houseId: effectiveHouseId, villageId: residency.villageId, status: MembershipStatus.ACTIVE },
       include: {
         user: { select: { name: true, phoneNumber: true, email: true, image: true } },
         house: { select: { houseNumber: true } },

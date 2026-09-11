@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminMembership, getResidentVillageAccess, getSessionContextFromRequest } from "@/lib/access-control";
+import { getConfiguredVillage } from "@/lib/configured-village";
+import { belongsToConfiguredVillage } from "@/lib/configured-village-resource-policy.js";
 import { readDownloadUpload } from "@/lib/download-upload.server";
 import { prisma } from "@/lib/prisma";
 import { hasVillagePermission } from "@/lib/village-permissions";
@@ -17,6 +19,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { attachmentId } = await params;
   const attachment = await prisma.downloadAttachment.findUnique({ where: { id: attachmentId }, include: { download: { select: { id: true, villageId: true, stage: true, visibility: true } } } });
   if (!attachment) return new NextResponse(null, { status: 404 });
+  const configuredVillage = await getConfiguredVillage().catch(() => null);
+  if (!configuredVillage || !belongsToConfiguredVillage(attachment.download.villageId, configuredVillage.id)) {
+    return new NextResponse(null, { status: 404 });
+  }
 
   const publicAllowed = attachment.download.stage === "PUBLISHED" && attachment.download.visibility === "PUBLIC";
   if (!session?.id && !publicAllowed) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });

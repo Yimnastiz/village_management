@@ -20,6 +20,7 @@ export default async function ResidentNotificationsPage() {
   const notifications = await prisma.notification.findMany({
     where: {
       userId: session.id,
+      villageId: session.activeVillageId ?? undefined,
     },
     orderBy: { createdAt: "desc" },
     take: 100,

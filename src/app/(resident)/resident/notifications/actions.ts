@@ -12,11 +12,11 @@ export async function markNotificationAsReadAction(notificationId: string) {
   }
 
   // Verify the notification belongs to this user
-  const notification = await prisma.notification.findUnique({
-    where: { id: notificationId },
+  const notification = await prisma.notification.findFirst({
+    where: { id: notificationId, userId: session.id, villageId: session.activeVillageId ?? undefined },
   });
 
-  if (!notification || notification.userId !== session.id) {
+  if (!notification) {
     throw new Error("Notification not found or unauthorized");
   }
 
@@ -42,6 +42,7 @@ export async function markAllNotificationsAsReadAction() {
   await prisma.notification.updateMany({
     where: {
       userId: session.id,
+      villageId: session.activeVillageId ?? undefined,
       status: NotificationStatus.UNREAD,
     },
     data: {

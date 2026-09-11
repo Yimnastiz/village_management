@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { NewsRequestForm } from "../../requests/request-form";
@@ -18,10 +18,7 @@ export default async function ResidentEditNewsRequestPage({ params, searchParams
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) redirect("/auth/login");
 
-  const membership = await prisma.villageMembership.findFirst({
-    where: { userId: session.id, status: "ACTIVE" },
-    select: { villageId: true },
-  });
+  const membership = getResidentMembership(session);
   if (!membership) redirect("/resident/dashboard");
 
   const news = await prisma.news.findFirst({

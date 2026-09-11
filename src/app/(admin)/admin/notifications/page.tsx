@@ -2,7 +2,7 @@ import { Bell } from "lucide-react";
 import { NotificationStatus } from "@prisma/client";
 import { EmptyState } from "@/components/ui/empty-state";
 import { AdminPageHeaderRegistration } from "@/components/layout/admin-page-header-context";
-import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { groupNotificationsByDate } from "@/lib/notification-presentation";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
@@ -13,9 +13,10 @@ const NOTIFICATION_GROUP_LABELS = { today: "วันนี้", yesterday: "เ
 
 export default async function AdminNotificationsPage() {
   const session = await getSessionContextFromServerCookies();
-  if (!session || !isAdminUser(session)) redirect("/auth/login");
+  const membership = session ? getAdminMembership(session) : null;
+  if (!session || !membership || !isAdminUser(session)) redirect("/auth/login");
 
-  const notifications = await prisma.notification.findMany({ where: { userId: session.id }, orderBy: { createdAt: "desc" }, take: 100 });
+  const notifications = await prisma.notification.findMany({ where: { userId: session.id, villageId: membership.villageId }, orderBy: { createdAt: "desc" }, take: 100 });
   const unreadCount = notifications.filter((notification) => notification.status === NotificationStatus.UNREAD).length;
   const groupedNotifications = groupNotificationsByDate(notifications);
 

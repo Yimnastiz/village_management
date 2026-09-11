@@ -278,7 +278,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
       take: 5,
     }),
     prisma.notification.count({
-      where: { userId: session.id, status: NotificationStatus.UNREAD },
+      where: { userId: session.id, villageId: membership.villageId, status: NotificationStatus.UNREAD },
     }),
     prisma.news.findMany({
       where: {

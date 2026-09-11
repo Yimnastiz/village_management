@@ -22,6 +22,7 @@ export default async function HouseholdPage() {
   const primaryMembership = await prisma.villageMembership.findFirst({
     where: {
       userId: session.id,
+      villageId: residentMembership.villageId,
       role: VillageMembershipRole.RESIDENT,
       status: MembershipStatus.ACTIVE,
       houseId: { not: null },
@@ -46,6 +47,7 @@ export default async function HouseholdPage() {
   const latestBindingRequest = await prisma.bindingRequest.findFirst({
     where: {
       userId: session.id,
+      villageId: residentMembership.villageId,
     },
     orderBy: { createdAt: "desc" },
     include: {
@@ -64,16 +66,9 @@ export default async function HouseholdPage() {
     },
   });
 
-  const linkedPerson = await prisma.person.findUnique({
-    where: { userId: session.id },
-    include: { house: { select: { id: true, houseNumber: true } } },
-  });
-
-  const resolvedHouseId = primaryMembership?.houseId ?? linkedPerson?.houseId ?? latestBindingRequest?.houseId ?? null;
-  const effectiveHouseId = residentMembership?.houseId ?? resolvedHouseId;
+  const effectiveHouseId = residentMembership.houseId;
   const resolvedHouseNumber =
     primaryMembership?.house?.houseNumber ??
-    linkedPerson?.house?.houseNumber ??
     latestBindingRequest?.house?.houseNumber ??
     latestBindingRequest?.houseNumber ??
     "-";
@@ -85,6 +80,7 @@ export default async function HouseholdPage() {
         prisma.person.findMany({
           where: {
             houseId: effectiveHouseId,
+            villageId: residentMembership.villageId,
           },
           orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
           select: {
@@ -97,6 +93,7 @@ export default async function HouseholdPage() {
         prisma.villageMembership.findMany({
           where: {
             houseId: effectiveHouseId,
+            villageId: residentMembership.villageId,
             status: MembershipStatus.ACTIVE,
           },
           include: {

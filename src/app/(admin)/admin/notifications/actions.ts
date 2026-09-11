@@ -2,21 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 import { NotificationStatus } from "@prisma/client";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 
 export async function markNotificationAsReadAction(notificationId: string) {
   const session = await getSessionContextFromServerCookies();
-  if (!session) {
+  const membership = session ? getAdminMembership(session) : null;
+  if (!session || !membership) {
     throw new Error("Unauthorized");
   }
 
   // Verify the notification belongs to this user
-  const notification = await prisma.notification.findUnique({
-    where: { id: notificationId },
+  const notification = await prisma.notification.findFirst({
+    where: { id: notificationId, userId: session.id, villageId: membership.villageId },
   });
 
-  if (!notification || notification.userId !== session.id) {
+  if (!notification) {
     throw new Error("Notification not found or unauthorized");
   }
 
@@ -34,7 +35,8 @@ export async function markNotificationAsReadAction(notificationId: string) {
 
 export async function markAllNotificationsAsReadAction() {
   const session = await getSessionContextFromServerCookies();
-  if (!session) {
+  const membership = session ? getAdminMembership(session) : null;
+  if (!session || !membership) {
     throw new Error("Unauthorized");
   }
 
@@ -42,6 +44,7 @@ export async function markAllNotificationsAsReadAction() {
   await prisma.notification.updateMany({
     where: {
       userId: session.id,
+      villageId: membership.villageId,
       status: NotificationStatus.UNREAD,
     },
     data: {

@@ -31,7 +31,7 @@ export default async function AppointmentDetailPage({ params, searchParams }: Pa
   const { appointmentId } = await params;
   const query = searchParams ? await searchParams : {};
   const appointment = await prisma.appointment.findFirst({
-    where: { id: appointmentId, userId: session.id },
+    where: { id: appointmentId, userId: session.id, villageId: membership.villageId },
     include: { slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } } } },
   });
   if (!appointment) redirect("/resident/appointments");

@@ -16,7 +16,10 @@ const s3 = bucket ? new S3Client({
 }) : null;
 
 function secret() {
-  return process.env.DOWNLOAD_UPLOAD_SECRET || process.env.PLACE_UPLOAD_SECRET || process.env.BETTER_AUTH_SECRET || "development-download-upload-secret";
+  const configuredSecret = process.env.DOWNLOAD_UPLOAD_SECRET || process.env.PLACE_UPLOAD_SECRET || process.env.BETTER_AUTH_SECRET;
+  if (configuredSecret) return configuredSecret;
+  if (process.env.NODE_ENV !== "production") return "development-download-upload-secret";
+  throw new Error("DOWNLOAD_UPLOAD_SECRET, PLACE_UPLOAD_SECRET, or BETTER_AUTH_SECRET is required in production.");
 }
 
 function absolutePath(fileKey: string) {

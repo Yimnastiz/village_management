@@ -33,6 +33,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     prisma.notification.count({
       where: {
         userId: session.id,
+        villageId: adminMembership.villageId,
         status: NotificationStatus.UNREAD,
       },
     }),

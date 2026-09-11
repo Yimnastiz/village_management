@@ -16,7 +16,10 @@ const s3 = bucket ? new S3Client({
 }) : null;
 
 function secret() {
-  return process.env.PLACE_UPLOAD_SECRET || process.env.BETTER_AUTH_SECRET || "development-place-upload-secret";
+  const configuredSecret = process.env.PLACE_UPLOAD_SECRET || process.env.BETTER_AUTH_SECRET;
+  if (configuredSecret) return configuredSecret;
+  if (process.env.NODE_ENV !== "production") return "development-place-upload-secret";
+  throw new Error("PLACE_UPLOAD_SECRET or BETTER_AUTH_SECRET is required in production.");
 }
 
 function signature(payload: string) {

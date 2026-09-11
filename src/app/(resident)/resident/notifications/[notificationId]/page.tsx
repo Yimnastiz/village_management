@@ -17,11 +17,11 @@ export default async function ResidentNotificationDetailPage({ params }: PagePro
     redirect("/auth/login?callbackUrl=/resident/notifications");
   }
 
-  const notification = await prisma.notification.findUnique({
-    where: { id: notificationId },
+  const notification = await prisma.notification.findFirst({
+    where: { id: notificationId, userId: session.id, villageId: session.activeVillageId ?? undefined },
   });
 
-  if (!notification || notification.userId !== session.id) {
+  if (!notification) {
     notFound();
   }
 

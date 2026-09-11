@@ -2,6 +2,8 @@ import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
+import { getConfiguredVillage } from "@/lib/configured-village";
+import { configuredHeadmanLoginAuditWhere } from "@/lib/login-audit-policy.js";
 import { prisma } from "@/lib/prisma";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
@@ -156,8 +158,9 @@ export async function POST(request: NextRequest) {
     });
     // Only record a successful sign-in for an administrator's active village.
     // Failed OTP attempts remain intentionally out of the village activity feed.
+    const configuredVillage = await getConfiguredVillage();
     const adminMembership = await prisma.villageMembership.findFirst({
-      where: { userId: payload.user!.id!, status: "ACTIVE", role: "HEADMAN" },
+      where: configuredHeadmanLoginAuditWhere(payload.user!.id!, configuredVillage.id),
       select: { villageId: true },
     });
     if (adminMembership) await writeVillageAuditLog(prisma, { villageId: adminMembership.villageId, userId: payload.user!.id!, action: "LOGIN", resource: "AuthSession", resourceId: session!.id });

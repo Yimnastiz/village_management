@@ -65,7 +65,7 @@ export default async function AppointmentsPage({ searchParams }: PageProps) {
   const period = query.period === "upcoming" || query.period === "past" ? query.period : "all";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
   const allAppointments = await prisma.appointment.findMany({
-    where: { userId: session.id, ...(statuses.length ? { stage: { in: statuses } } : {}), ...(keyword ? { OR: [{ title: { contains: keyword, mode: "insensitive" as const } }, { description: { contains: keyword, mode: "insensitive" as const } }] } : {}) },
+    where: { userId: session.id, villageId: membership.villageId, ...(statuses.length ? { stage: { in: statuses } } : {}), ...(keyword ? { OR: [{ title: { contains: keyword, mode: "insensitive" as const } }, { description: { contains: keyword, mode: "insensitive" as const } }] } : {}) },
     include: { slot: true, timeline: { orderBy: { createdAt: "asc" }, take: 1, select: { metadata: true, actor: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } } } },
     orderBy: { createdAt: sort === "oldest" ? "asc" : "desc" },
   });

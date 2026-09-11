@@ -40,10 +40,12 @@ export default async function ProfilePage() {
     include: {
       registrationVillage: {
         select: {
+          id: true,
           name: true,
         },
       },
       memberships: {
+        where: { villageId: session.activeVillageId ?? undefined },
         include: {
           village: {
             select: {
@@ -66,15 +68,15 @@ export default async function ProfilePage() {
   }
 
   const [person, registration] = await Promise.all([
-    prisma.person.findUnique({
-      where: { userId: user.id },
+    prisma.person.findFirst({
+      where: { userId: user.id, villageId: session.activeVillageId ?? undefined },
       include: { house: { select: { houseNumber: true } } },
     }),
     prisma.registrationTemp.findFirst({
       where: {
         phoneNumber: user.phoneNumber,
         status: "VERIFIED",
-        ...(user.registrationVillageId ? { villageId: user.registrationVillageId } : {}),
+        villageId: session.activeVillageId ?? undefined,
       },
       orderBy: { updatedAt: "desc" },
       select: { firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true },
@@ -85,6 +87,7 @@ export default async function ProfilePage() {
     user.memberships.find((membership) => membership.status === "ACTIVE") ??
     user.memberships[0] ??
     null;
+  const isCurrentRegistration = user.registrationVillageId === session.activeVillageId;
   const registeredFirstName = fallback(person?.firstName ?? registration?.firstName);
   const registeredLastName = fallback(person?.lastName ?? registration?.lastName);
   const legalName = person ? `${registeredFirstName} ${registeredLastName}` : fallback(user.name);
@@ -118,10 +121,10 @@ export default async function ProfilePage() {
           gender: person?.gender || registration?.gender ? normalizePersonGender(person?.gender ?? registration?.gender) ?? "ยังไม่มีข้อมูล" : "ยังไม่มีข้อมูล",
         }}
         village={{
-          province: fallback(user.registrationProvince),
-          district: fallback(user.registrationDistrict),
-          subdistrict: fallback(user.registrationSubdistrict),
-          currentVillage: fallback(activeMembership?.village?.name ?? user.registrationVillage?.name),
+          province: fallback(isCurrentRegistration ? user.registrationProvince : null),
+          district: fallback(isCurrentRegistration ? user.registrationDistrict : null),
+          subdistrict: fallback(isCurrentRegistration ? user.registrationSubdistrict : null),
+          currentVillage: fallback(activeMembership?.village?.name ?? (isCurrentRegistration ? user.registrationVillage?.name : null)),
           membershipStatus: fallback(activeMembership?.status),
           membershipRole: fallback(activeMembership?.role),
           houseNumber: fallback(activeMembership?.house?.houseNumber ?? person?.house?.houseNumber),

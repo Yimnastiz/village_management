@@ -33,6 +33,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     : await prisma.bindingRequest.findFirst({
         where: {
           userId: session.id,
+          villageId: session.activeVillageId ?? undefined,
         },
         select: { id: true, status: true, reviewNote: true },
         orderBy: { createdAt: "desc" },
@@ -50,6 +51,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     prisma.notification.count({
       where: {
         userId: session.id,
+        villageId: session.activeVillageId ?? undefined,
         status: NotificationStatus.UNREAD,
       },
     }),
@@ -63,7 +65,9 @@ export default async function ResidentLayout({ children }: { children: React.Rea
 
   const publicVillage = residentMembership
     ? villageProfile
-    : userProfile?.registrationVillage ?? null;
+    : userProfile?.registrationVillage?.id === session.activeVillageId
+      ? userProfile.registrationVillage
+      : null;
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
     bindingRequestHref: residentMembership

@@ -36,7 +36,7 @@ export default async function DuplicateAccountNoticePage() {
           <p>
             หากคิดว่าเลขบัตรประชาชนของท่านถูกผู้อื่นนำไปใช้ กรุณาติดต่อผู้ใหญ่บ้านหรือเจ้าหน้าที่หมู่บ้าน
             {contact?.registrationVillage?.name ? ` ${contact.registrationVillage.name}` : "ของท่าน"}
-            {contact?.registrationVillage?.phone ? ` โทร. ${contact.registrationVillage.phone}` : " เพื่อให้ผู้ใหญ่บ้านประสานงานกับ Superadmin ต่อไป"}
+            {contact?.registrationVillage?.phone ? ` โทร. ${contact.registrationVillage.phone}` : " เพื่อให้ผู้ใหญ่บ้านประสานงานต่อไป"}
           </p>
           <p>เมื่อเจ้าหน้าที่แก้ไขข้อมูลแล้ว ท่านจึงจะสมัครใหม่ได้</p>
           <p>

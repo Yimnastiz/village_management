@@ -5,17 +5,37 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { useToast } from "@/components/ui/toast";
-import { adminCancelAppointmentAction, rejectAppointmentAction } from "@/app/(resident)/resident/appointments/actions";
+import { adminCancelAppointmentAction, completeAppointmentAction, rejectAppointmentAction } from "@/app/(resident)/resident/appointments/actions";
 
-type Props = { appointmentId: string; canReject: boolean; canCancel: boolean };
+type Props = { appointmentId: string; canReject: boolean; canCancel: boolean; canComplete: boolean };
 
-export function AppointmentStatusActions({ appointmentId, canReject, canCancel }: Props) {
+export function AppointmentStatusActions({ appointmentId, canReject, canCancel, canComplete }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [rejectOpen, setRejectOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [rejectPending, setRejectPending] = useState(false);
   const [cancelPending, setCancelPending] = useState(false);
+  const [completePending, setCompletePending] = useState(false);
+
+  const submitComplete = async () => {
+    setCompletePending(true);
+    try {
+      const formData = new FormData();
+      formData.set("appointmentId", appointmentId);
+      const result = await completeAppointmentAction(formData);
+      if (!result.success) {
+        toast.error("ปิดนัดหมายไม่สำเร็จ", result.error);
+        return;
+      }
+      toast.success("ปิดนัดหมายว่าเสร็จสิ้นแล้ว");
+      router.refresh();
+    } catch {
+      toast.error("ปิดนัดหมายไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setCompletePending(false);
+    }
+  };
 
   const submitReject = async (reason: string) => {
     setRejectPending(true);
@@ -62,6 +82,7 @@ export function AppointmentStatusActions({ appointmentId, canReject, canCancel }
   };
 
   return <>
+    {canComplete ? <Button type="button" size="sm" disabled={completePending} onClick={() => void submitComplete()}>เสร็จสิ้น</Button> : null}
     {canReject ? <Button type="button" variant="danger" size="sm" onClick={() => setRejectOpen(true)}>ปฏิเสธคำขอ</Button> : null}
     {canCancel ? <Button type="button" variant="danger" size="sm" onClick={() => setCancelOpen(true)}>ยกเลิกนัดหมาย</Button> : null}
 

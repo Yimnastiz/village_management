@@ -15,7 +15,7 @@ export default async function ResidentBindingPendingPage() {
 
   const latestRequest = session
     ? await prisma.bindingRequest.findFirst({
-        where: { userId: session.id, status: { not: BindingRequestStatus.CANCELLED } },
+        where: { userId: session.id, villageId: session.activeVillageId ?? undefined, status: { not: BindingRequestStatus.CANCELLED } },
         orderBy: { createdAt: "desc" },
         include: { house: { select: { houseNumber: true } }, village: { select: { name: true } } },
       })

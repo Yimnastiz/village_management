@@ -417,7 +417,10 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
   }
 
   const latestBindingRequest = await prisma.bindingRequest.findFirst({
-    where: { userId: session.id },
+    where: {
+      userId: session.id,
+      villageId: session.activeVillageId ?? undefined,
+    },
     orderBy: { updatedAt: "desc" },
     select: {
       status: true,
@@ -472,7 +475,10 @@ export async function getResidentAreaAccessInfo(session: SessionContext): Promis
   }
 
   const latestBindingRequest = await prisma.bindingRequest.findFirst({
-    where: { userId: session.id },
+    where: {
+      userId: session.id,
+      villageId: session.activeVillageId ?? undefined,
+    },
     orderBy: { updatedAt: "desc" },
     select: { status: true },
   });

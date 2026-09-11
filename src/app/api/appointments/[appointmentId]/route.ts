@@ -1,4 +1,4 @@
-import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getAdminMembership, getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
@@ -42,7 +42,8 @@ export async function GET(
     const adminMembership = getAdminMembership(session, { villageId: appointment.villageId });
     const isAdmin = Boolean(adminMembership && hasVillagePermission(adminMembership.role, "appointments.manage"));
 
-    const isOwner = appointment.userId === session.id;
+    const residentMembership = getResidentMembership(session);
+    const isOwner = appointment.userId === session.id && residentMembership?.villageId === appointment.villageId;
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(

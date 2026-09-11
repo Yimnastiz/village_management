@@ -55,6 +55,7 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const canEditAdminCreated = source.isAdminCreated && source.creatorId === session.id && appointment.stage === "TIME_SUGGESTED";
   const canReject = !source.isAdminCreated && appointment.stage === "PENDING_APPROVAL";
   const canCancel = ["TIME_SUGGESTED", "APPROVED"].includes(appointment.stage);
+  const canComplete = appointment.stage === "APPROVED";
   const initialDate = appointment.slot?.date.toISOString().slice(0, 10) ?? "";
   const initialStartTime = appointment.slot?.startTime ?? "";
   const appointmentContent = splitAppointmentDescription(appointment.description);
@@ -82,7 +83,7 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
         {cancellationReason ? <p className="mt-1">เหตุผล: {cancellationReason}</p> : null}
       </div> : null}
     </section>
-    {canProposeTime || canEditAdminCreated || canReject || canCancel ? <div className="flex flex-wrap justify-end gap-2">{canProposeTime || canEditAdminCreated ? <ProposeTimeForm appointmentId={appointment.id} mode={canProposeTime ? "PROPOSE_TIME" : "EDIT_ADMIN_CREATED"} initialTitle={appointment.title} initialDescription={appointment.description ?? ""} initialDate={initialDate} initialStartTime={initialStartTime} /> : null}<AppointmentStatusActions appointmentId={appointment.id} canReject={canReject} canCancel={canCancel} /></div> : null}
+    {canProposeTime || canEditAdminCreated || canReject || canCancel || canComplete ? <div className="flex flex-wrap justify-end gap-2">{canProposeTime || canEditAdminCreated ? <ProposeTimeForm appointmentId={appointment.id} mode={canProposeTime ? "PROPOSE_TIME" : "EDIT_ADMIN_CREATED"} initialTitle={appointment.title} initialDescription={appointment.description ?? ""} initialDate={initialDate} initialStartTime={initialStartTime} /> : null}<AppointmentStatusActions appointmentId={appointment.id} canReject={canReject} canCancel={canCancel} canComplete={canComplete} /></div> : null}
     <section className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
       <h2 className="font-semibold text-gray-900">ประวัติการดำเนินการ</h2>
       <AppointmentTimeline entries={appointment.timeline} villageId={appointment.villageId} />

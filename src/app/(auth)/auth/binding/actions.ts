@@ -118,7 +118,7 @@ export async function submitBindingRequestAction(
             id: true,
             name: true,
             memberships: {
-              where: { role: VillageMembershipRole.HEADMAN },
+              where: { role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE },
               select: { userId: true },
             },
           },

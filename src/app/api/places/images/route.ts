@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminMembership, getResidentMembership, getSessionContextFromRequest } from "@/lib/access-control";
+import { getConfiguredVillage } from "@/lib/configured-village";
+import { belongsToConfiguredVillageResource } from "@/lib/configured-village-resource-policy.js";
 import { MAX_IMAGE_BYTES } from "@/lib/image-constraints";
 import { createPlaceUploadToken, readPlaceUpload, savePlaceUpload, validateImageBytes } from "@/lib/place-upload.server";
 
@@ -27,6 +29,10 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key") ?? "";
+  const configuredVillage = await getConfiguredVillage().catch(() => null);
+  if (!configuredVillage || !belongsToConfiguredVillageResource(key, "places", configuredVillage.id)) {
+    return new NextResponse(null, { status: 404 });
+  }
   const file = await readPlaceUpload(key);
   if (!file) return new NextResponse(null, { status: 404 });
   const body = new Blob([Uint8Array.from(file.bytes)], { type: file.mimeType });
