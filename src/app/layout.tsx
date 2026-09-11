@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   },
 };
 
+// Village configuration and system settings are database-backed runtime state.
+// Rendering dynamically prevents static generation from querying the database
+// during a deployment build.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

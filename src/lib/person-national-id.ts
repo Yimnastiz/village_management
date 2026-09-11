@@ -1,4 +1,4 @@
-import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
+import { isValidStrictThaiNationalId, normalizeNationalId } from "./thai-identity-core.js";
 
 export const INVALID_NATIONAL_ID_MESSAGE = "เลขบัตรประชาชนไม่ถูกต้อง";
 export const LINKED_NATIONAL_ID_IMMUTABLE_MESSAGE = "เลขบัตรประชาชนเชื่อมกับบัญชีผู้ใช้แล้วและแก้ไขจากทะเบียนประชากรไม่ได้";

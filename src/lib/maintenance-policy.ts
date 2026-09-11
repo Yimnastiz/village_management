@@ -16,5 +16,5 @@ export function isMaintenanceBlockedAdminPath(pathname: string): boolean {
 }
 
 export function isMaintenanceBlockedMutation(pathname: string): boolean {
-  return pathname.startsWith("/resident") || pathname.startsWith("/admin");
+  return pathname.startsWith("/resident") || (pathname.startsWith("/admin") && !isMaintenanceRecoveryPath(pathname));
 }
