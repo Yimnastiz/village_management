@@ -32,7 +32,7 @@ function toOptionalString(value: FormDataEntryValue | null): string | null {
 export type BindingRequestActionState = {
   success: boolean;
   message?: string;
-  fieldErrors?: { house?: string; village?: string };
+  fieldErrors?: { house?: string };
 };
 
 export async function submitBindingRequestAction(
@@ -45,25 +45,14 @@ export async function submitBindingRequestAction(
     redirect("/auth/login");
   }
 
-  const villageId = toOptionalString(formData.get("villageId"));
+  const village = await getConfiguredVillage();
+  const villageId = village.id;
   const requestedHouseId = toOptionalString(formData.get("requestedHouseId"));
   const rawHouseNumber = toOptionalString(formData.get("houseNumber"));
   const note = toOptionalString(formData.get("note"));
 
-  if (!villageId) return { success: false, fieldErrors: { village: "กรุณาเลือกหมู่บ้าน" } };
   if (!requestedHouseId && !rawHouseNumber) return { success: false, fieldErrors: { house: "กรุณาเลือกเลขบ้านที่มีอยู่ หรือเสนอเลขบ้านให้ผู้ใหญ่บ้านตรวจสอบ" } };
   if (requestedHouseId && rawHouseNumber) return { success: false, fieldErrors: { house: "กรุณาเลือกบ้านที่มีอยู่ หรือเสนอเลขบ้านใหม่อย่างใดอย่างหนึ่ง" } };
-
-  if (!villageId) {
-    throw new Error("Village is required.");
-  }
-  if (!requestedHouseId && !rawHouseNumber) throw new Error("กรุณาเลือกบ้าน หรือเสนอเลขบ้านให้ผู้ใหญ่บ้านตรวจสอบ");
-  const villageExists = await getConfiguredVillage();
-  if (villageId !== villageExists.id) {
-    return { success: false, fieldErrors: { village: "This Village is not available." } };
-  }
-  if (!villageExists) return { success: false, fieldErrors: { village: "ไม่พบหมู่บ้านที่เลือก" } };
-  if (!villageExists) throw new Error("Village not found.");
 
   let houseId: string | null = null;
   let houseNumber: string | null = null;
@@ -71,16 +60,13 @@ export async function submitBindingRequestAction(
   if (requestedHouseId) {
     const house = await prisma.house.findFirst({ where: { id: requestedHouseId, villageId }, select: { id: true, houseNumber: true } });
     if (!house) return { success: false, fieldErrors: { house: "บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้" } };
-    if (!house) throw new Error("บ้านที่เลือกไม่ได้อยู่ในหมู่บ้านนี้");
     houseId = house.id;
     houseNumber = house.houseNumber;
   } else {
     houseNumber = normalizeHouseNumber(rawHouseNumber!);
     if (!isValidHouseNumber(houseNumber)) return { success: false, fieldErrors: { house: "รูปแบบเลขบ้านไม่ถูกต้อง" } };
-    if (!isValidHouseNumber(houseNumber)) throw new Error("รูปแบบเลขบ้านไม่ถูกต้อง");
     const existing = await prisma.house.findUnique({ where: { villageId_normalizedHouseNumber: { villageId, normalizedHouseNumber: houseNumber } }, select: { id: true } });
     if (existing) return { success: false, fieldErrors: { house: "เลขบ้านนี้มีอยู่ในระบบแล้ว กรุณาเลือกจากรายการ" } };
-    if (existing) throw new Error("พบเลขบ้านนี้ในระบบแล้ว กรุณาเลือกบ้านจากรายการ");
   }
 
   const personHouseMismatch = Boolean(linkedPerson?.houseId && linkedPerson.houseId !== houseId);
@@ -88,31 +74,26 @@ export async function submitBindingRequestAction(
     ? `${note ?? ""}${note ? " " : ""}ข้อมูลทะเบียนประชากรระบุบ้านเลขที่ ${linkedPerson?.house?.houseNumber ?? "ไม่ระบุ"} แต่คำขอนี้เลือกหรือเสนอเลขบ้านต่างกัน กรุณาตรวจสอบ`
     : note;
 
-  // This is the selected public village context; it grants no membership access.
-  await prisma.user.update({ where: { id: session.id }, data: { registrationVillageId: villageId } });
-
   const existingPending = await prisma.bindingRequest.findFirst({
     where: {
       userId: session.id,
+      villageId,
       status: BindingRequestStatus.PENDING,
     },
-    select: { id: true, villageId: true },
+    select: { id: true },
   });
 
   if (existingPending) {
-    if (existingPending.villageId && existingPending.villageId !== villageId) return { success: false, message: "มีคำขอผูกบ้านของหมู่บ้านอื่นกำลังรอตรวจสอบอยู่" };
-    if (existingPending.villageId && existingPending.villageId !== villageId) throw new Error("มีคำขอผูกบ้านของหมู่บ้านอื่นกำลังรอตรวจสอบอยู่");
     await prisma.bindingRequest.update({
       where: { id: existingPending.id },
       data: {
-        // Keep original village while request is pending to avoid duplicate multi-village requests.
         houseId,
         houseNumber,
         note: bindingNote,
       },
     });
 
-    await ensurePendingBindingMembership(session.id, existingPending.villageId ?? villageId);
+    await ensurePendingBindingMembership(session.id, villageId);
 
     revalidatePath("/resident/binding");
     revalidateAdminSidebar();
@@ -174,8 +155,9 @@ export async function submitBindingRequestAction(
 export async function cancelBindingRequestAction() {
   const session = await getSessionContextFromServerCookies();
   if (!session) redirect("/auth/login?callbackUrl=/resident/binding");
+  const village = await getConfiguredVillage();
   const pending = await prisma.bindingRequest.findFirst({
-    where: { userId: session.id, status: BindingRequestStatus.PENDING },
+    where: { userId: session.id, villageId: village.id, status: BindingRequestStatus.PENDING },
     orderBy: { createdAt: "desc" },
     select: { id: true, villageId: true },
   });

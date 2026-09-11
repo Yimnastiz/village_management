@@ -256,13 +256,6 @@ export function canReviewBinding(role: VillageMembershipRole): boolean {
   return role === VillageMembershipRole.HEADMAN;
 }
 
-export function isSuperAdminUser(session: SessionContext): boolean {
-  // Super Admin is a legacy historical label, never a browser-authenticated role.
-  // Browser-authenticated users never receive SuperAdmin access.
-  void session;
-  return false;
-}
-
 export function isResidentUser(session: SessionContext): boolean {
   return session.memberships.some(hasCompletedResidentBinding);
 }

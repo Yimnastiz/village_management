@@ -7,9 +7,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SuggestCombobox } from "@/components/ui/suggest-combobox";
-import { formatVillageLabel, formatVillageLocation, villageSearchText } from "@/lib/village-label";
 import { useToast } from "@/components/ui/toast";
-import type { ThaiProvince } from "@/lib/thai-geography";
 import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
 import { PERSON_GENDER_VALUES, normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
 
@@ -55,10 +53,6 @@ type FormErrors = Partial<Record<
   | "gender"
   | "phone"
   | "nationalId"
-  | "province"
-  | "district"
-  | "subdistrict"
-  | "villageId"
   | "privacyConsent",
   string
 >>;
@@ -112,9 +106,6 @@ function serverErrorToFieldErrors(message: string): FormErrors {
   if (message.includes("วันเกิด")) return { dateOfBirth: message };
   if (message.includes("เพศ")) return { gender: message };
 
-  if (message.includes("หมู่บ้าน")) {
-    return { villageId: message };
-  }
 
   return {};
 }
@@ -156,12 +147,7 @@ function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
     JSON.stringify({ ...draft, savedAt: Date.now() })
   );
 }
-
 export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
-  // The API binds the registration to this server-resolved Village. Empty
-  // legacy option lists keep pre-existing local draft state harmless.
-  const villages: VillageOption[] = [];
-  const thaiGeography: ThaiProvince[] = [];
   const router = useRouter();
   const { success, error: showError } = useToast();
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
@@ -176,14 +162,6 @@ export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
   const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
   const [nationalId, setNationalId] = useState("");
-  const [province, setProvince] = useState("");
-  const [provinceQuery, setProvinceQuery] = useState("");
-  const [district, setDistrict] = useState("");
-  const [districtQuery, setDistrictQuery] = useState("");
-  const [subdistrict, setSubdistrict] = useState("");
-  const [subdistrictQuery, setSubdistrictQuery] = useState("");
-  const [villageId, setVillageId] = useState("");
-  const [villageQuery, setVillageQuery] = useState("");
   const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -299,69 +277,6 @@ export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
     };
   }, [isPrivacyModalOpen]);
 
-  const provinceOptions = useMemo(() => thaiGeography.map((provinceItem) => provinceItem.name), [thaiGeography]);
-
-  const districtOptions = useMemo(() => {
-    const selectedProvince = thaiGeography.find((provinceItem) => provinceItem.name === province);
-    if (!selectedProvince) {
-      return [] as string[];
-    }
-
-    return selectedProvince.districts.map((districtItem) => districtItem.name);
-  }, [province, thaiGeography]);
-
-  const subdistrictOptions = useMemo(() => {
-    const selectedProvince = thaiGeography.find((provinceItem) => provinceItem.name === province);
-    const selectedDistrict = selectedProvince?.districts.find(
-      (districtItem) => districtItem.name === district
-    );
-    if (!selectedDistrict) {
-      return [] as string[];
-    }
-
-    return selectedDistrict.subdistricts;
-  }, [district, province, thaiGeography]);
-
-  const villageOptions = useMemo(() => {
-    const filtered = villages.filter(
-      (village) =>
-        village.province === province &&
-        village.district === district &&
-        village.subdistrict === subdistrict
-    );
-    return filtered.map((village) => ({
-      value: village.id,
-      label: formatVillageLabel(village.name, village.moo),
-      description: formatVillageLocation(village),
-      searchText: villageSearchText(village),
-    }));
-  }, [district, province, subdistrict, villages]);
-
-  useEffect(() => {
-    if (provinceOptions.includes(province)) {
-      setProvinceQuery(province);
-    }
-  }, [province, provinceOptions]);
-
-  useEffect(() => {
-    if (districtOptions.includes(district)) {
-      setDistrictQuery(district);
-    }
-  }, [district, districtOptions]);
-
-  useEffect(() => {
-    if (subdistrictOptions.includes(subdistrict)) {
-      setSubdistrictQuery(subdistrict);
-    }
-  }, [subdistrict, subdistrictOptions]);
-
-  useEffect(() => {
-    const selectedVillage = villageOptions.find((village) => village.value === villageId);
-    if (selectedVillage) {
-      setVillageQuery(selectedVillage.label ?? selectedVillage.value);
-    }
-  }, [villageId, villageOptions]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -408,30 +323,6 @@ export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
 
     if (!normalizedGender) {
       nextFieldErrors.gender = "กรุณาเลือกเพศ";
-    }
-
-    if (false && !province) {
-      nextFieldErrors.province = "กรุณาเลือกจังหวัด";
-    } else if (false && !provinceOptions.includes(province)) {
-      nextFieldErrors.province = "กรุณาเลือกจังหวัดจากรายการ";
-    }
-
-    if (false && !district) {
-      nextFieldErrors.district = province ? "กรุณาเลือกอำเภอ" : "กรุณาเลือกจังหวัดก่อน";
-    } else if (false && !districtOptions.includes(district)) {
-      nextFieldErrors.district = "กรุณาเลือกอำเภอจากรายการ";
-    }
-
-    if (false && !subdistrict) {
-      nextFieldErrors.subdistrict = district ? "กรุณาเลือกตำบล" : "กรุณาเลือกอำเภอก่อน";
-    } else if (false && !subdistrictOptions.includes(subdistrict)) {
-      nextFieldErrors.subdistrict = "กรุณาเลือกตำบลจากรายการ";
-    }
-
-    if (false && !villageId) {
-      nextFieldErrors.villageId = subdistrict ? "กรุณาเลือกหมู่บ้าน" : "กรุณาเลือกตำบลก่อน";
-    } else if (false && !villageOptions.some((village) => village.value === villageId)) {
-      nextFieldErrors.villageId = "กรุณาเลือกหมู่บ้านจากรายการ";
     }
 
     if (!hasAcceptedPrivacy) {
@@ -710,133 +601,6 @@ export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
           <h3 className="text-sm font-semibold text-gray-900">สมัครสมาชิกสำหรับหมู่บ้าน</h3>
           <p className="font-medium text-gray-800">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</p>
           <p className="text-sm text-gray-500">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" · ")}</p>
-        </section>
-
-        <section className="hidden" aria-hidden="true">
-          <h3 className="text-sm font-semibold text-gray-900">พื้นที่และหมู่บ้านที่เกี่ยวข้อง</h3>
-        <SuggestCombobox
-          id="register-province"
-          name="register-province-search-query"
-          autoComplete="new-password"
-          label="จังหวัด"
-          value={provinceQuery}
-          options={provinceOptions.map((option) => ({ value: option }))}
-          placeholder="เลือกหรือพิมพ์จังหวัด"
-          helperText="เลือกจังหวัดจากรายการ"
-          error={fieldErrors.province}
-          onChange={(nextValue) => {
-            setProvinceQuery(nextValue);
-            setProvince("");
-            setDistrict("");
-            setDistrictQuery("");
-            setSubdistrict("");
-            setSubdistrictQuery("");
-            setVillageId("");
-            setVillageQuery("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, province: undefined, district: undefined, subdistrict: undefined, villageId: undefined }));
-            setError(null);
-          }}
-          onSelect={(option) => {
-            setProvince(option.value);
-            setProvinceQuery(option.label ?? option.value);
-            setDistrict("");
-            setDistrictQuery("");
-            setSubdistrict("");
-            setSubdistrictQuery("");
-            setVillageId("");
-            setVillageQuery("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, province: undefined, district: undefined, subdistrict: undefined, villageId: undefined }));
-            setError(null);
-          }}
-        />
-
-        <SuggestCombobox
-          id="register-district"
-          name="register-district-search-query"
-          autoComplete="new-password"
-          label="อำเภอ"
-          value={districtQuery}
-          options={districtOptions.map((option) => ({ value: option }))}
-          placeholder={province ? "เลือกหรือพิมพ์อำเภอ" : "เลือกจังหวัดก่อน"}
-          helperText={province ? "เลือกอำเภอจากรายการ" : "เลือกจังหวัดก่อนเพื่อเปิดอำเภอ"}
-          error={fieldErrors.district}
-          disabled={!province}
-          onChange={(nextValue) => {
-            setDistrictQuery(nextValue);
-            setDistrict("");
-            setSubdistrict("");
-            setSubdistrictQuery("");
-            setVillageId("");
-            setVillageQuery("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, district: undefined, subdistrict: undefined, villageId: undefined }));
-            setError(null);
-          }}
-          onSelect={(option) => {
-            setDistrict(option.value);
-            setDistrictQuery(option.label ?? option.value);
-            setSubdistrict("");
-            setSubdistrictQuery("");
-            setVillageId("");
-            setVillageQuery("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, district: undefined, subdistrict: undefined, villageId: undefined }));
-            setError(null);
-          }}
-        />
-
-        <SuggestCombobox
-          id="register-subdistrict"
-          name="register-subdistrict-search-query"
-          autoComplete="new-password"
-          label="ตำบล"
-          value={subdistrictQuery}
-          options={subdistrictOptions.map((option) => ({ value: option }))}
-          placeholder={district ? "เลือกหรือพิมพ์ตำบล" : "เลือกอำเภอก่อน"}
-          helperText={district ? "เลือกตำบลจากรายการ" : "เลือกอำเภอก่อนเพื่อเปิดตำบล"}
-          error={fieldErrors.subdistrict}
-          disabled={!district}
-          onChange={(nextValue) => {
-            setSubdistrictQuery(nextValue);
-            setSubdistrict("");
-            setVillageId("");
-            setVillageQuery("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, subdistrict: undefined, villageId: undefined }));
-            setError(null);
-          }}
-          onSelect={(option) => {
-            setSubdistrict(option.value);
-            setSubdistrictQuery(option.label ?? option.value);
-            setVillageId("");
-            setVillageQuery("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, subdistrict: undefined, villageId: undefined }));
-            setError(null);
-          }}
-        />
-
-        <SuggestCombobox
-          id="register-village"
-          name="register-village-search-query"
-          autoComplete="new-password"
-          label="หมู่บ้าน"
-          value={villageQuery}
-          options={villageOptions}
-          placeholder={subdistrict ? "เลือกหรือพิมพ์ชื่อหมู่บ้าน" : "เลือกตำบลก่อน"}
-          helperText="เลือกหมู่บ้านจากรายการหลังจากระบุตำบลแล้ว"
-          error={fieldErrors.villageId}
-          disabled={!subdistrict}
-          onChange={(nextValue) => {
-            setVillageQuery(nextValue);
-            setVillageId("");
-            setFieldErrors((currentErrors) => ({ ...currentErrors, villageId: undefined }));
-            setError(null);
-          }}
-          onSelect={(option) => {
-            setVillageId(option.value);
-            setVillageQuery(option.label ?? option.value);
-            setFieldErrors((currentErrors) => ({ ...currentErrors, villageId: undefined }));
-            setError(null);
-          }}
-        />
-
         </section>
 
         <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-3">
