@@ -21,9 +21,9 @@ export async function getVillageDataQuality(villageId: string) {
   const residentWithoutHouseWhere = { villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: null };
   const [duplicateCount, duplicates, residentWithoutHouseCount, residentsWithoutHouse] = await Promise.all([
     prisma.user.count({ where: duplicateWhere }),
-    prisma.user.findMany({ where: duplicateWhere, orderBy: { updatedAt: "desc" }, take: 8, select: { id: true, name: true, accountStatus: true } }),
+    prisma.user.findMany({ where: duplicateWhere, orderBy: { updatedAt: "desc" }, take: 5, select: { id: true, name: true, accountStatus: true } }),
     prisma.villageMembership.count({ where: residentWithoutHouseWhere }),
-    prisma.villageMembership.findMany({ where: residentWithoutHouseWhere, orderBy: { updatedAt: "desc" }, take: 8, select: { id: true, user: { select: { name: true } } } }),
+    prisma.villageMembership.findMany({ where: residentWithoutHouseWhere, orderBy: { updatedAt: "desc" }, take: 5, select: { id: true, user: { select: { name: true } } } }),
   ]);
   return { duplicateCount, duplicates, residentWithoutHouseCount, residentsWithoutHouse, issueCount: duplicateCount + residentWithoutHouseCount };
 }

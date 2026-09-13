@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AuditAction, MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, MembershipStatus, Prisma, VillageMembershipRole } from "@prisma/client";
 import { ClipboardList } from "lucide-react";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
@@ -12,7 +12,6 @@ import { AuditCustomDateFilter } from "./audit-custom-date-filter";
 import { AuditViewSwitch } from "./audit-view-switch";
 
 const PAGE_SIZE = 25;
-const CURRENT_ACTOR_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.RESIDENT];
 const MODULE_KEYS = Object.keys(AUDIT_MODULE_RESOURCES);
 const EVENT_ACTIONS: Record<string, AuditAction[]> = {
   CREATE: ["CREATE", "VILLAGE_CREATED_FROM_CATALOG", "VILLAGE_CREATED_MANUAL"],
@@ -78,11 +77,18 @@ async function resolveTargetNames(villageId: string, logs: Array<{ id: string; r
 export default async function SecurityPage({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {}; const context = await getVillagePermissionContext("audit.view"); const membership = context?.membership;
   if (!membership) return null;
-  const q = params.q?.trim() ?? ""; const view = params.view === "important" ? "important" : "all"; const period = ["ALL", "TODAY", "7D", "30D", "CUSTOM"].includes(params.period ?? "") ? params.period! : "30D"; const from = params.from ?? ""; const to = params.to ?? ""; const eventFilter = ["ALL", "CREATE", "UPDATE", "DELETE", "REVIEW", "AUTH_SECURITY"].includes(params.event ?? "") ? params.event! : "ALL"; const moduleFilter = ["ALL", ...MODULE_KEYS].includes(params.module ?? "") ? params.module! : "ALL"; const actorFilter = params.actor ?? "ALL"; const page = Math.max(1, Number(params.page) || 1); const createdAt = dateBounds(period, from, to);
-  const [actors, rawLogs] = await Promise.all([
-    prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE, role: { in: CURRENT_ACTOR_ROLES } }, orderBy: { user: { name: "asc" } }, select: { userId: true, role: true, user: { select: { name: true } } } }),
-    prisma.auditLog.findMany({ where: { villageId: membership.villageId, ...(view === "important" ? importantAuditWhere() : {}), ...(createdAt ? { createdAt } : {}), ...(actorFilter !== "ALL" ? { userId: actorFilter } : {}), ...(moduleFilter !== "ALL" ? { resource: { in: [...auditResourcesForModule(moduleFilter)] } } : {}), ...(eventFilter !== "ALL" ? { action: { in: EVENT_ACTIONS[eventFilter] } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: q ? 0 : (page - 1) * PAGE_SIZE, take: q ? 200 : PAGE_SIZE + 1, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } } } } }),
-  ]);
+  const q = params.q?.trim() ?? ""; const view = params.view === "important" ? "important" : "all"; const period = ["ALL", "TODAY", "7D", "30D", "CUSTOM"].includes(params.period ?? "") ? params.period! : "30D"; const from = params.from ?? ""; const to = params.to ?? ""; const eventFilter = ["ALL", "CREATE", "UPDATE", "DELETE", "REVIEW", "AUTH_SECURITY"].includes(params.event ?? "") ? params.event! : "ALL"; const moduleFilter = ["ALL", ...MODULE_KEYS].includes(params.module ?? "") ? params.module! : "ALL"; const actorFilter = params.actor === "HEADMAN" ? "HEADMAN" : "ALL"; const page = Math.max(1, Number(params.page) || 1); const createdAt = dateBounds(period, from, to);
+  const headmanMemberships = actorFilter === "HEADMAN"
+    ? await prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { userId: true }, distinct: ["userId"] })
+    : [];
+  const headmanUserIds = headmanMemberships.map((item) => item.userId);
+  const actorWhere = actorFilter === "HEADMAN"
+    ? { OR: [
+      { metadata: { path: ["actorRole"], equals: VillageMembershipRole.HEADMAN } },
+      ...(headmanUserIds.length ? [{ userId: { in: headmanUserIds }, metadata: { path: ["actorRole"], equals: Prisma.DbNull } }] : []),
+    ] }
+    : {};
+  const rawLogs = await prisma.auditLog.findMany({ where: { villageId: membership.villageId, ...(view === "important" ? importantAuditWhere() : {}), ...(createdAt ? { createdAt } : {}), ...actorWhere, ...(moduleFilter !== "ALL" ? { resource: { in: [...auditResourcesForModule(moduleFilter)] } } : {}), ...(eventFilter !== "ALL" ? { action: { in: EVENT_ACTIONS[eventFilter] } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: q ? 0 : (page - 1) * PAGE_SIZE, take: q ? 200 : PAGE_SIZE + 1, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } } } } });
   const names = await resolveTargetNames(membership.villageId, rawLogs);
   const loweredQuery = q.toLocaleLowerCase("th-TH");
   const filtered = rawLogs.flatMap((log) => {
@@ -94,7 +100,7 @@ export default async function SecurityPage({ searchParams }: PageProps) {
     return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), formattedTime: fullAuditTime(log.createdAt), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes, reason: event.reason, reasonLabel: isSuperAdmin ? "เหตุผลในการดำเนินการ" : "เหตุผล" } satisfies AuditListEvent];
   });
   const visibleEvents = q ? filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : filtered.slice(0, PAGE_SIZE); const hasNext = q ? filtered.length > page * PAGE_SIZE : rawLogs.length > PAGE_SIZE; const activeFilters = view !== "all" || period !== "30D" || eventFilter !== "ALL" || moduleFilter !== "ALL" || actorFilter !== "ALL"; const base = { q: q || undefined, view: view === "all" ? undefined : view, period: period === "30D" ? undefined : period, from: period === "CUSTOM" ? from || undefined : undefined, to: period === "CUSTOM" ? to || undefined : undefined, event: eventFilter === "ALL" ? undefined : eventFilter, actor: actorFilter === "ALL" ? undefined : actorFilter, module: moduleFilter === "ALL" ? undefined : moduleFilter };
-  const actorOptions = [{ label: "ทุกคน", value: "ALL" }, ...actors.map((actor) => ({ label: formatNewsAuthor(actor.user.name, actor.role), value: actor.userId }))];
+  const actorOptions = [{ label: "ทุกคน", value: "ALL" }, { label: "ผู้ใหญ่บ้าน", value: "HEADMAN" }];
   return <div data-admin-compact-top className="space-y-3"><AdminListToolbar title="บันทึกเหตุการณ์" description="ตรวจสอบการเปลี่ยนแปลงและกิจกรรมสำคัญภายในหมู่บ้าน" searchAction="/admin/security" keyword={q} searchPlaceholder="ค้นหาผู้ดำเนินการ รายการ หรือเหตุการณ์" searchLabel="ค้นหาเหตุการณ์" sticky suggestionTitles={[]} clearHref="/admin/security" actions={<AuditViewSwitch view={view} href={(next) => href({ ...base, view: next === "all" ? undefined : next, page: 1 })} />} groups={[
     { label: "ช่วงเวลา", options: [["วันนี้", "TODAY"], ["7 วัน", "7D"], ["30 วัน", "30D"], ["กำหนดเอง", "CUSTOM"]].map(([label, value]) => ({ label, href: href({ ...base, period: value, from: value === "CUSTOM" ? from || undefined : undefined, to: value === "CUSTOM" ? to || undefined : undefined }), active: period === value, isDefault: value === "30D" })) },
     { label: "ประเภท", options: [["ทั้งหมด", "ALL"], ["เพิ่มข้อมูล", "CREATE"], ["แก้ไข", "UPDATE"], ["ลบ", "DELETE"], ["อนุมัติ/ปฏิเสธ", "REVIEW"], ["เข้าสู่ระบบ/ความปลอดภัย", "AUTH_SECURITY"]].map(([label, value]) => ({ label, href: href({ ...base, event: value }), active: eventFilter === value })) },
