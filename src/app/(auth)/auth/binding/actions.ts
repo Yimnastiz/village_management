@@ -84,13 +84,9 @@ export async function submitBindingRequestAction(
   });
 
   if (existingPending) {
-    await prisma.bindingRequest.update({
-      where: { id: existingPending.id },
-      data: {
-        houseId,
-        houseNumber,
-        note: bindingNote,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.bindingRequest.update({ where: { id: existingPending.id }, data: { houseId, houseNumber, note: bindingNote } });
+      await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.UPDATE, resource: "BindingRequest", resourceId: existingPending.id, metadata: { actorRole: "RESIDENT", actionName: "BINDING_REQUEST_UPDATED", requestedExistingHouse: Boolean(houseId) } } });
     });
 
     await ensurePendingBindingMembership(session.id, villageId);
@@ -100,8 +96,8 @@ export async function submitBindingRequestAction(
     revalidatePath("/resident/binding/pending");
     redirect("/resident/binding/pending");
   } else {
-    const createdBinding = await prisma.bindingRequest.create({
-      data: {
+    await prisma.$transaction(async (tx) => {
+      const createdBinding = await tx.bindingRequest.create({ data: {
         userId: session.id,
         villageId,
         houseId,
@@ -123,14 +119,15 @@ export async function submitBindingRequestAction(
             },
           },
         },
-      },
-    });
+      } });
 
-    // Notify admin users of the village about new binding request
-    if (createdBinding.village?.memberships) {
-      const adminUserIds = createdBinding.village.memberships.map((m) => m.userId);
-      if (adminUserIds.length > 0) {
-        await prisma.notification.createMany({
+      await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.CREATE, resource: "BindingRequest", resourceId: createdBinding.id, metadata: { actorRole: "RESIDENT", actionName: "BINDING_REQUEST_SUBMITTED", requestedExistingHouse: Boolean(houseId) } } });
+
+      // Notify the active Headmen about the new binding request.
+      if (createdBinding.village?.memberships) {
+        const adminUserIds = createdBinding.village.memberships.map((m) => m.userId);
+        if (adminUserIds.length > 0) {
+          await tx.notification.createMany({
           data: adminUserIds.map((adminUserId) => ({
             userId: adminUserId,
             villageId: createdBinding.villageId,
@@ -139,9 +136,10 @@ export async function submitBindingRequestAction(
             body: `${createdBinding.user.name} (${createdBinding.user.phoneNumber}) ส่งคำขอผูกเลขบ้าน กรุณาตรวจสอบรายละเอียด`,
             metadata: { source: "BINDING", bindingRequestId: createdBinding.id },
           })),
-        });
+          });
+        }
       }
-    }
+    });
   }
 
   await ensurePendingBindingMembership(session.id, villageId);
@@ -175,7 +173,7 @@ export async function cancelBindingRequestAction() {
         action: AuditAction.UPDATE,
         resource: "BindingRequest",
         resourceId: pending.id,
-        metadata: { previousStatus: BindingRequestStatus.PENDING, status: BindingRequestStatus.CANCELLED, source: "resident-self-service" },
+        metadata: { actorRole: "RESIDENT", actionName: "BINDING_REQUEST_CANCELLED", previousStatus: BindingRequestStatus.PENDING, status: BindingRequestStatus.CANCELLED, source: "resident-self-service" },
       },
     });
     if (pending.villageId) {

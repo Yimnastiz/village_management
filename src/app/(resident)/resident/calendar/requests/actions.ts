@@ -1,6 +1,6 @@
 "use server";
 
-import { NotificationType, VillageMembershipRole, VillageEventSubmissionType } from "@prisma/client";
+import { AuditAction, NotificationType, VillageMembershipRole, VillageEventSubmissionType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -72,8 +72,8 @@ export async function createVillageEventSubmissionAction(
   if (!normalized.ok) return { success: false, error: normalized.error };
 
   try {
-    const created = await prisma.villageEventSubmission.create({
-      data: {
+    const created = await prisma.$transaction(async (tx) => {
+      const request = await tx.villageEventSubmission.create({ data: {
         villageId: membership.villageId,
         requesterId: session.id,
         title: normalized.value.title,
@@ -82,8 +82,9 @@ export async function createVillageEventSubmissionAction(
         startsAt: normalized.value.startsAt,
         endsAt: normalized.value.endsAt,
         isPublic: normalized.value.isPublic,
-      },
-      select: { id: true },
+      }, select: { id: true } });
+      await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", title: normalized.value.title } } });
+      return request;
     });
 
     const admins = await prisma.villageMembership.findMany({
@@ -132,10 +133,10 @@ async function residentRequestContext(requestId: string) {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ลูกบ้าน" };
-  const request = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId }, select: { id: true, status: true } });
+  const request = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId }, select: { id: true, status: true, type: true, title: true } });
   if (!request) return { ok: false as const, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   if (request.status !== "PENDING") return { ok: false as const, error: "แก้ไขหรือลบได้เฉพาะคำขอที่รอพิจารณา" };
-  return { ok: true as const, request };
+  return { ok: true as const, request, session, membership };
 }
 
 export async function updateResidentVillageEventSubmissionAction(requestId: string, data: RequestInput): Promise<{ success: true; requestId: string } | { success: false; error: string }> {
@@ -152,7 +153,10 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
   if (!normalized.ok) return { success: false, error: normalized.error };
   try {
     if (source.status === "PENDING") {
-      await prisma.villageEventSubmission.update({ where: { id: source.id }, data: normalized.value });
+      await prisma.$transaction(async (tx) => {
+        await tx.villageEventSubmission.update({ where: { id: source.id }, data: normalized.value });
+        await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "VillageEventSubmission", resourceId: source.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_REQUEST_UPDATED", requestType: "CREATE", title: normalized.value.title } } });
+      });
       revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
       return { success: true, requestId: source.id };
     } else {
@@ -162,7 +166,9 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
         const duplicate = await tx.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: { in: [VillageEventSubmissionType.EDIT, VillageEventSubmissionType.DELETE] }, status: "PENDING" }, select: { id: true } });
         if (duplicate) return null;
         await tx.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } });
-        return tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: VillageEventSubmissionType.EDIT, ...normalized.value }, select: { id: true } });
+        const request = await tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: VillageEventSubmissionType.EDIT, ...normalized.value }, select: { id: true } });
+        await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_UPDATE_REQUEST_SUBMITTED", requestType: "EDIT", title: normalized.value.title, eventId: event.id } } });
+        return request;
       }, { isolationLevel: "Serializable" });
       if (!created) return { success: false, error: pendingChangeConflictMessage };
       const admins = await prisma.villageMembership.findMany({
@@ -193,7 +199,10 @@ export async function deleteResidentVillageEventSubmissionAction(requestId: stri
   const context = await residentRequestContext(requestId);
   if (!context.ok) return { success: false, error: context.error };
   try {
-    await prisma.villageEventSubmission.delete({ where: { id: context.request.id } });
+    await prisma.$transaction(async (tx) => {
+      await tx.villageEventSubmission.delete({ where: { id: context.request.id } });
+      await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.DELETE, resource: "VillageEventSubmission", resourceId: context.request.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_REQUEST_CANCELLED", requestType: context.request.type, title: context.request.title } } });
+    });
     revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
     return { success: true };
   } catch { return { success: false, error: "ลบคำขอไม่สำเร็จ" }; }
@@ -215,7 +224,10 @@ export async function createResidentEventChangeRequestAction(requestId: string, 
       const existing = await tx.villageEventSubmission.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: { in: [VillageEventSubmissionType.EDIT, VillageEventSubmissionType.DELETE] }, status: "PENDING" }, select: { id: true } });
       if (existing) return null;
       await tx.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } });
-      return tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, title: event.title, description: detail, location: event.location, startsAt: event.startsAt, endsAt: event.endsAt, isPublic: event.isPublic, type: action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE, eventId: event.id }, select: { id: true } });
+      const requestType = action === "EDIT" ? VillageEventSubmissionType.EDIT : VillageEventSubmissionType.DELETE;
+      const request = await tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, title: event.title, description: detail, location: event.location, startsAt: event.startsAt, endsAt: event.endsAt, isPublic: event.isPublic, type: requestType, eventId: event.id }, select: { id: true } });
+      await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: action === "EDIT" ? "CALENDAR_UPDATE_REQUEST_SUBMITTED" : "CALENDAR_DELETE_REQUEST_SUBMITTED", requestType, title: event.title, eventId: event.id } } });
+      return request;
     }, { isolationLevel: "Serializable" });
     if (!created) return { success: false, error: pendingChangeConflictMessage };
     revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();

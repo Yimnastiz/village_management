@@ -1,6 +1,6 @@
 "use server";
 
-import { NewsStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, NewsStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -130,14 +130,13 @@ export async function createNewsCreateRequestAction(
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
-  const created = await prisma.newsSubmission.create({
-    data: {
-      villageId: ctx.villageId,
-      requesterId: ctx.userId,
-      type: "CREATE",
-      payload: normalized.value,
-    },
-    select: { id: true },
+  const created = await prisma.$transaction(async (tx) => {
+    const request = await tx.newsSubmission.create({
+      data: { villageId: ctx.villageId, requesterId: ctx.userId, type: "CREATE", payload: normalized.value },
+      select: { id: true },
+    });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", title: normalized.value.title } } });
+    return request;
   });
 
   await notifyVillageAdmins(
@@ -181,15 +180,13 @@ export async function createNewsUpdateRequestAction(
   const existingPending = await findPendingTargetNewsRequest(ctx.villageId, targetNewsId);
   if (existingPending) return { success: false, error: "มีคำขอเกี่ยวกับข่าวนี้รอการพิจารณาอยู่แล้ว" };
 
-  const created = await prisma.newsSubmission.create({
-    data: {
-      villageId: ctx.villageId,
-      requesterId: ctx.userId,
-      type: "UPDATE",
-      targetNewsId,
-      payload: normalized.value,
-    },
-    select: { id: true },
+  const created = await prisma.$transaction(async (tx) => {
+    const request = await tx.newsSubmission.create({
+      data: { villageId: ctx.villageId, requesterId: ctx.userId, type: "UPDATE", targetNewsId, payload: normalized.value },
+      select: { id: true },
+    });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_UPDATE_REQUEST_SUBMITTED", requestType: "UPDATE", title: normalized.value.title, targetNewsId } } });
+    return request;
   });
 
   await notifyVillageAdmins(
@@ -229,18 +226,13 @@ export async function updatePendingNewsSubmissionAction(
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
-  const updated = await prisma.newsSubmission.updateMany({
-    where: {
-      id: submissionId,
-      requesterId: ctx.userId,
-      villageId: ctx.villageId,
-      status: "PENDING",
-      type: { in: ["CREATE", "UPDATE"] },
-    },
-    data: {
-      payload: normalized.value,
-      updatedAt: new Date(),
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.newsSubmission.updateMany({
+      where: { id: submissionId, requesterId: ctx.userId, villageId: ctx.villageId, status: "PENDING", type: { in: ["CREATE", "UPDATE"] } },
+      data: { payload: normalized.value, updatedAt: new Date() },
+    });
+    if (result.count === 1) await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "NewsSubmission", resourceId: submissionId, metadata: { actorRole: "RESIDENT", actionName: "NEWS_REQUEST_UPDATED", title: normalized.value.title } } });
+    return result;
   });
 
   if (updated.count !== 1) {
@@ -262,14 +254,12 @@ export async function deletePendingNewsSubmissionAction(
 
   // Keep the status check in the delete statement so an admin review that wins
   // the race cannot cause a reviewed request to be removed.
-  const deleted = await prisma.newsSubmission.deleteMany({
-    where: {
-      id: submissionId,
-      requesterId: ctx.userId,
-      villageId: ctx.villageId,
-      status: "PENDING",
-      type: { in: ["CREATE", "UPDATE"] },
-    },
+  const deleted = await prisma.$transaction(async (tx) => {
+    const request = await tx.newsSubmission.findFirst({ where: { id: submissionId, requesterId: ctx.userId, villageId: ctx.villageId, status: "PENDING", type: { in: ["CREATE", "UPDATE"] } }, select: { type: true } });
+    if (!request) return { count: 0 };
+    const result = await tx.newsSubmission.deleteMany({ where: { id: submissionId, requesterId: ctx.userId, villageId: ctx.villageId, status: "PENDING", type: { in: ["CREATE", "UPDATE"] } } });
+    if (result.count === 1) await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "NewsSubmission", resourceId: submissionId, metadata: { actorRole: "RESIDENT", actionName: "NEWS_REQUEST_CANCELLED", requestType: request.type } } });
+    return result;
   });
 
   if (deleted.count !== 1) {
@@ -323,8 +313,8 @@ export async function createNewsDeleteRequestAction(
     return { success: false, error: "มีคำขอเกี่ยวกับข่าวนี้รอการพิจารณาอยู่แล้ว" };
   }
 
-  const created = await prisma.newsSubmission.create({
-    data: {
+  const created = await prisma.$transaction(async (tx) => {
+    const request = await tx.newsSubmission.create({ data: {
       villageId: ctx.villageId,
       requesterId: ctx.userId,
       type: "UPDATE",
@@ -340,8 +330,9 @@ export async function createNewsDeleteRequestAction(
         isDeleteRequest: true,
         deleteReason: parsedReason.data,
       },
-    },
-    select: { id: true },
+    }, select: { id: true } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_DELETE_REQUEST_SUBMITTED", requestType: "DELETE", title: targetNews.title, targetNewsId } } });
+    return request;
   });
 
   await notifyVillageAdmins(

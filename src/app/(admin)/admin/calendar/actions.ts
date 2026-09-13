@@ -83,8 +83,8 @@ export async function createVillageEventAction(
   if (!normalized.ok) return { success: false, error: normalized.error };
 
   try {
-    const created = await prisma.villageEvent.create({
-      data: {
+    const created = await prisma.$transaction(async (tx) => {
+      const event = await tx.villageEvent.create({ data: {
         villageId: ctx.villageId,
         createdById: ctx.userId,
         title: normalized.value.title,
@@ -93,8 +93,9 @@ export async function createVillageEventAction(
         startsAt: normalized.value.startsAt,
         endsAt: normalized.value.endsAt,
         isPublic: normalized.value.isPublic,
-      },
-      select: { id: true },
+      }, select: { id: true } });
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "VillageEvent", resourceId: event.id, metadata: { actorRole: ctx.actorRole, actionName: "CALENDAR_EVENT_CREATED", title: normalized.value.title } } });
+      return event;
     });
 
     revalidatePath("/admin/calendar");
@@ -125,16 +126,16 @@ export async function updateVillageEventAction(
   }
 
   try {
-    await prisma.villageEvent.update({
-      where: { id },
-      data: {
+    await prisma.$transaction(async (tx) => {
+      await tx.villageEvent.update({ where: { id }, data: {
         title: normalized.value.title,
         description: normalized.value.description,
         location: normalized.value.location,
         startsAt: normalized.value.startsAt,
         endsAt: normalized.value.endsAt,
         isPublic: normalized.value.isPublic,
-      },
+      } });
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "VillageEvent", resourceId: id, metadata: { actorRole: ctx.actorRole, actionName: "CALENDAR_EVENT_UPDATED", title: normalized.value.title } } });
     });
 
     revalidatePath("/admin/calendar");

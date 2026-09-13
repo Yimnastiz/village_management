@@ -24,22 +24,67 @@ export type FormattedAuditEvent = {
   isSuperAdminIntervention: boolean;
 };
 
+export const IMPORTANT_AUDIT_ACTIONS: readonly AuditAction[] = [
+  "DELETE", "APPROVE", "REJECT", "VIEW_SENSITIVE", "EXPORT",
+  "POPULATION_IMPORT_STARTED", "POPULATION_IMPORT_VALIDATED", "POPULATION_IMPORT_CONFIRMED",
+  "POPULATION_IMPORT_COMPLETED", "POPULATION_IMPORT_PARTIAL", "POPULATION_IMPORT_FAILED",
+  "POPULATION_IMPORT_ROLLBACK", "POPULATION_EXPORT_CREATED",
+  "APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT",
+];
+
 export const IMPORTANT_AUDIT_RESOURCES = [
   "Village", "VillageStatus", "UserSystemRole", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval",
-  "UserMembershipSuspension", "UserProfile", "UserMembership", "UserAccount", "GlobalSetting", "SystemSettings", "SystemWideBroadcast", "VillageBroadcast",
+  "UserMembershipSuspension", "UserProfile", "UserMembership", "VillageMembership", "MembershipSupport", "VillageAdminSupport",
+  "UserAccount", "NationalIdClaim", "GlobalSetting", "SystemSettings", "SystemWideBroadcast", "VillageBroadcast",
 ] as const;
+
+export const IMPORTANT_AUDIT_ACTION_NAMES = [
+  "NEWS_PUBLISHED", "NEWS_ARCHIVED", "NEWS_REPUBLISHED",
+  "DOWNLOAD_PUBLISHED", "DOWNLOAD_ARCHIVED", "DOWNLOAD_RESTORED",
+  "TRANSPARENCY_PUBLISHED", "TRANSPARENCY_ARCHIVED", "TRANSPARENCY_REPUBLISHED",
+  "ISSUE_STATUS_CHANGED",
+  "APPOINTMENT_APPROVED", "APPOINTMENT_REJECTED", "APPOINTMENT_COMPLETED", "APPOINTMENT_CANCELLED_BY_HEADMAN",
+  "DUPLICATE_NATIONAL_ID_RESOLVED", "ACCOUNT_DELETION_REQUESTED", "ACCOUNT_ANONYMIZED",
+] as const;
+
+/** Central database-filterable definition used by the important-events view. */
+export function importantAuditWhere(): Prisma.AuditLogWhereInput {
+  return {
+    OR: [
+      { action: { in: [...IMPORTANT_AUDIT_ACTIONS] } },
+      { resource: { in: [...IMPORTANT_AUDIT_RESOURCES] } },
+      { metadata: { path: ["actionName"], string_contains: "_PUBLISHED" } },
+      { metadata: { path: ["actionName"], string_contains: "_ARCHIVED" } },
+      { metadata: { path: ["actionName"], string_contains: "_RESTORED" } },
+      { metadata: { path: ["newValue", "stage"], equals: "PUBLISHED" } },
+      ...IMPORTANT_AUDIT_ACTION_NAMES.map((actionName) => ({ metadata: { path: ["actionName"], equals: actionName } })),
+    ],
+  };
+}
+
+/** In-memory companion for focused checks and non-database consumers. */
+export function isImportantAuditEvent(input: AuditInput): boolean {
+  const metadata = asObject(input.metadata);
+  const actionName = text(metadata.actionName) ?? "";
+  const newValue = asObject(metadata.newValue);
+  return IMPORTANT_AUDIT_ACTIONS.includes(input.action)
+    || IMPORTANT_AUDIT_RESOURCES.includes(input.resource as (typeof IMPORTANT_AUDIT_RESOURCES)[number])
+    || IMPORTANT_AUDIT_ACTION_NAMES.includes(actionName as (typeof IMPORTANT_AUDIT_ACTION_NAMES)[number])
+    || text(newValue.stage) === "PUBLISHED"
+    || /_(PUBLISHED|ARCHIVED|RESTORED)$/.test(actionName);
+}
 
 /** Business-facing resource groups used by investigation tools. Values remain technical internally. */
 export const AUDIT_MODULE_RESOURCES: Record<string, readonly string[]> = {
-  VILLAGE: ["Village", "VillageStatus"],
-  ACCOUNTS: ["UserAccount", "UserSystemRole", "UserProfile"],
-  MEMBERS: ["VillageMembership", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval", "VillageAdminSupport", "MembershipSupport", "UserMembership", "UserMembershipSuspension"],
-  POPULATION: ["Person", "PopulationImportJob", "PopulationExport"],
-  HOUSEHOLD: ["House"], BINDING: ["BindingRequest", "BindingRequestSupport"],
+  ACCOUNTS: ["UserAccount", "UserSystemRole", "UserProfile", "AuthSession", "NationalIdClaim", "VillageMembership", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval", "VillageAdminSupport", "MembershipSupport", "UserMembership", "UserMembershipSuspension"],
+  POPULATION: ["Person", "House", "PopulationImportJob", "PopulationExport"],
+  BINDING: ["BindingRequest", "BindingRequestSupport"],
   NEWS: ["News", "NewsSubmission"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], APPOINTMENT: ["Appointment"],
   ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItem", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
   DOWNLOAD: ["DownloadFile"], TRANSPARENCY: ["TransparencyRecord"],
-  SETTINGS: ["ContactDirectory", "ContactRequest", "GlobalSetting", "SystemSettings", "SystemWideBroadcast", "VillageBroadcast"],
+  CONTACT: ["ContactDirectory", "ContactRequest"],
+  SETTINGS: ["Village", "VillageStatus", "GlobalSetting", "SystemSettings"],
+  BROADCAST: ["SystemWideBroadcast", "VillageBroadcast"],
 };
 
 export function auditResourcesForModule(module: string) {
@@ -47,7 +92,7 @@ export function auditResourcesForModule(module: string) {
 }
 
 export function auditModuleLabel(module: string) {
-  return ({ VILLAGE: "หมู่บ้าน", ACCOUNTS: "บัญชีผู้ใช้", MEMBERS: "สมาชิกและบทบาท", POPULATION: "ทะเบียนประชากร", HOUSEHOLD: "บ้านและครัวเรือน", BINDING: "การผูกเลขที่บ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", SETTINGS: "การตั้งค่าระบบ" } as Record<string, string>)[module] ?? module;
+  return ({ ACCOUNTS: "บัญชี/สมาชิก", POPULATION: "ประชากร/บ้าน", BINDING: "การผูกบ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", CONTACT: "ผู้ติดต่อ", SETTINGS: "การตั้งค่า", BROADCAST: "ประกาศ" } as Record<string, string>)[module] ?? module;
 }
 
 export function auditActorRoleLabel(role?: string | null) {
@@ -103,6 +148,22 @@ const actionNameLabels: Record<string, string> = {
   NEWS_DELETED: "ลบข่าว",
   NEWS_SUBMISSION_APPROVED: "อนุมัติข่าวที่ลูกบ้านส่ง",
   NEWS_SUBMISSION_REJECTED: "ไม่อนุมัติข่าวที่ลูกบ้านส่ง",
+  NEWS_CREATE_REQUEST_SUBMITTED: "ส่งคำขอสร้างข่าว",
+  NEWS_UPDATE_REQUEST_SUBMITTED: "ส่งคำขอแก้ไขข่าว",
+  NEWS_DELETE_REQUEST_SUBMITTED: "ส่งคำขอลบข่าว",
+  NEWS_REQUEST_UPDATED: "แก้ไขคำขอข่าว",
+  NEWS_REQUEST_CANCELLED: "ยกเลิกคำขอข่าว",
+  CALENDAR_CREATE_REQUEST_SUBMITTED: "ส่งคำขอสร้างกิจกรรม",
+  CALENDAR_UPDATE_REQUEST_SUBMITTED: "ส่งคำขอแก้ไขกิจกรรม",
+  CALENDAR_DELETE_REQUEST_SUBMITTED: "ส่งคำขอลบกิจกรรม",
+  CALENDAR_REQUEST_UPDATED: "แก้ไขคำขอกิจกรรม",
+  CALENDAR_REQUEST_CANCELLED: "ยกเลิกคำขอกิจกรรม",
+  PLACE_CREATE_REQUEST_SUBMITTED: "ส่งคำขอเพิ่มสถานที่",
+  PLACE_UPDATE_REQUEST_SUBMITTED: "ส่งคำขอแก้ไขสถานที่",
+  GALLERY_SUBMISSION_CREATED: "ส่งรูปภาพเข้ารอการตรวจสอบ",
+  BINDING_REQUEST_SUBMITTED: "ส่งคำขอผูกบ้าน",
+  BINDING_REQUEST_UPDATED: "แก้ไขคำขอผูกบ้าน",
+  BINDING_REQUEST_CANCELLED: "ยกเลิกคำขอผูกบ้าน",
   PLACE_CREATED: "เพิ่มสถานที่",
   PLACE_UPDATED: "แก้ไขข้อมูลสถานที่",
   PLACE_DELETED: "ลบสถานที่",
@@ -122,8 +183,48 @@ const actionNameLabels: Record<string, string> = {
   BINDING_REJECTED: "ไม่อนุมัติคำขอผูกเลขบ้าน",
   GALLERY_ALBUM_EDIT_SAVED: "แก้ไขอัลบั้มรูปภาพ",
   GALLERY_ITEMS_ADDED: "เพิ่มรูปภาพในอัลบั้ม",
+  GALLERY_ALBUM_CREATED: "สร้างอัลบั้มรูปภาพ",
+  GALLERY_ALBUM_UPDATED: "แก้ไขอัลบั้มรูปภาพ",
+  GALLERY_ITEM_CREATED: "เพิ่มรูปภาพในอัลบั้ม",
+  GALLERY_ITEM_UPDATED: "แก้ไขรูปภาพในอัลบั้ม",
+  CALENDAR_EVENT_CREATED: "สร้างกิจกรรมปฏิทิน",
+  CALENDAR_EVENT_UPDATED: "แก้ไขกิจกรรมปฏิทิน",
+  DOWNLOAD_CREATED: "สร้างเอกสารดาวน์โหลด",
+  DOWNLOAD_UPDATED: "แก้ไขเอกสารดาวน์โหลด",
+  DOWNLOAD_PUBLISHED: "เผยแพร่เอกสารดาวน์โหลด",
+  DOWNLOAD_ARCHIVED: "จัดเก็บเอกสารดาวน์โหลด",
+  DOWNLOAD_RESTORED: "นำเอกสารดาวน์โหลดกลับเป็นฉบับร่าง",
+  ISSUE_CREATED_BY_RESIDENT: "แจ้งปัญหาใหม่",
+  ISSUE_UPDATED_BY_RESIDENT: "แก้ไขคำร้องปัญหา",
+  ISSUE_CREATED_BY_HEADMAN: "สร้างคำร้องปัญหา",
+  ISSUE_UPDATED_BY_HEADMAN: "แก้ไขคำร้องปัญหา",
+  ISSUE_STATUS_CHANGED: "เปลี่ยนสถานะคำร้องปัญหา",
+  APPOINTMENT_REQUEST_SUBMITTED: "ส่งคำขอนัดหมาย",
+  APPOINTMENT_REQUEST_UPDATED: "แก้ไขคำขอนัดหมาย",
+  APPOINTMENT_CANCELLED_BY_RESIDENT: "ลูกบ้านยกเลิกนัดหมาย",
+  APPOINTMENT_CREATED_BY_HEADMAN: "ผู้ใหญ่บ้านสร้างนัดหมาย",
+  APPOINTMENT_UPDATED_BY_HEADMAN: "ผู้ใหญ่บ้านแก้ไขนัดหมาย",
+  APPOINTMENT_TIME_PROPOSED: "ผู้ใหญ่บ้านเสนอเวลานัดหมาย",
+  APPOINTMENT_APPROVED: "อนุมัตินัดหมาย",
+  APPOINTMENT_REJECTED: "ปฏิเสธนัดหมาย",
+  APPOINTMENT_COMPLETED: "ปิดนัดหมายว่าเสร็จสิ้น",
+  APPOINTMENT_CANCELLED_BY_HEADMAN: "ผู้ใหญ่บ้านยกเลิกนัดหมาย",
+  APPOINTMENT_TIME_CONFIRMED_BY_RESIDENT: "ลูกบ้านยืนยันเวลานัดหมาย",
+  APPOINTMENT_TIME_CHANGE_REQUESTED: "ลูกบ้านขอเปลี่ยนเวลานัดหมาย",
+  USER_PROFILE_UPDATED: "แก้ไขข้อมูลบัญชี",
+  OWN_NATIONAL_ID_VIEWED: "เปิดดูเลขประจำตัวประชาชนของตนเอง",
+  ACCOUNT_DELETION_REQUESTED: "ขอลบบัญชี",
+  ACCOUNT_DELETION_CANCELLED: "ยกเลิกคำขอลบบัญชี",
+  ACCOUNT_ANONYMIZED: "ลบและปกปิดข้อมูลบัญชี",
+  VILLAGE_SETTINGS_UPDATED: "เปลี่ยนการตั้งค่าหมู่บ้าน",
+  LOGIN_SUCCEEDED: "เข้าสู่ระบบสำเร็จ",
   CONTACT_REQUEST_APPROVED: "อนุมัติคำขอข้อมูลติดต่อ",
   CONTACT_REQUEST_REJECTED: "ไม่อนุมัติคำขอข้อมูลติดต่อ",
+  RESIDENT_CONTACT_CREATE_REQUESTED: "ส่งคำขอเพิ่มผู้ติดต่อ",
+  RESIDENT_CONTACT_UPDATE_REQUESTED: "ส่งคำขอแก้ไขผู้ติดต่อ",
+  RESIDENT_CONTACT_REQUEST_UPDATED: "แก้ไขคำขอผู้ติดต่อ",
+  CONTACT_DELETE_REQUESTED: "ส่งคำขอลบผู้ติดต่อ",
+  CONTACT_REQUEST_CANCELLED: "ยกเลิกคำขอผู้ติดต่อ",
   TRANSPARENCY_CREATED: "เพิ่มรายการความโปร่งใส",
   TRANSPARENCY_UPDATED: "แก้ไขรายการความโปร่งใส",
   TRANSPARENCY_PUBLISHED: "เผยแพร่รายการความโปร่งใส",
@@ -299,13 +400,5 @@ export function auditCategoryMatches(event: FormattedAuditEvent, filter: string)
 }
 
 export function auditModuleForResource(resource: string) {
-  if (["News", "NewsSubmission"].includes(resource)) return "NEWS";
-  if (["Person", "House", "BindingRequest", "PopulationImportJob", "PopulationExport"].includes(resource)) return "POPULATION";
-  if (["VillagePlace", "VillagePlaceSubmission"].includes(resource)) return "PLACE";
-  if (resource.includes("Gallery")) return "GALLERY";
-  if (resource === "DownloadFile") return "DOWNLOAD";
-  if (resource.includes("VillageEvent")) return "CALENDAR";
-  if (resource === "Issue") return "ISSUE";
-  if (["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord", "SystemSettings", "VillageBroadcast"].includes(resource)) return "SETTINGS";
-  return "OTHER";
+  return Object.entries(AUDIT_MODULE_RESOURCES).find(([, resources]) => resources.includes(resource))?.[0] ?? "OTHER";
 }

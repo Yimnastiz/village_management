@@ -114,8 +114,8 @@ export async function createIssueAction(
   const imageUrls = await resolveIssueImageUrls(parsed.data.imageUrls ?? [], membership.villageId, session.id);
   if (!imageUrls) return { success: false, error: "รูปภาพต้องอัปโหลดผ่านระบบก่อนส่งคำร้อง" };
 
-  const issue = await prisma.issue.create({
-    data: {
+  const issue = await prisma.$transaction(async (tx) => {
+    const created = await tx.issue.create({ data: {
       villageId: membership.villageId,
       reporterId: session.id,
       title: parsed.data.title,
@@ -126,17 +126,16 @@ export async function createIssueAction(
       priority: parsed.data.priority as IssuePriority,
       location: parsed.data.location?.trim() || null,
       stage: "WAITING",
-    },
-  });
-
-  await prisma.issueTimeline.create({
-    data: {
-      issueId: issue.id,
+    } });
+    await tx.issueTimeline.create({ data: {
+      issueId: created.id,
       actorId: session.id,
       action: "สร้างคำร้อง",
       description: "สร้างคำร้องใหม่",
       metadata: { eventType: "ISSUE_CREATED", createdBy: "RESIDENT" },
-    },
+    } });
+    await writeVillageAuditLog(tx, { villageId: membership.villageId, userId: session.id, action: AuditAction.CREATE, resource: "Issue", resourceId: created.id, metadata: { actorRole: "RESIDENT", actionName: "ISSUE_CREATED_BY_RESIDENT", title: created.title, category: created.category, priority: created.priority } });
+    return created;
   });
 
   await notifyVillageAdmins(
@@ -227,9 +226,8 @@ export async function editIssueAction(
     changeDetails.push({ field: "visibility", label: "การมองเห็น", before: issue.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล", after: parsed.data.isPublic ? "เปิดเผยต่อชุมชน" : "เฉพาะผู้แจ้งและผู้ดูแล" });
   }
 
-  await prisma.issue.update({
-    where: { id: issueId },
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.issue.update({ where: { id: issueId }, data: {
       title: parsed.data.title,
       description: parsed.data.description,
       imageUrls,
@@ -237,17 +235,15 @@ export async function editIssueAction(
       category: parsed.data.category as IssueCategory,
       priority: parsed.data.priority as IssuePriority,
       location: parsed.data.location?.trim() || null,
-    },
-  });
-
-  await prisma.issueTimeline.create({
-    data: {
+    } });
+    await tx.issueTimeline.create({ data: {
       issueId,
       actorId: session.id,
       metadata: { eventType: "ISSUE_EDITED", changes: changeDetails },
       action: "แก้ไขคำร้อง",
       description: changes.length > 0 ? `แก้ไข: ${changes.join(", ")}` : "ปรับปรุงข้อมูลคำร้อง",
-    },
+    } });
+    await writeVillageAuditLog(tx, { villageId: issue.villageId, userId: session.id, action: AuditAction.UPDATE, resource: "Issue", resourceId: issueId, metadata: { actorRole: "RESIDENT", actionName: "ISSUE_UPDATED_BY_RESIDENT", title: parsed.data.title, changedFields: changeDetails.flatMap((change) => typeof change.field === "string" ? [change.field] : []) } });
   });
 
   await notifyVillageAdmins(

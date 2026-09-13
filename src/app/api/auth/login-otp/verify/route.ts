@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { getConfiguredVillage } from "@/lib/configured-village";
-import { configuredHeadmanLoginAuditWhere } from "@/lib/login-audit-policy.js";
+import { configuredVillageLoginAuditWhere } from "@/lib/login-audit-policy.js";
 import { prisma } from "@/lib/prisma";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
@@ -156,14 +156,14 @@ export async function POST(request: NextRequest) {
       });
       await tx.authVerification.deleteMany({ where: { identifier: reservation.challenge.otpIdentifier } });
     });
-    // Only record a successful sign-in for an administrator's active village.
+    // Only record a successful sign-in for an active actor in the configured village.
     // Failed OTP attempts remain intentionally out of the village activity feed.
     const configuredVillage = await getConfiguredVillage();
-    const adminMembership = await prisma.villageMembership.findFirst({
-      where: configuredHeadmanLoginAuditWhere(payload.user!.id!, configuredVillage.id),
-      select: { villageId: true },
+    const activeMembership = await prisma.villageMembership.findFirst({
+      where: configuredVillageLoginAuditWhere(payload.user!.id!, configuredVillage.id),
+      select: { villageId: true, role: true },
     });
-    if (adminMembership) await writeVillageAuditLog(prisma, { villageId: adminMembership.villageId, userId: payload.user!.id!, action: "LOGIN", resource: "AuthSession", resourceId: session!.id });
+    if (activeMembership) await writeVillageAuditLog(prisma, { villageId: activeMembership.villageId, userId: payload.user!.id!, action: "LOGIN", resource: "AuthSession", resourceId: session!.id, metadata: { actorRole: activeMembership.role, actionName: "LOGIN_SUCCEEDED" } });
     developmentDiagnostic({ challengeFound: true, otpMatched: true, userFound: true, sessionCreated: true, cookieAttached: true });
     return response;
   } catch (error) {

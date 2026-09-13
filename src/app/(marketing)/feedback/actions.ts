@@ -1,6 +1,5 @@
 "use server";
 
-import { randomUUID } from "crypto";
 import { MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSystemSettings } from "@/lib/system-settings";
@@ -48,7 +47,6 @@ export async function submitPublicFeedbackAction(formData: FormData): Promise<{ 
     return { success: true };
   }
 
-  const feedbackId = randomUUID();
   await prisma.notification.createMany({
     data: headmen.map((headman) => ({
       userId: headman.userId,
@@ -58,7 +56,6 @@ export async function submitPublicFeedbackAction(formData: FormData): Promise<{ 
       body: detail,
       metadata: {
         source: "PUBLIC_FEEDBACK",
-        feedbackId,
         name: name || null,
         email: email || null,
         category,

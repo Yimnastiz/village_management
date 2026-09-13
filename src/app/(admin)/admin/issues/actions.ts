@@ -113,8 +113,8 @@ export async function adminCreateIssueAction(
     };
   }
 
-  const issue = await prisma.issue.create({
-    data: {
+  const issue = await prisma.$transaction(async (tx) => {
+    const created = await tx.issue.create({ data: {
       villageId: ctx.villageId,
       reporterId: ctx.session!.id,
       title: parsed.data.title,
@@ -123,17 +123,16 @@ export async function adminCreateIssueAction(
       priority: parsed.data.priority as IssuePriority,
       location: parsed.data.location?.trim() || null,
       stage: "WAITING",
-    },
-  });
-
-  await prisma.issueTimeline.create({
-    data: {
-      issueId: issue.id,
+    } });
+    await tx.issueTimeline.create({ data: {
+      issueId: created.id,
       actorId: ctx.session!.id,
       action: "สร้างคำร้อง",
       description: "แอดมินสร้างคำร้องใหม่",
       metadata: { eventType: "ISSUE_CREATED", createdBy: "ADMIN" },
-    },
+    } });
+    await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session!.id, action: AuditAction.CREATE, resource: "Issue", resourceId: created.id, metadata: { actorRole: ctx.actorRole, actionName: "ISSUE_CREATED_BY_HEADMAN", title: created.title, category: created.category, priority: created.priority } });
+    return created;
   });
 
   return { success: true, issueId: issue.id };
@@ -163,24 +162,21 @@ export async function adminEditIssueAction(
   const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
   if (!wasCreatedByAdmin) return { success: false, error: "ไม่สามารถแก้ไขข้อมูลคำร้องที่ลูกบ้านส่งได้" };
 
-  await prisma.issue.update({
-    where: { id: issueId },
-    data: {
+  await prisma.$transaction(async (tx) => {
+    await tx.issue.update({ where: { id: issueId }, data: {
       title: parsed.data.title,
       description: parsed.data.description,
       category: parsed.data.category as IssueCategory,
       priority: parsed.data.priority as IssuePriority,
       location: parsed.data.location?.trim() || null,
-    },
-  });
-
-  await prisma.issueTimeline.create({
-    data: {
+    } });
+    await tx.issueTimeline.create({ data: {
       issueId,
       actorId: ctx.session!.id,
       action: "แก้ไขคำร้อง",
       description: "แอดมินแก้ไขรายละเอียดคำร้อง",
-    },
+    } });
+    await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session!.id, action: AuditAction.UPDATE, resource: "Issue", resourceId: issueId, metadata: { actorRole: ctx.actorRole, actionName: "ISSUE_UPDATED_BY_HEADMAN", title: parsed.data.title } });
   });
 
   return { success: true };

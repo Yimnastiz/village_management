@@ -24,7 +24,7 @@ export async function assertSelfDeletionAllowed(userId: string) {
 
 export async function finalizeAccountDeletion(userId: string) {
   return prisma.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: userId } });
+    const user = await tx.user.findUnique({ where: { id: userId }, include: { memberships: { select: { villageId: true, role: true } } } });
     if (!user || user.accountStatus !== AccountStatus.DELETION_PENDING || !user.scheduledDeletionAt || user.scheduledDeletionAt > new Date()) return false;
     const anonymousPhone = `deleted-${user.id}`;
     await tx.bindingRequest.updateMany({ where: { userId, status: BindingRequestStatus.PENDING }, data: { status: BindingRequestStatus.CANCELLED } });
@@ -44,7 +44,7 @@ export async function finalizeAccountDeletion(userId: string) {
         registrationVillageId: null, citizenVerifiedAt: null, deletionRecoveryHash: null,
       },
     });
-    await tx.auditLog.create({ data: { userId, action: AuditAction.UPDATE, resource: "UserAccount", resourceId: userId, metadata: { status: AccountStatus.ANONYMIZED } } });
+    await tx.auditLog.createMany({ data: (user.memberships.length ? user.memberships : [{ villageId: null, role: null }]).map((membership) => ({ userId, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "UserAccount", resourceId: userId, metadata: { actorRole: membership.role, actionName: "ACCOUNT_ANONYMIZED", status: AccountStatus.ANONYMIZED } })) });
     return true;
   });
 }

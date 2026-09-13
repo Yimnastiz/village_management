@@ -1,9 +1,10 @@
 "use server";
 
+import { AuditAction } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { isSafeImageSource } from "@/lib/image-input";
 import { normalizePhone10 } from "@/lib/registration-temp";
 
@@ -19,6 +20,8 @@ const profileSchema = z.object({
 export async function updateProfileAction(data: { phoneNumber: string; email: string; image: string | null }): Promise<{ success: true } | { success: false; error: string }> {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
+  const membership = getResidentMembership(session);
+  if (!membership) return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
 
   const parsed = profileSchema.safeParse(data);
   if (!parsed.success) {
@@ -42,6 +45,7 @@ export async function updateProfileAction(data: { phoneNumber: string; email: st
       data: { phoneNumber, email, image, ...(phoneNumber !== data.phoneNumber.trim() ? { phoneNumberVerified: false } : {}), ...(email !== data.email.trim() ? { emailVerified: false } : {}) },
     }),
     prisma.person.updateMany({ where: { userId: session.id }, data: { phone: phoneNumber, email } }),
+    prisma.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: "RESIDENT", actionName: "USER_PROFILE_UPDATED", changedFields: ["phoneNumber", "email", "profileImage"] } } }),
   ]);
 
   revalidatePath("/resident/profile");
@@ -53,6 +57,8 @@ export async function updateProfileAction(data: { phoneNumber: string; email: st
 export async function revealOwnNationalIdAction(): Promise<{ success: true; nationalId: string } | { success: false }> {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { success: false };
+  const membership = getResidentMembership(session);
+  if (!membership) return { success: false };
 
   const user = await prisma.user.findUnique({
     where: { id: session.id },
@@ -73,5 +79,7 @@ export async function revealOwnNationalIdAction(): Promise<{ success: true; nati
       });
   const nationalId = user.person?.nationalId ?? registration?.nationalId;
 
-  return nationalId ? { success: true, nationalId } : { success: false };
+  if (!nationalId) return { success: false };
+  await prisma.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.VIEW_SENSITIVE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: "RESIDENT", actionName: "OWN_NATIONAL_ID_VIEWED" } } });
+  return { success: true, nationalId };
 }

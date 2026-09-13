@@ -1,6 +1,6 @@
 "use server";
 
-import { NotificationType, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -41,7 +41,11 @@ export async function createVillagePlaceSubmissionAction(data: PlaceRequestInput
   const payload = await safeResidentPayload(data, ctx.membership.villageId);
   if (!payload.ok) return { success: false, error: payload.error };
   try {
-    const created = await prisma.villagePlaceSubmission.create({ data: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "CREATE", payload: payload.value, status: "PENDING" }, select: { id: true } });
+    const created = await prisma.$transaction(async (tx) => {
+      const request = await tx.villagePlaceSubmission.create({ data: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "CREATE", payload: payload.value, status: "PENDING" }, select: { id: true } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.membership.villageId, action: AuditAction.CREATE, resource: "VillagePlaceSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "PLACE_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", name: payload.value.name } } });
+      return request;
+    });
     await notifyReviewers(ctx.membership.villageId, created.id, ctx.session.name, payload.value.name, "CREATE");
     revalidatePath("/resident/places/requests");
     return { success: true, requestId: created.id };
@@ -59,7 +63,11 @@ export async function createVillagePlaceUpdateSubmissionAction(targetPlaceId: st
   const existingPending = await prisma.villagePlaceSubmission.findFirst({ where: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "UPDATE", targetPlaceId, status: "PENDING" }, select: { id: true } });
   if (existingPending) return { success: false, error: "มีคำขอแก้ไขสถานที่นี้ที่รอพิจารณาอยู่แล้ว" };
   try {
-    const created = await prisma.villagePlaceSubmission.create({ data: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "UPDATE", targetPlaceId, payload: payload.value, status: "PENDING" }, select: { id: true } });
+    const created = await prisma.$transaction(async (tx) => {
+      const request = await tx.villagePlaceSubmission.create({ data: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "UPDATE", targetPlaceId, payload: payload.value, status: "PENDING" }, select: { id: true } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.membership.villageId, action: AuditAction.CREATE, resource: "VillagePlaceSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "PLACE_UPDATE_REQUEST_SUBMITTED", requestType: "UPDATE", name: payload.value.name, targetPlaceId } } });
+      return request;
+    });
     await notifyReviewers(ctx.membership.villageId, created.id, ctx.session.name, place.name, "UPDATE");
     revalidatePath("/resident/places/requests");
     return { success: true, requestId: created.id };

@@ -176,16 +176,17 @@ export async function createGalleryAlbumAction(
   const normalized = normalizeAlbumInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
-  const created = await db.galleryAlbum.create({
-    data: {
+  const created = await db.$transaction(async (tx) => {
+    const album = await tx.galleryAlbum.create({ data: {
       villageId: ctx.villageId,
       title: normalized.value.title,
       description: normalized.value.description,
       albumDate: normalized.value.albumDate,
       isPublic: normalized.value.isPublic,
       allowResidentSubmissions: normalized.value.allowResidentSubmissions,
-    },
-    select: { id: true },
+    }, select: { id: true } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "GalleryAlbum", resourceId: album.id, metadata: { actorRole: ctx.actorRole, actionName: "GALLERY_ALBUM_CREATED", title: normalized.value.title } } });
+    return album;
   });
 
   await notifyResidents(
@@ -216,15 +217,15 @@ export async function updateGalleryAlbumAction(
   });
   if (!existing) return { success: false, error: "ไม่พบอัลบั้มหรือไม่มีสิทธิ์แก้ไข" };
 
-  await db.galleryAlbum.update({
-    where: { id },
-    data: {
+  await db.$transaction(async (tx) => {
+    await tx.galleryAlbum.update({ where: { id }, data: {
       title: normalized.value.title,
       description: normalized.value.description,
       albumDate: normalized.value.albumDate,
       isPublic: normalized.value.isPublic,
       allowResidentSubmissions: normalized.value.allowResidentSubmissions,
-    },
+    } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "GalleryAlbum", resourceId: id, metadata: { actorRole: ctx.actorRole, actionName: "GALLERY_ALBUM_UPDATED", title: normalized.value.title } } });
   });
 
   await notifyResidents(
@@ -350,15 +351,16 @@ export async function createGalleryItemAction(
   });
   if (!album) return { success: false, error: "ไม่พบอัลบั้มนี้" };
 
-  const created = await prisma.galleryItem.create({
-    data: {
+  const created = await prisma.$transaction(async (tx) => {
+    const item = await tx.galleryItem.create({ data: {
       albumId,
       title: normalized.value.title,
       fileUrl: normalized.value.fileUrl,
       mimeType: normalized.value.mimeType,
       sortOrder: normalized.value.sortOrder,
-    },
-    select: { id: true },
+    }, select: { id: true } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "GalleryItem", resourceId: item.id, metadata: { actorRole: ctx.actorRole, actionName: "GALLERY_ITEM_CREATED", albumId, albumTitle: album.title } } });
+    return item;
   });
 
   await notifyResidents(
@@ -426,6 +428,7 @@ export async function updateGalleryItemAction(
   await prisma.$transaction(async (tx) => {
     if (normalized.value.isCover) await tx.galleryItem.updateMany({ where: { albumId }, data: { isCover: false } });
     await tx.galleryItem.update({ where: { id: itemId }, data: { title: normalized.value.title, fileUrl: normalized.value.fileUrl, fileKey: normalized.value.fileKey ?? item.fileKey, mimeType: normalized.value.mimeType, sortOrder: normalized.value.sortOrder, ...(normalized.value.isCover ? { isCover: true } : {}) } });
+    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "GalleryItem", resourceId: itemId, metadata: { actorRole: ctx.actorRole, actionName: "GALLERY_ITEM_UPDATED", albumId } } });
   });
   if (isReplacingUpload && item.fileKey) await deletePlaceUploads([item.fileKey]);
 

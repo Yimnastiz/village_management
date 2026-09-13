@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { ClipboardList } from "lucide-react";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
-import { auditCategoryMatches, auditModuleForResource, formatAuditEvent, IMPORTANT_AUDIT_RESOURCES } from "@/lib/audit-event";
+import { AUDIT_MODULE_RESOURCES, auditCategoryMatches, auditModuleForResource, auditModuleLabel, auditResourcesForModule, formatAuditEvent, importantAuditWhere } from "@/lib/audit-event";
 import { formatNewsAuthor } from "@/lib/news-author";
 import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
 import { prisma } from "@/lib/prisma";
@@ -12,9 +12,14 @@ import { AuditCustomDateFilter } from "./audit-custom-date-filter";
 import { AuditViewSwitch } from "./audit-view-switch";
 
 const PAGE_SIZE = 25;
-const ADMIN_ROLES = [VillageMembershipRole.HEADMAN];
-const MODULE_RESOURCES: Record<string, string[]> = { NEWS: ["News", "NewsSubmission"], POPULATION: ["Person", "House", "BindingRequest", "PopulationImportJob", "PopulationExport"], PLACE: ["VillagePlace", "VillagePlaceSubmission"], GALLERY: ["GalleryAlbum", "GalleryItemSubmission"], DOWNLOAD: ["DownloadFile"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], ISSUE: ["Issue"], SETTINGS: ["Village", "ContactDirectory", "ContactRequest", "TransparencyRecord", "SystemSettings", "VillageBroadcast"] };
-const EVENT_ACTIONS: Record<string, Array<"CREATE" | "UPDATE" | "DELETE" | "APPROVE" | "REJECT" | "LOGIN" | "LOGOUT" | "VIEW_SENSITIVE" | "APPROVE_RESIDENT_WITH_NATIONAL_ID" | "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT" | "RELEASE_PHONE_FROM_REVOKED_ACCOUNT">> = { CREATE: ["CREATE"], UPDATE: ["UPDATE"], DELETE: ["DELETE"], REVIEW: ["APPROVE", "REJECT"], AUTH_SECURITY: ["LOGIN", "LOGOUT", "VIEW_SENSITIVE", "APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT"] };
+const CURRENT_ACTOR_ROLES = [VillageMembershipRole.HEADMAN, VillageMembershipRole.RESIDENT];
+const MODULE_KEYS = Object.keys(AUDIT_MODULE_RESOURCES);
+const EVENT_ACTIONS: Record<string, AuditAction[]> = {
+  CREATE: ["CREATE", "VILLAGE_CREATED_FROM_CATALOG", "VILLAGE_CREATED_MANUAL"],
+  UPDATE: ["UPDATE", "EXPORT", "POPULATION_IMPORT_STARTED", "POPULATION_IMPORT_VALIDATED", "POPULATION_IMPORT_CONFIRMED", "POPULATION_IMPORT_COMPLETED", "POPULATION_IMPORT_PARTIAL", "POPULATION_IMPORT_FAILED", "POPULATION_IMPORT_ROLLBACK", "POPULATION_EXPORT_CREATED", "VILLAGE_CATALOG_IMPORTED", "VILLAGE_CATALOG_UPDATED"],
+  DELETE: ["DELETE"], REVIEW: ["APPROVE", "REJECT"],
+  AUTH_SECURITY: ["LOGIN", "LOGOUT", "VIEW_SENSITIVE", "APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT"],
+};
 type PageProps = { searchParams?: Promise<{ q?: string; view?: string; period?: string; from?: string; to?: string; event?: string; actor?: string; module?: string; page?: string }> };
 
 function dateBounds(period: string, from?: string, to?: string) {
@@ -73,10 +78,10 @@ async function resolveTargetNames(villageId: string, logs: Array<{ id: string; r
 export default async function SecurityPage({ searchParams }: PageProps) {
   const params = (searchParams ? await searchParams : {}) ?? {}; const context = await getVillagePermissionContext("audit.view"); const membership = context?.membership;
   if (!membership) return null;
-  const q = params.q?.trim() ?? ""; const view = params.view === "important" ? "important" : "all"; const period = ["ALL", "TODAY", "7D", "30D", "CUSTOM"].includes(params.period ?? "") ? params.period! : "30D"; const from = params.from ?? ""; const to = params.to ?? ""; const eventFilter = ["ALL", "CREATE", "UPDATE", "DELETE", "REVIEW", "AUTH_SECURITY"].includes(params.event ?? "") ? params.event! : "ALL"; const moduleFilter = ["ALL", "NEWS", "POPULATION", "PLACE", "GALLERY", "DOWNLOAD", "CALENDAR", "ISSUE", "SETTINGS"].includes(params.module ?? "") ? params.module! : "ALL"; const actorFilter = params.actor ?? "ALL"; const page = Math.max(1, Number(params.page) || 1); const createdAt = dateBounds(period, from, to);
+  const q = params.q?.trim() ?? ""; const view = params.view === "important" ? "important" : "all"; const period = ["ALL", "TODAY", "7D", "30D", "CUSTOM"].includes(params.period ?? "") ? params.period! : "30D"; const from = params.from ?? ""; const to = params.to ?? ""; const eventFilter = ["ALL", "CREATE", "UPDATE", "DELETE", "REVIEW", "AUTH_SECURITY"].includes(params.event ?? "") ? params.event! : "ALL"; const moduleFilter = ["ALL", ...MODULE_KEYS].includes(params.module ?? "") ? params.module! : "ALL"; const actorFilter = params.actor ?? "ALL"; const page = Math.max(1, Number(params.page) || 1); const createdAt = dateBounds(period, from, to);
   const [actors, rawLogs] = await Promise.all([
-    prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE, role: { in: ADMIN_ROLES } }, orderBy: { user: { name: "asc" } }, select: { userId: true, role: true, user: { select: { name: true } } } }),
-    prisma.auditLog.findMany({ where: { villageId: membership.villageId, ...(view === "important" ? { resource: { in: [...IMPORTANT_AUDIT_RESOURCES] } } : {}), ...(createdAt ? { createdAt } : {}), ...(actorFilter !== "ALL" ? { userId: actorFilter } : {}), ...(moduleFilter !== "ALL" ? { AND: [{ resource: { in: MODULE_RESOURCES[moduleFilter] } }] } : {}), ...(eventFilter !== "ALL" ? { action: { in: EVENT_ACTIONS[eventFilter] } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: q ? 0 : (page - 1) * PAGE_SIZE, take: q ? 200 : PAGE_SIZE + 1, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } } } } }),
+    prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE, role: { in: CURRENT_ACTOR_ROLES } }, orderBy: { user: { name: "asc" } }, select: { userId: true, role: true, user: { select: { name: true } } } }),
+    prisma.auditLog.findMany({ where: { villageId: membership.villageId, ...(view === "important" ? importantAuditWhere() : {}), ...(createdAt ? { createdAt } : {}), ...(actorFilter !== "ALL" ? { userId: actorFilter } : {}), ...(moduleFilter !== "ALL" ? { resource: { in: [...auditResourcesForModule(moduleFilter)] } } : {}), ...(eventFilter !== "ALL" ? { action: { in: EVENT_ACTIONS[eventFilter] } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: q ? 0 : (page - 1) * PAGE_SIZE, take: q ? 200 : PAGE_SIZE + 1, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } } } } }),
   ]);
   const names = await resolveTargetNames(membership.villageId, rawLogs);
   const loweredQuery = q.toLocaleLowerCase("th-TH");
@@ -94,6 +99,6 @@ export default async function SecurityPage({ searchParams }: PageProps) {
     { label: "ช่วงเวลา", options: [["วันนี้", "TODAY"], ["7 วัน", "7D"], ["30 วัน", "30D"], ["กำหนดเอง", "CUSTOM"]].map(([label, value]) => ({ label, href: href({ ...base, period: value, from: value === "CUSTOM" ? from || undefined : undefined, to: value === "CUSTOM" ? to || undefined : undefined }), active: period === value, isDefault: value === "30D" })) },
     { label: "ประเภท", options: [["ทั้งหมด", "ALL"], ["เพิ่มข้อมูล", "CREATE"], ["แก้ไข", "UPDATE"], ["ลบ", "DELETE"], ["อนุมัติ/ปฏิเสธ", "REVIEW"], ["เข้าสู่ระบบ/ความปลอดภัย", "AUTH_SECURITY"]].map(([label, value]) => ({ label, href: href({ ...base, event: value }), active: eventFilter === value })) },
     { label: "ผู้ดำเนินการ", options: actorOptions.map((option) => ({ label: option.label, href: href({ ...base, actor: option.value }), active: actorFilter === option.value })) },
-    { label: "หมวด", options: [["ทั้งหมด", "ALL"], ["ข่าวสาร", "NEWS"], ["ประชากร", "POPULATION"], ["สถานที่", "PLACE"], ["แกลเลอรี", "GALLERY"], ["เอกสาร", "DOWNLOAD"], ["ปฏิทิน", "CALENDAR"], ["ปัญหา", "ISSUE"], ["การตั้งค่า", "SETTINGS"]].map(([label, value]) => ({ label, href: href({ ...base, module: value }), active: moduleFilter === value })) },
+    { label: "หมวด", options: [{ label: "ทั้งหมด", value: "ALL" }, ...MODULE_KEYS.map((value) => ({ label: auditModuleLabel(value), value }))].map(({ label, value }) => ({ label, href: href({ ...base, module: value }), active: moduleFilter === value })) },
   ]} extraFilters={<AuditCustomDateFilter from={from} to={to} />} />{visibleEvents.length ? <AuditEventList events={visibleEvents} /> : <div className="rounded-xl border border-gray-200 bg-white px-4 py-12 text-center"><ClipboardList aria-hidden="true" className="mx-auto mb-3 h-10 w-10 text-gray-300" /><p className="font-medium text-gray-700">{activeFilters || q ? "ไม่พบเหตุการณ์ที่ตรงกับเงื่อนไข" : "ยังไม่มีบันทึกเหตุการณ์"}</p><p className="mt-1 text-sm text-gray-500">เหตุการณ์สำคัญของหมู่บ้านจะแสดงที่นี่</p></div>}{visibleEvents.length ? <nav className="flex items-center justify-between gap-3" aria-label="แบ่งหน้าบันทึกเหตุการณ์"><span className="text-sm text-gray-500">แสดงล่าสุดก่อน · หน้าละ {PAGE_SIZE} รายการ</span><div className="flex gap-2">{page > 1 ? <Link href={href({ ...base, page: page - 1 })} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">ก่อนหน้า</Link> : null}{hasNext ? <Link href={href({ ...base, page: page + 1 })} className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">ถัดไป</Link> : null}</div></nav> : null}</div>;
 }

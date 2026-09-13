@@ -62,14 +62,11 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
   const next = { name, description: cleanString(formData, "description"), address: cleanString(formData, "address"), phone, email, website };
   const oldValue = Object.fromEntries(Object.entries(current).filter(([key, value]) => value !== next[key as keyof typeof next]));
   const newValue = Object.fromEntries(Object.entries(next).filter(([key]) => key in oldValue));
-  const village = await prisma.village.update({
-    where: { id: villageId },
-    data: {
-      ...next,
-    },
-    select: { slug: true },
+  const village = await prisma.$transaction(async (tx) => {
+    const updated = await tx.village.update({ where: { id: villageId }, data: next, select: { slug: true } });
+    if (Object.keys(oldValue).length) await writeVillagePolicyAuditLog(tx, { villageId, actorUserId: session.id, actorRole: membership.role, action: AuditAction.UPDATE, policyAction: "village.settings.update", targetType: "Village", targetId: villageId, metadata: { actionName: "VILLAGE_SETTINGS_UPDATED", targetName: name, oldValue, newValue } });
+    return updated;
   });
-  if (Object.keys(oldValue).length) await writeVillagePolicyAuditLog(prisma, { villageId, actorUserId: session.id, actorRole: membership.role, action: AuditAction.UPDATE, policyAction: "village.settings.update", targetType: "Village", targetId: villageId, metadata: { targetName: name, oldValue, newValue } });
 
   revalidatePath("/admin/settings");
   revalidatePath("/admin/settings/village");
@@ -79,7 +76,7 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
 }
 
 export async function updatePersonalSettingsAction(data: { email: string; image: string | null }): Promise<{ success: true } | { success: false; error: string }> {
-  const { session } = await requireAdminVillageContext();
+  const { session, membership, villageId } = await requireAdminVillageContext();
   const email = data.email.trim() || null;
   if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
   if (data.image && !isSafeImageSource(data.image)) {
@@ -88,11 +85,11 @@ export async function updatePersonalSettingsAction(data: { email: string; image:
   const conflict = email ? await prisma.user.findFirst({ where: { email, id: { not: session.id } }, select: { id: true } }) : null;
   if (conflict) return { success: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
   const current = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { email: true } });
-  await prisma.user.update({
-    where: { id: session.id },
-    data: { email, image: data.image, ...(email !== current.email ? { emailVerified: false } : {}) },
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: session.id }, data: { email, image: data.image, ...(email !== current.email ? { emailVerified: false } : {}) } });
+    await tx.person.updateMany({ where: { userId: session.id }, data: { email } });
+    await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.UPDATE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: membership.role, actionName: "USER_PROFILE_UPDATED", changedFields: [email !== current.email ? "email" : null, "profileImage"].filter(Boolean) } } });
   });
-  await prisma.person.updateMany({ where: { userId: session.id }, data: { email } });
   revalidatePath("/admin/settings/profile");
   revalidatePath("/admin", "layout");
   return { success: true };

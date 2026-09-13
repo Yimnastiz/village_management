@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { NotificationType, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
@@ -40,10 +40,14 @@ export async function createGalleryItemSubmissionAction(albumId: string, data: S
   if (!album) return { success: false, error: "อัลบั้มนี้ไม่เปิดรับคำขอ" };
 
   const batchId = randomUUID();
-  const created = await prisma.$transaction((tx) => tx.galleryItemSubmission.createManyAndReturn({
-    data: parsed.data.items.map((entry, batchOrder) => ({ albumId: album.id, requesterId: session.id, batchId, batchOrder, title: entry.title?.trim() || null, fileUrl: entry.url, fileKey: entry.fileKey, mimeType: null, note: parsed.data.note?.trim() || null })),
-    select: { id: true },
-  }));
+  const created = await prisma.$transaction(async (tx) => {
+    const submissions = await tx.galleryItemSubmission.createManyAndReturn({
+      data: parsed.data.items.map((entry, batchOrder) => ({ albumId: album.id, requesterId: session.id, batchId, batchOrder, title: entry.title?.trim() || null, fileUrl: entry.url, fileKey: entry.fileKey, mimeType: null, note: parsed.data.note?.trim() || null })),
+      select: { id: true },
+    });
+    await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "GalleryItemSubmission", resourceId: batchId, metadata: { actorRole: "RESIDENT", actionName: "GALLERY_SUBMISSION_CREATED", albumId: album.id, albumTitle: album.title, batchId, submissionCount: submissions.length } } });
+    return submissions;
+  });
   const admins = await prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: "ACTIVE", role: VillageMembershipRole.HEADMAN }, select: { userId: true }, distinct: ["userId"] });
   if (admins.length) { const copy = adminRequestCopy({ source: "GALLERY", requestType: "CREATE", entityName: album.title, requesterName: session.name }); await prisma.notification.createMany({ data: admins.map((admin) => ({ userId: admin.userId, villageId: membership.villageId, type: NotificationType.SYSTEM, title: copy.title, body: `${copy.body} (${created.length} รูป)`, metadata: notificationMetadata("GALLERY", { actionUrl: `/admin/gallery/submissions?batchId=${encodeURIComponent(batchId)}`, actionLabel: "ตรวจสอบคำขอ", batchId, albumId: album.id, submissionCount: created.length }) })) }); }
   revalidate(album.id, created.map((entry) => entry.id));

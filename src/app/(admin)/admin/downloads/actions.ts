@@ -89,14 +89,16 @@ export async function createDownloadAction(data: DownloadFormInput, stage: "DRAF
   const attachments = await resolveAttachments(normalized.value.attachments, [], ctx.villageId, ctx.session.id);
   if (!attachments.ok) return attachments.result;
   const primary = attachments.value[0];
-  const created = await prisma.downloadFile.create({
-    data: {
+  const created = await prisma.$transaction(async (tx) => {
+    const file = await tx.downloadFile.create({ data: {
       villageId: ctx.villageId, title: normalized.value.title, description: normalized.value.description || null,
       category: normalized.value.category, categoryLabel: normalized.value.category === "OTHER" ? normalized.value.categoryLabel : null,
       visibility: normalized.value.visibility as NewsVisibility, stage, publishedAt: stage === "PUBLISHED" ? new Date() : null,
       fileKey: primary.fileKey, fileUrl: primary.fileUrl, fileSize: primary.fileSize, mimeType: primary.mimeType,
       attachments: { create: attachments.value.map((attachment, sortOrder) => ({ ...attachment, sortOrder })) },
-    }, select: { id: true },
+    }, select: { id: true } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "DownloadFile", resourceId: file.id, metadata: { actorRole: ctx.actorRole, actionName: stage === "PUBLISHED" ? "DOWNLOAD_PUBLISHED" : "DOWNLOAD_CREATED", title: normalized.value.title, stage, attachmentCount: attachments.value.length } } });
+    return file;
   });
   if (stage === "PUBLISHED") await notifyResidents(ctx.villageId, "เอกสารดาวน์โหลด: มีเอกสารใหม่", `เอกสาร ${normalized.value.title} พร้อมให้ดาวน์โหลดแล้ว`, { fileId: created.id, actionUrl: `/resident/downloads/${created.id}` });
   revalidateDownloadViews(created.id);
@@ -126,6 +128,7 @@ export async function updateDownloadAction(fileId: string, data: DownloadFormInp
       if (attachment.id && existingIds.has(attachment.id)) await tx.downloadAttachment.update({ where: { id: attachment.id }, data: { sortOrder } });
       else await tx.downloadAttachment.create({ data: { downloadId: fileId, fileName: attachment.fileName, fileKey: attachment.fileKey, fileUrl: attachment.fileUrl, fileSize: attachment.fileSize, mimeType: attachment.mimeType, sortOrder } });
     }
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "DownloadFile", resourceId: fileId, metadata: { actorRole: ctx.actorRole, actionName: "DOWNLOAD_UPDATED", title: normalized.value.title, attachmentCount: attachments.value.length } } });
   });
   if (existing.stage === "PUBLISHED" && (attachments.value.length !== existing.attachments.length || attachments.removedKeys.length > 0 || attachments.value.some((item) => !item.id))) await notifyResidents(ctx.villageId, "เอกสารดาวน์โหลด: อัปเดตไฟล์แนบ", `เอกสาร ${normalized.value.title} มีการอัปเดตไฟล์แนบ`, { fileId, actionUrl: `/resident/downloads/${fileId}` });
   void deleteDownloadUploads(attachments.removedKeys);
@@ -158,7 +161,7 @@ async function transitionDownload(fileId: string, nextStage: DownloadStage, allo
   if (!allowedCurrent.includes(existing.stage)) return invalid("ไม่สามารถเปลี่ยนสถานะเอกสารจากสถานะปัจจุบันได้");
   await prisma.$transaction(async (tx) => {
     await tx.downloadFile.update({ where: { id: fileId }, data: { stage: nextStage, ...(nextStage === "PUBLISHED" ? { publishedAt: new Date() } : {}) } });
-    if (nextStage === "ARCHIVED") await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "DownloadFile", resourceId: fileId, metadata: { actorRole: ctx.actorRole, policyAction: "content.archive", reason, oldStage: existing.stage, newStage: nextStage } } });
+    await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "DownloadFile", resourceId: fileId, metadata: { actorRole: ctx.actorRole, ...(nextStage === "ARCHIVED" ? { policyAction: "content.archive" } : {}), ...(reason ? { reason } : {}), actionName: nextStage === "PUBLISHED" ? "DOWNLOAD_PUBLISHED" : nextStage === "ARCHIVED" ? "DOWNLOAD_ARCHIVED" : "DOWNLOAD_RESTORED", title: existing.title, oldStage: existing.stage, newStage: nextStage } } });
   });
   if (nextStage === "PUBLISHED") await notifyResidents(ctx.villageId, existing.stage === "ARCHIVED" ? "เอกสารดาวน์โหลด: เผยแพร่อีกครั้ง" : "เอกสารดาวน์โหลด: เผยแพร่แล้ว", `เอกสาร ${existing.title} พร้อมให้ดาวน์โหลดแล้ว`, { fileId, actionUrl: `/resident/downloads/${fileId}` });
   revalidateDownloadViews(fileId);
