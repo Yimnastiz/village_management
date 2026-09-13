@@ -45,7 +45,7 @@ export function SystemBroadcastTicker({ items }: { items: SystemBroadcastTickerI
   return (
     <Link
       href={item.href}
-      aria-label={`อ่านประกาศส่วนกลาง: ${item.title}`}
+      aria-label={`อ่านประกาศ: ${item.title}`}
       title="ประกาศโดยผู้ใหญ่บ้าน"
       className="group block rounded-xl border border-amber-200 bg-white shadow-sm transition hover:border-amber-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
     >
@@ -53,7 +53,7 @@ export function SystemBroadcastTicker({ items }: { items: SystemBroadcastTickerI
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700" aria-hidden="true">
           <Megaphone className="size-4" />
         </span>
-        <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">ประกาศส่วนกลาง</span>
+        <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">ประกาศ</span>
         <span ref={viewportRef} className="min-w-0 flex-1 overflow-hidden text-sm text-slate-700">
           <span
             ref={trackRef}

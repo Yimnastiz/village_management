@@ -16,11 +16,12 @@ const expiryOptions = [
 ];
 
 const unitOptions = [
-  { value: "HOURS", label: "ชั่วโมง" },
   { value: "MINUTES", label: "นาที" },
+  { value: "HOURS", label: "ชั่วโมง" },
+  { value: "DAYS", label: "วัน" },
 ];
 
-export function BroadcastComposer({ action }: { action: (formData: FormData) => void | Promise<void> }) {
+export function BroadcastComposer({ action, onCancel }: { action: (formData: FormData) => void | Promise<void>; onCancel?: () => void }) {
   const [expiryMode, setExpiryMode] = useState("ONE_DAY");
   return (
     <form action={action} className="mt-5 grid gap-4">
@@ -35,7 +36,8 @@ export function BroadcastComposer({ action }: { action: (formData: FormData) => 
         <Input required name="customValue" type="number" min="1" label="กำหนดเอง (จำนวน)" />
         <Select required name="customUnit" label="หน่วย" defaultValue="HOURS" options={unitOptions} />
       </div> : null}
-      <div className="flex justify-end pt-1">
+      <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
+        {onCancel ? <Button type="button" variant="outline" className="min-h-10 w-full sm:w-auto" onClick={onCancel}>ยกเลิก</Button> : null}
         <Button type="submit" className="min-h-10 w-full sm:w-auto">ส่งประกาศ</Button>
       </div>
     </form>

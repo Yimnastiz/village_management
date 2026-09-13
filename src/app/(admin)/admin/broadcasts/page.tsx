@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Megaphone, Plus } from "lucide-react";
+import { Megaphone } from "lucide-react";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 import { requireVillagePagePermission } from "@/lib/admin-permission.server";
 import { listVillageBroadcasts } from "@/features/broadcasts/server/broadcast-service";
 import { createAdminVillageBroadcastAction } from "./actions";
-import { BroadcastComposer } from "./broadcast-composer";
+import { BroadcastCreateDialog } from "./broadcast-create-dialog";
 import { broadcastExpiryLabel, broadcastStatusClassName, broadcastStatusLabels, type BroadcastDisplayStatus } from "./broadcast-presentation";
 
 type Props = { searchParams?: Promise<{ q?: string; status?: string; page?: string }> };
@@ -35,11 +35,7 @@ export default async function AdminBroadcastsPage({ searchParams }: Props) {
   ] };
 
   return <div data-admin-compact-top className="space-y-4">
-    <AdminPageToolbar compact sticky title="ประกาศส่วนกลาง" description="ส่งและจัดการประกาศสำคัญสำหรับสมาชิกในหมู่บ้าน" search={{ keyword: q, label: "ค้นหาประกาศ", placeholder: "ค้นหาหัวข้อหรือเนื้อหา" }} filters={<AdminFilterDropdown group={statusGroup} />} activeFilterCount={status === "all" ? 0 : 1} actions={<Link href="#create-broadcast" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2"><Plus className="h-4 w-4" aria-hidden="true" />สร้างประกาศ</Link>} />
-    <details id="create-broadcast" open className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-5">
-      <summary className="cursor-pointer list-none text-sm font-semibold text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500">สร้างประกาศ</summary>
-      <BroadcastComposer action={createAdminVillageBroadcastAction} />
-    </details>
+    <AdminPageToolbar compact sticky title="ประกาศ" description="ส่งและจัดการประกาศสำคัญสำหรับสมาชิกในหมู่บ้าน" search={{ keyword: q, label: "ค้นหาประกาศ", placeholder: "ค้นหาหัวข้อหรือเนื้อหา" }} filters={<AdminFilterDropdown group={statusGroup} />} activeFilterCount={status === "all" ? 0 : 1} actions={<BroadcastCreateDialog action={createAdminVillageBroadcastAction} />} />
     <div className="flex flex-wrap items-center justify-between gap-2 px-1"><h2 className="text-sm font-semibold text-gray-800">รายการประกาศ</h2><p className="text-sm text-gray-500">พบ {total.toLocaleString("th-TH")} รายการ</p></div>
     {rows.length ? <section className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-100" aria-label="ประวัติประกาศ"><div className="divide-y divide-gray-100">{rows.map((row) => {
       const state: BroadcastDisplayStatus = row.status === "CANCELLED" ? "CANCELLED" : row.expiresAt && row.expiresAt <= now ? "EXPIRED" : "ACTIVE";

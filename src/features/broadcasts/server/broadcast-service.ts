@@ -17,8 +17,8 @@ function expiry(formData: FormData, current?: Date | null) {
   const mode = text(formData, "expiryMode"); const presets: Record<string, number> = { ONE_HOUR: 60, ONE_DAY: 1_440, THREE_DAYS: 4_320, SEVEN_DAYS: 10_080 };
   if (mode === "PRESERVE" && current !== undefined) return current; if (mode === "NEVER") return null; if (presets[mode]) return new Date(Date.now() + presets[mode] * 60_000);
   const raw = text(formData, "customValue"); const value = Number(raw); const unit = text(formData, "customUnit");
-  if (mode !== "CUSTOM" || !/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || !["MINUTES", "HOURS"].includes(unit)) throw new Error("กรุณากำหนดระยะเวลาที่เป็นจำนวนเต็มอย่างน้อย 1 นาที");
-  const minutes = unit === "HOURS" ? value * 60 : value; if (!Number.isSafeInteger(minutes) || minutes > MAX_CUSTOM_DURATION_MINUTES) throw new Error("ระยะเวลาประกาศยาวเกินกำหนด"); return new Date(Date.now() + minutes * 60_000);
+  if (mode !== "CUSTOM" || !/^\d+$/.test(raw) || !Number.isSafeInteger(value) || value < 1 || !["MINUTES", "HOURS", "DAYS"].includes(unit)) throw new Error("กรุณากำหนดระยะเวลาเป็นจำนวนเต็มมากกว่า 0");
+  const minutes = unit === "DAYS" ? value * 24 * 60 : unit === "HOURS" ? value * 60 : value; if (!Number.isSafeInteger(minutes) || minutes > MAX_CUSTOM_DURATION_MINUTES) throw new Error("ระยะเวลาประกาศยาวเกินกำหนด"); return new Date(Date.now() + minutes * 60_000);
 }
 function metadata(id: string, expiresAt: Date | null): Metadata { return { source: VILLAGE_BROADCAST_SOURCE, broadcastGroupId: id, expiresAt: expiresAt?.toISOString() ?? null }; }
 

@@ -26,7 +26,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/dashboard", label: "แดชบอร์ด", icon: LayoutDashboard, permission: "dashboard.view" },
   { href: "/admin/issues", label: "ปัญหา/คำร้อง", icon: CircleAlert, permission: "issues.manage" },
   { href: "/admin/feedback", label: "ความคิดเห็นและข้อเสนอแนะ", icon: MessageSquare, permission: "feedback.manage" },
-  { href: "/admin/broadcasts", label: "ประกาศส่วนกลาง", icon: Megaphone, permission: "broadcasts.manage" },
+  { href: "/admin/broadcasts", label: "ประกาศ", icon: Megaphone, permission: "broadcasts.manage" },
   { href: "/admin/appointments", label: "นัดหมาย", icon: CalendarClock, permission: "appointments.manage" },
   { href: "/admin/news", label: "ข่าว/ประกาศ", icon: Newspaper, permission: "news.manage" },
   { href: "/admin/calendar", label: "ปฏิทิน", icon: CalendarDays, permission: "calendar.manage" },
