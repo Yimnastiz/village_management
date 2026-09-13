@@ -175,7 +175,7 @@ export function CalendarToolbar({
         isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-4 lg:-mx-8 lg:rounded-none lg:border-x-0 lg:px-8" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
         className,
       )}
-      aria-label={`เน€เธเธฃเธทเนเธญเธเธกเธทเธญ${title ?? "เธเธเธดเธ—เธดเธ"}`}
+      aria-label={`เครื่องมือ${title ?? "ปฏิทิน"}`}
     >
       {adminPageHeaderRegistry && title ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
@@ -191,7 +191,7 @@ export function CalendarToolbar({
         <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
-            aria-label="เน€เธ”เธทเธญเธเธเนเธญเธเธซเธเนเธฒ"
+            aria-label="เดือนก่อนหน้า"
             className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -202,27 +202,27 @@ export function CalendarToolbar({
           </button>
           <Link
             href={buildHref(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1)}
-            aria-label="เน€เธ”เธทเธญเธเธ–เธฑเธ”เนเธ"
+            aria-label="เดือนถัดไป"
             className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
-          {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />เน€เธ”เธทเธญเธเธเธตเน</Link> : null}
+          {residentCompact ? <Link href={todayHref()} className="inline-flex h-9 items-center gap-1 rounded-lg border border-gray-300 bg-white px-2 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 sm:hidden"><RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />เดือนนี้</Link> : null}
           {residentCompact && isMonthPickerOpen ? (
             <section
               id={`${namespace}-month-picker`}
               role="dialog"
-              aria-label="เน€เธฅเธทเธญเธเน€เธ”เธทเธญเธเนเธฅเธฐเธเธต"
+              aria-label="เลือกเดือนและปี"
               className="absolute inset-x-0 top-full z-50 mt-2 max-h-[min(70vh,32rem)] overflow-y-auto rounded-xl border border-gray-200 bg-white p-3 shadow-xl sm:left-1/2 sm:right-auto sm:w-80 sm:-translate-x-1/2 sm:p-4"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="font-semibold text-gray-900">เน€เธฅเธทเธญเธเน€เธ”เธทเธญเธเนเธฅเธฐเธเธต</h2>
+                <h2 className="font-semibold text-gray-900">เลือกเดือนและปี</h2>
                 <button type="button" onClick={() => setIsMonthPickerOpen(false)} className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500">
                   <X className="h-4 w-4" aria-hidden="true" />
-                  เธเธดเธ”
+                  ปิด
                 </button>
               </div>
-              <label className="sr-only" htmlFor={`${namespace}-compact-year`}>เน€เธฅเธทเธญเธเธเธต</label>
+              <label className="sr-only" htmlFor={`${namespace}-compact-year`}>เลือกปี</label>
               <select id={`${namespace}-compact-year`} value={pickerYear} onChange={(event) => setPickerYear(Number(event.target.value))} className="mb-3 h-11 w-full cursor-pointer rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500">
                 {years.map((year) => <option key={year} value={year}>{year + 543}</option>)}
               </select>
@@ -238,7 +238,7 @@ export function CalendarToolbar({
         </div>
 
         <div className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_7rem_44px] items-center gap-2 sm:flex sm:w-auto sm:justify-end", residentCompact && "hidden sm:flex")}>
-          <label className="sr-only" htmlFor={`${namespace}-month`}>เน€เธฅเธทเธญเธเน€เธ”เธทเธญเธ</label>
+          <label className="sr-only" htmlFor={`${namespace}-month`}>เลือกเดือน</label>
           <select
             id={`${namespace}-month`}
             value={currentMonth}
@@ -250,7 +250,7 @@ export function CalendarToolbar({
             ))}
           </select>
 
-          <label className="sr-only" htmlFor={`${namespace}-year`}>เน€เธฅเธทเธญเธเธเธต</label>
+          <label className="sr-only" htmlFor={`${namespace}-year`}>เลือกปี</label>
           <select
             id={`${namespace}-year`}
             value={currentYear}
@@ -264,11 +264,11 @@ export function CalendarToolbar({
 
           <Link
             href={todayHref()}
-            aria-label="เธเธฅเธฑเธเนเธเน€เธ”เธทเธญเธเธเธฑเธเธเธธเธเธฑเธ"
+            aria-label="กลับไปเดือนปัจจุบัน"
             className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5"
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">{currentMonthLabel ?? (residentCompact ? "เน€เธ”เธทเธญเธเธเธตเน" : "เธงเธฑเธเธเธตเน")}</span>
+            <span className="hidden sm:inline">{currentMonthLabel ?? (residentCompact ? "เดือนนี้" : "วันนี้")}</span>
           </Link>
         </div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
@@ -280,7 +280,7 @@ export function CalendarToolbar({
             <>
               <button
                 type="button"
-                aria-label="เธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก"
+                aria-label="ค้นหากิจกรรม"
                 aria-expanded={isSearchOpen}
                 aria-controls={searchPanelId}
                 onClick={() => setIsSearchOpen((value) => !value)}
@@ -299,7 +299,7 @@ export function CalendarToolbar({
                   }}
                   className={cn("relative flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto", isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]")}
                 >
-                  <label htmlFor={`${namespace}-search-input`} className="sr-only">{search.label ?? "เธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก"}</label>
+                  <label htmlFor={`${namespace}-search-input`} className="sr-only">{search.label ?? "ค้นหากิจกรรม"}</label>
                   {isAdminToolbar || residentCompact ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
                   <input
                     ref={searchInputRef}
@@ -312,23 +312,23 @@ export function CalendarToolbar({
                     placeholder={search.placeholder}
                     className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
                   />
-                  {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="เธฅเนเธฒเธเธเธฒเธฃเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+                  {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
                   <button
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
-                    aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก"
+                    aria-label="ปิดช่องค้นหากิจกรรม"
                     className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
-                  <button type="submit" className="sr-only">เธเนเธเธซเธฒ</button>
+                  <button type="submit" className="sr-only">ค้นหา</button>
                 </form>
               ) : <div id={searchPanelId} hidden />}
             </>
           ) : null}
 
           {filters ? <>
-            {(isAdminToolbar || residentCompact) ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>เธ•เธฑเธงเธเธฃเธญเธ</span></button> : null}
+            {(isAdminToolbar || residentCompact) ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
             {filtersVisible ? <div className={cn(isAdminToolbar || residentCompact ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar && !residentCompact ? "hidden md:block" : "")} onClickCapture={() => { if (isAdminToolbar || residentCompact) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
               <div className={cn("flex items-center gap-2", isAdminToolbar ? "flex-wrap" : "w-max whitespace-nowrap")}>{isAdminToolbar && adminFilterGroups.length ? <>{adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />)}{adminClearFiltersHref ? <Link href={adminClearFiltersHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}</> : filters}</div>
             </div> : null}
@@ -342,5 +342,4 @@ export function CalendarToolbar({
     </section>
   );
 }
-
 

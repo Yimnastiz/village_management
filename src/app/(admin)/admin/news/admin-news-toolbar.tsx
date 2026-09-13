@@ -22,25 +22,24 @@ export function AdminNewsToolbar({ keyword, stage, visibility, sort, suggestionT
   return (
     <AdminListToolbar
       sticky
-      title="เธเธฑเธ”เธเธฒเธฃเธเนเธฒเธง"
-      description="เธเนเธเธซเธฒเนเธฅเธฐเธเธฃเธญเธเธเนเธฒเธงเธ•เธฒเธกเธชเธ–เธฒเธเธฐเนเธฅเธฐเธเธฒเธฃเธกเธญเธเน€เธซเนเธ"
+      title="จัดการข่าว"
+      description="ค้นหาและกรองข่าวตามสถานะและการมองเห็น"
       searchAction="/admin/news"
       clearHref="/admin/news"
       keyword={keyword}
-      searchPlaceholder="เธเนเธเธซเธฒเธเธทเนเธญเธซเธฃเธทเธญเน€เธเธทเนเธญเธซเธฒเธเนเธฒเธง"
-      searchLabel="เธเนเธเธซเธฒเธเนเธฒเธง"
+      searchPlaceholder="ค้นหาชื่อหรือเนื้อหาข่าว"
+      searchLabel="ค้นหาข่าว"
       suggestionTitles={suggestionTitles}
       groups={[
-        { label: "เธชเธ–เธฒเธเธฐ", options: [["ALL", "เธ—เธฑเนเธเธซเธกเธ”"], ["DRAFT", "เธฃเนเธฒเธ"], ["PUBLISHED", "เน€เธเธขเนเธเธฃเน"], ["ARCHIVED", "เธเธฑเธ”เน€เธเนเธเนเธฅเนเธง"]].map(([value, label], index) => ({ label, href: href(keyword, value, visibility, sort), active: stage === value, isDefault: index === 0 })) },
-        { label: "เธเธฒเธฃเธกเธญเธเน€เธซเนเธ", options: [["ALL", "เธ—เธฑเนเธเธซเธกเธ”"], ["PUBLIC", "เธชเธฒเธเธฒเธฃเธ“เธฐ"], ["RESIDENT_ONLY", "เธฅเธนเธเธเนเธฒเธ"]].map(([value, label], index) => ({ label, href: href(keyword, stage, value, sort), active: visibility === value, isDefault: index === 0 })) },
-        { label: "เน€เธฃเธตเธขเธ", options: [["newest", "เธฅเนเธฒเธชเธธเธ”"], ["oldest", "เน€เธเนเธฒเธชเธธเธ”"]].map(([value, label], index) => ({ label, href: href(keyword, stage, visibility, value), active: sort === value, isDefault: index === 0 })) },
+        { label: "สถานะ", options: [["ALL", "ทั้งหมด"], ["DRAFT", "ร่าง"], ["PUBLISHED", "เผยแพร่"], ["ARCHIVED", "จัดเก็บแล้ว"]].map(([value, label], index) => ({ label, href: href(keyword, value, visibility, sort), active: stage === value, isDefault: index === 0 })) },
+        { label: "การมองเห็น", options: [["ALL", "ทั้งหมด"], ["PUBLIC", "สาธารณะ"], ["RESIDENT_ONLY", "ลูกบ้าน"]].map(([value, label], index) => ({ label, href: href(keyword, stage, value, sort), active: visibility === value, isDefault: index === 0 })) },
+        { label: "เรียง", options: [["newest", "ล่าสุด"], ["oldest", "เก่าสุด"]].map(([value, label], index) => ({ label, href: href(keyword, stage, visibility, value), active: sort === value, isDefault: index === 0 })) },
       ]}
       actions={<>
-        <Link href="/admin/news/requests" aria-label={pendingCount > 0 ? `เธเธณเธเธญเธเนเธฒเธงเธเธฒเธเธฅเธนเธเธเนเธฒเธ ${pendingCount} เธฃเธฒเธขเธเธฒเธฃเธฃเธญเธเธดเธเธฒเธฃเธ“เธฒ` : "เธเธณเธเธญเธเนเธฒเธงเธเธฒเธเธฅเธนเธเธเนเธฒเธ"}><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><Inbox className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">เธเธณเธเธญเธเนเธฒเธง</span></Button>{pendingCount > 0 ? <AdminPendingCountBadge count={pendingCount} /> : null}</Link>
-        <Link href="/admin/news/new"><Button size="sm" className="h-10 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="ml-1 hidden min-[360px]:inline">เน€เธเธดเนเธกเธเนเธฒเธง</span></Button></Link>
+        <Link href="/admin/news/requests" aria-label={pendingCount > 0 ? `คำขอข่าวจากลูกบ้าน ${pendingCount} รายการรอพิจารณา` : "คำขอข่าวจากลูกบ้าน"}><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><Inbox className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอข่าว</span></Button>{pendingCount > 0 ? <AdminPendingCountBadge count={pendingCount} /> : null}</Link>
+        <Link href="/admin/news/new"><Button size="sm" className="h-10 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="ml-1 hidden min-[360px]:inline">เพิ่มข่าว</span></Button></Link>
       </>}
     />
   );
 }
-
 
