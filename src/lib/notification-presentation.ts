@@ -1,10 +1,10 @@
 import type { Notification, Prisma } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, Images, MapPin, Megaphone, Newspaper, Phone, ShieldCheck, UsersRound } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, Images, MapPin, Megaphone, MessageSquareText, Newspaper, Phone, ShieldCheck, UsersRound } from "lucide-react";
 
 type NotificationMetadata = Record<string, Prisma.JsonValue | undefined>;
 
-export type NotificationPresentation = { icon: LucideIcon; iconClassName: string; iconContainerClassName: string; accentClassName?: string; badge?: string; badgeClassName?: string; sourceAttribution?: string };
+export type NotificationPresentation = { icon: LucideIcon; iconClassName: string; iconContainerClassName: string; accentClassName?: string; badge?: string; badgeClassName?: string; sourceAttribution?: string; bodyClassName?: string };
 
 const DEFAULT_PRESENTATION: NotificationPresentation = { icon: Bell, iconClassName: "text-slate-600", iconContainerClassName: "bg-slate-100", accentClassName: "" };
 const PRESENTATIONS = {
@@ -18,6 +18,7 @@ const PRESENTATIONS = {
   downloads: { icon: FileDown, iconClassName: "text-indigo-700", iconContainerClassName: "bg-indigo-50" },
   transparency: { icon: FileSearch, iconClassName: "text-teal-700", iconContainerClassName: "bg-teal-50" },
   household: { icon: UsersRound, iconClassName: "text-orange-700", iconContainerClassName: "bg-orange-50" },
+  feedback: { icon: MessageSquareText, iconClassName: "text-violet-700", iconContainerClassName: "bg-violet-50", bodyClassName: "line-clamp-2 whitespace-normal" },
   broadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศ", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ใหญ่บ้าน" },
   legacyBroadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศ", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ดูแลระบบระดับสูง" },
   superadmin: { icon: ShieldCheck, iconClassName: "text-sky-700", iconContainerClassName: "bg-sky-50", accentClassName: "border-l-4 border-l-sky-500", badge: "ผู้ดูแลระดับสูง", badgeClassName: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200" },
@@ -37,6 +38,7 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   const source = typeof metadata.source === "string" ? metadata.source.toUpperCase() : "";
   const actionUrl = typeof metadata.actionUrl === "string" ? metadata.actionUrl : "";
   if (source === "SUPERADMIN_INTERVENTION") return PRESENTATIONS.superadmin;
+  if (source === "PUBLIC_FEEDBACK") return PRESENTATIONS.feedback;
   if (notification.type === "NEWS" || hasString(metadata, "newsId") || source.includes("NEWS")) return PRESENTATIONS.news;
   if (notification.type === "ISSUE_UPDATE" || hasString(metadata, "issueId") || source.includes("ISSUE")) return PRESENTATIONS.issues;
   // Calendar and appointments are separate Resident modules. Prioritize the

@@ -1,4 +1,5 @@
 import type { Notification, NotificationType, Prisma } from "@prisma/client";
+import { feedbackNotificationTitle } from "@/lib/feedback-notification";
 
 type NotificationMetadata = Record<string, Prisma.JsonValue | undefined>;
 
@@ -44,10 +45,12 @@ export function resolveAdminNotificationDestination(
   const placeId = stringValue(metadata, "placeId");
   const source = stringValue(metadata, "source");
   const action = stringValue(metadata, "action");
+  const feedbackId = stringValue(metadata, "feedbackId");
 
   const fromNotifications = (path: string) => `${path}${path.includes("?") ? "&" : "?"}from=notifications`;
   const actionUrl = stringValue(metadata, "actionUrl");
   if (["SUPERADMIN_BROADCAST", "VILLAGE_BROADCAST"].includes(source?.toUpperCase() ?? "")) return `/admin/notifications/${notification.id}`;
+  if (source?.toUpperCase() === "PUBLIC_FEEDBACK" && feedbackId) return fromNotifications(`/admin/feedback/${feedbackId}`);
   if (source === "SUPERADMIN_INTERVENTION" && actionUrl?.startsWith("/admin/")) return fromNotifications(actionUrl);
   if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
   if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);
@@ -93,6 +96,10 @@ const LEGACY_THAI_COPY: Partial<Record<NotificationType, { title: string; body?:
 
 /** Provides Thai fallbacks for older rows that stored the former English copy. */
 export function getAdminNotificationCopy(notification: Pick<Notification, "type" | "title" | "body" | "metadata">) {
+  const metadata = metadataOf(notification);
+  if (typeof metadata.source === "string" && metadata.source.toUpperCase() === "PUBLIC_FEEDBACK") {
+    return { title: feedbackNotificationTitle(stringValue(metadata, "category")), body: notification.body };
+  }
   const intervention = interventionMetadata(notification);
   if (intervention) {
     const actionLabel = stringValue(intervention, "actionLabel") ?? "ดำเนินการในหมู่บ้าน";
