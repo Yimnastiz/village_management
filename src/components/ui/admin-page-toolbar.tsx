@@ -72,7 +72,7 @@ export function AdminPageToolbar({
   actions,
   secondaryActions,
   sticky = false,
-  compact = false,
+  compact = true,
   search,
   filters,
   activeFilterCount = 0,
@@ -160,7 +160,7 @@ export function AdminPageToolbar({
     <section
       className={cn(
         cn(
-          "relative z-30 -mx-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6",
+          "relative z-30 -mx-4 shrink-0 overflow-visible border-b border-gray-100 bg-white/95 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:px-6",
           compact ? "py-1.5 sm:py-1.5" : "py-3 sm:py-4",
         ),
         sticky && "sticky top-[var(--app-sticky-top,4rem)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",

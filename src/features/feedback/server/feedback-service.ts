@@ -39,7 +39,7 @@ export async function getFeedbackById(notificationId: string, villageId?: string
   return row && isFeedbackMetadata(row.metadata) && (!villageId || row.villageId === null || row.villageId === villageId) ? row : null;
 }
 
-export async function listFeedback({ q = "", category = "all", status = "active", sort = "newest", page = 1, villageId }: { q?: string; category?: string; status?: FeedbackStatusFilter; sort?: "newest" | "oldest"; page?: number; villageId?: string }) {
+export async function listFeedback({ q = "", category = "all", status = "all", sort = "newest", page = 1, villageId }: { q?: string; category?: string; status?: FeedbackStatusFilter; sort?: "newest" | "oldest"; page?: number; villageId?: string }) {
   const keyword = q.trim();
   const where: Prisma.NotificationWhereInput = { AND: [
     { metadata: { path: ["source"], equals: FEEDBACK_SOURCE } },
@@ -69,13 +69,13 @@ export async function transitionFeedback(notificationId: string, operation: "unr
   const row = await getFeedbackById(notificationId, villageId);
   if (!row) throw new Error("ไม่พบรายการความคิดเห็น");
   if (operation === "restore") {
-    if (row.status !== NotificationStatus.ARCHIVED) throw new Error("รายการนี้ยังไม่ได้เก็บถาวร");
+    if (row.status !== NotificationStatus.ARCHIVED) throw new Error("รายการนี้ยังไม่ได้จัดเก็บ");
     const status = row.readAt ? NotificationStatus.READ : NotificationStatus.UNREAD;
     const result = await prisma.notification.updateMany({ where: { id: row.id, status: NotificationStatus.ARCHIVED }, data: { status } });
     if (!result.count) throw new Error("สถานะรายการถูกเปลี่ยนแล้ว");
     return status;
   }
-  if (row.status === NotificationStatus.ARCHIVED) throw new Error("ไม่สามารถเปลี่ยนสถานะรายการที่เก็บถาวรแล้ว");
+  if (row.status === NotificationStatus.ARCHIVED) throw new Error("ไม่สามารถเปลี่ยนสถานะรายการที่จัดเก็บแล้ว");
   const status = operation === "archive" ? NotificationStatus.ARCHIVED : NotificationStatus.UNREAD;
   const result = await prisma.notification.updateMany({ where: { id: row.id, status: row.status }, data: { status, ...(operation === "unread" ? { readAt: null } : {}) } });
   if (!result.count) throw new Error("สถานะรายการถูกเปลี่ยนแล้ว");

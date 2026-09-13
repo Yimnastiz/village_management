@@ -209,13 +209,6 @@ export default async function AdminDashboard() {
         area="admin"
       />
 
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">แดชบอร์ด</h1>
-        <p className="text-gray-500 text-sm mt-1">
-          ภาพรวมระบบหมู่บ้าน {villageName}
-        </p>
-      </div>
-
       <SystemBroadcastTicker items={tickerItems} />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -247,14 +240,14 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">ปัญหาล่าสุด</h2>
             <Link href="/admin/issues" className="text-sm text-green-600 hover:underline">
               ดูทั้งหมด
             </Link>
           </div>
-          <div className="space-y-3 text-sm">
+          <div className="divide-y divide-gray-100 text-sm">
             {recentIssues.length === 0 ? (
               <div className="text-center py-6 text-gray-400 text-sm">ยังไม่มีรายการปัญหา</div>
             ) : (
@@ -262,7 +255,7 @@ export default async function AdminDashboard() {
                 <Link
                   key={issue.id}
                   href={`/admin/issues/${issue.id}`}
-                  className="flex items-center justify-between gap-3 rounded border-b py-2 last:border-0 hover:bg-gray-50 px-2"
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50/70"
                 >
                   <div className="min-w-0">
                     <p className="text-gray-700 line-clamp-1">{issue.title}</p>
@@ -277,7 +270,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">นัดหมายวันนี้</h2>
             <Link href="/admin/appointments" className="text-sm text-green-600 hover:underline">
@@ -287,12 +280,12 @@ export default async function AdminDashboard() {
           {todayAppointments.length === 0 ? (
             <div className="text-center py-6 text-gray-400 text-sm">ไม่มีนัดหมายวันนี้</div>
           ) : (
-            <div className="space-y-3">
+            <div className="divide-y divide-gray-100">
               {todayAppointments.map((appointment) => (
                 <Link
                   key={appointment.id}
                   href={`/admin/appointments/${appointment.id}`}
-                  className="flex items-center justify-between gap-3 rounded border-b py-2 last:border-0 hover:bg-gray-50 px-2"
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50/70"
                 >
                   <div className="min-w-0">
                     <p className="text-gray-700 line-clamp-1">{appointment.title}</p>
@@ -311,7 +304,7 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">ข่าวล่าสุด</h2>
             <Link href="/admin/news" className="text-sm text-green-600 hover:underline">
@@ -321,12 +314,12 @@ export default async function AdminDashboard() {
           {recentNews.length === 0 ? (
             <div className="text-center py-6 text-gray-400 text-sm">ยังไม่มีข่าว</div>
           ) : (
-            <div className="space-y-3">
+            <div className="divide-y divide-gray-100">
               {recentNews.map((news) => (
                 <Link
                   key={news.id}
                   href={`/admin/news/${news.id}`}
-                  className="flex flex-col gap-2 rounded border-b py-2 last:border-0 hover:bg-gray-50 px-2 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-gray-50/70 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="text-gray-700 line-clamp-1">{news.title}</p>
@@ -346,7 +339,7 @@ export default async function AdminDashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-100 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-semibold text-gray-900">การแจ้งเตือน</h2>
             <Link href="/admin/notifications" className="text-sm text-green-600 hover:underline">
@@ -357,7 +350,7 @@ export default async function AdminDashboard() {
           {latestNotifications.length === 0 ? (
             <p className="py-5 text-center text-sm text-gray-400">ยังไม่มีการแจ้งเตือนล่าสุด</p>
           ) : (
-            <div className="space-y-1">
+            <div className="divide-y divide-gray-100">
               {latestNotifications.map((notification) => {
                 const isUnread = notification.status === "UNREAD";
 

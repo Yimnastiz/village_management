@@ -20,7 +20,7 @@ const colorClasses = {
 
 export function StatCard({ title, value, icon: Icon, trend, color = "green", className }: StatCardProps) {
   return (
-    <div className={cn("bg-white rounded-xl shadow-sm border border-gray-200 p-6", className)}>
+    <div className={cn("rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-100", className)}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500">{title}</p>

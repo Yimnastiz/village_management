@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requireVillageActionPermission } from "@/lib/admin-permission.server";
 import { transitionFeedback } from "@/features/feedback/server/feedback-service";
 
@@ -12,4 +13,5 @@ export async function updateAdminFeedbackStatusAction(formData: FormData) {
   await transitionFeedback(feedbackId, operation as "unread" | "archive" | "restore", context.villageId);
   revalidatePath("/admin/feedback");
   revalidatePath(`/admin/feedback/${feedbackId}`);
+  redirect(`/admin/feedback?status=${operation === "unread" ? "UNREAD" : operation === "archive" ? "ARCHIVED" : "all"}`);
 }

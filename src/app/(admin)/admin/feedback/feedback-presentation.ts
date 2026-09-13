@@ -11,7 +11,7 @@ export const categoryOptions = [
 export const statusLabels: Record<NotificationStatus, string> = {
   UNREAD: "ยังไม่ได้อ่าน",
   READ: "อ่านแล้ว",
-  ARCHIVED: "เก็บถาวร",
+  ARCHIVED: "จัดเก็บแล้ว",
 };
 
 export function categoryLabel(category: string | null) {
