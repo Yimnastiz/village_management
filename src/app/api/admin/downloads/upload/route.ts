@@ -18,7 +18,14 @@ export async function POST(request: NextRequest) {
     if (file.size <= 0 || file.size > MAX_DOWNLOAD_ATTACHMENT_BYTES) return NextResponse.json({ error: "ไฟล์ต้องมีขนาดไม่เกิน 25 MB" }, { status: 400 });
     if (!isAllowedDownloadFile(file.name, file.type)) return NextResponse.json({ error: "รองรับเฉพาะ PDF, Word, Excel, PowerPoint, TXT, CSV, JPG และ PNG" }, { status: 400 });
     const saved = await saveDownloadUpload(new Uint8Array(await file.arrayBuffer()), file.name, file.type, membership.villageId);
-    return NextResponse.json({ ...saved, fileName: file.name, fileSize: file.size, uploadToken: createDownloadUploadToken(saved.fileKey, membership.villageId, session.id) });
+    return NextResponse.json({
+      fileKey: saved.fileKey,
+      fileUrl: saved.url,
+      mimeType: saved.mimeType,
+      fileName: file.name,
+      fileSize: file.size,
+      uploadToken: createDownloadUploadToken(saved.fileKey, membership.villageId, session.id),
+    });
   } catch (error) {
     console.error("download upload", error);
     return NextResponse.json({ error: "อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, { status: 500 });
