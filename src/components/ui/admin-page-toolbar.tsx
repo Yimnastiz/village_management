@@ -196,7 +196,11 @@ export function AdminPageToolbar({
           ) : null}
         </header>
       ) : null}
-      {(hideHeading || adminPageHeaderRegistry) && actions && !hasTools ? <div className="flex min-w-0 flex-wrap justify-end gap-2 sm:gap-3">{actions}</div> : null}
+      {(hideHeading || adminPageHeaderRegistry) && !hasTools && (actions || ((backPlacement === "header-start" || backPlacement === "header-end") && backLink)) ? <div className={cn("flex min-w-0 flex-wrap items-center gap-2 sm:gap-3", backPlacement === "header-start" ? "justify-between" : "justify-end")}>
+        {backPlacement === "header-start" ? backLink : null}
+        {actions}
+        {backPlacement === "header-end" ? backLink : null}
+      </div> : null}
 
       {secondaryActions ? <div className="mt-2 flex min-w-0 justify-start sm:justify-end">{secondaryActions}</div> : null}
 

@@ -5,6 +5,7 @@ import { MembershipStatus, NotificationType, VillageMembershipRole } from "@pris
 import { prisma } from "@/lib/prisma";
 import { getSystemSettings } from "@/lib/system-settings";
 import { ConfiguredVillageError, getConfiguredVillage } from "@/lib/configured-village";
+import { createFeedbackTitle } from "@/app/(admin)/admin/feedback/feedback-presentation";
 
 function readText(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -53,7 +54,7 @@ export async function submitPublicFeedbackAction(formData: FormData): Promise<{ 
       userId: headman.userId,
       villageId: headman.villageId,
       type: NotificationType.SYSTEM,
-      title: `Feedback ใหม่ (${category})`,
+      title: createFeedbackTitle(detail),
       body: detail,
       metadata: {
         source: "PUBLIC_FEEDBACK",
