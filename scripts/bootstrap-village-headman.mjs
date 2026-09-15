@@ -6,6 +6,14 @@ import { AccountStatus, MembershipStatus, PrismaClient, VillageMembershipRole } 
 import { BootstrapInputError, planVillageBootstrap, readBootstrapInput } from "./bootstrap-village-headman-core.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
+const installationVillagePath = path.join(projectRoot, "config", "installation-village.json");
+
+async function readInstallationVillageCode() {
+  const config = JSON.parse(await fs.readFile(installationVillagePath, "utf8"));
+  const officialCode = typeof config.catalogOfficialCode === "string" ? config.catalogOfficialCode.trim() : "";
+  if (!officialCode) throw new BootstrapInputError("MISSING_INSTALLATION_CATALOG", "config/installation-village.json must contain catalogOfficialCode.");
+  return officialCode;
+}
 
 async function loadEnvironmentFile() {
   let content;
@@ -22,11 +30,14 @@ async function main() {
   await loadEnvironmentFile();
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required. Run npm run setup after configuring PostgreSQL.");
   const input = readBootstrapInput();
+  const officialCode = await readInstallationVillageCode();
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const activeVillages = await tx.village.findMany({ where: { isActive: true }, select: { id: true, name: true, slug: true, moo: true, province: true, district: true, subdistrict: true }, orderBy: { createdAt: "asc" }, take: 3 });
-      const plan = planVillageBootstrap(activeVillages, input.village);
+      const catalogVillage = await tx.thailandVillageMaster.findUnique({ where: { officialCode }, select: { id: true, officialCode: true, villageName: true, moo: true, slug: true, province: true, district: true, subdistrict: true } });
+      if (!catalogVillage) throw new BootstrapInputError("CATALOG_VILLAGE_NOT_FOUND", `Catalog Village ${officialCode} was not found. Import the catalog before bootstrap.`);
+      const activeVillages = await tx.village.findMany({ where: { isActive: true }, select: { id: true, catalogVillageId: true }, orderBy: { createdAt: "asc" }, take: 3 });
+      const plan = planVillageBootstrap(activeVillages, catalogVillage);
       const village = plan.kind === "existing" ? plan.village : await tx.village.create({ data: { ...plan.village, isActive: true } });
       const existingUser = await tx.user.findUnique({ where: { phoneNumber: input.headman.phoneNumber } });
       if (existingUser && existingUser.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The bootstrap phone belongs to a non-active account and was not changed.");

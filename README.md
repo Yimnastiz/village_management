@@ -16,7 +16,7 @@ npm run dev
 
 `npm run setup` creates `.env` when needed, verifies database connectivity, generates Prisma Client, and deploys committed migrations. It does not create Village or user records and it does not import the Thailand Village catalog by default.
 
-`npm run setup:bootstrap` is an operator-run CLI command that provisions the one configured Village and its initial Headman. Set the documented `BOOTSTRAP_*` values first; it never fabricates defaults, provides no web endpoint, and is safe to re-run with the same inputs.
+`npm run setup:bootstrap` is an operator-run CLI command that provisions the one configured Village and its initial Headman. It reads the committed catalog identity in `config/installation-village.json` (this installation: `66080204`) and derives the Village identity from that catalog row; import the catalog first. Set the documented Headman `BOOTSTRAP_*` values first. It provides no web endpoint and stops without changing an active Village when its catalog binding differs.
 
 The initial Headman is a normal user with an ACTIVE HEADMAN membership and signs in through the normal OTP flow.
 

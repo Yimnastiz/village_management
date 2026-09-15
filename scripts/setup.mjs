@@ -182,7 +182,7 @@ async function main() {
 
   if (databaseOnly || !importCatalogDuringSetup) {
     if (!databaseOnly) console.log("\nCatalog import is optional. Run npm run catalog:setup only when catalog data is explicitly needed.");
-    if (!databaseOnly) console.log("Initial Village and Headman provisioning is separate: set BOOTSTRAP_* values and run npm run setup:bootstrap.");
+    if (!databaseOnly) console.log("Initial Village and Headman provisioning is separate: import the catalog, set BOOTSTRAP_HEADMAN_* values, then run npm run setup:bootstrap.");
     console.log("\nฐานข้อมูลพร้อมใช้งานแล้ว");
     return;
   }

@@ -43,39 +43,34 @@ export function readBootstrapInput(environment = process.env) {
   const phoneNumber = normalizeBootstrapPhone(environment.BOOTSTRAP_HEADMAN_PHONE);
   if (!phoneNumber) throw new BootstrapInputError("INVALID_PHONE", "BOOTSTRAP_HEADMAN_PHONE must be a Thai 10-digit phone number.");
 
-  const rawSlug = optionalText(environment.BOOTSTRAP_VILLAGE_SLUG);
-  const slug = rawSlug ? normalizeBootstrapVillageSlug(rawSlug) : null;
-  if (rawSlug && !slug) throw new BootstrapInputError("INVALID_SLUG", "BOOTSTRAP_VILLAGE_SLUG is empty or unsafe after normalization.");
-
   return {
     headman: { phoneNumber, name: requiredText(environment.BOOTSTRAP_HEADMAN_NAME, "BOOTSTRAP_HEADMAN_NAME") },
-    village: {
-      name: optionalText(environment.BOOTSTRAP_VILLAGE_NAME), slug, moo: optionalText(environment.BOOTSTRAP_VILLAGE_MOO),
-      province: optionalText(environment.BOOTSTRAP_VILLAGE_PROVINCE), district: optionalText(environment.BOOTSTRAP_VILLAGE_DISTRICT), subdistrict: optionalText(environment.BOOTSTRAP_VILLAGE_SUBDISTRICT),
-    },
   };
 }
 
-function requireVillageCreationInput(village) {
-  for (const [field, variable] of [["name", "BOOTSTRAP_VILLAGE_NAME"], ["slug", "BOOTSTRAP_VILLAGE_SLUG"], ["moo", "BOOTSTRAP_VILLAGE_MOO"], ["province", "BOOTSTRAP_VILLAGE_PROVINCE"], ["district", "BOOTSTRAP_VILLAGE_DISTRICT"], ["subdistrict", "BOOTSTRAP_VILLAGE_SUBDISTRICT"]]) {
-    if (!village[field]) throw new BootstrapInputError("MISSING_VILLAGE_INPUT", `${variable} is required when no active Village exists.`);
+/** Derive the configured Village identity exclusively from its catalog record. */
+export function villageFromCatalog(catalogVillage) {
+  if (!catalogVillage?.id || !catalogVillage.officialCode || !catalogVillage.villageName || !catalogVillage.moo || !catalogVillage.slug || !catalogVillage.province || !catalogVillage.district || !catalogVillage.subdistrict) {
+    throw new BootstrapInputError("INVALID_CATALOG_VILLAGE", "The configured catalog Village is incomplete and cannot be used for bootstrap.");
   }
-  return village;
+  return {
+    name: catalogVillage.villageName,
+    slug: catalogVillage.slug,
+    moo: catalogVillage.moo,
+    province: catalogVillage.province,
+    district: catalogVillage.district,
+    subdistrict: catalogVillage.subdistrict,
+    catalogVillageId: catalogVillage.id,
+  };
 }
 
-function verifyProvidedVillageIdentity(activeVillage, requestedVillage) {
-  for (const field of ["name", "slug", "moo", "province", "district", "subdistrict"]) {
-    if (requestedVillage[field] && requestedVillage[field] !== activeVillage[field]) {
-      throw new BootstrapInputError("VILLAGE_MISMATCH", `The supplied Village ${field} does not match the configured active Village.`);
-    }
-  }
-}
-
-export function planVillageBootstrap(activeVillages, requestedVillage) {
+export function planVillageBootstrap(activeVillages, catalogVillage) {
   if (activeVillages.length > 1) throw new BootstrapInputError("MULTIPLE_ACTIVE_VILLAGES", "Bootstrap stopped because more than one active Village exists.");
   if (activeVillages.length === 1) {
-    verifyProvidedVillageIdentity(activeVillages[0], requestedVillage);
+    if (activeVillages[0].catalogVillageId !== catalogVillage.id) {
+      throw new BootstrapInputError("VILLAGE_CATALOG_MISMATCH", "The active Village is bound to a different catalog Village; it was not changed. Review and migrate the installation explicitly.");
+    }
     return { kind: "existing", village: activeVillages[0] };
   }
-  return { kind: "create", village: requireVillageCreationInput(requestedVillage) };
+  return { kind: "create", village: villageFromCatalog(catalogVillage) };
 }
