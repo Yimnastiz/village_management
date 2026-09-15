@@ -44,7 +44,7 @@ export default async function ResidentBindingPage() {
         <p className="text-sm font-medium text-green-700">บัญชีผู้พักอาศัย</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight text-gray-950">ผูกบัญชีกับบ้าน</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-600">
-          Choose a house number in this Village to send a request to the Headman for review.
+          เลือกบ้านเลขที่ในหมู่บ้านนี้เพื่อส่งคำขอให้ผู้ใหญ่บ้านตรวจสอบ
         </p>
       </header>
 

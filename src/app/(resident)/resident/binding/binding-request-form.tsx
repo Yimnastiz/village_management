@@ -66,8 +66,8 @@ export function BindingRequestForm({
   return (
     <form action={formAction} className="space-y-6">
       <section className="rounded-xl border border-green-100 bg-green-50/60 p-4">
-        <h2 className="text-sm font-semibold text-gray-900">Configured Village</h2>
-        <p className="mt-1 break-words font-medium text-gray-800">{village.name}{village.moo ? ` Moo ${village.moo}` : ""}</p>
+        <h2 className="text-sm font-semibold text-gray-900">หมู่บ้านของคุณ</h2>
+        <p className="mt-1 break-words font-medium text-gray-800">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</p>
         <p className="mt-1 text-xs text-gray-600">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" · ")}</p>
       </section>
 
