@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { BootstrapInputError, planVillageBootstrap, readBootstrapInput } from "../scripts/bootstrap-village-headman-core.mjs";
 
 const headmanEnvironment = { BOOTSTRAP_HEADMAN_PHONE: "0812345678", BOOTSTRAP_HEADMAN_NAME: "Initial Headman" };
-const catalogVillage = { id: "catalog-1", officialCode: "66080204", villageName: "เขาทราย", slug: "เขาทราย-4-66080204", moo: "4", province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย" };
+const catalogVillage = { id: "catalog-1", officialCode: "66080210", villageName: "เขาทราย", slug: "เขาทราย-10-66080210", moo: "10", province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย" };
 
 test("zero active Villages derives the Village from the catalog identity", () => {
   const input = readBootstrapInput(headmanEnvironment);
   assert.equal(input.headman.name, "Initial Headman");
-  assert.deepEqual(planVillageBootstrap([], catalogVillage), { kind: "create", village: { name: "เขาทราย", slug: "เขาทราย-4-66080204", moo: "4", province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย", catalogVillageId: "catalog-1" } });
+  assert.deepEqual(planVillageBootstrap([], catalogVillage), { kind: "create", village: { name: "เขาทราย", slug: "เขาทราย-10-66080210", moo: "10", province: "พิจิตร", district: "ทับคล้อ", subdistrict: "เขาทราย", catalogVillageId: "catalog-1" } });
 });
 
 test("one active Village is reused without creating another", () => {
