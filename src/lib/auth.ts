@@ -2,6 +2,11 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { phoneNumber } from "better-auth/plugins";
 import { prisma } from "./prisma";
+import { houseAccountAuthPlugin } from "./house-account-auth-plugin";
+import {
+  consumeHouseAccountLoginOtp,
+  verifyHouseAccountLoginOtp,
+} from "./house-account-login-service";
 
 const defaultBaseUrl = "http://localhost:3000";
 const appUrl = process.env.BETTER_AUTH_URL;
@@ -104,6 +109,20 @@ export const auth = betterAuth({
       userAgent: "userAgent",
       userId: "userId",
     },
+    additionalFields: {
+      activeVillageId: {
+        type: "string",
+        required: false,
+        input: false,
+        returned: false,
+      },
+      loginAccountEmailId: {
+        type: "string",
+        required: false,
+        input: false,
+        returned: false,
+      },
+    },
     expiresIn: 60 * 60 * 24 * 7,
     updateAge: 60 * 60 * 24,
     // Keep session state in DB only. Cookie cache can exceed header limits
@@ -141,6 +160,10 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    houseAccountAuthPlugin({
+      verifyHouseAccountLoginOtp,
+      consumeHouseAccountLoginOtp,
+    }),
     phoneNumber({
       expiresIn: 60 * 5,
       allowedAttempts: 5,

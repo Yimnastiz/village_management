@@ -1,4 +1,4 @@
-import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
+import { AccountKind, AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
@@ -63,16 +63,18 @@ export async function POST(request: NextRequest) {
     const user = await tx.user.findFirst({
       where: { phoneNumber: { in: [challenge.otpIdentifier, loaded.phoneNumber] } },
       select: {
+        accountKind: true,
         accountStatus: true,
         duplicateNoticeLoginUsedAt: true,
         duplicateNoticeSeenAt: true,
       },
     });
-    const canSignIn = user?.accountStatus === AccountStatus.ACTIVE || (
+    const isLegacyPhoneAccount = user?.accountKind !== AccountKind.RESIDENT_HOUSE;
+    const canSignIn = isLegacyPhoneAccount && (user?.accountStatus === AccountStatus.ACTIVE || (
       user?.accountStatus === AccountStatus.DUPLICATE_ID &&
       !user.duplicateNoticeSeenAt &&
       !user.duplicateNoticeLoginUsedAt
-    );
+    ));
     if (!canSignIn) return { allowed: false as const, status: 403, reason: "duplicate-disabled", challenge };
     const separator = verification.value.lastIndexOf(":");
     const storedCode = separator >= 0 ? verification.value.slice(0, separator) : verification.value;

@@ -2,18 +2,23 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
-import { useRouter, useSearchParams } from "next/navigation";
 import { saveLoginOtpState } from "@/lib/auth-client";
 import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
+
+type LoginMode = "HOUSE" | "LEGACY_PHONE";
 
 function normalizePhone10(raw: string): string {
   return raw.replace(/\D/g, "").slice(0, 10);
 }
 
 function LoginContent() {
+  const [mode, setMode] = useState<LoginMode>("HOUSE");
+  const [houseNumber, setHouseNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,67 +33,89 @@ function LoginContent() {
     ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}`
     : "/auth/register";
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const switchMode = (nextMode: LoginMode) => {
+    setMode(nextMode);
+    setError(null);
+  };
 
-    const normalizedPhone = normalizePhone10(phone);
-    if (!normalizedPhone) {
-      setError("กรุณากรอกเบอร์โทรศัพท์");
+  const handleHouseLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!houseNumber.trim() || !email.trim()) {
+      setError("กรุณากรอกบ้านเลขที่และอีเมล");
       return;
     }
-
-    if (!/^\d{10}$/.test(normalizedPhone)) {
-      setError("เบอร์โทรศัพท์ต้องมี 10 หลัก");
-      return;
-    }
-
     setIsLoading(true);
     setError(null);
+    try {
+      const response = await fetch("/api/auth/house-login/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ houseNumber, email, callbackUrl }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        message?: string;
+        landingPath?: string;
+      } | null;
+      if (response.status === 409 && data?.landingPath) {
+        router.replace(data.landingPath);
+        return;
+      }
+      if (!response.ok) throw new Error(data?.error || "ไม่สามารถเริ่มเข้าสู่ระบบได้");
+      success(
+        "ตรวจสอบอีเมลของคุณ",
+        data?.message || "หากข้อมูลถูกต้อง ระบบจะส่งรหัสยืนยันไปยังอีเมลที่ระบุ",
+      );
+      router.push("/auth/login/verify-email");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "ไม่สามารถเริ่มเข้าสู่ระบบได้";
+      setError(message);
+      showError("เริ่มเข้าสู่ระบบไม่สำเร็จ", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  const handlePhoneLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const normalizedPhone = normalizePhone10(phone);
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      setError("กรุณากรอกเบอร์โทรศัพท์ 10 หลัก");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
     try {
       const registrationResponse = await fetch("/api/auth/check-registration", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          phoneNumber: normalizedPhone,
-        }),
+        body: JSON.stringify({ phoneNumber: normalizedPhone }),
       });
-
       if (!registrationResponse.ok) {
-        throw new Error("ไม่พบเบอร์โทรศัพท์นี้ในระบบ หากบ้านยังไม่มีบัญชี กรุณาขอเปิดบัญชีบ้าน");
+        const data = (await registrationResponse.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error || "ไม่พบบัญชีที่ใช้เบอร์โทรศัพท์นี้");
       }
-
-      const registrationData = (await registrationResponse.json()) as {
-        phoneNumber?: string;
-      };
+      const registrationData = (await registrationResponse.json()) as { phoneNumber?: string };
       const loginPhoneNumber = registrationData.phoneNumber ?? normalizedPhone;
-
       const result = await fetch("/api/auth/login-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ phoneNumber: loginPhoneNumber, intent: "START_OR_RESUME" }),
       });
-      if (!result.ok) {
-        throw new Error("ไม่สามารถส่งรหัส OTP ได้");
-      }
-      const resultBody = (await result.json()) as { outcome?: "OTP_SENT" | "DEV_OTP_READY" | "RESUME_EXISTING_CHALLENGE" | "LOCKED" };
-
-      // Login state is tab-scoped and short-lived. Do not expose the phone
-      // number in browser history, logs, referrers, or registration storage.
+      if (!result.ok) throw new Error("ไม่สามารถส่งรหัส OTP ได้");
+      const resultBody = (await result.json()) as {
+        outcome?: "OTP_SENT" | "DEV_OTP_READY" | "RESUME_EXISTING_CHALLENGE" | "LOCKED";
+      };
       saveLoginOtpState(loginPhoneNumber, callbackUrl, resultBody.outcome);
-      if (resultBody.outcome === "RESUME_EXISTING_CHALLENGE") {
-        success("ใช้รหัส OTP ที่ส่งไว้ก่อนหน้า", "กรุณากรอกรหัสที่ยังไม่หมดอายุเพื่อเข้าสู่ระบบ");
-      } else {
-        success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS และกรอกรหัสเพื่อเข้าสู่ระบบ");
-      }
+      success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS");
       router.push("/auth/verify-otp?mode=signin");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ไม่สามารถส่งรหัส OTP ได้");
-      showError("ส่งรหัส OTP ไม่สำเร็จ", "กรุณาตรวจสอบเบอร์โทรศัพท์แล้วลองใหม่อีกครั้ง");
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "ไม่สามารถส่งรหัส OTP ได้";
+      setError(message);
+      showError("ส่งรหัส OTP ไม่สำเร็จ", message);
     } finally {
       setIsLoading(false);
     }
@@ -96,62 +123,46 @@ function LoginContent() {
 
   return (
     <div className="mx-auto max-w-md rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">เข้าสู่ระบบ</h2>
-      <p className="text-sm text-gray-500 mb-6">
-        กรอกเบอร์โทรศัพท์เพื่อรับรหัส OTP สำหรับผู้ใช้ที่มีบัญชีแล้ว
-      </p>
+      <h2 className="text-xl font-bold text-gray-900">เข้าสู่ระบบ</h2>
+      <p className="mt-2 text-sm text-gray-500">บัญชีบ้านใช้บ้านเลขที่และอีเมลที่ผ่านการยืนยันแล้ว</p>
 
-      {registered && (
-        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          สมัครลงทะเบียนเสร็จสิ้นแล้ว สามารถล็อกอินเข้าเว็บไซต์ได้
-        </div>
+      <div className="mt-5 grid grid-cols-2 rounded-xl bg-gray-100 p-1" role="tablist" aria-label="วิธีเข้าสู่ระบบ">
+        <button type="button" role="tab" aria-selected={mode === "HOUSE"} onClick={() => switchMode("HOUSE")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition ${mode === "HOUSE" ? "bg-white text-green-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}>
+          บัญชีบ้าน
+        </button>
+        <button type="button" role="tab" aria-selected={mode === "LEGACY_PHONE"} onClick={() => switchMode("LEGACY_PHONE")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition ${mode === "LEGACY_PHONE" ? "bg-white text-green-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}>
+          ผู้ใหญ่บ้าน / แบบเดิม
+        </button>
+      </div>
+
+      {registered ? <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">ส่งคำขอเปิดบัญชีบ้านแล้ว กรุณารอการตรวจสอบ เมื่ออนุมัติแล้วจึงเข้าสู่ระบบด้วยอีเมลได้</div> : null}
+      {deletionPending ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">บัญชีอยู่ระหว่างระยะผ่อนผันการปิด 7 วัน</div> : null}
+
+      {mode === "HOUSE" ? (
+        <form onSubmit={handleHouseLogin} className="mt-5 space-y-4">
+          <Input id="house-login-number" name="houseNumber" label="บ้านเลขที่" placeholder="168/4" value={houseNumber} onChange={(event) => setHouseNumber(event.target.value)} autoComplete="off" maxLength={50} required />
+          <Input id="house-login-email" name="email" label="อีเมล" type="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={320} required />
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          <Button type="submit" className="w-full" isLoading={isLoading}>ส่งรหัสยืนยัน</Button>
+          <p className="text-xs leading-5 text-gray-500">หากข้อมูลถูกต้อง ระบบจะส่งรหัสยืนยันไปยังอีเมลที่ระบุ</p>
+        </form>
+      ) : (
+        <form onSubmit={handlePhoneLogin} className="mt-5 space-y-4">
+          <p className="text-sm leading-6 text-gray-600">สำหรับผู้ใหญ่บ้านและบัญชีลูกบ้านเดิมที่ยังอยู่ระหว่างการย้ายระบบ</p>
+          <Input id="login-phone" name="phoneNumber" label="เบอร์โทรศัพท์" type="tel" placeholder="0812345678" value={phone} onChange={(event) => setPhone(normalizePhone10(event.target.value))} inputMode="numeric" maxLength={10} pattern="[0-9]{10}" autoComplete="tel" required />
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          <Button type="submit" className="w-full" isLoading={isLoading}>ส่งรหัส OTP ทางโทรศัพท์</Button>
+        </form>
       )}
-      {deletionPending ? <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"><p>บัญชีอยู่ระหว่างระยะผ่อนผันการปิด 7 วัน คุณสามารถยกเลิกคำขอจาก Browser เดิมได้</p><button type="button" className="mt-2 font-medium underline" onClick={async () => { const response = await fetch("/api/auth/account-deletion", { method: "DELETE" }); if (response.ok) router.replace("/auth/login?accountDeletion=cancelled"); else setError("ไม่สามารถยกเลิกคำขอได้"); }}>ยกเลิกคำขอปิดบัญชี</button></div> : null}
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input
-          id="login-phone"
-          name="phoneNumber"
-          label="เบอร์โทรศัพท์"
-          type="tel"
-          placeholder="0812345678"
-          value={phone}
-          onChange={(e) => setPhone(normalizePhone10(e.target.value))}
-            inputMode="numeric"
-            maxLength={10}
-            pattern="[0-9]{10}"
-            autoComplete="tel"
-            title="กรุณากรอกเบอร์โทรศัพท์ 10 หลัก"
-          required
-        />
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <Button type="submit" className="w-full" isLoading={isLoading}>
-          ส่งรหัส OTP
-        </Button>
-      </form>
 
       <div className="mt-6 text-center text-sm text-gray-600">
         บ้านของคุณยังไม่มีบัญชี?{" "}
-        <Link href={registerHref} className="text-green-600 font-medium hover:underline">
-          ขอเปิดบัญชีบ้าน
-        </Link>
-      </div>
-
-      <div className="mt-2 text-center text-sm text-gray-600">
-        <Link href="/auth/forgot" className="text-green-600 hover:underline">
-          ลืมเบอร์โทรศัพท์ที่ใช้เข้าสู่ระบบ?
-        </Link>
+        <Link href={registerHref} className="font-medium text-green-600 hover:underline">ขอเปิดบัญชีบ้าน</Link>
       </div>
     </div>
   );
 }
 
 export function LoginForm() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <LoginContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<div>Loading...</div>}><LoginContent /></Suspense>;
 }

@@ -1,0 +1,161 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/toast";
+
+type FlowState = {
+  flowId: string;
+  maskedEmail: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+};
+
+function secondsUntil(value: string | undefined): number {
+  if (!value) return 0;
+  return Math.max(0, Math.ceil((new Date(value).getTime() - Date.now()) / 1_000));
+}
+
+export function HouseLoginVerifyForm() {
+  const [flow, setFlow] = useState<FlowState | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [nowTick, setNowTick] = useState(Date.now());
+  const router = useRouter();
+  const { success, error: showError } = useToast();
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/house-login/status", { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("ไม่พบขั้นตอนเข้าสู่ระบบ กรุณาเริ่มใหม่");
+        return response.json() as Promise<FlowState>;
+      })
+      .then((state) => {
+        if (active) setFlow(state);
+      })
+      .catch((caught) => {
+        if (active) setError(caught instanceof Error ? caught.message : "ไม่พบขั้นตอนเข้าสู่ระบบ");
+      });
+    const timer = window.setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const resendSeconds = secondsUntil(flow?.resendAvailableAt);
+  const expired = flow ? secondsUntil(flow.expiresAt) === 0 : false;
+  void nowTick;
+
+  const verify = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!flow || !/^\d{6}$/.test(code)) {
+      setError("กรุณากรอกรหัสยืนยัน 6 หลัก");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/house-login/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ flowId: flow.flowId, code }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        landingPath?: string;
+        message?: string;
+      } | null;
+      if (!response.ok) throw new Error(data?.message || "รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว");
+
+      // Confirm the normal application session path recognizes the Better Auth
+      // cookie before navigating. Sign-out remains Better Auth's standard flow.
+      const sessionCheck = await fetch("/api/auth/post-login-route", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!sessionCheck.ok) throw new Error("ระบบไม่สามารถยืนยันเซสชันเข้าสู่ระบบได้");
+      success("เข้าสู่ระบบสำเร็จ", "กำลังไปยังหน้าบัญชีบ้าน");
+      router.replace(data?.landingPath || "/resident/dashboard");
+      router.refresh();
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "ไม่สามารถเข้าสู่ระบบได้";
+      setError(message);
+      showError("เข้าสู่ระบบไม่สำเร็จ", message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resend = async () => {
+    if (!flow || resendSeconds > 0) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/house-login/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ flowId: flow.flowId }),
+      });
+      const data = (await response.json().catch(() => null)) as FlowState & { error?: string };
+      if (!response.ok) throw new Error(data.error || "ไม่สามารถส่งรหัสใหม่ได้");
+      setFlow(data);
+      setCode("");
+      success("ส่งรหัสยืนยันอีกครั้งแล้ว", "กรุณาตรวจสอบอีเมล");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "ไม่สามารถส่งรหัสใหม่ได้");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancel = async () => {
+    if (flow) {
+      await fetch("/api/auth/house-login/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ flowId: flow.flowId }),
+      }).catch(() => undefined);
+    }
+    router.replace("/auth/login");
+  };
+
+  return (
+    <div className="mx-auto max-w-md rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
+      <h2 className="text-xl font-bold text-gray-900">ยืนยันการเข้าสู่ระบบ</h2>
+      <p className="mt-2 text-sm leading-6 text-gray-600">
+        เราได้ส่งรหัสยืนยันไปยัง <span className="font-semibold text-gray-900">{flow?.maskedEmail || "อีเมลที่ระบุ"}</span>
+      </p>
+      <form onSubmit={verify} className="mt-6 space-y-4">
+        <Input
+          id="house-login-code"
+          name="code"
+          label="รหัสยืนยัน 6 หลัก"
+          value={code}
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          disabled={!flow || expired}
+          required
+        />
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {expired ? <p className="text-sm text-amber-700">ขั้นตอนเข้าสู่ระบบหมดอายุแล้ว กรุณาเริ่มใหม่</p> : null}
+        <Button type="submit" className="w-full" isLoading={isLoading} disabled={!flow || expired}>เข้าสู่ระบบ</Button>
+      </form>
+      <div className="mt-4 flex flex-col gap-2 text-center text-sm">
+        <button type="button" onClick={resend} disabled={!flow || resendSeconds > 0 || isLoading} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">
+          {resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}
+        </button>
+        <button type="button" onClick={cancel} className="min-h-11 text-gray-600 hover:text-gray-900">ย้อนกลับ</button>
+      </div>
+    </div>
+  );
+}

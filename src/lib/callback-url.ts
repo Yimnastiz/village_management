@@ -16,3 +16,13 @@ export function sanitizeInternalCallbackUrl(
   }
   return candidate;
 }
+
+/** House Account sessions are Resident-only, so callbacks stay in that area. */
+export function sanitizeResidentCallbackUrl(
+  value: string | null | undefined,
+  fallback: string | null = null,
+): string | null {
+  const candidate = sanitizeInternalCallbackUrl(value);
+  if (candidate === "/resident" || candidate?.startsWith("/resident/")) return candidate;
+  return fallback;
+}

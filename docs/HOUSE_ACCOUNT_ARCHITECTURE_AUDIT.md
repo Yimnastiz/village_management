@@ -142,4 +142,41 @@ Phase 4 does not create a User, ResidentHouseAccount, VillageMembership, Person 
 
 Active Headmen review verified requests in the distinct `/admin/population/account-opening-requests` workspace. Rejection requires a reason and atomically marks the request rejected, records the reviewer/time, cancels remaining opening challenges, releases the AccountEmail, and writes a safe audit event. Approval and activation are one transaction: it revalidates the configured Village, request, House, Headman membership, and verified email; creates a house-semantic `RESIDENT_HOUSE` User, `ResidentHouseAccount`, and active Resident membership; activates the initial AccountEmail; marks the request approved; and writes notification/audit records. No Person or BindingRequest is created or reconciled.
 
-The initial verified address is stored as the stable Better Auth compatibility `User.email`, while AccountEmail remains authoritative. The new House User has `phoneNumber = null` and `phoneNumberVerified = false`; applicant contact phone is stored only on the opening request and ResidentHouseAccount. The additive phone-nullability migration preserves all existing legacy/Headman phone values and is intentionally not applied by this phase. Approval/rejection result email is attempted only after commit, so delivery failure cannot roll back the business decision. Legacy phone login and Binding remain available, and House Account email login remains a later phase.
+The initial verified address is stored as the stable Better Auth compatibility `User.email`, while AccountEmail remains authoritative. The new House User has `phoneNumber = null` and `phoneNumberVerified = false`; applicant contact phone is stored only on the opening request and ResidentHouseAccount. The additive phone-nullability migration preserves all existing legacy/Headman phone values and is intentionally not applied by this phase. Approval/rejection result email is attempted only after commit, so delivery failure cannot roll back the business decision. Legacy phone login and Binding remain available; House Account email login is implemented separately in Phase 6 below.
+
+## Phase 6 — Resident House Account email login
+
+`/auth/login` now presents House Account login first and keeps the existing phone flow under a restrained Headman/legacy mode. House login accepts only the configured Village's normalized house number plus an email normalized by `normalizeAccountEmail()`. It never uses `User.email`, `User.phoneNumber`, `ResidentHouseAccount.contactPhone`, applicant identity, National ID, or `Person.userId` as the login resolver.
+
+The public flow is purpose-specific:
+
+```text
+POST /api/auth/house-login/start
+GET  /api/auth/house-login/status
+POST /api/auth/house-login/resend
+POST /api/auth/house-login/cancel
+POST /api/auth/house-login/verify  (Better Auth custom-plugin endpoint)
+```
+
+Start resolves `AccountEmail.normalizedEmail`, its `ResidentHouseAccount`, House, User, and active Resident membership. Eligibility requires an `ACTIVE`, verified alias with both ownership links; an activated, unsuspended House Account in the configured Village; a matching entered House; an active `RESIDENT_HOUSE` User; and an active Resident membership for the same Village and House. Both alias ownership links must agree. The same checks run again after OTP verification and once more in the transaction that consumes the challenge and attributes the session.
+
+Every start attempt receives a random `HouseAccountLoginFlow` ID, a signed HTTP-only SameSite=Lax flow cookie, masked input email, and the same generic accepted message. Eligible attempts attach a real `HOUSE_LOGIN` challenge; wrong House/email, unknown House, unknown or revoked alias, suspended account, and invalid input remain challenge-less decoy flows and send no email. Consequently response shape/status does not reveal House or alias existence. Flow attempts are counted by keyed IP/email hashes before identity lookup. The server stores only a sanitized `/resident` callback after `sanitizeResidentCallbackUrl()`; raw email, House IDs, and callback data are not placed in the URL. `HOUSE_ACCOUNT_LOGIN_FLOW_SECRET` may isolate flow signing; otherwise `BETTER_AUTH_SECRET` is used, and the selected production secret must be at least 32 characters.
+
+### Better Auth 1.5.5 session bridge
+
+The installed `better-auth` package is version 1.5.5. Phase 6 uses these exact interfaces in one isolated `houseAccountAuthPlugin`:
+
+- public `createAuthEndpoint` from `better-auth/api` to run `/house-login/verify` in Better Auth's endpoint context;
+- the plugin-context `ctx.context.internalAdapter.createSession(existingUserId, false, override)` method declared by Better Auth's `InternalAdapter` type;
+- public `setSessionCookie` from the package's exported `better-auth/cookies` entry point;
+- `ctx.context.internalAdapter.deleteSession(token)` for rollback before a response is issued.
+
+The bridge never imports a `dist/` file, calls test login utilities, invents a token, hard-codes Better Auth's cookie name, signs a Better Auth token, or writes a session cookie itself. Better Auth generates and persists the session/token and serializes the normal cookie. Session `additionalFields` declare `activeVillageId` and `loginAccountEmailId` as server-only, non-returned values. `createSession` receives both values, and the OTP consumption transaction verifies the resulting session row and persists the configured Village plus the exact AccountEmail alias before the challenge becomes `CONSUMED`. Only after that transaction commits does `setSessionCookie` attach the cookie.
+
+`AuthSession.loginAccountEmailId` is nullable and references `AccountEmail` with `ON DELETE SET NULL`. It records credential attribution without claiming which physical person used a shared address. The login audit records the House semantic identity, House identifiers, AccountEmail ID, and masked email; it never records the OTP or a claimed household member. `revokeSessionsForAccountEmail(accountEmailId)` is prepared for the email-management phase. That phase must call it when an alias is revoked so sessions created with that alias do not survive revocation.
+
+The initial approved alias remains a stable Better Auth compatibility value in `User.email`; all House login authorization resolves through AccountEmail. Multiple active AccountEmail rows may therefore create sessions whose `userId` is the same Resident House User while `loginAccountEmailId` differs. No User is created during login.
+
+Phone OTP remains available through the existing application wrappers for Headmen and legacy Residents. Those wrappers now exclude `RESIDENT_HOUSE`, even if future bad data supplies a phone value. The catch-all Better Auth handler continues blocking direct public phone plugin send/verify endpoints, so House Accounts cannot bypass that guard. Active House Accounts already have a House-bound active membership and enter `/resident/dashboard` without Binding or a fake `citizenVerifiedAt` value.
+
+Focused Better Auth memory-adapter tests verify two aliases mapping to the same existing User, per-alias session attribution, recognition by `auth.api.getSession`, standard Better Auth sign-out, real HTTP-only cookie semantics, and replay rejection. Database-backed runtime verification remains pending until the additive migrations are explicitly applied. The new migration is intentionally created but not applied.

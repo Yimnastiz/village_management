@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { AccountStatus, MembershipStatus, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AccountKind, AccountStatus, MembershipStatus, Prisma, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
@@ -15,9 +15,11 @@ export type SessionContext = {
   id: string;
   phoneNumber: string | null;
   name: string;
+  accountKind: AccountKind | null;
   accountStatus: AccountStatus;
   citizenVerifiedAt: Date | null;
   activeVillageId: string | null;
+  loginAccountEmailId: string | null;
   memberships: Array<{
     villageId: string;
     villageSlug: string | null;
@@ -105,9 +107,11 @@ async function toConfiguredSessionContext(session: AuthSessionWithUser): Promise
     id: session.user.id,
     phoneNumber: session.user.phoneNumber,
     name: session.user.name,
+    accountKind: session.user.accountKind,
     accountStatus: session.user.accountStatus,
     citizenVerifiedAt: session.user.citizenVerifiedAt,
     activeVillageId: configuredVillage.id,
+    loginAccountEmailId: session.loginAccountEmailId,
     memberships: session.user.memberships
       .filter((membership) => membership.villageId === configuredVillage.id)
       .map((membership) => ({ villageId: membership.villageId, villageSlug: membership.village?.slug ?? null, houseId: membership.houseId, role: membership.role, status: membership.status })),

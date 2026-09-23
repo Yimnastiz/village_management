@@ -394,21 +394,24 @@ model User {
 }
 
 model AuthSession {
-  id              String   @id @default(cuid())
-  userId          String
-  token           String   @unique
-  expiresAt       DateTime
-  ipAddress       String?
-  userAgent       String?
-  activeVillageId String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String
+  token               String   @unique
+  expiresAt           DateTime
+  ipAddress           String?
+  userAgent           String?
+  activeVillageId     String?
+  loginAccountEmailId String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  village Village? @relation(fields: [activeVillageId], references: [id])
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  village           Village?      @relation(fields: [activeVillageId], references: [id])
+  loginAccountEmail AccountEmail? @relation("AuthSessionLoginAccountEmail", fields: [loginAccountEmailId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([token])
+  @@index([loginAccountEmailId])
 }
 
 model AuthAccount {
@@ -662,11 +665,34 @@ model AccountEmail {
   openingRequest       HouseAccountOpeningRequest? @relation("HouseAccountOpeningRequestInitialEmail", fields: [openingRequestId], references: [id], onDelete: SetNull)
   createdBy            User?                       @relation("AccountEmailCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   emailOtpChallenges   EmailOtpChallenge[]         @relation("EmailOtpChallengeAccountEmail")
+  loginSessions        AuthSession[]               @relation("AuthSessionLoginAccountEmail")
 
   @@index([status])
   @@index([userId])
   @@index([residentHouseAccountId])
   @@index([createdByUserId])
+}
+
+model HouseAccountLoginFlow {
+  id                String    @id
+  challengeId       String?   @unique
+  houseId           String?
+  accountEmailId    String?
+  callbackUrl       String?
+  maskedEmail       String
+  ipHash            String?
+  emailHash         String?
+  houseNumberHash   String?
+  expiresAt         DateTime
+  resendAvailableAt DateTime
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([ipHash, createdAt])
+  @@index([emailHash, createdAt])
+  @@index([expiresAt])
 }
 
 model EmailOtpChallenge {

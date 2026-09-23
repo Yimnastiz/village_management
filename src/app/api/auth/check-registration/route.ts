@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { AccountStatus, RegistrationTempStatus } from "@prisma/client";
+import { AccountKind, AccountStatus, RegistrationTempStatus } from "@prisma/client";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { toPhoneCandidates } from "@/lib/registration-temp";
 
@@ -41,13 +41,19 @@ export async function POST(request: NextRequest) {
       phoneNumber: {
         in: candidates,
       },
-      OR: [
-        { accountStatus: AccountStatus.ACTIVE },
-        {
-          accountStatus: AccountStatus.DUPLICATE_ID,
-          duplicateNoticeSeenAt: null,
-          duplicateNoticeLoginUsedAt: null,
-        },
+      AND: [
+        { OR: [
+          { accountKind: null },
+          { accountKind: { in: [AccountKind.HEADMAN, AccountKind.LEGACY_RESIDENT] } },
+        ] },
+        { OR: [
+          { accountStatus: AccountStatus.ACTIVE },
+          {
+            accountStatus: AccountStatus.DUPLICATE_ID,
+            duplicateNoticeSeenAt: null,
+            duplicateNoticeLoginUsedAt: null,
+          },
+        ] },
       ],
     },
     select: {
@@ -61,6 +67,10 @@ export async function POST(request: NextRequest) {
       where: {
         phoneNumber: { in: candidates },
         accountStatus: AccountStatus.DUPLICATE_ID,
+        OR: [
+          { accountKind: null },
+          { accountKind: { in: [AccountKind.HEADMAN, AccountKind.LEGACY_RESIDENT] } },
+        ],
       },
       select: { id: true },
     });

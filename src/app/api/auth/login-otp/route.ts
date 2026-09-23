@@ -1,4 +1,4 @@
-import { AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
+import { AccountKind, AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
@@ -62,13 +62,19 @@ export async function POST(request: NextRequest) {
   const user = await prisma.user.findFirst({
     where: {
       phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
-      OR: [
-        { accountStatus: AccountStatus.ACTIVE },
-        {
-          accountStatus: AccountStatus.DUPLICATE_ID,
-          duplicateNoticeSeenAt: null,
-          duplicateNoticeLoginUsedAt: null,
-        },
+      AND: [
+        { OR: [
+          { accountKind: null },
+          { accountKind: { in: [AccountKind.HEADMAN, AccountKind.LEGACY_RESIDENT] } },
+        ] },
+        { OR: [
+          { accountStatus: AccountStatus.ACTIVE },
+          {
+            accountStatus: AccountStatus.DUPLICATE_ID,
+            duplicateNoticeSeenAt: null,
+            duplicateNoticeLoginUsedAt: null,
+          },
+        ] },
       ],
     },
     select: { phoneNumber: true },
@@ -78,6 +84,10 @@ export async function POST(request: NextRequest) {
       where: {
         phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
         accountStatus: AccountStatus.DUPLICATE_ID,
+        OR: [
+          { accountKind: null },
+          { accountKind: { in: [AccountKind.HEADMAN, AccountKind.LEGACY_RESIDENT] } },
+        ],
       },
       select: { id: true },
     });

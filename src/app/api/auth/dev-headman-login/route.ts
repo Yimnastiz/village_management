@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { AccountStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { AccountKind, AccountStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { computeLandingPath } from "@/lib/access-control";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
@@ -118,9 +118,11 @@ export async function POST(request: NextRequest) {
     id: user.id,
     name: user.name,
     phoneNumber,
+    accountKind: AccountKind.HEADMAN,
     accountStatus: AccountStatus.ACTIVE,
     citizenVerifiedAt: user.citizenVerifiedAt,
     activeVillageId: seed.villageId,
+    loginAccountEmailId: null,
     memberships: [
       {
         villageId: seed.villageId,
