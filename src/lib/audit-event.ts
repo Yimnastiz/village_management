@@ -135,10 +135,12 @@ const investigationResourceLabels: Record<string, string> = {
   Person: "ข้อมูลบุคคล", House: "ทะเบียนบ้าน", BindingRequest: "คำขอผูกเลขที่บ้าน", BindingRequestSupport: "คำขอผูกเลขที่บ้าน", News: "ข่าวสาร", NewsSubmission: "คำขอข่าวสาร",
   VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItem: "รูปภาพในแกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
   VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "ความโปร่งใส", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
-  PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศ", VillageBroadcast: "ประกาศ",
+  PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศ", VillageBroadcast: "ประกาศ", AccountEmail: "อีเมลเข้าสู่ระบบบัญชีบ้าน",
 };
 
 const actionNameLabels: Record<string, string> = {
+  HOUSE_ACCOUNT_EMAIL_ADDED: "บัญชีบ้านเพิ่มอีเมลสำหรับเข้าสู่ระบบ",
+  HOUSE_ACCOUNT_EMAIL_REMOVED: "บัญชีบ้านนำอีเมลสำหรับเข้าสู่ระบบออก",
   SYSTEM_SETTINGS_UPDATED: "เปลี่ยนการตั้งค่าระบบ",
   MEMBER_ROLE_CHANGED: "เปลี่ยนบทบาทของ",
   MEMBER_SUSPENDED: "ระงับการใช้งานของ",

@@ -30,7 +30,7 @@ export function canReclaimAccountEmail(identity: {
 }
 
 const ACCOUNT_EMAIL_TRANSITIONS: Record<AccountEmailStatus, ReadonlySet<AccountEmailStatus>> = {
-  PENDING_VERIFICATION: new Set(["VERIFIED_PENDING_REVIEW", "REVOKED"]),
+  PENDING_VERIFICATION: new Set(["VERIFIED_PENDING_REVIEW", "ACTIVE", "REVOKED"]),
   VERIFIED_PENDING_REVIEW: new Set(["ACTIVE", "REVOKED"]),
   ACTIVE: new Set(["REVOKED"]),
   REVOKED: new Set(["PENDING_VERIFICATION"]),

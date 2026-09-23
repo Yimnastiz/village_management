@@ -2,6 +2,7 @@ import { Prisma, type AccountEmail } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   canReleaseOpeningRequestEmail,
+  canReclaimAccountEmail,
   canTransitionAccountEmail,
   decideAccountEmailReservation,
   normalizeAccountEmail,
@@ -16,7 +17,9 @@ export type AccountEmailServiceErrorCode =
   | "INVALID_STATE_TRANSITION"
   | "OPENING_REQUEST_NOT_RELEASABLE"
   | "ACCOUNT_OWNERSHIP_MISMATCH"
-  | "LAST_ACTIVE_EMAIL";
+  | "LAST_ACTIVE_EMAIL"
+  | "EMAIL_ALREADY_ACTIVE"
+  | "MAX_ACTIVE_EMAILS";
 
 export class AccountEmailServiceError extends Error {
   constructor(
@@ -28,7 +31,7 @@ export class AccountEmailServiceError extends Error {
   }
 }
 
-function validateEmail(email: string): { email: string; normalizedEmail: string } {
+export function validateAccountEmail(email: string): { email: string; normalizedEmail: string } {
   const trimmedEmail = email.trim();
   const normalizedEmail = normalizeAccountEmail(trimmedEmail);
   if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) {
@@ -37,7 +40,7 @@ function validateEmail(email: string): { email: string; normalizedEmail: string 
   return { email: trimmedEmail, normalizedEmail };
 }
 
-async function lockAccountEmailNamespace(
+export async function lockAccountEmailNamespace(
   tx: Prisma.TransactionClient,
   normalizedEmail: string,
 ): Promise<void> {
@@ -66,7 +69,7 @@ export async function reserveEmailForOpeningRequestInTransaction(
   tx: Prisma.TransactionClient,
   input: { openingRequestId: string; email: string },
 ): Promise<AccountEmail> {
-  const identity = validateEmail(input.email);
+  const identity = validateAccountEmail(input.email);
   await lockAccountEmailNamespace(tx, identity.normalizedEmail);
 
   const openingRequest = await tx.houseAccountOpeningRequest.findUnique({
@@ -186,6 +189,7 @@ export async function activateAccountEmail(input: {
   userId: string;
   residentHouseAccountId?: string | null;
   activatedAt?: Date;
+  verifiedAt?: Date;
 }): Promise<AccountEmail> {
   return prisma.$transaction((tx) => activateAccountEmailInTransaction(tx, input));
 }
@@ -197,6 +201,7 @@ export async function activateAccountEmailInTransaction(
     userId: string;
     residentHouseAccountId?: string | null;
     activatedAt?: Date;
+    verifiedAt?: Date;
   },
 ): Promise<AccountEmail> {
   const ownerLock = input.residentHouseAccountId
@@ -225,17 +230,156 @@ export async function activateAccountEmailInTransaction(
       );
     }
   }
-  return tx.accountEmail.update({
-    where: { id: identity.id },
+  const updated = await tx.accountEmail.updateMany({
+    where: {
+      id: identity.id,
+      status: identity.status,
+      userId: identity.userId,
+      residentHouseAccountId: identity.residentHouseAccountId,
+      openingRequestId: identity.openingRequestId,
+    },
     data: {
       status: "ACTIVE",
       source: input.residentHouseAccountId ? "HOUSE_ACCOUNT" : identity.source,
       userId: input.userId,
       residentHouseAccountId: input.residentHouseAccountId ?? null,
       activatedAt: input.activatedAt ?? new Date(),
+      verifiedAt: identity.verifiedAt ?? input.verifiedAt ?? new Date(),
       revokedAt: null,
     },
   });
+  if (updated.count !== 1) {
+    throw new AccountEmailServiceError("INVALID_STATE_TRANSITION", "AccountEmail changed during activation.");
+  }
+  return (await tx.accountEmail.findUnique({ where: { id: identity.id } }))!;
+}
+
+export async function lockAccountEmailOwnerNamespace(
+  tx: Prisma.TransactionClient,
+  residentHouseAccountId: string,
+): Promise<void> {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`account-email-owner:house:${residentHouseAccountId}`}))`;
+}
+
+export async function reserveEmailForHouseAccountInTransaction(
+  tx: Prisma.TransactionClient,
+  input: {
+    userId: string;
+    residentHouseAccountId: string;
+    email: string;
+    maxActiveEmails: number;
+  },
+): Promise<{ accountEmail: AccountEmail; resumed: boolean }> {
+  const value = validateAccountEmail(input.email);
+  await lockAccountEmailNamespace(tx, value.normalizedEmail);
+  await lockAccountEmailOwnerNamespace(tx, input.residentHouseAccountId);
+
+  const houseAccount = await tx.residentHouseAccount.findUnique({
+    where: { id: input.residentHouseAccountId },
+    select: { userId: true },
+  });
+  if (!houseAccount || houseAccount.userId !== input.userId) {
+    throw new AccountEmailServiceError("ACCOUNT_OWNERSHIP_MISMATCH", "House account ownership does not match.");
+  }
+
+  const existing = await tx.accountEmail.findUnique({
+    where: { normalizedEmail: value.normalizedEmail },
+  });
+  if (
+    existing?.status === "ACTIVE"
+    && existing.userId === input.userId
+    && existing.residentHouseAccountId === input.residentHouseAccountId
+  ) {
+    throw new AccountEmailServiceError("EMAIL_ALREADY_ACTIVE", "This email is already active on this House Account.");
+  }
+  const canonicalOwner = await tx.user.findFirst({
+    where: { email: { equals: value.email, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (canonicalOwner && canonicalOwner.id !== input.userId) {
+    throw new AccountEmailServiceError("EMAIL_ALREADY_RESERVED", "This email is unavailable.");
+  }
+  if (
+    existing?.status === "PENDING_VERIFICATION"
+    && existing.source === "HOUSE_ACCOUNT"
+    && existing.userId === input.userId
+    && existing.residentHouseAccountId === input.residentHouseAccountId
+  ) {
+    return { accountEmail: existing, resumed: true };
+  }
+  if (existing && !canReclaimAccountEmail(existing)) {
+    throw new AccountEmailServiceError("EMAIL_ALREADY_RESERVED", "This email is unavailable.");
+  }
+  const activeCount = await tx.accountEmail.count({
+    where: { residentHouseAccountId: input.residentHouseAccountId, status: "ACTIVE" },
+  });
+  if (activeCount >= input.maxActiveEmails) {
+    throw new AccountEmailServiceError("MAX_ACTIVE_EMAILS", "The House Account email limit was reached.");
+  }
+
+  const accountEmail = existing
+    ? await tx.accountEmail.update({
+        where: { id: existing.id },
+        data: {
+          ...value,
+          status: "PENDING_VERIFICATION",
+          source: "HOUSE_ACCOUNT",
+          userId: input.userId,
+          residentHouseAccountId: input.residentHouseAccountId,
+          openingRequestId: null,
+          verifiedAt: null,
+          activatedAt: null,
+          revokedAt: null,
+          createdByUserId: input.userId,
+        },
+      })
+    : await tx.accountEmail.create({
+        data: {
+          ...value,
+          status: "PENDING_VERIFICATION",
+          source: "HOUSE_ACCOUNT",
+          userId: input.userId,
+          residentHouseAccountId: input.residentHouseAccountId,
+          createdByUserId: input.userId,
+        },
+      });
+  return { accountEmail, resumed: false };
+}
+
+export async function releasePendingHouseAccountEmailInTransaction(
+  tx: Prisma.TransactionClient,
+  input: { accountEmailId: string; userId: string; residentHouseAccountId: string; releasedAt?: Date },
+): Promise<AccountEmail> {
+  const identity = await tx.accountEmail.findUnique({ where: { id: input.accountEmailId } });
+  if (
+    !identity
+    || identity.source !== "HOUSE_ACCOUNT"
+    || identity.status !== "PENDING_VERIFICATION"
+    || identity.userId !== input.userId
+    || identity.residentHouseAccountId !== input.residentHouseAccountId
+  ) {
+    throw new AccountEmailServiceError("ACCOUNT_EMAIL_NOT_FOUND", "Pending House Account email was not found.");
+  }
+  await lockAccountEmailNamespace(tx, identity.normalizedEmail);
+  const updated = await tx.accountEmail.updateMany({
+    where: {
+      id: identity.id,
+      status: "PENDING_VERIFICATION",
+      userId: input.userId,
+      residentHouseAccountId: input.residentHouseAccountId,
+      source: "HOUSE_ACCOUNT",
+    },
+    data: {
+      status: "REVOKED",
+      userId: null,
+      residentHouseAccountId: null,
+      revokedAt: input.releasedAt ?? new Date(),
+    },
+  });
+  if (updated.count !== 1) {
+    throw new AccountEmailServiceError("INVALID_STATE_TRANSITION", "Pending House Account email changed during release.");
+  }
+  return (await tx.accountEmail.findUnique({ where: { id: identity.id } }))!;
 }
 
 export async function revokeAccountEmail(input: {

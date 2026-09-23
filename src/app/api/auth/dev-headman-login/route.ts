@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   });
 
   const token = randomUUID();
-  await prisma.authSession.create({
+  const authSession = await prisma.authSession.create({
     data: {
       userId: user.id,
       token,
@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
   });
 
   const landingPath = computeLandingPath({
+    authSessionId: authSession.id,
     id: user.id,
     name: user.name,
     phoneNumber,

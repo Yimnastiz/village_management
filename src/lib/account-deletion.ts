@@ -16,9 +16,10 @@ export function createRecoveryToken() {
 export async function assertSelfDeletionAllowed(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { memberships: { where: { status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { role: true } } },
+    select: { accountKind: true, memberships: { where: { status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { role: true } } },
   });
   if (!user) throw new Error("Account not found.");
+  if (user.accountKind === "RESIDENT_HOUSE") throw new Error("การปิดบัญชีบ้านต้องดำเนินการผ่านผู้ใหญ่บ้าน");
   if (user.memberships.length > 0) throw new Error("ต้องถอดหรือโอนหน้าที่ผู้ดูแลหมู่บ้านก่อนปิดบัญชี");
 }
 

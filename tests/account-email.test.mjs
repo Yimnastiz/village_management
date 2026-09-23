@@ -48,6 +48,7 @@ test("email masking does not expose the local part", () => {
 
 test("AccountEmail state transitions are explicit", () => {
   assert.equal(canTransitionAccountEmail("PENDING_VERIFICATION", "VERIFIED_PENDING_REVIEW"), true);
+  assert.equal(canTransitionAccountEmail("PENDING_VERIFICATION", "ACTIVE"), true);
   assert.equal(canTransitionAccountEmail("VERIFIED_PENDING_REVIEW", "ACTIVE"), true);
   assert.equal(canTransitionAccountEmail("ACTIVE", "PENDING_VERIFICATION"), false);
   assert.equal(canTransitionAccountEmail("REVOKED", "PENDING_VERIFICATION"), true);

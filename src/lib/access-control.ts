@@ -12,6 +12,7 @@ export const ADMIN_MEMBERSHIP_ROLES = [
 const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHIP_ROLES);
 
 export type SessionContext = {
+  authSessionId: string;
   id: string;
   phoneNumber: string | null;
   name: string;
@@ -104,6 +105,7 @@ async function loadAuthSession(unsignedToken: string): Promise<AuthSessionWithUs
 async function toConfiguredSessionContext(session: AuthSessionWithUser): Promise<SessionContext> {
   const configuredVillage = await getConfiguredVillage();
   return {
+    authSessionId: session.id,
     id: session.user.id,
     phoneNumber: session.user.phoneNumber,
     name: session.user.name,

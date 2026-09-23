@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
 import { normalizePersonGender } from "@/lib/person-validation";
 import { ProfileDetails } from "./profile-details";
+import { HouseAccountProfile } from "./house-account-profile";
 
 function fallback(value: string | null | undefined): string {
   const trimmed = value?.trim();
@@ -60,11 +61,36 @@ export default async function ProfilePage() {
         },
         orderBy: { updatedAt: "desc" },
       },
+      residentHouseAccount: {
+        include: {
+          house: { select: { houseNumber: true } },
+          village: { select: { name: true, moo: true } },
+        },
+      },
     },
   });
 
   if (!user) {
     redirect("/auth/login?callbackUrl=/resident/profile");
+  }
+
+  if (user.accountKind === "RESIDENT_HOUSE") {
+    const houseAccount = user.residentHouseAccount;
+    if (!houseAccount || !houseAccount.activatedAt || houseAccount.suspendedAt) {
+      redirect("/resident/dashboard");
+    }
+    const activeEmailCount = await prisma.accountEmail.count({
+      where: { residentHouseAccountId: houseAccount.id, status: "ACTIVE" },
+    });
+    return (
+      <HouseAccountProfile
+        houseNumber={houseAccount.house.houseNumber}
+        villageName={houseAccount.village.name}
+        moo={houseAccount.village.moo}
+        contactPhone={houseAccount.contactPhone}
+        activeEmailCount={activeEmailCount}
+      />
+    );
   }
 
   const [person, registration] = await Promise.all([
