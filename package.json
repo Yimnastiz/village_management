@@ -15,6 +15,7 @@
     "setup:bootstrap": "node scripts/bootstrap-village-headman.mjs",
     "identity:backfill": "node scripts/backfill-resident-identity.mjs",
     "identity:duplicate-report": "node scripts/report-duplicate-identity.mjs",
+    "house-account:readiness": "node scripts/report-house-account-migration-readiness.mjs",
     "population:legacy-registration-report": "node scripts/report-legacy-registration-person-placeholders.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
@@ -41,6 +42,7 @@
     "geothai": "^3.0.0",
     "lucide-react": "^0.577.0",
     "next": "16.1.7",
+    "nodemailer": "^10.0.10",
     "pg": "^8.16.3",
     "prisma": "^7.5.0",
     "react": "19.2.3",
@@ -53,6 +55,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

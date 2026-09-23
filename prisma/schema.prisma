@@ -39,6 +39,54 @@ enum AccountStatus {
   ANONYMIZED
 }
 
+enum AccountKind {
+  HEADMAN
+  RESIDENT_HOUSE
+  LEGACY_RESIDENT
+}
+
+enum HouseAccountOpeningRequestStatus {
+  PENDING_EMAIL_VERIFICATION
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum AccountEmailStatus {
+  PENDING_VERIFICATION
+  VERIFIED_PENDING_REVIEW
+  ACTIVE
+  REVOKED
+}
+
+enum AccountEmailSource {
+  OPENING_REQUEST
+  HOUSE_ACCOUNT
+  HEADMAN
+  RECOVERY
+}
+
+enum EmailOtpPurpose {
+  HOUSE_OPENING
+  HOUSE_LOGIN
+  ADD_HOUSE_EMAIL
+  HEADMAN_LOGIN
+  ACCOUNT_RECOVERY
+}
+
+enum EmailOtpChallengeStatus {
+  PENDING_DELIVERY
+  ACTIVE
+  VERIFIED
+  CONSUMED
+  LOCKED
+  EXPIRED
+  CANCELLED
+  DELIVERY_FAILED
+}
+
 enum MembershipStatus {
   PENDING
   ACTIVE
@@ -293,6 +341,7 @@ model User {
   name                       String
   email                      String?       @unique
   emailVerified              Boolean       @default(false)
+  accountKind                AccountKind?
   image                      String?
   registrationProvince       String?
   registrationDistrict       String?
@@ -313,27 +362,33 @@ model User {
   anonymizedAt               DateTime?
   deletionRecoveryHash       String?
 
-  authSessions            AuthSession[]
-  authAccounts            AuthAccount[]
-  registrationTemps       RegistrationTemp[]       @relation("RegistrationTempOwner")
-  memberships             VillageMembership[]
-  person                  Person?
-  bindingRequests         BindingRequest[]
-  contactRequests         ContactRequest[]
-  notifications           Notification[]
-  systemBroadcastsCreated SystemBroadcast[]        @relation("SystemBroadcastCreator")
-  auditLogs               AuditLog[]
-  savedItems              SavedItem[]
-  authoredNews            News[]
-  newsSubmissions         NewsSubmission[]
-  villageEventSubmissions VillageEventSubmission[]
-  villageEventsCreated    VillageEvent[]
-  galleryItemSubmissions  GalleryItemSubmission[]
-  villagePlacesCreated    VillagePlace[]
-  villagePlaceSubmissions VillagePlaceSubmission[]
-  appointments            Appointment[]
-  appointmentActions      AppointmentTimeline[]
-  registrationVillage     Village?                 @relation("UserRegistrationVillage", fields: [registrationVillageId], references: [id])
+  authSessions             AuthSession[]
+  authAccounts             AuthAccount[]
+  registrationTemps        RegistrationTemp[]           @relation("RegistrationTempOwner")
+  memberships              VillageMembership[]
+  person                   Person?
+  bindingRequests          BindingRequest[]
+  contactRequests          ContactRequest[]
+  notifications            Notification[]
+  systemBroadcastsCreated  SystemBroadcast[]            @relation("SystemBroadcastCreator")
+  auditLogs                AuditLog[]
+  savedItems               SavedItem[]
+  authoredNews             News[]
+  newsSubmissions          NewsSubmission[]
+  villageEventSubmissions  VillageEventSubmission[]
+  villageEventsCreated     VillageEvent[]
+  galleryItemSubmissions   GalleryItemSubmission[]
+  villagePlacesCreated     VillagePlace[]
+  villagePlaceSubmissions  VillagePlaceSubmission[]
+  appointments             Appointment[]
+  appointmentActions       AppointmentTimeline[]
+  residentHouseAccount     ResidentHouseAccount?        @relation("ResidentHouseAccountUser")
+  accountEmails            AccountEmail[]               @relation("AccountEmailUser")
+  accountEmailsCreated     AccountEmail[]               @relation("AccountEmailCreatedBy")
+  openingRequestsReviewed  HouseAccountOpeningRequest[] @relation("HouseAccountOpeningRequestReviewer")
+  openingRequestsActivated HouseAccountOpeningRequest[] @relation("HouseAccountOpeningRequestActivatedUser")
+  emailOtpChallenges       EmailOtpChallenge[]          @relation("EmailOtpChallengeUser")
+  registrationVillage      Village?                     @relation("UserRegistrationVillage", fields: [registrationVillageId], references: [id])
 
   @@index([phoneNumber])
 }
@@ -398,33 +453,35 @@ model Village {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  memberships             VillageMembership[]
-  zones                   VillageZone[]
-  houses                  House[]
-  news                    News[]
-  newsSubmissions         NewsSubmission[]
-  issues                  Issue[]
-  appointments            Appointment[]
-  appointmentSlots        AppointmentSlot[]
-  downloads               DownloadFile[]
-  transparencyRecords     TransparencyRecord[]
-  villageEvents           VillageEvent[]
-  villageEventSubmissions VillageEventSubmission[]
-  villagePlaces           VillagePlace[]
-  villagePlaceSubmissions VillagePlaceSubmission[]
-  galleryAlbums           GalleryAlbum[]
-  contactDirectories      ContactDirectory[]
-  contactRequests         ContactRequest[]
-  faqItems                FAQItem[]
-  notifications           Notification[]
-  systemBroadcasts        SystemBroadcast[]
-  authSessions            AuthSession[]
-  importJobs              PopulationImportJob[]
-  auditLogs               AuditLog[]
-  registeredUsers         User[]                   @relation("UserRegistrationVillage")
-  phoneRoleSeeds          PhoneRoleSeed[]
-  bindingRequests         BindingRequest[]
-  catalogVillage          ThailandVillageMaster?   @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
+  memberships                 VillageMembership[]
+  zones                       VillageZone[]
+  houses                      House[]
+  news                        News[]
+  newsSubmissions             NewsSubmission[]
+  issues                      Issue[]
+  appointments                Appointment[]
+  appointmentSlots            AppointmentSlot[]
+  downloads                   DownloadFile[]
+  transparencyRecords         TransparencyRecord[]
+  villageEvents               VillageEvent[]
+  villageEventSubmissions     VillageEventSubmission[]
+  villagePlaces               VillagePlace[]
+  villagePlaceSubmissions     VillagePlaceSubmission[]
+  galleryAlbums               GalleryAlbum[]
+  contactDirectories          ContactDirectory[]
+  contactRequests             ContactRequest[]
+  faqItems                    FAQItem[]
+  notifications               Notification[]
+  systemBroadcasts            SystemBroadcast[]
+  authSessions                AuthSession[]
+  importJobs                  PopulationImportJob[]
+  auditLogs                   AuditLog[]
+  registeredUsers             User[]                       @relation("UserRegistrationVillage")
+  phoneRoleSeeds              PhoneRoleSeed[]
+  bindingRequests             BindingRequest[]
+  residentHouseAccounts       ResidentHouseAccount[]
+  houseAccountOpeningRequests HouseAccountOpeningRequest[]
+  catalogVillage              ThailandVillageMaster?       @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
 
   @@unique([province, district, subdistrict, moo], map: "village_area_moo_key")
   @@index([slug])
@@ -523,15 +580,126 @@ model House {
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
 
-  village         Village             @relation(fields: [villageId], references: [id], onDelete: Cascade)
-  zone            VillageZone?        @relation(fields: [zoneId], references: [id])
-  persons         Person[]
-  memberships     VillageMembership[]
-  bindingRequests BindingRequest[]
-  movementHistory PersonMovement[]
+  village                     Village                      @relation(fields: [villageId], references: [id], onDelete: Cascade)
+  zone                        VillageZone?                 @relation(fields: [zoneId], references: [id])
+  persons                     Person[]
+  memberships                 VillageMembership[]
+  bindingRequests             BindingRequest[]
+  movementHistory             PersonMovement[]
+  residentHouseAccount        ResidentHouseAccount?
+  houseAccountOpeningRequests HouseAccountOpeningRequest[]
 
   @@unique([villageId, normalizedHouseNumber])
   @@index([villageId])
+}
+
+model ResidentHouseAccount {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  villageId    String
+  houseId      String    @unique
+  contactPhone String
+  activatedAt  DateTime?
+  suspendedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user          User           @relation("ResidentHouseAccountUser", fields: [userId], references: [id], onDelete: Cascade)
+  village       Village        @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  house         House          @relation(fields: [houseId], references: [id], onDelete: Restrict)
+  accountEmails AccountEmail[] @relation("ResidentHouseAccountEmails")
+
+  @@index([villageId])
+}
+
+model HouseAccountOpeningRequest {
+  id                      String                           @id @default(cuid())
+  villageId               String
+  houseId                 String
+  applicantFirstName      String
+  applicantLastName       String
+  contactPhone            String
+  emailSnapshot           String
+  normalizedEmailSnapshot String
+  status                  HouseAccountOpeningRequestStatus @default(PENDING_EMAIL_VERIFICATION)
+  requestedAt             DateTime?
+  reviewedAt              DateTime?
+  reviewedByUserId        String?
+  rejectionReason         String?                          @db.Text
+  activatedUserId         String?                          @unique
+  createdAt               DateTime                         @default(now())
+  updatedAt               DateTime                         @updatedAt
+
+  village       Village       @relation(fields: [villageId], references: [id], onDelete: Restrict)
+  house         House         @relation(fields: [houseId], references: [id], onDelete: Restrict)
+  reviewedBy    User?         @relation("HouseAccountOpeningRequestReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  activatedUser User?         @relation("HouseAccountOpeningRequestActivatedUser", fields: [activatedUserId], references: [id], onDelete: SetNull)
+  initialEmail  AccountEmail? @relation("HouseAccountOpeningRequestInitialEmail")
+
+  @@index([villageId, status, createdAt])
+  @@index([houseId])
+  @@index([reviewedByUserId])
+}
+
+model AccountEmail {
+  id                     String             @id @default(cuid())
+  email                  String
+  normalizedEmail        String             @unique
+  status                 AccountEmailStatus @default(PENDING_VERIFICATION)
+  source                 AccountEmailSource
+  userId                 String?
+  residentHouseAccountId String?
+  openingRequestId       String?            @unique
+  verifiedAt             DateTime?
+  activatedAt            DateTime?
+  revokedAt              DateTime?
+  createdByUserId        String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  user                 User?                       @relation("AccountEmailUser", fields: [userId], references: [id], onDelete: SetNull)
+  residentHouseAccount ResidentHouseAccount?       @relation("ResidentHouseAccountEmails", fields: [residentHouseAccountId], references: [id], onDelete: SetNull)
+  openingRequest       HouseAccountOpeningRequest? @relation("HouseAccountOpeningRequestInitialEmail", fields: [openingRequestId], references: [id], onDelete: SetNull)
+  createdBy            User?                       @relation("AccountEmailCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  emailOtpChallenges   EmailOtpChallenge[]         @relation("EmailOtpChallengeAccountEmail")
+
+  @@index([status])
+  @@index([userId])
+  @@index([residentHouseAccountId])
+  @@index([createdByUserId])
+}
+
+model EmailOtpChallenge {
+  id                String                  @id @default(cuid())
+  normalizedEmail   String
+  purpose           EmailOtpPurpose
+  accountEmailId    String?
+  userId            String?
+  codeHash          String
+  codeSalt          String
+  status            EmailOtpChallengeStatus @default(PENDING_DELIVERY)
+  expiresAt         DateTime
+  verifiedAt        DateTime?
+  consumedAt        DateTime?
+  attemptCount      Int                     @default(0)
+  maxAttempts       Int
+  resendCount       Int                     @default(0)
+  maxResends        Int
+  lastSentAt        DateTime?
+  resendAvailableAt DateTime?
+  ipHash            String?
+  userAgentHash     String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  accountEmail AccountEmail? @relation("EmailOtpChallengeAccountEmail", fields: [accountEmailId], references: [id], onDelete: SetNull)
+  user         User?         @relation("EmailOtpChallengeUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([normalizedEmail, purpose, createdAt])
+  @@index([status, expiresAt])
+  @@index([accountEmailId])
+  @@index([userId])
+  @@index([ipHash, createdAt])
 }
 
 model Person {
