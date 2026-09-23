@@ -14,6 +14,7 @@ test("signed request access token proves the request id until expiry", () => {
   const token = createHouseOpeningAccessToken("request-1", now, environment, "test");
   const verified = verifyHouseOpeningAccessToken(token, now, environment, "test");
   assert.equal(verified?.requestId, "request-1");
+  assert.notEqual(verified?.requestId, "request-2");
   assert.ok(verified?.expiresAt.getTime() > now.getTime());
 });
 
@@ -30,5 +31,14 @@ test("production requires an explicit strong request access secret", () => {
   assert.throws(
     () => createHouseOpeningAccessToken("request-1", now, { BETTER_AUTH_SECRET: "fallback" }, "production"),
     /HOUSE_ACCOUNT_OPENING_ACCESS_SECRET is required/,
+  );
+  assert.throws(
+    () => createHouseOpeningAccessToken(
+      "request-1",
+      now,
+      { HOUSE_ACCOUNT_OPENING_ACCESS_SECRET: "too-short" },
+      "production",
+    ),
+    /must be at least 32 characters/,
   );
 });

@@ -288,7 +288,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   if (step === "OTP" && otpState) {
     return <div className={cardClass}>
       <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
-      <p className="mt-2 text-sm leading-6 text-gray-600" aria-live="polite">เราได้ส่งรหัส 6 หลักไปยัง <strong>{otpState.maskedEmail}</strong></p>
+      <p className="mt-2 break-all text-sm leading-6 text-gray-600" aria-live="polite">เราได้ส่งรหัส 6 หลักไปยัง <strong>{otpState.maskedEmail}</strong></p>
       <p className="mt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
       <form onSubmit={verifyOtp} className="mt-6 space-y-4">
         <Input ref={otpRef} id="house-opening-otp" label="รหัสยืนยัน" value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="text-center text-2xl tracking-[0.45em]" required />
@@ -308,10 +308,10 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       <h1 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-gray-900 outline-none">ส่งคำขอเรียบร้อยแล้ว</h1>
       <p className="mt-2 text-sm leading-6 text-gray-600">ระบบได้ส่งคำขอเปิดบัญชีบ้านให้ผู้ใหญ่บ้านตรวจสอบแล้ว</p>
       <dl className="mt-6 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-gray-50 px-4">
-        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">บ้านเลขที่</dt><dd className="font-medium text-gray-900">{successState.houseNumber}</dd></div>
-        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">ชื่อผู้ขอ</dt><dd className="font-medium text-gray-900">{successState.applicantName}</dd></div>
-        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">อีเมล</dt><dd className="font-medium text-gray-900">{successState.maskedEmail}</dd></div>
-        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">เบอร์โทรสำหรับติดต่อ</dt><dd className="font-medium text-gray-900">{successState.contactPhone}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">บ้านเลขที่</dt><dd className="min-w-0 break-all text-right font-medium text-gray-900">{successState.houseNumber}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">ชื่อผู้ขอ</dt><dd className="min-w-0 break-words text-right font-medium text-gray-900">{successState.applicantName}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">อีเมล</dt><dd className="min-w-0 break-all text-right font-medium text-gray-900">{successState.maskedEmail}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">เบอร์โทรสำหรับติดต่อ</dt><dd className="min-w-0 break-all text-right font-medium text-gray-900">{successState.contactPhone}</dd></div>
         <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">สถานะ</dt><dd className="font-semibold text-amber-700">รอการตรวจสอบ</dd></div>
       </dl>
       {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
@@ -333,11 +333,11 @@ export function RegisterForm({ village }: { village: VillageOption }) {
 
     <form onSubmit={startRequest} className="mt-6 space-y-5">
       <div className="relative">
-        <Input id="house-opening-house" label="บ้านเลขที่" value={houseQuery} onChange={(event) => { setHouseQuery(event.target.value.slice(0, 50)); setError(null); }} placeholder="เช่น 168/4" autoComplete="off" aria-autocomplete="list" aria-controls="house-search-results" helperText="ค้นหาและเลือกบ้านที่มีอยู่ในทะเบียนหมู่บ้าน" required />
+        <Input id="house-opening-house" label="บ้านเลขที่" role="combobox" value={houseQuery} onChange={(event) => { setHouseQuery(event.target.value.slice(0, 50)); setError(null); }} placeholder="เช่น 168/4" autoComplete="off" aria-autocomplete="list" aria-controls="house-search-results" aria-expanded={houseResults.length > 0} helperText="ค้นหาและเลือกบ้านที่มีอยู่ในทะเบียนหมู่บ้าน" required />
         <div id="house-search-results" role="listbox" className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-gray-200 bg-white">
           {isSearching ? <p className="px-3 py-3 text-sm text-gray-500" aria-live="polite">กำลังค้นหา...</p> : null}
           {!isSearching && houseQuery.trim() && houseResults.length === 0 && !selectedHouse ? <p className="px-3 py-3 text-sm text-gray-500" aria-live="polite">ไม่พบบ้านเลขที่นี้ กรุณาติดต่อผู้ใหญ่บ้าน</p> : null}
-          {houseResults.map((house) => <button key={house.houseId} type="button" role="option" aria-selected={selectedHouse?.houseId === house.houseId} className="block w-full cursor-pointer border-b border-gray-100 px-3 py-3 text-left text-sm last:border-b-0 hover:bg-green-50 focus:bg-green-50 focus:outline-none" onClick={() => { setSelectedHouse(house); setHouseQuery(house.houseNumber); setHouseResults([]); setError(null); }}>บ้านเลขที่ {house.houseNumber}</button>)}
+          {houseResults.map((house) => <button key={house.houseId} type="button" role="option" aria-selected={selectedHouse?.houseId === house.houseId} className="block w-full cursor-pointer break-all border-b border-gray-100 px-3 py-3 text-left text-sm last:border-b-0 hover:bg-green-50 focus:bg-green-50 focus:outline-none" onClick={() => { setSelectedHouse(house); setHouseQuery(house.houseNumber); setHouseResults([]); setError(null); }}>บ้านเลขที่ {house.houseNumber}</button>)}
         </div>
       </div>
 
