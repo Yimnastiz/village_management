@@ -114,3 +114,26 @@ The installed Better Auth Email OTP sign-in route lowercases the submitted addre
 Better Auth publicly exports the plugin endpoint builder `createAuthEndpoint`. Its bundled Email OTP route creates sessions through `ctx.context.internalAdapter.createSession(...)` and writes cookies with an internal `setSessionCookie(...)` import. Those session details are not an appropriate stable application integration contract. Phase 3 consequently does not add a session bridge or monkey-patch Better Auth. Before House Account login is implemented, the project must confirm an officially supported custom-plugin method for creating a session for a User already resolved from `AccountEmail`; otherwise the auth boundary needs a documented adapter strategy.
 
 `User.email` remains a non-authoritative Better Auth compatibility value. The recommended direction is to retain one stable canonical verified address only if Better Auth's supported session integration requires it. Do not synchronize it to whichever alias was most recently added or used, and do not introduce synthetic addresses until that requirement is proven. Login authorization must resolve an active `AccountEmail` to its owning User/ResidentHouseAccount first.
+
+## Phase 4 — Public House Account opening request
+
+`/auth/register` is now the sole public House Account opening surface. The visible personal-registration form has been replaced, while the legacy phone-registration APIs remain temporarily available for migration safety. The new form collects an existing House, applicant first and last name, contact phone, login email, and privacy consent. It does not collect National ID, date of birth, gender, password, Person identity, or SMS verification.
+
+House lookup is limited to the configured Village, returns at most six `houseId`/`houseNumber` pairs, and never returns population, contact, or account data. A one-character query performs exact matching; longer input performs prefix matching. A keyed-IP, process-local fixed-window limiter adds a best-effort public-search control. A shared distributed limiter remains advisable before horizontally scaled production deployment. No House is created from public input, and no occupancy restriction is applied because the current repository contains no existing Resident-account eligibility policy tied to `House.occupancyStatus`.
+
+The creation transaction takes a House-scoped advisory lock, re-reads the selected House in the configured Village, checks `ResidentHouseAccount`, checks the two live opening-request statuses, creates `HouseAccountOpeningRequest(PENDING_EMAIL_VERIFICATION)`, and reserves its `AccountEmail` through the Phase 3 domain service. The transaction-aware reservation primitive prevents an email conflict from leaving an orphan live request. Existing database uniqueness constraints remain the final House/email concurrency guards.
+
+After commit, the service issues only a `HOUSE_OPENING` challenge. Delivery failure performs a compensating cancellation and releases the email reservation. Resend and verification require the challenge to match the signed request, purpose, AccountEmail, and normalized email. Successful verification atomically performs:
+
+```text
+AccountEmail: PENDING_VERIFICATION → VERIFIED_PENDING_REVIEW
+HouseAccountOpeningRequest: PENDING_EMAIL_VERIFICATION → PENDING_REVIEW
+requestedAt: null → now
+EmailOtpChallenge: VERIFIED → CONSUMED
+```
+
+The same transaction creates notifications for active Headmen and a public audit entry with `userId = null`. Neither contains email, phone, OTP data, hashes, or salts. Notification metadata intentionally has no action URL until the Phase 5 review route exists.
+
+Applicant access is authorized by a 30-minute signed HTTP-only, SameSite=Lax cookie scoped to the House-opening API. Production requires an explicit `HOUSE_ACCOUNT_OPENING_ACCESS_SECRET` of at least 32 characters; development may fall back to `BETTER_AUTH_SECRET`. Raw request IDs, email addresses, and phone numbers are not used as URL authorization. The cookie permits status recovery, resend, verification, and cancellation. Cancellation is allowed for `PENDING_EMAIL_VERIFICATION` and `PENDING_REVIEW`, cancels live challenges, transitions the request to `CANCELLED`, and revokes/releases the AccountEmail without deleting history.
+
+Phase 4 does not create a User, ResidentHouseAccount, VillageMembership, Person link, or BindingRequest, and it does not issue a session. Phone login, Headman phone login, legacy Binding, and old phone-registration API implementations remain present. Runtime database integration tests remain pending because the additive Phase 2 and Phase 3 migrations have not been applied.

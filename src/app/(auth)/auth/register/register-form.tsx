@@ -1,701 +1,359 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { SuggestCombobox } from "@/components/ui/suggest-combobox";
-import { useToast } from "@/components/ui/toast";
-import { isValidThaiName, normalizeNationalId, normalizeThaiName } from "@/lib/thai-identity";
-import { PERSON_GENDER_VALUES, normalizePersonGender, validateOptionalPersonDate } from "@/lib/person-validation";
-
-function normalizePhone10(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 10);
-}
-
-const REGISTRATION_DRAFT_KEY = "village_auth_registration_draft";
 
 type VillageOption = {
   id: string;
   name: string;
   moo: string | null;
-  slug: string;
   province: string | null;
   district: string | null;
   subdistrict: string | null;
 };
 
-type RegisterFormProps = {
-  village: VillageOption;
-  callbackUrl?: string;
+type HouseResult = { houseId: string; houseNumber: string };
+type Step = "FORM" | "OTP" | "SUCCESS";
+
+type OtpState = {
+  challengeId: string;
+  maskedEmail: string;
+  houseNumber: string;
+  expiresAt: string;
+  resendAvailableAt: string;
 };
 
-type RegistrationMode = "resident";
-
-type RegistrationDraft = {
-  registrationMode: RegistrationMode;
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  gender: string;
-  phone: string;
-  nationalId: string;
-  callbackUrl?: string;
-  savedAt: number;
+type SuccessState = {
+  houseNumber: string;
+  applicantName: string;
+  contactPhone: string;
+  maskedEmail: string;
 };
 
-type FormErrors = Partial<Record<
-  | "firstName"
-  | "lastName"
-  | "dateOfBirth"
-  | "gender"
-  | "phone"
-  | "nationalId"
-  | "privacyConsent",
-  string
->>;
-
-const THAI_MONTHS = [
-  "มกราคม",
-  "กุมภาพันธ์",
-  "มีนาคม",
-  "เมษายน",
-  "พฤษภาคม",
-  "มิถุนายน",
-  "กรกฎาคม",
-  "สิงหาคม",
-  "กันยายน",
-  "ตุลาคม",
-  "พฤศจิกายน",
-  "ธันวาคม",
-];
-
-function toBirthDateParts(value: string): { day: string; month: string; year: string } {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) return { day: "", month: "", year: "" };
-
-  return { day: String(Number(match[3])), month: String(Number(match[2])), year: String(Number(match[1]) + 543) };
+async function responseError(response: Response, fallback: string): Promise<string> {
+  const body = await response.json().catch(() => null) as { error?: string } | null;
+  return body?.error ?? fallback;
 }
 
-function toGregorianBirthDate(day: string, month: string, buddhistYear: string): string {
-  if (!day || !month || !buddhistYear) return "";
-  const gregorianYear = Number(buddhistYear) - 543;
-  if (!Number.isInteger(gregorianYear) || gregorianYear < 1) return "";
-  return `${String(gregorianYear).padStart(4, "0")}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-}
-
-function daysInMonth(month: string, buddhistYear: string): number {
-  const monthNumber = Number(month);
-  const gregorianYear = Number(buddhistYear) - 543;
-  if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) return 31;
-  if (!Number.isInteger(gregorianYear) || gregorianYear < 1) return [4, 6, 9, 11].includes(monthNumber) ? 30 : monthNumber === 2 ? 29 : 31;
-  return new Date(Date.UTC(gregorianYear, monthNumber, 0)).getUTCDate();
-}
-
-function serverErrorToFieldErrors(message: string): FormErrors {
-  if (message.includes("เบอร์") || message.includes("หมายเลข") || message.includes("Phone number")) {
-    return { phone: message };
-  }
-
-  if (message.includes("บัตรประชาชน")) {
-    return { nationalId: message };
-  }
-
-  if (message.includes("วันเกิด")) return { dateOfBirth: message };
-  if (message.includes("เพศ")) return { gender: message };
-
-
-  return {};
-}
-
-function loadRegistrationDraft(): RegistrationDraft | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(REGISTRATION_DRAFT_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw) as RegistrationDraft;
-    if (!parsed?.savedAt || typeof parsed.savedAt !== "number") {
-      return null;
-    }
-
-    if (Date.now() - parsed.savedAt > 24 * 60 * 60 * 1000) {
-      window.localStorage.removeItem(REGISTRATION_DRAFT_KEY);
-      return null;
-    }
-
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveRegistrationDraft(draft: Omit<RegistrationDraft, "savedAt">) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(
-    REGISTRATION_DRAFT_KEY,
-    JSON.stringify({ ...draft, savedAt: Date.now() })
-  );
-}
-export function RegisterForm({ village, callbackUrl }: RegisterFormProps) {
-  const router = useRouter();
-  const { success, error: showError } = useToast();
-  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
-  const privacyTriggerRef = useRef<HTMLButtonElement>(null);
-  const privacyCloseButtonRef = useRef<HTMLButtonElement>(null);
-  const [registrationMode, setRegistrationMode] = useState<RegistrationMode>("resident");
+export function RegisterForm({ village }: { village: VillageOption }) {
+  const [step, setStep] = useState<Step>("FORM");
+  const [houseQuery, setHouseQuery] = useState("");
+  const [houseResults, setHouseResults] = useState<HouseResult[]>([]);
+  const [selectedHouse, setSelectedHouse] = useState<HouseResult | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [birthDay, setBirthDay] = useState("");
-  const [birthMonth, setBirthMonth] = useState("");
-  const [birthYear, setBirthYear] = useState("");
-  const [gender, setGender] = useState("");
-  const [phone, setPhone] = useState("");
-  const [nationalId, setNationalId] = useState("");
-  const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [contactPhone, setContactPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpState, setOtpState] = useState<OtpState | null>(null);
+  const [successState, setSuccessState] = useState<SuccessState | null>(null);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
-  const [draftLoaded, setDraftLoaded] = useState(false);
-  const loginHref = callbackUrl
-    ? `/auth/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
-    : "/auth/login";
+  const [clock, setClock] = useState(Date.now());
+  const otpRef = useRef<HTMLInputElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
-    if (!draftLoaded) {
-      const storedDraft = loadRegistrationDraft();
-      if (storedDraft) {
-        setRegistrationMode(storedDraft.registrationMode);
-        setFirstName(storedDraft.firstName);
-        setLastName(storedDraft.lastName);
-        const birthDateParts = toBirthDateParts(storedDraft.dateOfBirth ?? "");
-        setBirthDay(birthDateParts.day);
-        setBirthMonth(birthDateParts.month);
-        setBirthYear(birthDateParts.year);
-        setGender(storedDraft.gender ?? "");
-        setPhone(storedDraft.phone);
-        setNationalId(storedDraft.nationalId);
+    const controller = new AbortController();
+    void fetch("/api/auth/house-account-opening/status", {
+      credentials: "include",
+      signal: controller.signal,
+    }).then(async (response) => {
+      if (!response.ok) return;
+      const data = await response.json() as {
+        status: string;
+        houseNumber: string;
+        applicantName: string;
+        contactPhone: string;
+        maskedEmail: string;
+        challengeId: string | null;
+        expiresAt: string | null;
+        resendAvailableAt: string | null;
+      };
+      if (
+        data.status === "PENDING_EMAIL_VERIFICATION"
+        && data.challengeId
+        && data.expiresAt
+        && data.resendAvailableAt
+      ) {
+        setOtpState({
+          challengeId: data.challengeId,
+          maskedEmail: data.maskedEmail,
+          houseNumber: data.houseNumber,
+          expiresAt: data.expiresAt,
+          resendAvailableAt: data.resendAvailableAt,
+        });
+        setStep("OTP");
+      } else if (data.status === "PENDING_REVIEW") {
+        setSuccessState({
+          houseNumber: data.houseNumber,
+          applicantName: data.applicantName,
+          contactPhone: data.contactPhone,
+          maskedEmail: data.maskedEmail,
+        });
+        setStep("SUCCESS");
       }
-      setDraftLoaded(true);
-    }
-  }, [draftLoaded]);
-
-  const dateOfBirth = useMemo(
-    () => toGregorianBirthDate(birthDay, birthMonth, birthYear),
-    [birthDay, birthMonth, birthYear]
-  );
-  const birthDayOptions = useMemo(
-    () => Array.from({ length: daysInMonth(birthMonth, birthYear) }, (_, index) => String(index + 1)),
-    [birthMonth, birthYear]
-  );
-  const birthYearOptions = useMemo(() => {
-    const currentBuddhistYear = new Date().getFullYear() + 543;
-    return Array.from({ length: 126 }, (_, index) => String(currentBuddhistYear - index));
+    }).catch(() => undefined);
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
-    const maximumDay = daysInMonth(birthMonth, birthYear);
-    if (birthDay && Number(birthDay) > maximumDay) setBirthDay(String(maximumDay));
-  }, [birthDay, birthMonth, birthYear]);
+    if (step === "OTP") otpRef.current?.focus();
+    if (step === "SUCCESS") headingRef.current?.focus();
+  }, [step]);
 
   useEffect(() => {
-    if (!draftLoaded) {
-      return;
-    }
-
-    saveRegistrationDraft({
-      registrationMode,
-      firstName,
-      lastName,
-      dateOfBirth,
-      gender,
-      phone,
-      nationalId,
-      callbackUrl,
-    });
-  }, [callbackUrl, dateOfBirth, draftLoaded, firstName, gender, lastName, nationalId, phone, registrationMode]);
+    const timer = window.setInterval(() => setClock(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
-    if (!isPrivacyModalOpen) {
+    if (selectedHouse && houseQuery === selectedHouse.houseNumber) return;
+    setSelectedHouse(null);
+    const trimmed = houseQuery.trim();
+    if (!trimmed) {
+      setHouseResults([]);
+      setIsSearching(false);
       return;
     }
-
-    const previousOverflow = document.body.style.overflow;
-    const previousPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    const privacyTrigger = privacyTriggerRef.current;
-
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    privacyCloseButtonRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setIsPrivacyModalOpen(false);
-        return;
-      }
-
-      if (event.key === "Tab") {
-        const dialog = document.getElementById("privacy-policy-dialog");
-        const focusableElements = dialog?.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (!focusableElements?.length) {
-          return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const response = await fetch(`/api/auth/house-account-opening/houses?q=${encodeURIComponent(trimmed)}`, {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(await responseError(response, "ไม่สามารถค้นหาบ้านได้"));
+        const data = await response.json() as { results: HouseResult[] };
+        setHouseResults(data.results);
+      } catch (searchError) {
+        if (!controller.signal.aborted) {
+          setHouseResults([]);
+          setError(searchError instanceof Error ? searchError.message : "ไม่สามารถค้นหาบ้านได้");
         }
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-        if (event.shiftKey && document.activeElement === firstElement) {
-          event.preventDefault();
-          lastElement.focus();
-        } else if (!event.shiftKey && document.activeElement === lastElement) {
-          event.preventDefault();
-          firstElement.focus();
-        }
+      } finally {
+        if (!controller.signal.aborted) setIsSearching(false);
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
+    }, 350);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      document.body.style.paddingRight = previousPaddingRight;
-      privacyTrigger?.focus();
+      window.clearTimeout(timer);
+      controller.abort();
     };
-  }, [isPrivacyModalOpen]);
+  }, [houseQuery, selectedHouse]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const resendSeconds = otpState
+    ? Math.max(0, Math.ceil((new Date(otpState.resendAvailableAt).getTime() - clock) / 1_000))
+    : 0;
 
-    const normalizedFirstName = normalizeThaiName(firstName).trim();
-    const normalizedLastName = normalizeThaiName(lastName).trim();
-    const normalizedName = `${normalizedFirstName} ${normalizedLastName}`.trim();
-    const normalizedPhone = normalizePhone10(phone);
-    const normalizedNationalId = normalizeNationalId(nationalId).slice(0, 13);
-    const birthDateValidation = validateOptionalPersonDate(dateOfBirth);
-    const normalizedGender = normalizePersonGender(gender);
-    const nextFieldErrors: FormErrors = {};
-
-    if (!normalizedFirstName) {
-      nextFieldErrors.firstName = "กรุณากรอกชื่อจริง";
-    } else if (!isValidThaiName(firstName)) {
-      nextFieldErrors.firstName = "กรุณากรอกชื่อจริงเป็นภาษาไทยเท่านั้น";
-    }
-
-    if (!normalizedLastName) {
-      nextFieldErrors.lastName = "กรุณากรอกนามสกุล";
-    } else if (!isValidThaiName(lastName)) {
-      nextFieldErrors.lastName = "กรุณากรอกนามสกุลจริงเป็นภาษาไทยเท่านั้น";
-    }
-
-    if (!normalizedPhone) {
-      nextFieldErrors.phone = "กรุณากรอกเบอร์โทรศัพท์";
-    } else if (!/^\d{10}$/.test(normalizedPhone)) {
-      nextFieldErrors.phone = "เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก";
-    }
-
-    if (!normalizedNationalId) {
-      nextFieldErrors.nationalId = "กรุณากรอกเลขบัตรประชาชน";
-    } else if (!/^\d{13}$/.test(normalizedNationalId)) {
-      nextFieldErrors.nationalId = "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";
-    }
-
-    if (!dateOfBirth) {
-      nextFieldErrors.dateOfBirth = "กรุณาเลือกวันเกิด";
-    } else if (!birthDateValidation.valid) {
-      nextFieldErrors.dateOfBirth = birthDateValidation.reason === "FUTURE" ? "วันเกิดต้องไม่เป็นวันในอนาคต" : "วันเกิดไม่ถูกต้อง";
-    } else if (!birthDateValidation.value) {
-      nextFieldErrors.dateOfBirth = "วันเกิดไม่ถูกต้อง";
-    }
-
-    if (!normalizedGender) {
-      nextFieldErrors.gender = "กรุณาเลือกเพศ";
-    }
-
-    if (!hasAcceptedPrivacy) {
-      nextFieldErrors.privacyConsent = "กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนสมัครสมาชิก";
-    }
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setFieldErrors(nextFieldErrors);
-      setError("กรุณาตรวจสอบช่องที่มีข้อความสีแดง แล้วแก้ไขให้ถูกต้อง");
+  async function startRequest(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    if (!selectedHouse) {
+      setError("กรุณาค้นหาและเลือกบ้านเลขที่จากรายการ");
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
-    setFieldErrors({});
-
-    saveRegistrationDraft({
-      registrationMode,
-      firstName: normalizedFirstName,
-      lastName: normalizedLastName,
-      dateOfBirth,
-      gender: normalizedGender ?? "",
-      phone: normalizedPhone,
-      nationalId: normalizedNationalId,
-      callbackUrl,
-    });
-
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("กรุณากรอกชื่อและนามสกุลผู้ขอ");
+      return;
+    }
+    const phoneDigits = contactPhone.replace(/\D/g, "");
+    if (!/^(?:0\d{8,9}|66\d{9})$/.test(phoneDigits)) {
+      setError("กรุณากรอกเบอร์โทรสำหรับติดต่อให้ถูกต้อง");
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+      setError("กรุณากรอกอีเมลให้ถูกต้อง");
+      return;
+    }
+    if (!privacyConsent) {
+      setError("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนส่งคำขอ");
+      return;
+    }
+    setPending(true);
     try {
-      const checkResponse = await fetch("/api/auth/check-phone", {
+      const response = await fetch("/api/auth/house-account-opening/start", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phoneNumber: normalizedPhone }),
-      });
-
-      if (!checkResponse.ok) {
-        const checkError = (await checkResponse.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(
-          checkError?.error ?? "ไม่สามารถตรวจสอบเบอร์โทรศัพท์ได้ กรุณาลองใหม่"
-        );
-      }
-
-      const startResponse = await fetch("/api/auth/start-registration", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
-          phoneNumber: normalizedPhone,
-          registrationMode,
-          name: normalizedName,
-          firstName: normalizedFirstName,
-          lastName: normalizedLastName,
-          nationalId: normalizedNationalId,
-          dateOfBirth,
-          gender: normalizedGender,
-          callbackUrl,
+          houseId: selectedHouse.houseId,
+          applicantFirstName: firstName,
+          applicantLastName: lastName,
+          contactPhone,
+          email,
+          privacyConsent,
         }),
       });
-
-      if (!startResponse.ok) {
-        const startError = (await startResponse.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        throw new Error(
-          startError?.error ?? "ไม่สามารถเริ่มการสมัครสมาชิกได้ กรุณาลองใหม่"
-        );
-      }
-
-      const startData = (await startResponse.json()) as { registrationId?: string; outcome?: string };
-      const params = new URLSearchParams({
-        mode: "signup",
-      });
-
-      if (startData.registrationId) {
-        params.set("registrationId", startData.registrationId);
-      }
-      if (startData.outcome === "RESUME_EXISTING_CHALLENGE") params.set("resumed", "1");
-
-      if (callbackUrl) {
-        params.set("callbackUrl", callbackUrl);
-      }
-
-      success("ส่งรหัส OTP แล้ว", "กรุณาตรวจสอบข้อความ SMS เพื่อยืนยันการสมัครสมาชิก");
-      router.push(`/auth/verify-otp?${params.toString()}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "ส่ง OTP ไม่สำเร็จ";
-      setError(message);
-      setFieldErrors((currentErrors) => ({ ...currentErrors, ...serverErrorToFieldErrors(message) }));
-      showError("ส่งรหัส OTP ไม่สำเร็จ", "กรุณาลองใหม่อีกครั้ง");
+      if (!response.ok) throw new Error(await responseError(response, "ไม่สามารถเริ่มคำขอได้"));
+      const data = await response.json() as OtpState;
+      setOtpState(data);
+      setOtpCode("");
+      setStep("OTP");
+    } catch (startError) {
+      setError(startError instanceof Error ? startError.message : "ไม่สามารถเริ่มคำขอได้");
     } finally {
-      setIsLoading(false);
+      setPending(false);
     }
-  };
+  }
 
-  return (
-    <div className="mx-auto max-w-2xl rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
-      <div className="mb-3">
-        <Link href="/landing" className="text-sm font-medium text-green-700 hover:underline">
-          กลับไปหน้าเว็บไซต์หมู่บ้าน
-        </Link>
-      </div>
-      <h2 className="text-xl font-bold text-gray-900 mb-2">สมัครสมาชิก</h2>
-      <p className="text-sm text-gray-500 mb-4">
-        ยืนยันเบอร์โทรศัพท์และระบุข้อมูลพื้นที่ของคุณเพื่อเข้าใช้งานระบบหมู่บ้าน
-      </p>
+  async function verifyOtp(event: React.FormEvent) {
+    event.preventDefault();
+    if (!otpState || !/^\d{6}$/.test(otpCode)) {
+      setError("กรุณากรอกรหัสยืนยัน 6 หลัก");
+      return;
+    }
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/house-account-opening/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ challengeId: otpState.challengeId, code: otpCode }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "ยืนยันอีเมลไม่สำเร็จ"));
+      const data = await response.json() as SuccessState;
+      setSuccessState(data);
+      setOtpCode("");
+      setStep("SUCCESS");
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : "ยืนยันอีเมลไม่สำเร็จ");
+      setOtpCode("");
+      otpRef.current?.focus();
+    } finally {
+      setPending(false);
+    }
+  }
 
-      <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-800">
-        สมัครสมาชิกสำหรับลูกบ้านทั่วไปเท่านั้น หลังสมัครแล้วถ้ายังไม่ผูกเลขบ้าน จะใช้งานได้เฉพาะข้อมูลสาธารณะและหน้าขอผูกเลขบ้าน
-      </div>
+  async function resendOtp() {
+    if (!otpState || resendSeconds > 0) return;
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/house-account-opening/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ challengeId: otpState.challengeId }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "ส่งรหัสยืนยันอีกครั้งไม่สำเร็จ"));
+      const data = await response.json() as OtpState;
+      setOtpState((current) => current ? { ...current, ...data } : data);
+      setClock(Date.now());
+      setOtpCode("");
+      otpRef.current?.focus();
+    } catch (resendError) {
+      setError(resendError instanceof Error ? resendError.message : "ส่งรหัสยืนยันอีกครั้งไม่สำเร็จ");
+    } finally {
+      setPending(false);
+    }
+  }
 
-      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-        <section className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-900">ข้อมูลบัญชีและยืนยันตัวตน</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input
-            id="register-first-name"
-            label="ชื่อ"
-            name="firstName"
-            placeholder="เช่น สมชาย"
-            value={firstName}
-            onChange={(e) => {
-              setFirstName(normalizeThaiName(e.target.value));
-              setFieldErrors((currentErrors) => ({ ...currentErrors, firstName: undefined }));
-              setError(null);
-            }}
-            required
-            helperText="กรอกชื่อจริงภาษาไทยตามบัตรประชาชน"
-            error={fieldErrors.firstName}
-          />
-          <Input
-            id="register-last-name"
-            label="นามสกุล"
-            name="lastName"
-            placeholder="เช่น ใจดี"
-            value={lastName}
-            onChange={(e) => {
-              setLastName(normalizeThaiName(e.target.value));
-              setFieldErrors((currentErrors) => ({ ...currentErrors, lastName: undefined }));
-              setError(null);
-            }}
-            required
-            helperText="กรอกนามสกุลจริงภาษาไทยตามบัตรประชาชน"
-            error={fieldErrors.lastName}
-          />
-        </div>
+  async function cancelRequest(preserveForm = false) {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/auth/house-account-opening/cancel", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(await responseError(response, "ยกเลิกคำขอไม่สำเร็จ"));
+      setOtpState(null);
+      setSuccessState(null);
+      setOtpCode("");
+      if (!preserveForm) {
+        setHouseQuery("");
+        setSelectedHouse(null);
+        setFirstName("");
+        setLastName("");
+        setContactPhone("");
+        setEmail("");
+        setPrivacyConsent(false);
+      }
+      setStep("FORM");
+    } catch (cancelError) {
+      setError(cancelError instanceof Error ? cancelError.message : "ยกเลิกคำขอไม่สำเร็จ");
+    } finally {
+      setPending(false);
+    }
+  }
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <span id="register-date-of-birth-label" className="mb-1 block text-sm font-medium text-gray-700">วันเกิด<span aria-hidden="true" className="ml-1 text-red-600">*</span></span>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-[0.75fr_1.5fr_1fr]">
-              <select
-                id="register-birth-day"
-                name="birthDay"
-                value={birthDay}
-                onChange={(event) => {
-                  setBirthDay(event.target.value);
-                  setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
-                  setError(null);
-                }}
-                required
-                aria-label="วันเกิด"
-                aria-invalid={Boolean(fieldErrors.dateOfBirth)}
-                className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : "border-gray-300"}`}
-              >
-                <option value="" disabled>วัน</option>
-                {birthDayOptions.map((day) => <option key={day} value={day}>{day}</option>)}
-              </select>
-              <select
-                id="register-birth-month"
-                name="birthMonth"
-                value={birthMonth}
-                onChange={(event) => {
-                  setBirthMonth(event.target.value);
-                  setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
-                  setError(null);
-                }}
-                required
-                aria-label="เดือนเกิด"
-                aria-invalid={Boolean(fieldErrors.dateOfBirth)}
-                className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : "border-gray-300"}`}
-              >
-                <option value="" disabled>เดือน</option>
-                {THAI_MONTHS.map((month, index) => <option key={month} value={String(index + 1)}>{month}</option>)}
-              </select>
-              <div className="col-span-2 sm:col-span-1">
-                <SuggestCombobox
-                  id="register-birth-year"
-                  name="birthYear"
-                  label="ปี"
-                  labelClassName="sr-only"
-                  value={birthYear}
-                  options={birthYearOptions.map((year) => ({ value: year, label: year }))}
-                  placeholder="ปี"
-                  autoComplete="bday-year"
-                  inputClassName={fieldErrors.dateOfBirth ? "border-red-300 bg-red-50" : undefined}
-                  onChange={(value) => {
-                    setBirthYear(value);
-                    setFieldErrors((currentErrors) => ({ ...currentErrors, dateOfBirth: undefined }));
-                    setError(null);
-                  }}
-                />
-              </div>
-            </div>
-            {fieldErrors.dateOfBirth ? <p className="mt-1 text-xs text-red-600">{fieldErrors.dateOfBirth}</p> : null}
-          </div>
-          <div>
-            <label htmlFor="register-gender" className="mb-1 block text-sm font-medium text-gray-700">เพศ<span aria-hidden="true" className="ml-1 text-red-600">*</span></label>
-            <select
-              id="register-gender"
-              name="gender"
-              value={gender}
-              onChange={(event) => {
-                setGender(event.target.value);
-                setFieldErrors((currentErrors) => ({ ...currentErrors, gender: undefined }));
-                setError(null);
-              }}
-              required
-              aria-invalid={Boolean(fieldErrors.gender)}
-              className={`block w-full rounded-lg border bg-white px-3 py-2 text-sm shadow-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500 ${fieldErrors.gender ? "border-red-300 bg-red-50" : "border-gray-300"}`}
-            >
-              <option value="" disabled>เลือกเพศ</option>
-              {PERSON_GENDER_VALUES.map((value) => <option key={value} value={value}>{value}</option>)}
-            </select>
-            {fieldErrors.gender ? <p className="mt-1 text-xs text-red-600">{fieldErrors.gender}</p> : null}
-          </div>
-        </div>
+  const cardClass = "mx-auto w-full max-w-2xl rounded-2xl border border-white/90 bg-white/95 p-4 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8";
 
-        <Input
-          id="register-phone"
-          label="เบอร์โทรศัพท์"
-          name="phone"
-          type="tel"
-          placeholder="0812345678"
-          value={phone}
-          onChange={(e) => {
-            setPhone(normalizePhone10(e.target.value));
-            setFieldErrors((currentErrors) => ({ ...currentErrors, phone: undefined }));
-            setError(null);
-          }}
-          inputMode="numeric"
-          maxLength={10}
-          pattern="[0-9]{10}"
-          title="เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก"
-          required
-          error={fieldErrors.phone}
-        />
-
-        <Input
-          id="register-national-id"
-          label="เลขบัตรประจำตัวประชาชน"
-          name="nationalId"
-          type="text"
-          placeholder="1234567890123"
-          value={nationalId}
-          onChange={(e) => {
-            setNationalId(normalizeNationalId(e.target.value).slice(0, 13));
-            setFieldErrors((currentErrors) => ({ ...currentErrors, nationalId: undefined }));
-            setError(null);
-          }}
-          inputMode="numeric"
-          maxLength={13}
-          pattern="[0-9]{13}"
-          title="เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก"
-          required
-          helperText="กรอกเลขบัตรประชาชน 13 หลัก"
-          error={fieldErrors.nationalId}
-        />
-
-        </section>
-
-        <section className="space-y-2 border-t border-gray-100 pt-5">
-          <h3 className="text-sm font-semibold text-gray-900">สมัครสมาชิกสำหรับหมู่บ้าน</h3>
-          <p className="font-medium text-gray-800">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</p>
-          <p className="text-sm text-gray-500">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" · ")}</p>
-        </section>
-
-        <div className="flex items-start gap-3 rounded-lg bg-gray-50 p-3">
-          <input
-            type="checkbox"
-            required
-            checked={hasAcceptedPrivacy}
-            onChange={(event) => {
-              setHasAcceptedPrivacy(event.target.checked);
-              setFieldErrors((currentErrors) => ({ ...currentErrors, privacyConsent: undefined }));
-              setError(null);
-            }}
-            className="mt-1 h-4 w-4 cursor-pointer accent-green-600 focus:ring-2 focus:ring-green-500"
-            id="consent"
-          />
-          <label htmlFor="consent" className="cursor-pointer text-sm text-gray-600">
-            ฉันยอมรับ{" "}
-            <button
-              type="button"
-              ref={privacyTriggerRef}
-              className="cursor-pointer text-green-600 hover:underline focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              onClick={() => setIsPrivacyModalOpen(true)}
-            >
-              นโยบายความเป็นส่วนตัว
-            </button>
-            
-          </label>
-        </div>
-        {fieldErrors.privacyConsent ? <p className="-mt-5 text-xs text-red-600">{fieldErrors.privacyConsent}</p> : null}
-
-        {error && <p className="text-sm text-red-600" role="alert" aria-live="polite">{error}</p>}
-
-        <Button type="submit" className="w-full" isLoading={isLoading}>
-          สมัครสมาชิก
-        </Button>
+  if (step === "OTP" && otpState) {
+    return <div className={cardClass}>
+      <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
+      <p className="mt-2 text-sm leading-6 text-gray-600" aria-live="polite">เราได้ส่งรหัส 6 หลักไปยัง <strong>{otpState.maskedEmail}</strong></p>
+      <p className="mt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
+      <form onSubmit={verifyOtp} className="mt-6 space-y-4">
+        <Input ref={otpRef} id="house-opening-otp" label="รหัสยืนยัน" value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="text-center text-2xl tracking-[0.45em]" required />
+        {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+        <Button type="submit" isLoading={pending} className="w-full">ยืนยันอีเมล</Button>
       </form>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Button type="button" variant="outline" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()}>{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</Button>
+        <Button type="button" variant="ghost" disabled={pending} onClick={() => void cancelRequest(true)}>กลับไปแก้ไขข้อมูล</Button>
+      </div>
+      <button type="button" disabled={pending} onClick={() => void cancelRequest(false)} className="mt-4 w-full cursor-pointer text-sm text-red-700 underline disabled:opacity-50">ยกเลิกคำขอ</button>
+    </div>;
+  }
 
-      <div className="mt-6 text-center text-sm text-gray-600">
-        มีบัญชีอยู่แล้ว?{" "}
-        <Link href={loginHref} className="text-green-600 font-medium hover:underline">
-          เข้าสู่ระบบ
-        </Link>
+  if (step === "SUCCESS" && successState) {
+    return <div className={cardClass}>
+      <h1 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-gray-900 outline-none">ส่งคำขอเรียบร้อยแล้ว</h1>
+      <p className="mt-2 text-sm leading-6 text-gray-600">ระบบได้ส่งคำขอเปิดบัญชีบ้านให้ผู้ใหญ่บ้านตรวจสอบแล้ว</p>
+      <dl className="mt-6 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-gray-50 px-4">
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">บ้านเลขที่</dt><dd className="font-medium text-gray-900">{successState.houseNumber}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">ชื่อผู้ขอ</dt><dd className="font-medium text-gray-900">{successState.applicantName}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">อีเมล</dt><dd className="font-medium text-gray-900">{successState.maskedEmail}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">เบอร์โทรสำหรับติดต่อ</dt><dd className="font-medium text-gray-900">{successState.contactPhone}</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">สถานะ</dt><dd className="font-semibold text-amber-700">รอการตรวจสอบ</dd></div>
+      </dl>
+      {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        <Link href="/auth/login" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">กลับไปหน้าเข้าสู่ระบบ</Link>
+        <Button type="button" variant="dangerOutline" disabled={pending} isLoading={pending} onClick={() => void cancelRequest(false)}>ยกเลิกคำขอ</Button>
+      </div>
+    </div>;
+  }
+
+  return <div className={cardClass}>
+    <h1 className="text-xl font-bold text-gray-900">ขอเปิดบัญชีบ้าน</h1>
+    <p className="mt-2 text-sm leading-6 text-gray-600">สำหรับบ้านที่ยังไม่มีบัญชี กรุณาเลือกบ้านเลขที่และยืนยันอีเมลเพื่อส่งคำขอให้ผู้ใหญ่บ้านตรวจสอบ</p>
+    <section className="mt-5 rounded-xl border border-green-100 bg-green-50 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-green-700">หมู่บ้าน</p>
+      <p className="mt-1 font-semibold text-green-950">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</p>
+      <p className="mt-1 text-xs text-green-800">{[village.subdistrict, village.district, village.province].filter(Boolean).join(" · ")}</p>
+    </section>
+
+    <form onSubmit={startRequest} className="mt-6 space-y-5">
+      <div className="relative">
+        <Input id="house-opening-house" label="บ้านเลขที่" value={houseQuery} onChange={(event) => { setHouseQuery(event.target.value.slice(0, 50)); setError(null); }} placeholder="เช่น 168/4" autoComplete="off" aria-autocomplete="list" aria-controls="house-search-results" helperText="ค้นหาและเลือกบ้านที่มีอยู่ในทะเบียนหมู่บ้าน" required />
+        <div id="house-search-results" role="listbox" className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-gray-200 bg-white">
+          {isSearching ? <p className="px-3 py-3 text-sm text-gray-500" aria-live="polite">กำลังค้นหา...</p> : null}
+          {!isSearching && houseQuery.trim() && houseResults.length === 0 && !selectedHouse ? <p className="px-3 py-3 text-sm text-gray-500" aria-live="polite">ไม่พบบ้านเลขที่นี้ กรุณาติดต่อผู้ใหญ่บ้าน</p> : null}
+          {houseResults.map((house) => <button key={house.houseId} type="button" role="option" aria-selected={selectedHouse?.houseId === house.houseId} className="block w-full cursor-pointer border-b border-gray-100 px-3 py-3 text-left text-sm last:border-b-0 hover:bg-green-50 focus:bg-green-50 focus:outline-none" onClick={() => { setSelectedHouse(house); setHouseQuery(house.houseNumber); setHouseResults([]); setError(null); }}>บ้านเลขที่ {house.houseNumber}</button>)}
+        </div>
       </div>
 
-      {isPrivacyModalOpen && typeof document !== "undefined"
-        ? createPortal(
-        <div className="fixed inset-0 z-[200] grid min-h-[100dvh] w-screen place-items-center bg-slate-950/50 p-4">
-          <button type="button" aria-label="Close privacy policy" className="absolute inset-0 cursor-pointer" onClick={() => setIsPrivacyModalOpen(false)} />
-          <div
-            id="privacy-policy-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Privacy policy"
-            className="relative z-10 max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-2xl sm:p-6"
-          >
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-lg font-bold text-gray-900">นโยบายความเป็นส่วนตัว</h3>
-              <button
-                type="button"
-                ref={privacyCloseButtonRef}
-                onClick={() => setIsPrivacyModalOpen(false)}
-                className="cursor-pointer rounded-lg border border-gray-200 px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-              >
-                ปิด
-              </button>
-            </div>
-
-            <p className="text-xs text-gray-500">อัปเดตล่าสุด: มกราคม 2566</p>
-            <div className="mt-3 space-y-3 text-sm text-gray-700">
-              <div>
-                <p className="font-semibold text-gray-900">1. ข้อมูลที่เราเก็บรวบรวม</p>
-                <p>ระบบเก็บรวบรวมข้อมูลส่วนบุคคล ได้แก่ ชื่อ-นามสกุล เบอร์โทรศัพท์ ที่อยู่ และข้อมูลครัวเรือน</p>
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">2. วัตถุประสงค์การใช้ข้อมูล</p>
-                <p>ใช้เพื่อการบริหารจัดการหมู่บ้าน การให้บริการแก่สมาชิก และการสื่อสารภายในชุมชน</p>
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">3. การรักษาความปลอดภัย</p>
-                <p>ข้อมูลอ่อนไหวจะถูกเข้ารหัสและแสดงเป็น masked เช่น เลขบัตรประชาชน</p>
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">4. สิทธิของเจ้าของข้อมูล</p>
-                <p>คุณมีสิทธิ์เข้าถึง แก้ไข และขอลบข้อมูลของคุณได้ผ่านระบบหรือติดต่อผู้ดูแลหมู่บ้าน</p>
-              </div>
-              <div>
-                <p className="font-semibold text-gray-900">5. การติดต่อ</p>
-                <p>หากมีคำถามเกี่ยวกับนโยบายความเป็นส่วนตัว กรุณาติดต่อ privacy@village.go.th</p>
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )
-        : null}
-    </div>
-  );
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Input id="house-opening-first-name" name="givenName" label="ชื่อผู้ขอ" value={firstName} onChange={(event) => setFirstName(event.target.value.slice(0, 100))} autoComplete="given-name" maxLength={100} required />
+        <Input id="house-opening-last-name" name="familyName" label="นามสกุลผู้ขอ" value={lastName} onChange={(event) => setLastName(event.target.value.slice(0, 100))} autoComplete="family-name" maxLength={100} required />
+      </div>
+      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="tel" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value.slice(0, 20))} placeholder="0812345678" helperText="ใช้สำหรับให้ผู้ใหญ่บ้านติดต่อเพิ่มเติม ไม่ใช้เข้าสู่ระบบและไม่มี SMS OTP" maxLength={20} required />
+      <Input id="house-opening-email" name="email" label="อีเมลสำหรับเข้าสู่ระบบ" type="email" inputMode="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value.slice(0, 320))} placeholder="name@example.com" maxLength={320} required />
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
+        <input type="checkbox" checked={privacyConsent} onChange={(event) => setPrivacyConsent(event.target.checked)} className="mt-1 h-4 w-4 accent-green-600" required />
+        <span>ฉันยอมรับ <Link href="/consent" target="_blank" className="font-medium text-green-700 underline">นโยบายความเป็นส่วนตัว</Link> สำหรับการส่งคำขอเปิดบัญชีบ้าน</span>
+      </label>
+      {error ? <p role="alert" aria-live="polite" className="text-sm text-red-600">{error}</p> : null}
+      <Button type="submit" className="w-full" isLoading={pending}>ส่งรหัสยืนยันอีเมล</Button>
+    </form>
+    <p className="mt-6 text-center text-sm text-gray-600">มีบัญชีอยู่แล้ว? <Link href="/auth/login" className="font-medium text-green-700 underline">เข้าสู่ระบบ</Link></p>
+  </div>;
 }

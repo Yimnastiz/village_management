@@ -58,7 +58,7 @@ function LoginContent() {
       });
 
       if (!registrationResponse.ok) {
-        throw new Error("ไม่พบเบอร์โทรศัพท์นี้ในระบบ กรุณาสมัครสมาชิกก่อน");
+        throw new Error("ไม่พบเบอร์โทรศัพท์นี้ในระบบ หากบ้านยังไม่มีบัญชี กรุณาขอเปิดบัญชีบ้าน");
       }
 
       const registrationData = (await registrationResponse.json()) as {
@@ -133,9 +133,9 @@ function LoginContent() {
       </form>
 
       <div className="mt-6 text-center text-sm text-gray-600">
-        ยังไม่มีบัญชี?{" "}
+        บ้านของคุณยังไม่มีบัญชี?{" "}
         <Link href={registerHref} className="text-green-600 font-medium hover:underline">
-          สมัครสมาชิก
+          ขอเปิดบัญชีบ้าน
         </Link>
       </div>
 

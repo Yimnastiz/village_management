@@ -57,7 +57,7 @@ export function PublicNavbar() {
               href="/auth/register"
               className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
-              สมัครสมาชิก
+              ขอเปิดบัญชีบ้าน
             </Link>
           </div>
 
@@ -100,7 +100,7 @@ export function PublicNavbar() {
                   href="/auth/register"
                   className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
                 >
-                  สมัครสมาชิก
+                  ขอเปิดบัญชีบ้าน
                 </Link>
               </div>
             </div> : null}

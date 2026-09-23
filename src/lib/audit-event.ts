@@ -236,7 +236,7 @@ const actionNameLabels: Record<string, string> = {
 const fieldLabels: Record<string, string> = {
   maintenanceMode: "โหมดปิดปรับปรุงระบบ",
   maintenanceMessage: "ข้อความขณะปิดปรับปรุง",
-  registrationEnabled: "เปิดรับสมัครสมาชิกใหม่",
+  registrationEnabled: "เปิดรับคำขอเปิดบัญชีบ้าน",
   publicFeedbackEnabled: "เปิดรับความคิดเห็นจากบุคคลทั่วไป",
   title: "ชื่อเรื่อง",
   name: "ชื่อ",

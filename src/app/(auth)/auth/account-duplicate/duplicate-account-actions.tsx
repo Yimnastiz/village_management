@@ -45,7 +45,7 @@ export function DuplicateAccountActions({ unavailable = false }: { unavailable?:
         disabled={isSigningOut}
         className="flex min-h-11 items-center justify-center rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
       >
-        สมัครใหม่
+        ขอเปิดบัญชีบ้าน
       </button>
       <button
         type="button"

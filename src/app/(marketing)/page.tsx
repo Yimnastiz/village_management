@@ -16,7 +16,7 @@ function VillageHomePage({ village }: { village: ConfiguredVillage }) {
       <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
         <Link href={`/${village.slug}`} className="rounded-xl bg-white px-6 py-3 font-semibold text-green-800 hover:bg-green-50">ดูข้อมูลหมู่บ้าน</Link>
         <Link href="/auth/login" className="rounded-xl border border-white/70 px-6 py-3 font-semibold hover:bg-white/10">เข้าสู่ระบบ</Link>
-        <Link href="/auth/register" className="rounded-xl border border-white/70 px-6 py-3 font-semibold hover:bg-white/10">สมัครสมาชิก</Link>
+        <Link href="/auth/register" className="rounded-xl border border-white/70 px-6 py-3 font-semibold hover:bg-white/10">ขอเปิดบัญชีบ้าน</Link>
       </div>
     </div>
   </main>;

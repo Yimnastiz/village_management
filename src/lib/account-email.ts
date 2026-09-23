@@ -1,4 +1,5 @@
 import type { AccountEmailStatus, HouseAccountOpeningRequestStatus } from "@prisma/client";
+export { maskEmail, normalizeAccountEmail } from "./account-email-normalization.js";
 
 /**
  * Normalize an email for the global account-identity namespace.
@@ -6,19 +7,6 @@ import type { AccountEmailStatus, HouseAccountOpeningRequestStatus } from "@pris
  * This deliberately avoids provider-specific rewriting: dots and plus tags
  * remain significant because not every provider treats them as aliases.
  */
-export function normalizeAccountEmail(email: string): string {
-  return email.trim().toLocaleLowerCase("en-US");
-}
-
-export function maskEmail(email: string): string {
-  const normalized = email.trim();
-  const separator = normalized.lastIndexOf("@");
-  if (separator <= 0 || separator === normalized.length - 1) return "***";
-
-  const firstCharacter = Array.from(normalized.slice(0, separator))[0] ?? "";
-  return `${firstCharacter}***@${normalized.slice(separator + 1)}`;
-}
-
 const RELEASABLE_OPENING_REQUEST_STATUSES = new Set<HouseAccountOpeningRequestStatus>([
   "REJECTED",
   "CANCELLED",
