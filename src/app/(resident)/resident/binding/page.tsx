@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default async function ResidentBindingPage() {
   const session = await getSessionContextFromServerCookies();
+  if (session?.accountKind === "RESIDENT_HOUSE") redirect("/resident/dashboard");
   if (session && getResidentMembership(session)) {
     redirect("/resident/dashboard");
   }

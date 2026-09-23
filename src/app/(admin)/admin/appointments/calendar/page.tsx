@@ -6,6 +6,7 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 import { prisma } from "@/lib/prisma";
 import { AdminAppointmentCalendarGrid } from "./admin-appointment-calendar-grid";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 type PageProps = { searchParams?: Promise<{ month?: string; date?: string }> };
 
@@ -41,14 +42,14 @@ export default async function Page({ searchParams }: PageProps) {
   const selectedDate = validSelectedDate(params.date, monthKey);
   const appointments = await prisma.appointment.findMany({
     where: { villageId: membership.villageId, stage: "APPROVED", scheduledAt: { gte: monthStart, lt: nextMonthStart } },
-    select: { id: true, title: true, scheduledAt: true, user: { select: { name: true } }, slot: { select: { startTime: true } } },
+    select: { id: true, title: true, scheduledAt: true, user: { select: RESIDENT_ACTOR_USER_SELECT }, slot: { select: { startTime: true } } },
     orderBy: [{ scheduledAt: "asc" }],
   });
 
   const calendarAppointments = appointments.map((appointment) => ({
     id: appointment.id,
     title: appointment.title,
-    residentName: appointment.user.name,
+    residentName: residentActorDisplay(appointment.user, { villageId: membership.villageId }).label,
     date: toDateKey(appointment.scheduledAt!),
     time: appointmentTime(appointment.slot?.startTime, appointment.scheduledAt),
     sortTime: appointmentSortTime(appointment.slot?.startTime, appointment.scheduledAt),

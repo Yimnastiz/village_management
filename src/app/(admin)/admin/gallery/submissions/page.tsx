@@ -9,6 +9,7 @@ import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatThaiDateTime } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 import { GallerySubmissionReviewButtons } from "./request-review-buttons";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
 const statusLabel: Record<string, string> = { PENDING: "รอพิจารณา", APPROVED: "อนุมัติแล้ว", REJECTED: "ไม่อนุมัติ" };
@@ -21,11 +22,15 @@ export default async function AdminGallerySubmissionsPage({ searchParams }: { se
   if (!context) redirect("/admin/gallery");
   const membership = context.membership;
   const scope = { album: { villageId: membership.villageId }, ...(params.albumId ? { albumId: params.albumId } : {}), ...(params.batchId ? { batchId: params.batchId } : {}) };
-  const [pendingCount, submissions, batchCounts] = await Promise.all([
+  const [pendingCount, submissionRows, batchCounts] = await Promise.all([
     prisma.galleryItemSubmission.count({ where: { ...scope, status: "PENDING" } }),
-    prisma.galleryItemSubmission.findMany({ where: tab === "pending" ? { ...scope, status: "PENDING" } : { ...scope, status: { in: ["APPROVED", "REJECTED"] } }, include: { album: { select: { id: true, title: true } }, requester: { select: { name: true, phoneNumber: true } } }, orderBy: [{ batchId: "desc" }, { batchOrder: "asc" }, { createdAt: "desc" }] }),
+    prisma.galleryItemSubmission.findMany({ where: tab === "pending" ? { ...scope, status: "PENDING" } : { ...scope, status: { in: ["APPROVED", "REJECTED"] } }, include: { album: { select: { id: true, title: true } }, requester: { select: RESIDENT_ACTOR_USER_SELECT } }, orderBy: [{ batchId: "desc" }, { batchOrder: "asc" }, { createdAt: "desc" }] }),
     prisma.galleryItemSubmission.groupBy({ by: ["batchId"], where: { album: { villageId: membership.villageId }, batchId: { not: null } }, _count: { _all: true } }),
   ]);
+  const submissions = submissionRows.map((submission) => {
+    const display = residentActorDisplay(submission.requester, { villageId: membership.villageId });
+    return { ...submission, requester: { name: display.label, phoneNumber: display.contactPhone ?? "-" } };
+  });
   const batchTotals = new Map(batchCounts.flatMap((batch) => batch.batchId ? [[batch.batchId, batch._count._all] as const] : []));
   const href = (next: "pending" | "history") => { const query = new URLSearchParams({ ...(params.albumId ? { albumId: params.albumId } : {}), ...(params.batchId ? { batchId: params.batchId } : {}), ...(next === "history" ? { tab: "history" } : {}) }); return `/admin/gallery/submissions?${query}`; };
   const requestTabs = <RequestViewTabs label="สถานะคำขอรูปภาพ" tabs={[

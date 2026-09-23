@@ -10,6 +10,7 @@ import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
 import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
+import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -32,6 +33,9 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
 
   const membership = getResidentMembership(session);
   if (!membership) {
+    if (session.accountKind === "RESIDENT_HOUSE") {
+      return <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 p-6"><h1 className="text-xl font-semibold text-amber-950">บัญชีบ้านไม่พร้อมใช้งาน</h1><p className="mt-2 text-sm leading-6 text-amber-800">ไม่พบสิทธิ์สมาชิกบ้านที่ใช้งานอยู่ กรุณาติดต่อผู้ใหญ่บ้านเพื่อตรวจสอบข้อมูลบัญชี</p></div>;
+    }
     const [latestBindingRequest, linkedPerson, registeredVillage] = await Promise.all([
       prisma.bindingRequest.findFirst({
         where: {
@@ -238,6 +242,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
   const villageName = residentHouse?.village
     ? await getVillageDisplayName(residentHouse.village)
     : "หมู่บ้าน";
+  const actorDisplay = await getResidentActorDisplayByUserId(session.id, { villageId: membership.villageId });
 
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
@@ -341,7 +346,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
           },
         })
       : Promise.resolve([]),
-    effectiveHouseId
+    effectiveHouseId && session.accountKind !== "RESIDENT_HOUSE"
       ? prisma.villageMembership.findMany({
           where: {
             houseId: effectiveHouseId,
@@ -405,7 +410,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
       <WelcomeBanner
         villageName={villageName}
         userRole="resident"
-        userName={session.name}
+        userName={actorDisplay.label}
       />
 
       <SystemBroadcastTicker items={tickerItems} />

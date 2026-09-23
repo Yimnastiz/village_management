@@ -11,6 +11,7 @@ import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { parseNewsSubmissionPayload, newsSubmissionTypeLabel } from "@/lib/news-submission";
 import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 import { getVillageReviewerDisplayMap } from "@/lib/village-reviewer";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
 
@@ -21,17 +22,21 @@ export default async function AdminNewsRequestListPage({ searchParams }: { searc
 
   const tab = (await searchParams)?.tab === "history" ? "history" : "pending";
   const where: Prisma.NewsSubmissionWhereInput = { villageId: membership.villageId, ...(tab === "pending" ? { status: "PENDING" } : { status: { in: ["APPROVED", "REJECTED"] } }) };
-  const [requests, pendingCount] = await Promise.all([
+  const [requestRows, pendingCount] = await Promise.all([
     prisma.newsSubmission.findMany({
       where,
       orderBy: tab === "history" ? [{ reviewedAt: "desc" }, { createdAt: "desc" }] : [{ createdAt: "desc" }],
       include: {
-        requester: { select: { name: true, phoneNumber: true } },
+        requester: { select: RESIDENT_ACTOR_USER_SELECT },
         targetNews: { select: { title: true, coverUrl: true, imageUrls: true } },
       },
     }),
     getPendingNewsSubmissionCount(membership.villageId),
   ]);
+  const requests = requestRows.map((request) => {
+    const display = residentActorDisplay(request.requester, { villageId: membership.villageId });
+    return { ...request, requester: { name: display.label, phoneNumber: display.contactPhone ?? "-" } };
+  });
   const payloads = new Map(requests.map((request) => [request.id, parseNewsSubmissionPayload(request.payload)]));
   const reviewerDisplayById = tab === "history" ? await getVillageReviewerDisplayMap(requests.flatMap((request) => request.reviewedBy ? [request.reviewedBy] : []), membership.villageId) : new Map();
 

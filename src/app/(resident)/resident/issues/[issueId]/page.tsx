@@ -9,7 +9,8 @@ import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
-import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
+import { getUserRoleLabel } from "@/lib/user-display";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/legacy-superadmin-history";
 import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
@@ -56,17 +57,16 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
     ...issue.messages.map((message) => message.senderId),
     ...issue.timeline.map((item) => item.actorId).filter((id): id is string => Boolean(id)),
   ]));
-  // Deliberately exclude phoneNumber: this object is serialized to the resident client view.
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
-    select: { id: true, name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } },
+    select: { ...RESIDENT_ACTOR_USER_SELECT, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
-  const superAdminDisplay = { name: "Super Admin", legacyRole: "SUPERADMIN", memberships: [] };
+  const superAdminDisplay = { id: "legacy-superadmin", accountKind: null, name: "Super Admin", phoneNumber: null, residentHouseAccount: null, legacyRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const timelineItems = issue.timeline.map((item) => {
     const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
-    return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
+    return { ...item, actorName: actor ? residentActorDisplay(actor, { villageId: membership.villageId }).label : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
   const imageUrls = normalizeIssueImageUrls(issue.imageUrls);
@@ -116,7 +116,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
           <div className="space-y-3">
             <p><span className="text-gray-500">หมวดหมู่: </span><span className="font-medium">{ISSUE_CATEGORY_LABELS[issue.category]}</span></p>
             <p><span className="text-gray-500">วันที่แจ้ง: </span><span className="font-medium">{formatDate(issue.createdAt)}</span></p>
-            <p className="text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : getUserDisplayName(reporter)}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
+            <p className="text-gray-600">แจ้งโดย <span className="font-medium text-gray-800">{isOwner ? "คุณ" : residentActorDisplay(reporter, { villageId: membership.villageId }).label}</span> <span className="text-gray-500">({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span></p>
           </div>
           <div className="space-y-3">
             <p className="flex items-center gap-2"><span className="text-gray-500">ความสำคัญ: </span><span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${priorityMeta.badgeClass}`}>{priorityMeta.label}</span></p>
@@ -145,7 +145,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
             {issue.messages.map((msg) => {
               const sender = userById.get(msg.senderId) ?? (msg.senderId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined);
               return <div key={msg.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm sm:p-4">
-                <p className="break-words font-medium text-gray-900">{msg.senderId === session.id ? "คุณ" : getUserDisplayName(sender)} <span className="font-normal text-gray-500">· {sender ? getUserRoleLabel(sender) : "ผู้ใช้งาน"}</span></p>
+                <p className="break-words font-medium text-gray-900">{msg.senderId === session.id ? "คุณ" : residentActorDisplay(sender, { villageId: membership.villageId }).label} <span className="font-normal text-gray-500">· {sender ? getUserRoleLabel(sender) : "ผู้ใช้งาน"}</span></p>
                 <time className="mt-1 block text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</time>
                 <p className="mt-3 whitespace-pre-wrap break-words text-gray-700">{msg.content}</p>
               </div>;

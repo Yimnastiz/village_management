@@ -7,6 +7,7 @@ import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import type { ToolbarGroup } from "@/components/ui/admin-list-toolbar";
 import { AdminPendingCountBadge } from "@/components/ui/admin-pending-count-badge";
 import { prisma } from "@/lib/prisma";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
 import { AdminCalendarGrid } from "./admin-calendar-grid";
@@ -34,11 +35,15 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
   const appointmentWhere: Prisma.AppointmentWhereInput = { villageId: membership.villageId, stage: { notIn: ["CANCELLED", "REJECTED"] }, scheduledAt: { gte: monthStart, lt: nextMonthStart } };
   if (keyword) appointmentWhere.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { user: { name: { contains: keyword, mode: "insensitive" } } }];
 
-  const [events, appointments, pendingRequestCount] = await Promise.all([
+  const [events, appointmentRows, pendingRequestCount] = await Promise.all([
     activeType === "APPOINTMENT" ? Promise.resolve([]) : prisma.villageEvent.findMany({ where, orderBy: [{ startsAt: "asc" }, { createdAt: "desc" }], select: { id: true, title: true, location: true, startsAt: true, endsAt: true, isPublic: true } }),
-    activeType === "EVENT" ? Promise.resolve([]) : prisma.appointment.findMany({ where: appointmentWhere, select: { id: true, title: true, scheduledAt: true, user: { select: { name: true } } }, orderBy: [{ scheduledAt: "asc" }] }),
+    activeType === "EVENT" ? Promise.resolve([]) : prisma.appointment.findMany({ where: appointmentWhere, select: { id: true, title: true, scheduledAt: true, user: { select: RESIDENT_ACTOR_USER_SELECT } }, orderBy: [{ scheduledAt: "asc" }] }),
     prisma.villageEventSubmission.count({ where: { villageId: membership.villageId, status: "PENDING" } }),
   ]);
+  const appointments = appointmentRows.map((appointment) => ({
+    ...appointment,
+    user: { name: residentActorDisplay(appointment.user, { villageId: membership.villageId }).label },
+  }));
 
   const buildCalendarHref = (next: { q?: string; visibility?: string; month?: string; date?: string; type?: string }) => {
     const query = new URLSearchParams();

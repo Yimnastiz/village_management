@@ -9,6 +9,7 @@ import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatThaiDateTime } from "@/lib/date-format";
 import { newsSubmissionTypeLabel, parseNewsSubmissionPayload } from "@/lib/news-submission";
 import { getVillageReviewerDisplay } from "@/lib/village-reviewer";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { RequestReviewButtons } from "../request-review-buttons";
 
 interface PageProps { params: Promise<{ requestId: string }> }
@@ -19,8 +20,10 @@ export default async function AdminNewsRequestDetailPage({ params }: PageProps) 
   if (!context) redirect("/admin/news");
   const membership = context.membership;
 
-  const request = await prisma.newsSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true, phoneNumber: true } }, targetNews: { select: { id: true, title: true } } } });
-  if (!request) notFound();
+  const requestRow = await prisma.newsSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: RESIDENT_ACTOR_USER_SELECT }, targetNews: { select: { id: true, title: true } } } });
+  if (!requestRow) notFound();
+  const requesterDisplay = residentActorDisplay(requestRow.requester, { villageId: membership.villageId });
+  const request = { ...requestRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
   const payload = parseNewsSubmissionPayload(request.payload);
   const reviewer = request.status !== "PENDING" ? await getVillageReviewerDisplay(request.reviewedBy, membership.villageId) : null;
   const title = payload?.title || request.targetNews?.title || "-";

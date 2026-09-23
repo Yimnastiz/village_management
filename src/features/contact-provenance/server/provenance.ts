@@ -1,5 +1,6 @@
 import { ContactRequestStatus, ContactRequestType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 export type ContactProvenance =
   | { source: "ADMIN_MANUAL" }
@@ -30,7 +31,7 @@ export async function getContactProvenance(
     select: {
       id: true,
       requesterId: true,
-      requester: { select: { name: true } },
+      requester: { select: RESIDENT_ACTOR_USER_SELECT },
     },
   });
 
@@ -39,6 +40,6 @@ export async function getContactProvenance(
     source: "RESIDENT_REQUESTED",
     requestId: request.id,
     requesterId: request.requesterId,
-    requesterName: request.requester.name,
+    requesterName: residentActorDisplay(request.requester, { villageId }).label,
   };
 }

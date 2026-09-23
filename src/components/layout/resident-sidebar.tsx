@@ -56,6 +56,7 @@ export const residentMenuItems: ResidentMenuItem[] = [
 
 export type ResidentNavigationState = {
   hasMembership: boolean;
+  isHouseAccount?: boolean;
   publicVillageBasePath?: string | null;
   bindingRequestHref?: string | null;
   bindingStatus?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | null;
@@ -70,7 +71,7 @@ const MEMBERS_ONLY_PATHS = new Set([
 ]);
 
 export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
-  const baseItems = state.hasMembership
+  const baseItems = state.hasMembership || state.isHouseAccount
     ? residentMenuItems.filter((item) => item.href !== "/resident/binding")
     : residentMenuItems;
   // The sidebar should start at the request form and only become a status link
@@ -80,7 +81,7 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
     : "/resident/binding";
 
   return baseItems.map((item) => {
-    if (!state.hasMembership) {
+    if (!state.hasMembership && !state.isHouseAccount) {
       if (MEMBERS_ONLY_PATHS.has(item.href)) {
         return {
           ...item,
@@ -119,8 +120,8 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           <BrandLogo size="sm" alt="" />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900">พื้นที่ลูกบ้าน</p>
-            {state.hasMembership ? (
-              <p className="text-xs text-gray-500">เมนูใช้งานส่วนบุคคล</p>
+            {state.hasMembership || state.isHouseAccount ? (
+              <p className="text-xs text-gray-500">{state.isHouseAccount ? "บัญชีบ้าน" : "เมนูใช้งานส่วนบุคคล"}</p>
             ) : (
               <div className="text-xs leading-5 text-gray-500">
                 <p>โหมด guest</p>

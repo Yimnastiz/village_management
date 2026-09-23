@@ -8,7 +8,7 @@ import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { QueryPagination } from "@/components/ui/query-pagination";
-import { getUserDisplayName } from "@/lib/user-display";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { ISSUE_STATUS_META } from "@/lib/issues/status";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
@@ -49,7 +49,12 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
     const matchingReporters = await prisma.user.findMany({
       where: {
         memberships: { some: { villageId: membership.villageId, status: "ACTIVE" } },
-        OR: [{ name: { contains: keyword, mode: "insensitive" } }, { phoneNumber: { contains: keyword } }],
+        OR: [
+          { name: { contains: keyword, mode: "insensitive" } },
+          { phoneNumber: { contains: keyword } },
+          { residentHouseAccount: { contactPhone: { contains: keyword } } },
+          { residentHouseAccount: { house: { houseNumber: { contains: keyword, mode: "insensitive" } } } },
+        ],
       },
       select: { id: true },
     });
@@ -97,9 +102,9 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
   const counts: Record<string, number> = {};
   const reporters = await prisma.user.findMany({
     where: { id: { in: Array.from(new Set(issues.map((issue) => issue.reporterId))) } },
-    select: { id: true, name: true, phoneNumber: true },
+    select: RESIDENT_ACTOR_USER_SELECT,
   });
-  const reporterById = new Map(reporters.map((reporter) => [reporter.id, reporter]));
+  const reporterById = new Map(reporters.map((reporter) => [reporter.id, residentActorDisplay(reporter, { villageId: membership.villageId })]));
   for (const c of stageCounts) counts[c.stage] = c._count;
   const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
   const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize));
@@ -233,8 +238,8 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
                     </div>
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
-                    <p className="truncate text-sm font-medium text-gray-700">{getUserDisplayName(reporterById.get(issue.reporterId))}</p>
-                    <p className="mt-0.5 truncate text-xs text-gray-500">{reporterById.get(issue.reporterId)?.phoneNumber ?? "ไม่พบข้อมูลผู้แจ้ง"}</p>
+                    <p className="truncate text-sm font-medium text-gray-700">{reporterById.get(issue.reporterId)?.label ?? "ผู้ใช้งาน"}</p>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">{reporterById.get(issue.reporterId)?.contactPhone ?? "ไม่พบเบอร์ติดต่อ"}</p>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-gray-600">
                     {ISSUE_CATEGORY_LABELS[issue.category]}

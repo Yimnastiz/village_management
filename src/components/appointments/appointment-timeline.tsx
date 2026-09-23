@@ -76,6 +76,9 @@ function actorLabel(entry: TimelineEntry, villageId: string, viewerId?: string) 
     return metadata.actorRole === "SUPERADMIN" || metadata.actorType === "SUPERADMIN_ENV" ? "ผู้ดูแลระบบระดับสูง (Super Admin)" : "ระบบ";
   }
   if (viewerId && entry.actorId === viewerId) return "คุณ";
+  const metadata = metadataOf(entry.metadata);
+  const storedActorLabel = stringValue(metadata, "actorLabel");
+  if (storedActorLabel) return storedActorLabel;
   const membership = entry.actor?.memberships.find((item) => !item.villageId || item.villageId === villageId);
   const role = membership ? MEMBERSHIP_ROLE_LABELS[membership.role] : null;
   const name = entry.actor?.name || entry.actor?.email || "ไม่พบข้อมูลผู้ดำเนินการ";

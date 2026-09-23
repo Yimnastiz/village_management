@@ -12,6 +12,7 @@ import { formatThaiDateTime } from "@/lib/utils";
 import { Clock } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { CreateAppointmentButton } from "./create-appointment-button";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; sort?: string; page?: string }>;
@@ -39,6 +40,8 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
       { description: { contains: keyword, mode: "insensitive" } },
       { user: { name: { contains: keyword, mode: "insensitive" } } },
       { user: { email: { contains: keyword, mode: "insensitive" } } },
+      { user: { residentHouseAccount: { house: { houseNumber: { contains: keyword, mode: "insensitive" } } } } },
+      { user: { residentHouseAccount: { contactPhone: { contains: keyword } } } },
     ];
   }
   if (activeStage !== "ALL") {
@@ -54,7 +57,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
 
   const select = {
     id: true, title: true, stage: true, slotId: true, scheduledAt: true, createdAt: true,
-    user: { select: { email: true, name: true } },
+    user: { select: { ...RESIDENT_ACTOR_USER_SELECT, email: true } },
     slot: { select: { date: true, startTime: true, endTime: true } },
     timeline: {
       orderBy: { createdAt: "asc" }, take: 1,
@@ -72,7 +75,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
   };
 
   // Fetch only the active village's appointments; the Topbar supplies this context.
-  const [rows, databaseTotalCount] = await Promise.all([
+  const [rawRows, databaseTotalCount] = await Promise.all([
     prisma.appointment.findMany({
       where,
       ...(activeSort === "upcoming" ? {} : { skip: (page - 1) * pageSize, take: pageSize }),
@@ -81,6 +84,10 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
     }),
     prisma.appointment.count({ where }),
   ]);
+  const rows = rawRows.map((appointment) => {
+    const display = residentActorDisplay(appointment.user, { villageId: membership.villageId });
+    return { ...appointment, user: { ...appointment.user, name: display.label } };
+  });
   const now = new Date();
   const upcomingAppointments = activeSort === "upcoming"
     ? rows.map((appointment) => ({ appointment, scheduledTime: toAppointmentTime(appointment) }))
@@ -101,7 +108,7 @@ function getAppointmentSource(appointment: { timeline: Array<{ action: string; m
   const actor = entry?.actor;
   if (!entry || !actor) return null;
   const metadata = entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata) ? entry.metadata : null;
-  const name = typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
+  const name = typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
   if (!name) return null;
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
   if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${getLegacyActorRoleLabel(role) ?? "เจ้าหน้าที่"})`;

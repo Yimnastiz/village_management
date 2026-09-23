@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { AlbumForm } from "../../album-form";
 import { formatDateInputValue } from "@/lib/utils";
@@ -26,7 +27,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
 
   const album = await db.galleryAlbum.findFirst({
     where: { id: albumId, villageId: membership.villageId },
-    include: { items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, fileUrl: true, fileKey: true, title: true, sortOrder: true, isCover: true, mimeType: true, sourceSubmission: { select: { requester: { select: { name: true } } } } } } },
+    include: { items: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true, fileUrl: true, fileKey: true, title: true, sortOrder: true, isCover: true, mimeType: true, sourceSubmission: { select: { requester: { select: RESIDENT_ACTOR_USER_SELECT } } } } } },
   });
   if (!album) notFound();
 
@@ -43,7 +44,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
           isPublic: album.isPublic ? "PUBLIC" : "RESIDENT",
           allowResidentSubmissions: album.allowResidentSubmissions ? "ALLOW" : "DISALLOW",
         }}
-        initialItems={album.items.map((item) => ({ id: item.id, url: item.fileUrl, fileKey: item.fileKey ?? undefined, mimeType: item.mimeType ?? undefined, description: item.title ?? "", sortOrder: item.sortOrder, isCover: item.isCover, source: item.sourceSubmission ? { type: "RESIDENT_SUBMISSION" as const, requesterName: item.sourceSubmission.requester.name } : undefined }))}
+        initialItems={album.items.map((item) => ({ id: item.id, url: item.fileUrl, fileKey: item.fileKey ?? undefined, mimeType: item.mimeType ?? undefined, description: item.title ?? "", sortOrder: item.sortOrder, isCover: item.isCover, source: item.sourceSubmission ? { type: "RESIDENT_SUBMISSION" as const, requesterName: residentActorDisplay(item.sourceSubmission.requester, { villageId: membership.villageId }).label } : undefined }))}
       />
     </div>
   );

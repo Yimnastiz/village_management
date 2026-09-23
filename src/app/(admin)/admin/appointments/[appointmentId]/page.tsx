@@ -11,12 +11,13 @@ import { formatThaiDate, formatThaiDateTime } from "@/lib/utils";
 import { ProposeTimeForm } from "./propose-time-form";
 import { AppointmentStatusActions } from "./appointment-status-actions";
 import { AppointmentTimeline } from "@/components/appointments/appointment-timeline";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 function getAppointmentSource(timeline: Array<{ action: string; actorId: string | null; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }>) {
   const entry = timeline[0]; const actor = entry?.actor;
   if (!entry || !actor) return { label: null, isAdminCreated: false, creatorId: null };
   const metadata = entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata) ? entry.metadata : null;
-  const name = typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
+  const name = typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
   if (!name) return { label: null, isAdminCreated: metadata?.adminCreated === true, creatorId: entry.actorId };
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
   if (metadata?.adminCreated === true) return { label: `สร้างโดย ${name} (${getLegacyActorRoleLabel(role) ?? "เจ้าหน้าที่"})`, isAdminCreated: true, creatorId: entry.actorId };
@@ -46,8 +47,10 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const context = await getVillagePermissionContext("appointments.manage"); if (!context) redirect("/auth/login");
   const session = context.session;
   const { appointmentId } = await params;
-  const appointment = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId: context.villageId }, include: { user: { select: { name: true, email: true, phoneNumber: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
-  if (!appointment) redirect("/admin/appointments");
+  const appointmentRow = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId: context.villageId }, include: { user: { select: { ...RESIDENT_ACTOR_USER_SELECT, email: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
+  if (!appointmentRow) redirect("/admin/appointments");
+  const residentDisplay = residentActorDisplay(appointmentRow.user, { villageId: context.villageId });
+  const appointment = { ...appointmentRow, user: { ...appointmentRow.user, name: residentDisplay.label, phoneNumber: residentDisplay.contactPhone } };
   const stageLabel = appointment.stage === "TIME_SUGGESTED" ? "รอลูกบ้านยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[appointment.stage];
   const isConfirmed = ["APPROVED", "COMPLETED"].includes(appointment.stage);
   const source = getAppointmentSource(appointment.timeline);

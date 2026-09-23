@@ -1,5 +1,5 @@
 "use client";
-import { Bell, ChevronDown, ChevronRight, LockKeyhole, Menu, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, Home, LockKeyhole, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -21,6 +21,7 @@ interface TopBarProps {
   userArea: "resident" | "admin";
   userName: string;
   userImageUrl?: string | null;
+  userIdentityKind?: "HOUSE" | "PERSON";
   unreadNotificationCount: number;
   villageName?: string | null;
   villageMoo?: string | number | null;
@@ -34,6 +35,7 @@ export function TopBar({
   userArea,
   userName,
   userImageUrl,
+  userIdentityKind = "PERSON",
   unreadNotificationCount,
   villageName,
   villageMoo,
@@ -73,8 +75,8 @@ export function TopBar({
   const adminVillageLabel = villageName?.trim()
     ? `${adminRoleLabel} · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
     : adminRoleLabel;
-  const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership;
-  const residentStatusLabel = isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
+  const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership && !residentNavigationState?.isHouseAccount;
+  const residentStatusLabel = residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
   const mobilePopulationMenuId = "admin-mobile-population-menu";
 
@@ -174,7 +176,9 @@ export function TopBar({
               "h-8 w-8 overflow-hidden rounded-full flex items-center justify-center",
               isAdminArea ? "bg-blue-100" : "bg-green-100"
             )}>
-              {userImageUrl ? (
+              {userIdentityKind === "HOUSE" ? (
+                <Home className="h-4 w-4 text-green-700" aria-hidden="true" />
+              ) : userImageUrl ? (
                 <img src={userImageUrl} alt={userName} className="h-full w-full object-cover" />
               ) : (
                 <span className={cn(

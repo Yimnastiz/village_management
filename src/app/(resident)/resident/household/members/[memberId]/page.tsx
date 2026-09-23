@@ -104,7 +104,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
       houseNumber: person.house?.houseNumber,
       source: "ทะเบียนบุคคล",
     };
-  } else if (type === "membership") {
+  } else if (type === "membership" && session.accountKind !== "RESIDENT_HOUSE") {
     const membership = await prisma.villageMembership.findFirst({
       where: { id: actualId, houseId: effectiveHouseId, villageId: residency.villageId, status: MembershipStatus.ACTIVE },
       include: {

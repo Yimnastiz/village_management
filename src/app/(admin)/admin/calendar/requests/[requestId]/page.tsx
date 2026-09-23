@@ -11,6 +11,7 @@ import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatCalendarPerson } from "@/lib/calendar-person";
 import { CalendarRequestReviewButtons } from "../request-review-buttons";
 import { CalendarRequestManagementActions } from "../request-management-actions";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 type AdminCalendarRequestDetailPageProps = {
   params: Promise<{ requestId: string }>;
@@ -29,7 +30,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
   const membership = context?.membership;
   if (!membership) redirect("/auth/login");
 
-  const request = await prisma.villageEventSubmission.findFirst({
+  const requestRow = await prisma.villageEventSubmission.findFirst({
     where: {
       id: requestId,
       villageId: membership.villageId,
@@ -46,11 +47,13 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
       reviewedBy: true,
       reviewedAt: true,
       reviewNote: true,
-      requester: { select: { name: true, phoneNumber: true } },
+      requester: { select: RESIDENT_ACTOR_USER_SELECT },
     },
   });
 
-  if (!request) notFound();
+  if (!requestRow) notFound();
+  const requesterDisplay = residentActorDisplay(requestRow.requester, { villageId: membership.villageId });
+  const request = { ...requestRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
 
   const reviewer = request.reviewedBy
     ? await prisma.user.findUnique({

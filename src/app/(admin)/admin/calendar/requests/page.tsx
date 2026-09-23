@@ -8,6 +8,7 @@ import {
 } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
@@ -20,7 +21,7 @@ export default async function AdminCalendarRequestListPage() {
   const membership = context?.membership;
   if (!membership) redirect("/auth/login");
 
-  const requests = await prisma.villageEventSubmission.findMany({
+  const requestRows = await prisma.villageEventSubmission.findMany({
     where: { villageId: membership.villageId },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     select: {
@@ -29,8 +30,12 @@ export default async function AdminCalendarRequestListPage() {
       isPublic: true,
       title: true,
       createdAt: true,
-      requester: { select: { name: true, phoneNumber: true } },
+      requester: { select: RESIDENT_ACTOR_USER_SELECT },
     },
+  });
+  const requests = requestRows.map((request) => {
+    const display = residentActorDisplay(request.requester, { villageId: membership.villageId });
+    return { ...request, requester: { name: display.label, phoneNumber: display.contactPhone ?? "-" } };
   });
 
   return (

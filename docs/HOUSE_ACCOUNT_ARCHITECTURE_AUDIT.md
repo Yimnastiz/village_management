@@ -194,3 +194,11 @@ If the removed alias matches canonical `User.email`, the same transaction select
 The House Account profile now shows only House number, Village/moo, active status, read-only contact phone, and active login-email count. It does not query or display Person, National ID, birth date, gender, citizen verification, avatar, or phone-login state. The legacy Resident profile remains available unchanged. Personal self-deletion is hidden for House Accounts and is also rejected by the server-side deletion policy; House closure/recovery remains Headman-assisted. Email add/remove audit events use House semantics and store only AccountEmail ID, masked address, and House ID—never an OTP or claimed household-member identity.
 
 Phase 7 requires no Prisma schema change or migration. Expired pending reservations are reclaimed when the same authenticated House Account restarts the email flow, and an authentic expired flow can be explicitly cancelled; a future operational cleanup job may revoke abandoned pending aliases that are never resumed or cancelled.
+
+## Phase 8 — Resident House Account identity refactor
+
+`User.id` remains the technical owner for Resident content, requests, notifications, saved items, and audit events. For `RESIDENT_HOUSE`, presentation now resolves that User through `ResidentHouseAccount` and its authoritative House: the visible actor is `บ้านเลขที่ {houseNumber}`, not the applicant or a presumed household member. Legacy Resident and Headman accounts retain their existing personal presentation.
+
+The population registry remains independent: `Person` rows are actual people recorded in a House, while `ResidentHouseAccount` is shared system access for that House. The House Account User is therefore excluded from the House member list and is never synthesized as a Person.
+
+Where an administrative workflow needs to contact a House, it uses `ResidentHouseAccount.contactPhone`. `User.phoneNumber` remains a legacy/Headman field and is not a House contact fallback. `AccountEmail` remains an authentication credential; login aliases are not displayed as requester identity or ordinary contact information. Ownership IDs were not reassigned, and this phase made no Prisma schema or data migration.

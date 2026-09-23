@@ -90,7 +90,7 @@ export default async function HouseholdPage() {
             phone: true,
           },
         }),
-        prisma.villageMembership.findMany({
+        session.accountKind === "RESIDENT_HOUSE" ? Promise.resolve([]) : prisma.villageMembership.findMany({
           where: {
             houseId: effectiveHouseId,
             villageId: residentMembership.villageId,
@@ -158,7 +158,7 @@ export default async function HouseholdPage() {
 
       <div className="flex min-h-0 flex-1 flex-col rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
         <h2 className="text-lg font-semibold text-gray-900">สมาชิกในบ้านเดียวกัน</h2>
-        <p className="mt-1 text-sm text-gray-500">แสดงข้อมูลจากทะเบียนบุคคลและผู้ใช้งานระบบที่ผูกบ้านเดียวกัน</p>
+        <p className="mt-1 text-sm text-gray-500">{session.accountKind === "RESIDENT_HOUSE" ? "แสดงบุคคลจากทะเบียนประชากรของบ้าน โดยบัญชีบ้านไม่ถือเป็นบุคคลในทะเบียน" : "แสดงข้อมูลจากทะเบียนบุคคลและผู้ใช้งานระบบที่ผูกบ้านเดียวกัน"}</p>
 
         {mergedMembers.length === 0 ? (
           <p className="mt-4 text-sm text-gray-500">ยังไม่พบข้อมูลสมาชิกในบ้านนี้</p>

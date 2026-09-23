@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { GallerySubmissionReviewButtons } from "../request-review-buttons";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { formatThaiDateTime } from "@/lib/utils";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 const db = prisma;
 
@@ -31,18 +32,20 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
   if (!context) redirect("/admin/gallery");
   const membership = context.membership;
 
-  const submission = await db.galleryItemSubmission.findFirst({
+  const submissionRow = await db.galleryItemSubmission.findFirst({
     where: {
       id: submissionId,
       album: { villageId: membership.villageId },
     },
     include: {
       album: { select: { id: true, title: true } },
-      requester: { select: { id: true, name: true, phoneNumber: true } },
+      requester: { select: RESIDENT_ACTOR_USER_SELECT },
     },
   });
 
-  if (!submission) notFound();
+  if (!submissionRow) notFound();
+  const requesterDisplay = residentActorDisplay(submissionRow.requester, { villageId: membership.villageId });
+  const submission = { ...submissionRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
 
   return (
     <div data-admin-compact-top className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">

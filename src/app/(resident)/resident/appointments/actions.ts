@@ -13,6 +13,7 @@ import { notificationMetadata } from "@/lib/notification-copy";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 import { canHeadmanCompleteAppointment } from "@/lib/appointment-transition-policy.js";
+import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
 
 const appointmentSchema = z.object({
   title: z.string().min(3, "ชื่อนัดหมายต้องมีความยาวอย่างน้อย 3 ตัวอักษร"),
@@ -315,7 +316,9 @@ export async function adminCreateAppointmentAction(input: z.input<typeof adminCr
   const parsed = adminCreatedSchema.safeParse(input); if (!parsed.success) return { success: false, error: "กรอกข้อมูลนัดหมายให้ครบถ้วน" };
   const endTime = getAdminCreatedAppointmentEndTime(parsed.data.startTime); if (!endTime) return { success: false, error: "เวลาเริ่มต้นต้องไม่เกิน 23:00 น." };
   const admin = getAppointmentAdminMembership(session); if (!admin) return { success: false, error: "ไม่พบหมู่บ้านที่คุณดูแล" };
-  const resident = await prisma.villageMembership.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" } }); if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านของคุณ" };
+  const resident = await prisma.villageMembership.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, status: "ACTIVE", role: "RESIDENT" }, select: { userId: true } })
+    ?? await prisma.residentHouseAccount.findFirst({ where: { villageId: admin.villageId, userId: parsed.data.residentUserId, suspendedAt: null }, select: { userId: true } });
+  if (!resident) return { success: false, error: "ไม่พบลูกบ้านในหมู่บ้านของคุณ" };
   const date = new Date(`${parsed.data.date}T00:00:00.000Z`);
   const creator = await getAdminResponderSummary(admin.villageId, session.id);
   const { appointment, slot } = await prisma.$transaction(async (tx) => {
@@ -402,6 +405,7 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
     return { success: false, error: "ไม่พบหมู่บ้านของคุณ" };
   }
 
+  const residentActor = await getResidentActorDisplayByUserId(session.id, { villageId: membership.villageId });
   const requestedDateObj = new Date(`${parsed.data.requestedDate}T00:00:00.000Z`);
   const nextDateObj = new Date(requestedDateObj);
   nextDateObj.setUTCDate(nextDateObj.getUTCDate() + 1);
@@ -484,13 +488,15 @@ export async function createAppointmentAction(formData: FormData): Promise<{ suc
       action: "CREATED",
       description: "ลูกบ้านขอจองนัดหมาย",
       metadata: {
+        actorLabel: residentActor.label,
+        loginAccountEmailId: session.loginAccountEmailId,
         targetAdminUserId: selectedTargetAdmin?.userId ?? null,
         targetAdminName: selectedTargetAdmin?.name ?? null,
         targetAdminPhone: selectedTargetAdmin?.phoneNumber ?? null,
         targetAdminRole: selectedTargetAdmin?.role ?? null,
       },
     } });
-    await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "Appointment", resourceId: created.id, metadata: { actorRole: "RESIDENT", actionName: "APPOINTMENT_REQUEST_SUBMITTED", title: created.title } } });
+    await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "Appointment", resourceId: created.id, metadata: { actorRole: "RESIDENT", actorLabel: residentActor.label, loginAccountEmailId: session.loginAccountEmailId, actionName: "APPOINTMENT_REQUEST_SUBMITTED", title: created.title } } });
     return created;
   });
 

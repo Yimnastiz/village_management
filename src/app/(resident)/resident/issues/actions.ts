@@ -13,6 +13,7 @@ import { ISSUE_CATEGORY_LABELS } from "@/lib/constants";
 import { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
 
 const issueInputSchema = z.object({
   title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
@@ -286,6 +287,7 @@ export async function deleteIssueAction(
 
   // The notification and audit record are independent of Issue, so create them
   // in the same transaction before the Issue's dependent records cascade away.
+  const actor = await getResidentActorDisplayByUserId(session.id, { villageId: issue.villageId });
   await prisma.$transaction(async (tx) => {
     const admins = await tx.villageMembership.findMany({
       where: {
@@ -303,8 +305,8 @@ export async function deleteIssueAction(
           userId,
           type: NotificationType.ISSUE_UPDATE,
           title: "ลูกบ้านลบคำร้องปัญหา",
-          body: `หัวข้อ: ${issue.title}\nผู้ลบ: ${session.name}\nเหตุผล: ${trimmedReason}`,
-          metadata: notificationMetadata("ISSUE", { action: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, deletedBy: session.name, deletionReason: trimmedReason }),
+          body: `หัวข้อ: ${issue.title}\nผู้ดำเนินการ: ${actor.label}\nเหตุผล: ${trimmedReason}`,
+          metadata: notificationMetadata("ISSUE", { action: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, deletedBy: actor.label, deletionReason: trimmedReason }),
         })),
       });
     }
@@ -314,7 +316,7 @@ export async function deleteIssueAction(
       action: AuditAction.DELETE,
       resource: "Issue",
       resourceId: issue.id,
-      metadata: { actionName: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, reason: trimmedReason },
+      metadata: { actionName: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, actorLabel: actor.label, reason: trimmedReason, loginAccountEmailId: session.loginAccountEmailId },
     });
     await tx.savedItem.deleteMany({ where: { issueId } });
     await tx.issue.delete({ where: { id: issueId } });

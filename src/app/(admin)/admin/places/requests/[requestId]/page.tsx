@@ -10,8 +10,9 @@ import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { getVillagePlaceEmbedMapUrl, parseVillagePlacePayload } from "@/lib/village-place";
 import { getVillageReviewerDisplay } from "@/lib/village-reviewer";
 import { PlaceRequestReviewButtons } from "../request-review-buttons";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay, type ResidentActorUser } from "@/lib/resident-actor-display";
 
-type RequestDetail = { id: string; type: string; status: string; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: { name: string; phoneNumber: string } };
+type RequestDetail = { id: string; type: string; status: string; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: ResidentActorUser };
 type VillagePlaceSubmissionDetailDelegate = { findFirst(args: unknown): Promise<RequestDetail | null> };
 type PageProps = { params: Promise<{ requestId: string }> };
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
@@ -21,8 +22,10 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
   const context = await getVillagePermissionContext("places.requests.review"); if (!context) redirect("/admin/places");
   const membership = context.membership;
   const villagePlaceSubmission = (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDetailDelegate }).villagePlaceSubmission;
-  const request = await villagePlaceSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true, phoneNumber: true } } } });
-  if (!request) notFound();
+  const requestRow = await villagePlaceSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: RESIDENT_ACTOR_USER_SELECT } } });
+  if (!requestRow) notFound();
+  const requesterDisplay = residentActorDisplay(requestRow.requester, { villageId: membership.villageId });
+  const request = { ...requestRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
   const payload = parseVillagePlacePayload(request.payload); if (!payload) notFound();
   const referencedImageIds = payload.images.flatMap((image) => image.id ? [image.id] : []);
   const [imageRows, reviewer] = await Promise.all([

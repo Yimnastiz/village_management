@@ -92,6 +92,9 @@ export default async function SecurityPage({ searchParams }: PageProps) {
   const names = await resolveTargetNames(membership.villageId, rawLogs);
   const loweredQuery = q.toLocaleLowerCase("th-TH");
   const filtered = rawLogs.flatMap((log) => {
+    const metadata = log.metadata && typeof log.metadata === "object" && !Array.isArray(log.metadata) ? log.metadata as Record<string, unknown> : null;
+    const actorLabel = typeof metadata?.actorLabel === "string" && metadata.actorLabel.trim() ? metadata.actorLabel.trim() : null;
+    if (log.user && actorLabel) log.user.name = actorLabel;
     const event = formatAuditEvent(log); const target = names.get(log.id) ?? event.targetFromMetadata; const searchable = `${log.user?.name ?? ""} ${event.label} ${event.resourceLabel} ${target ?? ""}`.toLocaleLowerCase("th-TH");
     if (!auditCategoryMatches(event, eventFilter) || (moduleFilter !== "ALL" && auditModuleForResource(log.resource) !== moduleFilter) || (q && !searchable.includes(loweredQuery))) return [];
     const isSuperAdmin = event.isSuperAdminIntervention;

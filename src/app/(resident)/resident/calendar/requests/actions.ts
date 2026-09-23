@@ -8,6 +8,7 @@ import { resolveApprovedSubmissionEvent } from "@/lib/calendar-submission-event"
 import { prisma } from "@/lib/prisma";
 import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
@@ -71,6 +72,8 @@ export async function createVillageEventSubmissionAction(
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
 
+  const actor = await getResidentActorDisplayByUserId(session.id, { villageId: membership.villageId });
+  session.name = actor.label;
   try {
     const created = await prisma.$transaction(async (tx) => {
       const request = await tx.villageEventSubmission.create({ data: {
@@ -83,7 +86,7 @@ export async function createVillageEventSubmissionAction(
         endsAt: normalized.value.endsAt,
         isPublic: normalized.value.isPublic,
       }, select: { id: true } });
-      await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", title: normalized.value.title } } });
+      await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: session.name, loginAccountEmailId: session.loginAccountEmailId, actionName: "CALENDAR_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", title: normalized.value.title } } });
       return request;
     });
 
@@ -151,11 +154,13 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
   if (!source) return { success: false, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   const normalized = normalizeInput(data);
   if (!normalized.ok) return { success: false, error: normalized.error };
+  const actor = await getResidentActorDisplayByUserId(session.id, { villageId: membership.villageId });
+  session.name = actor.label;
   try {
     if (source.status === "PENDING") {
       await prisma.$transaction(async (tx) => {
         await tx.villageEventSubmission.update({ where: { id: source.id }, data: normalized.value });
-        await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "VillageEventSubmission", resourceId: source.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_REQUEST_UPDATED", requestType: "CREATE", title: normalized.value.title } } });
+        await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "VillageEventSubmission", resourceId: source.id, metadata: { actorRole: "RESIDENT", actorLabel: session.name, loginAccountEmailId: session.loginAccountEmailId, actionName: "CALENDAR_REQUEST_UPDATED", requestType: "CREATE", title: normalized.value.title } } });
       });
       revalidatePath("/resident/calendar"); revalidatePath("/resident/calendar/requests"); revalidatePath(`/resident/calendar/requests/${requestId}`); revalidatePath("/admin/calendar/requests"); revalidateAdminSidebar();
       return { success: true, requestId: source.id };
@@ -167,7 +172,7 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
         if (duplicate) return null;
         await tx.villageEventSubmission.update({ where: { id: source.id }, data: { eventId: event.id } });
         const request = await tx.villageEventSubmission.create({ data: { villageId: membership.villageId, requesterId: session.id, eventId: event.id, type: VillageEventSubmissionType.EDIT, ...normalized.value }, select: { id: true } });
-        await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "CALENDAR_UPDATE_REQUEST_SUBMITTED", requestType: "EDIT", title: normalized.value.title, eventId: event.id } } });
+        await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: session.name, loginAccountEmailId: session.loginAccountEmailId, actionName: "CALENDAR_UPDATE_REQUEST_SUBMITTED", requestType: "EDIT", title: normalized.value.title, eventId: event.id } } });
         return request;
       }, { isolationLevel: "Serializable" });
       if (!created) return { success: false, error: pendingChangeConflictMessage };

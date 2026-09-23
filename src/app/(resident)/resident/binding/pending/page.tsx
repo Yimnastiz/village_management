@@ -9,6 +9,7 @@ import { CancelBindingButton } from "../cancel-binding-button";
 
 export default async function ResidentBindingPendingPage() {
   const session = await getSessionContextFromServerCookies();
+  if (session?.accountKind === "RESIDENT_HOUSE") redirect("/resident/dashboard");
   if (session && getResidentMembership(session)) {
     redirect("/resident/dashboard");
   }

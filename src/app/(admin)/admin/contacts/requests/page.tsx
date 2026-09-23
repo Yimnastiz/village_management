@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 type PageProps = { searchParams?: Promise<{ tab?: string }> };
 const statusCopy = { PENDING: "รอพิจารณา", APPROVED: "อนุมัติแล้ว", REJECTED: "ไม่อนุมัติ", CANCELLED: "ยกเลิกแล้ว" };
@@ -17,14 +18,18 @@ export default async function AdminContactRequestsPage({ searchParams }: PagePro
 
   const params = (await searchParams) ?? {};
   const history = params.tab === "history";
-  const [pendingCount, rows] = await Promise.all([
+  const [pendingCount, requestRows] = await Promise.all([
     prisma.contactRequest.count({ where: { villageId: membership.villageId, status: "PENDING" } }),
     prisma.contactRequest.findMany({
       where: { villageId: membership.villageId, status: history ? { in: ["APPROVED", "REJECTED", "CANCELLED"] } : "PENDING" },
       orderBy: history ? { reviewedAt: "desc" } : { createdAt: "desc" },
-      select: { id: true, name: true, role: true, phone: true, type: true, targetContactId: true, status: true, createdAt: true, reviewedAt: true, reviewedByName: true, rejectReason: true, deleteReason: true, requester: { select: { name: true } } },
+      select: { id: true, name: true, role: true, phone: true, type: true, targetContactId: true, status: true, createdAt: true, reviewedAt: true, reviewedByName: true, rejectReason: true, deleteReason: true, requester: { select: RESIDENT_ACTOR_USER_SELECT } },
     }),
   ]);
+  const rows = requestRows.map((request) => ({
+    ...request,
+    requester: { name: residentActorDisplay(request.requester, { villageId: membership.villageId }).label },
+  }));
 
   return <div data-admin-compact-top className="space-y-3">
     <AdminPageToolbar title="คำขอข้อมูลติดต่อ" variant="request" actions={<div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><Link href="/admin/contacts" className="inline-flex min-h-10 items-center text-sm font-medium text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">← กลับรายชื่อผู้ติดต่อ</Link><nav aria-label="ตัวกรองคำขอ" className="flex w-fit border-b border-gray-200"><Link href="/admin/contacts/requests" className={`border-b-2 px-3 py-2 text-sm font-medium ${!history ? "border-green-600 text-green-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>รอพิจารณา ({pendingCount})</Link><Link href="/admin/contacts/requests?tab=history" className={`border-b-2 px-3 py-2 text-sm font-medium ${history ? "border-green-600 text-green-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>ประวัติ</Link></nav></div>} />

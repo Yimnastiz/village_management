@@ -8,7 +8,8 @@ import { getIssueUserStatus, ISSUE_ALLOWED_TRANSITIONS, ISSUE_STATUS_META } from
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatThaiDateTime } from "@/lib/utils";
-import { getUserDisplayName, getUserRoleLabel } from "@/lib/user-display";
+import { getUserRoleLabel } from "@/lib/user-display";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay, type ResidentActorUser } from "@/lib/resident-actor-display";
 import { LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/legacy-superadmin-history";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
@@ -55,20 +56,21 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
     select: {
-      id: true, name: true, phoneNumber: true,
+      ...RESIDENT_ACTOR_USER_SELECT,
       memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 },
     },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
-  const superAdminDisplay = { name: "Super Admin", phoneNumber: "", legacyRole: "SUPERADMIN", memberships: [] };
+  const superAdminDisplay = { id: "legacy-superadmin", accountKind: null, name: "Super Admin", phoneNumber: "", residentHouseAccount: null, legacyRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
+  const reporterDisplay = residentActorDisplay(reporter, { villageId: membership.villageId });
   const initialTimeline = issue.timeline[0];
   const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
   const isAdminCreated = wasCreatedByAdmin;
   const imageUrls = Array.isArray(issue.imageUrls) ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0) : [];
   const timelineItems = issue.timeline.map((item) => {
     const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
-    return { ...item, actorName: actor ? getUserDisplayName(actor) : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
+    return { ...item, actorName: actor ? residentActorDisplay(actor, { villageId: membership.villageId }).label : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
   const categoryOptions = Object.entries(ISSUE_CATEGORY_LABELS).map(([v, l]) => ({ value: v, label: l }));
@@ -131,7 +133,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm font-medium text-gray-700 mb-2">รายละเอียด</p>
               <p className="text-sm text-gray-600 whitespace-pre-wrap">{issue.description}</p>
             </div>
-            <p className="mb-4 text-sm text-gray-600">ผู้แจ้ง: <span className="font-medium text-gray-800">{getUserDisplayName(reporter)} ({reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span>{reporter?.phoneNumber ? <> <span className="text-gray-400">·</span> <a className="font-medium text-blue-700 hover:underline" href={`tel:${reporter.phoneNumber}`}>{reporter.phoneNumber}</a></> : null}</p>
+            <p className="mb-4 text-sm text-gray-600">ผู้แจ้ง: <span className="font-medium text-gray-800">{reporterDisplay.label} ({reporterDisplay.accountKind === "RESIDENT_HOUSE" ? "สมาชิก" : reporter ? getUserRoleLabel(reporter) : "ผู้ใช้งาน"})</span>{reporterDisplay.contactPhone ? <> <span className="text-gray-400">·</span> <a className="font-medium text-blue-700 hover:underline" href={`tel:${reporterDisplay.contactPhone}`}>{reporterDisplay.contactPhone}</a></> : null}</p>
             {imageUrls.length > 0 && <div className="mb-4 border-t border-gray-200 pt-4"><p className="mb-2 text-sm font-medium text-gray-700">รูปภาพประกอบปัญหา</p><ImageCarousel images={imageUrls} altPrefix={issue.title} thumbnailBehavior="select" /></div>}
             {isAdminCreated && <AdminEditForm
               issueId={issueId}
@@ -200,10 +202,11 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   );
 }
 
-function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: { name: string; phoneNumber: string | null; legacyRole?: string; memberships: { role: string }[] }; internal?: boolean }) {
+function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: ResidentActorUser & { legacyRole?: string; memberships: { role: string }[] }; internal?: boolean }) {
+  const display = residentActorDisplay(user);
   return <div className={`rounded-xl border p-3 text-sm sm:p-4 ${internal ? "border-amber-100 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
-    <p className="break-words font-medium text-gray-900">{getUserDisplayName(user)} <span className="font-normal text-gray-500">· {user ? getUserRoleLabel(user) : "ผู้ใช้งาน"}</span></p>
-    <p className="mt-1 text-xs text-gray-500">{user?.phoneNumber ? <a className="hover:underline" href={`tel:${user.phoneNumber}`}>{user.phoneNumber}</a> : "ไม่พบข้อมูลผู้ใช้งาน"}</p>
+    <p className="break-words font-medium text-gray-900">{display.label} <span className="font-normal text-gray-500">· {display.accountKind === "RESIDENT_HOUSE" ? "สมาชิก" : user ? getUserRoleLabel(user) : "ผู้ใช้งาน"}</span></p>
+    <p className="mt-1 text-xs text-gray-500">{display.contactPhone ? <a className="hover:underline" href={`tel:${display.contactPhone}`}>{display.contactPhone}</a> : "ไม่พบเบอร์ติดต่อ"}</p>
     <time className="mt-1 block text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</time>
     <p className="mt-3 whitespace-pre-wrap break-words text-gray-700">{msg.content}</p>
   </div>;

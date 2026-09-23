@@ -10,8 +10,9 @@ import { selectPlaceCoverImage } from "@/lib/place-image";
 import { parseVillagePlacePayload } from "@/lib/village-place";
 import { getVillageReviewerDisplayMap } from "@/lib/village-reviewer";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay, type ResidentActorUser } from "@/lib/resident-actor-display";
 
-type RequestItem = { id: string; type: string; status: string; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: { name: string; phoneNumber: string } };
+type RequestItem = { id: string; type: string; status: string; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: ResidentActorUser };
 type VillagePlaceSubmissionListDelegate = { findMany(args: unknown): Promise<RequestItem[]>; count(args: unknown): Promise<number> };
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
 
@@ -21,7 +22,11 @@ export default async function AdminPlaceRequestListPage({ searchParams }: { sear
   const tab = (await searchParams)?.tab === "history" ? "history" : "pending";
   const villagePlaceSubmission = (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionListDelegate }).villagePlaceSubmission;
   const where = { villageId: membership.villageId, ...(tab === "pending" ? { status: "PENDING" } : { status: { in: ["APPROVED", "REJECTED"] } }) };
-  const [requests, pendingCount] = await Promise.all([villagePlaceSubmission.findMany({ where, orderBy: [{ createdAt: "desc" }], include: { requester: { select: { name: true, phoneNumber: true } } } }), villagePlaceSubmission.count({ where: { villageId: membership.villageId, status: "PENDING" } })]);
+  const [requestRows, pendingCount] = await Promise.all([villagePlaceSubmission.findMany({ where, orderBy: [{ createdAt: "desc" }], include: { requester: { select: RESIDENT_ACTOR_USER_SELECT } } }), villagePlaceSubmission.count({ where: { villageId: membership.villageId, status: "PENDING" } })]);
+  const requests = requestRows.map((request) => {
+    const display = residentActorDisplay(request.requester, { villageId: membership.villageId });
+    return { ...request, requester: { name: display.label, phoneNumber: display.contactPhone ?? "-" } };
+  });
   const payloads = new Map(requests.map((request) => [request.id, parseVillagePlacePayload(request.payload)]));
   const reviewerDisplayById = tab === "history"
     ? await getVillageReviewerDisplayMap(requests.flatMap((request) => request.reviewedBy ? [request.reviewedBy] : []), membership.villageId)

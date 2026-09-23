@@ -12,6 +12,7 @@ import {
 } from "@/lib/access-control";
 import { getSystemSettings } from "@/lib/system-settings";
 import { MaintenanceNotice } from "@/components/system/maintenance-notice";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 export default async function ResidentLayout({ children }: { children: React.ReactNode }) {
   const session = await getSessionContextFromServerCookies();
@@ -28,7 +29,8 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   if (systemSettings.maintenanceMode) return <MaintenanceNotice message={systemSettings.maintenanceMessage} />;
 
   const residentMembership = getResidentMembership(session);
-  const latestBindingRequest = residentMembership
+  const isHouseAccount = session.accountKind === "RESIDENT_HOUSE";
+  const latestBindingRequest = residentMembership || isHouseAccount
     ? null
     : await prisma.bindingRequest.findFirst({
         where: {
@@ -43,7 +45,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     prisma.user.findUnique({
       where: { id: session.id },
       select: {
-        name: true,
+        ...RESIDENT_ACTOR_USER_SELECT,
         image: true,
         registrationVillage: { select: { id: true, slug: true, name: true, moo: true, province: true, district: true, subdistrict: true } },
       },
@@ -68,8 +70,10 @@ export default async function ResidentLayout({ children }: { children: React.Rea
     : userProfile?.registrationVillage?.id === session.activeVillageId
       ? userProfile.registrationVillage
       : null;
+  const actorDisplay = residentActorDisplay(userProfile, { villageId: session.activeVillageId });
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
+    isHouseAccount,
     bindingRequestHref: residentMembership
       ? null
       : latestBindingRequest?.status === "PENDING"
@@ -90,8 +94,9 @@ export default async function ResidentLayout({ children }: { children: React.Rea
       <div className="flex-1 flex min-w-0 flex-col">
         <TopBar
           userArea="resident"
-          userName={userProfile?.name || session.name}
-          userImageUrl={userProfile?.image ?? null}
+          userName={actorDisplay.label}
+          userImageUrl={isHouseAccount ? null : userProfile?.image ?? null}
+          userIdentityKind={isHouseAccount ? "HOUSE" : "PERSON"}
           unreadNotificationCount={unreadNotificationCount}
           villageName={publicVillage?.name ?? null}
           villageMoo={publicVillage?.moo ?? null}

@@ -6,6 +6,7 @@ import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { ContactRequestDecisionActions } from "../contact-request-decision-actions";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 interface PageProps { params: Promise<{ requestId: string }>; searchParams?: Promise<{ tab?: string }> }
 const statusCopy = { PENDING: "รอพิจารณา", APPROVED: "อนุมัติแล้ว", REJECTED: "ไม่อนุมัติ", CANCELLED: "ยกเลิกแล้ว" };
@@ -18,8 +19,9 @@ export default async function AdminContactRequestDetailPage({ params, searchPara
   const { requestId } = await params; const context = await getVillagePermissionContext("contacts.requests.review");
   if (!context) redirect("/auth/login");
   const membership = context.membership;
-  const request = await prisma.contactRequest.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: { name: true } }, targetContact: { select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } } } });
-  if (!request) notFound();
+  const requestRow = await prisma.contactRequest.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: RESIDENT_ACTOR_USER_SELECT }, targetContact: { select: { id: true, name: true, role: true, phone: true, email: true, address: true, category: true } } } });
+  if (!requestRow) notFound();
+  const request = { ...requestRow, requester: { name: residentActorDisplay(requestRow.requester, { villageId: membership.villageId }).label } };
   const isUpdate = request.type === ContactRequestType.UPDATE;
   const isDelete = request.type === ContactRequestType.DELETE;
   const target = request.targetContact;

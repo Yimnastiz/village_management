@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { DeletePlaceButton } from "../delete-place-button";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
@@ -82,8 +83,8 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
   if (!place) notFound();
 
   const imageUrls = orderedPlaceImages(place.images, place.imageUrls).map((image) => image.url);
-  const approvedCreate = await prisma.villagePlaceSubmission.findFirst({ where: { villageId: membership.villageId, approvedPlaceId: place.id, type: "CREATE", status: "APPROVED" }, orderBy: { reviewedAt: "asc" }, select: { requester: { select: { name: true } } } });
-  const creatorName = approvedCreate?.requester.name ?? place.createdBy?.name;
+  const approvedCreate = await prisma.villagePlaceSubmission.findFirst({ where: { villageId: membership.villageId, approvedPlaceId: place.id, type: "CREATE", status: "APPROVED" }, orderBy: { reviewedAt: "asc" }, select: { requester: { select: RESIDENT_ACTOR_USER_SELECT } } });
+  const creatorName = approvedCreate ? residentActorDisplay(approvedCreate.requester, { villageId: membership.villageId }).label : place.createdBy?.name;
   const creatorLabel = approvedCreate ? "เสนอโดย" : "เพิ่มโดย";
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
 
