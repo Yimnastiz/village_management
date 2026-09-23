@@ -1,4 +1,4 @@
-import { AccountKind, AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
+import { AccountKind, AccountStatus, LoginOtpChallengeStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
   if (!/^\d{6}$/.test(code)) return NextResponse.json({ error: "Invalid OTP payload." }, { status: 400 });
 
   const now = new Date();
+  const configuredVillage = await getConfiguredVillage();
   const reservation = await withLoginPhoneLock(loaded.phoneNumber, async (tx) => {
     const challenge = await tx.loginOtpChallenge.findUnique({ where: { phoneNumber: loaded.phoneNumber } });
     if (!challenge || challenge.challengeToken !== loaded.challengeToken) return { allowed: false as const, status: 404, reason: "missing", challenge: null };
@@ -65,17 +66,20 @@ export async function POST(request: NextRequest) {
       select: {
         accountKind: true,
         accountStatus: true,
-        duplicateNoticeLoginUsedAt: true,
-        duplicateNoticeSeenAt: true,
+        memberships: {
+          where: {
+            villageId: configuredVillage.id,
+            role: VillageMembershipRole.HEADMAN,
+            status: MembershipStatus.ACTIVE,
+          },
+          select: { id: true },
+        },
       },
     });
-    const isLegacyPhoneAccount = user?.accountKind !== AccountKind.RESIDENT_HOUSE;
-    const canSignIn = isLegacyPhoneAccount && (user?.accountStatus === AccountStatus.ACTIVE || (
-      user?.accountStatus === AccountStatus.DUPLICATE_ID &&
-      !user.duplicateNoticeSeenAt &&
-      !user.duplicateNoticeLoginUsedAt
-    ));
-    if (!canSignIn) return { allowed: false as const, status: 403, reason: "duplicate-disabled", challenge };
+    const canSignIn = user?.accountKind === AccountKind.HEADMAN
+      && user.accountStatus === AccountStatus.ACTIVE
+      && user.memberships.length > 0;
+    if (!canSignIn) return { allowed: false as const, status: 403, reason: "phone-login-disabled", challenge };
     const separator = verification.value.lastIndexOf(":");
     const storedCode = separator >= 0 ? verification.value.slice(0, separator) : verification.value;
     const storedAttempts = separator >= 0 ? Number.parseInt(verification.value.slice(separator + 1), 10) || 0 : 0;
@@ -106,8 +110,8 @@ export async function POST(request: NextRequest) {
           ? "OTP verification is already in progress."
           : reservation.reason === "missing"
             ? "Login OTP challenge not found."
-            : reservation.reason === "duplicate-disabled"
-              ? "บัญชีนี้ไม่สามารถใช้งานได้ เนื่องจากเลขบัตรประชาชนถูกใช้กับบัญชีที่ผูกบ้านแล้ว กรุณาสมัครใหม่"
+            : reservation.reason === "phone-login-disabled"
+              ? "การเข้าสู่ระบบด้วยเบอร์โทรศัพท์เปิดให้ใช้เฉพาะบัญชีผู้ใหญ่บ้าน"
             : "OTP has expired. Please request a new code.";
     developmentDiagnostic({ challengeFound: Boolean(reservation.challenge), otpMatched: false, userFound: false, sessionCreated: false, cookieAttached: false });
     return NextResponse.json({ error, retryAfterSeconds: retry, data: reservation.challenge ? publicLoginChallengeState(reservation.challenge) : undefined }, {
@@ -141,17 +145,6 @@ export async function POST(request: NextRequest) {
     if (!cookieReady) throw new Error("Session cookie was not attached to the response.");
 
     await withLoginPhoneLock(loaded.phoneNumber, async (tx) => {
-      if (payload.user?.id) {
-        await tx.user.updateMany({
-          where: {
-            id: payload.user.id,
-            accountStatus: AccountStatus.DUPLICATE_ID,
-            duplicateNoticeSeenAt: null,
-            duplicateNoticeLoginUsedAt: null,
-          },
-          data: { duplicateNoticeLoginUsedAt: new Date() },
-        });
-      }
       await tx.loginOtpChallenge.update({
         where: { id: reservation.challenge.id },
         data: { status: LoginOtpChallengeStatus.CONSUMED, otpExpiresAt: null, resendAvailableAt: null },
@@ -160,7 +153,6 @@ export async function POST(request: NextRequest) {
     });
     // Only record a successful sign-in for an active actor in the configured village.
     // Failed OTP attempts remain intentionally out of the village activity feed.
-    const configuredVillage = await getConfiguredVillage();
     const activeMembership = await prisma.villageMembership.findFirst({
       where: configuredVillageLoginAuditWhere(payload.user!.id!, configuredVillage.id),
       select: { villageId: true, role: true },

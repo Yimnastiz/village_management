@@ -1,8 +1,9 @@
-import { AccountKind, AccountStatus, LoginOtpChallengeStatus } from "@prisma/client";
+import { AccountKind, AccountStatus, LoginOtpChallengeStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
+import { getConfiguredVillage } from "@/lib/configured-village";
 import {
   LOGIN_OTP_MAX_SENDS_PER_WINDOW,
   LOGIN_OTP_IN_FLIGHT_MS,
@@ -59,43 +60,18 @@ export async function POST(request: NextRequest) {
   const intent = body?.intent === "RESEND" ? "RESEND" : "START_OR_RESUME";
   if (!phoneNumber) return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });
 
+  const village = await getConfiguredVillage();
   const user = await prisma.user.findFirst({
     where: {
       phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
-      AND: [
-        { OR: [
-          { accountKind: null },
-          { accountKind: { in: [AccountKind.HEADMAN, AccountKind.LEGACY_RESIDENT] } },
-        ] },
-        { OR: [
-          { accountStatus: AccountStatus.ACTIVE },
-          {
-            accountStatus: AccountStatus.DUPLICATE_ID,
-            duplicateNoticeSeenAt: null,
-            duplicateNoticeLoginUsedAt: null,
-          },
-        ] },
-      ],
+      accountKind: AccountKind.HEADMAN,
+      accountStatus: AccountStatus.ACTIVE,
+      memberships: { some: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE } },
     },
     select: { phoneNumber: true },
   });
   if (!user?.phoneNumber) {
-    const disabledDuplicate = await prisma.user.findFirst({
-      where: {
-        phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
-        accountStatus: AccountStatus.DUPLICATE_ID,
-        OR: [
-          { accountKind: null },
-          { accountKind: { in: [AccountKind.HEADMAN, AccountKind.LEGACY_RESIDENT] } },
-        ],
-      },
-      select: { id: true },
-    });
-    return NextResponse.json({
-      error: disabledDuplicate
-        ? "บัญชีนี้ไม่สามารถใช้งานได้ เนื่องจากเลขบัตรประชาชนถูกใช้กับบัญชีที่ผูกบ้านแล้ว กรุณาสมัครใหม่"
-        : "Unable to send OTP.",
-    }, { status: disabledDuplicate ? 403 : 400 });
+    return NextResponse.json({ error: "Unable to send OTP." }, { status: 400 });
   }
 
   const otpIdentifier = user.phoneNumber;

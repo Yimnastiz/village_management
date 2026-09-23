@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default async function BindingPage() {
-  redirect("/resident/binding");
+export default function BindingPage() {
+  redirect("/auth/account-migration-required");
 }
