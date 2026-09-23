@@ -18,7 +18,7 @@ export default function InfoPage() {
         <h2 className="text-xl font-semibold text-gray-800 mt-8 mb-4">กลุ่มเป้าหมาย</h2>
         <ul className="space-y-2 text-gray-600">
           <li>• ลูกบ้านและสมาชิกในชุมชน</li>
-          <li>• ผู้ใหญ่บ้านและผู้ช่วยผู้ใหญ่บ้าน</li>
+          <li>• ผู้ใหญ่บ้าน</li>
           <li>• หน่วยงานที่เกี่ยวข้องในพื้นที่</li>
         </ul>
       </div>

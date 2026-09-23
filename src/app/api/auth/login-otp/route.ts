@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   const user = await prisma.user.findFirst({
     where: {
       phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
-      accountKind: AccountKind.HEADMAN,
+      OR: [{ accountKind: AccountKind.HEADMAN }, { accountKind: null }],
       accountStatus: AccountStatus.ACTIVE,
       memberships: { some: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE } },
     },

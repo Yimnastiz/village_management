@@ -174,26 +174,6 @@ const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
     aliases: ["movement date", "วันที่ย้าย", "วันที่เกิดเหตุการณ์"],
   },
   {
-    key: "create_user_account",
-    label: "สร้างบัญชีผู้ใช้",
-    required: false,
-    description: "ถ้าเป็นจริง ระบบจะสร้างหรืออัปเดตบัญชีผู้ใช้พร้อม membership",
-    example: "TRUE",
-    acceptedValues: "TRUE/FALSE, YES/NO, 1/0, ใช่/ไม่ใช่",
-    aliases: ["create_account", "user_account", "สร้างบัญชีผู้ใช้", "เปิดบัญชีใช้งาน"],
-    adminOnly: true,
-  },
-  {
-    key: "is_citizen_verified",
-    label: "ยืนยันตัวตนแล้ว",
-    required: false,
-    description: "ใช้ตั้งค่าสถานะยืนยันตัวตนของผู้ใช้จากข้อมูลนำเข้า",
-    example: "TRUE",
-    acceptedValues: "TRUE/FALSE, YES/NO, 1/0, ใช่/ไม่ใช่",
-    aliases: ["verified", "citizen_verified", "ยืนยันตัวตนแล้ว", "ตรวจสอบตัวตนแล้ว"],
-    adminOnly: true,
-  },
-  {
     key: "note",
     label: "หมายเหตุ",
     required: false,
@@ -203,13 +183,9 @@ const ALL_POPULATION_IMPORT_COLUMNS: PopulationImportColumn[] = [
   },
 ];
 
-// Export all columns for reference and advanced/legacy use
 export const POPULATION_IMPORT_COLUMNS = ALL_POPULATION_IMPORT_COLUMNS;
 
-// Export only admin-friendly columns (without user account/verification fields)
-export const POPULATION_IMPORT_COLUMNS_ADMIN = ALL_POPULATION_IMPORT_COLUMNS.filter(
-  (col) => !col.adminOnly
-);
+export const POPULATION_IMPORT_COLUMNS_ADMIN = ALL_POPULATION_IMPORT_COLUMNS;
 
 export const POPULATION_IMPORT_HEADER_ALIASES = ALL_POPULATION_IMPORT_COLUMNS.reduce<
   Record<string, string[]>

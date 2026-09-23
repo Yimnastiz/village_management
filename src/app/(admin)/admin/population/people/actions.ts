@@ -47,7 +47,6 @@ export async function moveOutPersonAction(personId: string, reason: string): Pro
     revalidatePath(`/admin/population/people/${personId}`);
     revalidatePath("/admin/population/houses");
     revalidatePath("/resident", "layout");
-    revalidatePath("/resident/binding");
     return { success: true };
   } catch (error) { return { success: false, error: toActionError(error) }; }
 }

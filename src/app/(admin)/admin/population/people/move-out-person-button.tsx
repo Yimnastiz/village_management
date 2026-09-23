@@ -42,7 +42,7 @@ export function MoveOutPersonButton({ personId }: { personId: string }) {
     <ConfirmDialog
       open={open}
       title="ย้ายบุคคลออกจากทะเบียน"
-      description="การดำเนินการนี้จะยกเลิกการผูกบ้านและสิทธิ์ลูกบ้านของหมู่บ้านนี้ ผู้ใช้จะต้องขอผูกเลขบ้านใหม่หากกลับมาอยู่อีกครั้ง"
+      description="การดำเนินการนี้จะย้ายบุคคลออกจากทะเบียนบ้าน และอาจระงับสิทธิ์ของบัญชีเดิมที่เชื่อมกับบุคคลนี้ กรุณาตรวจสอบข้อมูลก่อนยืนยัน"
       confirmLabel="ยืนยันการย้ายออก"
       tone="danger"
       pending={pending}

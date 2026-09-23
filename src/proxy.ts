@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAuthenticatedAccessRedirectPath,
   getResidentAreaAccessInfo,
+  getLegacyAccountRedirectPathFromRequest,
   getSessionContextFromRequest,
   isAdminUser,
 } from "@/lib/access-control";
@@ -20,6 +21,8 @@ export async function proxy(request: NextRequest) {
     }
   }
   const session = await getSessionContextFromRequest(request);
+  const legacyRedirectPath = session ? null : await getLegacyAccountRedirectPathFromRequest(request);
+  if (legacyRedirectPath) return NextResponse.redirect(new URL(legacyRedirectPath, request.url));
 
   if (pathname === "/auth/login" && session) {
     return NextResponse.redirect(new URL(await getAuthenticatedAccessRedirectPath(session), request.url));

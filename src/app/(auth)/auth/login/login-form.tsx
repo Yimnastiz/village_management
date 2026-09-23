@@ -131,7 +131,7 @@ function LoginContent() {
           บัญชีบ้าน
         </button>
         <button type="button" role="tab" aria-selected={mode === "HEADMAN_PHONE"} onClick={() => switchMode("HEADMAN_PHONE")} className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition ${mode === "HEADMAN_PHONE" ? "bg-white text-green-700 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}>
-          ผู้ใหญ่บ้าน
+          เข้าสู่ระบบผู้ใหญ่บ้าน
         </button>
       </div>
 
@@ -148,7 +148,7 @@ function LoginContent() {
         </form>
       ) : (
         <form onSubmit={handlePhoneLogin} className="mt-5 space-y-4">
-          <p className="text-sm leading-6 text-gray-600">สำหรับบัญชีผู้ใหญ่บ้านเท่านั้น บัญชีบ้านเข้าสู่ระบบด้วยอีเมล</p>
+          <p className="text-sm leading-6 text-gray-600">เข้าสู่ระบบผู้ใหญ่บ้านด้วยเบอร์โทรศัพท์ บัญชีบ้านเข้าสู่ระบบด้วยอีเมล</p>
           <Input id="login-phone" name="phoneNumber" label="เบอร์โทรศัพท์" type="tel" placeholder="0812345678" value={phone} onChange={(event) => setPhone(normalizePhone10(event.target.value))} inputMode="numeric" maxLength={10} pattern="[0-9]{10}" autoComplete="tel" required />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
           <Button type="submit" className="w-full" isLoading={isLoading}>ส่งรหัส OTP ทางโทรศัพท์</Button>

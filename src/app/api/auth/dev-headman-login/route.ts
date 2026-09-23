@@ -121,7 +121,6 @@ export async function POST(request: NextRequest) {
     phoneNumber,
     accountKind: AccountKind.HEADMAN,
     accountStatus: AccountStatus.ACTIVE,
-    citizenVerifiedAt: user.citizenVerifiedAt,
     activeVillageId: seed.villageId,
     loginAccountEmailId: null,
     memberships: [

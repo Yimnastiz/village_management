@@ -76,7 +76,7 @@ export function TopBar({
     ? `${adminRoleLabel} · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
     : adminRoleLabel;
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership && !residentNavigationState?.isHouseAccount;
-  const residentStatusLabel = residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่ผูกเลขบ้าน" : "ลูกบ้าน";
+  const residentStatusLabel = residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่มีสิทธิ์บัญชีบ้าน" : "ลูกบ้าน";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
   const mobilePopulationMenuId = "admin-mobile-population-menu";
 
@@ -312,7 +312,7 @@ export function TopBar({
                       <item.icon className="h-4 w-4 shrink-0" />
                       <span className="truncate">{item.label}</span>
                     </span>
-                    {"locked" in item && item.locked ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องผูกเลขบ้านก่อน" /> : null}
+                    {"locked" in item && item.locked ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องมีสิทธิ์บัญชีบ้านก่อน" /> : null}
                     {showUnread && (
                       <span className="inline-flex min-w-5 justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                         {displayCount}

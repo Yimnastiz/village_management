@@ -99,7 +99,7 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, linked
     </fieldset>
 
     <fieldset className="space-y-4 border-t border-gray-100 pt-5"><legend className="text-sm font-semibold text-gray-900">ข้อมูลทะเบียน</legend>
-      <Select label={deceased ? "บ้านที่บันทึกล่าสุด" : "บ้านปัจจุบัน"} {...register("houseId")} options={houseOptions} placeholder="ยังไม่ระบุบ้าน" disabled={movedOut || deceased} helperText={movedOut ? "หากกลับมาอยู่ใหม่ ให้ส่งคำขอผูกเลขบ้านใหม่" : deceased ? "เก็บความสัมพันธ์นี้ไว้เพื่อประวัติ ไม่ถือเป็นประชากรที่อยู่ในทะเบียนปัจจุบัน" : ""} />
+      <Select label={deceased ? "บ้านที่บันทึกล่าสุด" : "บ้านปัจจุบัน"} {...register("houseId")} options={houseOptions} placeholder="ยังไม่ระบุบ้าน" disabled={movedOut || deceased} helperText={movedOut ? "หากกลับมาอยู่ใหม่ ให้ผู้ใหญ่บ้านปรับปรุงสถานะทะเบียนประชากร" : deceased ? "เก็บความสัมพันธ์นี้ไว้เพื่อประวัติ ไม่ถือเป็นประชากรที่อยู่ในทะเบียนปัจจุบัน" : ""} />
     </fieldset>
 
     {mode === "edit" ? <fieldset className="space-y-2 border-t border-gray-100 pt-5"><legend className="text-sm font-semibold text-gray-900">เหตุผลการเปลี่ยนแปลง</legend><Input label="เหตุผล / หมายเหตุการแก้ไข" required={reasonRequired} {...register("reason")} error={errors.reason?.message} maxLength={300} helperText={reasonRequired ? "ข้อมูลสำคัญถูกเปลี่ยน กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" : "ระบุเมื่อจำเป็น ข้อมูลสำคัญจะบันทึกใน Audit Log"} /></fieldset> : null}

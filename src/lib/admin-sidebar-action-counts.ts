@@ -2,7 +2,6 @@ import "server-only";
 
 import {
   AppointmentStage,
-  BindingRequestStatus,
   GalleryItemSubmissionStatus,
   HouseAccountOpeningRequestStatus,
   IssueStage,
@@ -16,7 +15,6 @@ export type AdminSidebarActionCounts = {
   population: {
     total: number;
     accountOpeningRequests: number;
-    bindingRequests: number;
   };
   news: number;
   gallery: number;
@@ -32,12 +30,9 @@ export type AdminSidebarActionCounts = {
  * decision. Every query is scoped to the active admin village.
  */
 export async function getAdminSidebarActionCounts(villageId: string): Promise<AdminSidebarActionCounts> {
-  const [accountOpeningRequests, bindingRequests, news, gallery, calendar, appointments, issues, places, contacts] = await Promise.all([
+  const [accountOpeningRequests, news, gallery, calendar, appointments, issues, places, contacts] = await Promise.all([
     prisma.houseAccountOpeningRequest.count({
       where: { villageId, status: HouseAccountOpeningRequestStatus.PENDING_REVIEW },
-    }),
-    prisma.bindingRequest.count({
-      where: { villageId, status: BindingRequestStatus.PENDING },
     }),
     getPendingNewsSubmissionCount(villageId),
     prisma.galleryItemSubmission.count({
@@ -65,7 +60,6 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
     population: {
       total: accountOpeningRequests,
       accountOpeningRequests,
-      bindingRequests,
     },
     news,
     gallery,

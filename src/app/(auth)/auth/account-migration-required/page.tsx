@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { MigrationRequiredActions } from "./migration-actions";
 
 export default function AccountMigrationRequiredPage() {
   return (
@@ -10,10 +10,7 @@ export default function AccountMigrationRequiredPage() {
           ระบบปัจจุบันใช้หนึ่งบัญชีต่อหนึ่งบ้านและเข้าสู่ระบบด้วยอีเมลที่ยืนยันแล้ว
           หากบ้านของคุณยังไม่มีบัญชีบ้าน ให้ส่งคำขอเปิดบัญชีบ้านใหม่ หรือสอบถามผู้ใหญ่บ้านเพื่อช่วยตรวจสอบข้อมูลเดิม
         </p>
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <Link href="/auth/register" className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">ขอเปิดบัญชีบ้าน</Link>
-          <Link href="/auth/login" className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">กลับหน้าเข้าสู่ระบบ</Link>
-        </div>
+        <MigrationRequiredActions />
       </section>
     </main>
   );

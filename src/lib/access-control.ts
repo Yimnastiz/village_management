@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFromServer } from "@/lib/session-cookie";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
 import { getConfiguredVillage } from "@/lib/configured-village";
+import { isResidentHouseAccessEligible } from "@/lib/final-account-access-policy";
 
 export const ADMIN_MEMBERSHIP_ROLES = [VillageMembershipRole.HEADMAN] as const;
 const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHIP_ROLES);
@@ -15,7 +16,6 @@ export type SessionContext = {
   name: string;
   accountKind: AccountKind | null;
   accountStatus: AccountStatus;
-  citizenVerifiedAt: Date | null;
   activeVillageId: string | null;
   loginAccountEmailId: string | null;
   residentHouseAccount?: {
@@ -77,7 +77,6 @@ async function toConfiguredSessionContext(session: AuthSessionWithUser): Promise
     name: session.user.name,
     accountKind: session.user.accountKind,
     accountStatus: session.user.accountStatus,
-    citizenVerifiedAt: session.user.citizenVerifiedAt,
     activeVillageId: configuredVillage.id,
     loginAccountEmailId: session.loginAccountEmailId,
     residentHouseAccount: session.user.residentHouseAccount,
@@ -116,6 +115,17 @@ export async function getSessionContextFromRequest(request: NextRequest | Reques
   return getSessionContextByToken(readSessionCookieFromRequest(request));
 }
 
+/** Maps only preserved legacy account rows to the controlled support page. */
+export async function getLegacyAccountRedirectPathFromRequest(request: NextRequest | Request): Promise<string | null> {
+  const token = readSessionCookieFromRequest(request);
+  if (!token) return null;
+  const session = await loadAuthSession(unsignSessionToken(token)).catch(() => null);
+  if (!session) return null;
+  return session.user.accountKind === AccountKind.LEGACY_RESIDENT || session.user.accountStatus === AccountStatus.DUPLICATE_ID
+    ? "/auth/account-migration-required"
+    : null;
+}
+
 export async function getActiveAuthRedirectPathFromServerCookies(): Promise<string | null> {
   const session = await getSessionContextFromServerCookies();
   return session ? getAuthenticatedAccessRedirectPath(session) : null;
@@ -126,8 +136,14 @@ export async function getActiveAuthRedirectPathFromRequest(request: NextRequest 
   return session ? getAuthenticatedAccessRedirectPath(session) : null;
 }
 
+function isHeadmanAccountKind(accountKind: AccountKind | null): boolean {
+  // Null is a transition-only compatibility case for Headmen created before
+  // the account-kind backfill. The active HEADMAN membership remains required.
+  return accountKind === AccountKind.HEADMAN || accountKind === null;
+}
+
 export function isAdminUser(session: SessionContext): boolean {
-  return session.accountKind === AccountKind.HEADMAN && session.memberships.some(
+  return isHeadmanAccountKind(session.accountKind) && session.memberships.some(
     (membership) => membership.status === MembershipStatus.ACTIVE && ADMIN_MEMBERSHIP_ROLE_SET.has(membership.role)
   );
 }
@@ -141,22 +157,11 @@ export function canReviewBinding(role: VillageMembershipRole): boolean {
   return role === VillageMembershipRole.HEADMAN;
 }
 
-export function hasCompletedResidentBinding(
-  membership: Pick<SessionContext["memberships"][number], "role" | "status" | "houseId"> | null | undefined
-): boolean {
-  return Boolean(
-    membership &&
-    membership.role === VillageMembershipRole.RESIDENT &&
-    membership.status === MembershipStatus.ACTIVE &&
-    membership.houseId
-  );
-}
-
 export function getAdminMembership(
   session: SessionContext,
   options: { villageId?: string | null } = {}
 ) {
-  if (session.accountKind !== AccountKind.HEADMAN) return null;
+  if (!isHeadmanAccountKind(session.accountKind)) return null;
   const targetVillageId = options.villageId ?? session.activeVillageId;
   return session.memberships.find(
     (membership): membership is ActiveHeadmanMembership =>
@@ -167,20 +172,15 @@ export function getAdminMembership(
 }
 
 export function getResidentMembership(session: SessionContext) {
-  const houseAccount = session.residentHouseAccount;
-  if (
-    session.accountKind !== AccountKind.RESIDENT_HOUSE ||
-    !houseAccount?.activatedAt ||
-    houseAccount.suspendedAt
-  ) return null;
-
-  return session.memberships.find(
-    (membership) =>
-      hasCompletedResidentBinding(membership) &&
-      membership.villageId === houseAccount.villageId &&
-      membership.houseId === houseAccount.houseId &&
-      (!session.activeVillageId || membership.villageId === session.activeVillageId)
-  ) ?? null;
+  const membership = session.memberships.find((candidate) =>
+    isResidentHouseAccessEligible({
+      accountKind: session.accountKind,
+      configuredVillageId: session.activeVillageId,
+      houseAccount: session.residentHouseAccount,
+      membership: candidate,
+    })
+  );
+  return membership ?? null;
 }
 
 export function isResidentUser(session: SessionContext): boolean {

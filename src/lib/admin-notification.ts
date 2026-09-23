@@ -54,7 +54,7 @@ export function resolveAdminNotificationDestination(
   if (source === "SUPERADMIN_INTERVENTION" && actionUrl?.startsWith("/admin/")) return fromNotifications(actionUrl);
   if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
   if (openingRequestId) return fromNotifications(`/admin/population/account-opening-requests/${openingRequestId}`);
-  if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);
+  if (bindingRequestId) return fromNotifications("/admin/security");
   if (appointmentId) return fromNotifications(`/admin/appointments/${appointmentId}`);
   if (issueId) return action?.includes("ISSUE_DELETED") ? "/admin/issues" : fromNotifications(`/admin/issues/${issueId}`);
 
@@ -85,6 +85,7 @@ export function resolveAdminNotificationDestination(
 
   // actionUrl is retained for existing structured notifications, but never
   // sends an administrator out of the admin area.
+  if (actionUrl?.startsWith("/admin/population/binding-requests")) return fromNotifications("/admin/security");
   return actionUrl?.startsWith("/admin/") ? actionUrl : null;
 }
 

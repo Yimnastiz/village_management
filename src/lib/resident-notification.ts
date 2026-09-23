@@ -22,9 +22,7 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
   const workflowStatus = (stringValue(metadata, "workflowStatus") ?? stringValue(metadata, "status"))?.toUpperCase();
   const requestId = stringValue(metadata, "requestId") ?? stringValue(metadata, "submissionId");
   if (notification.type === "BINDING_REQUEST") {
-    const action = stringValue(metadata, "action")?.toLowerCase();
-    if (action === "approve" || action === "approved") return "/resident/dashboard?from=notifications";
-    return "/resident/binding/pending?from=notifications";
+    return "/resident/dashboard?from=notifications";
   }
   // A delete result is historical by definition: its live entity may no longer
   // exist, so prefer the request history even for older rows with an actionUrl.
@@ -35,6 +33,7 @@ export function resolveResidentNotificationDestination(notification: Pick<Notifi
     if (source?.includes("PLACE") && requestId) return `/resident/places/requests/${requestId}`;
   }
   if (stringValue(metadata, "action")?.includes("ISSUE_DELETED")) return "/resident/issues";
+  if (explicitUrl?.startsWith("/resident/binding")) return "/resident/dashboard?from=notifications";
   if (explicitUrl?.startsWith("/resident/")) return explicitUrl;
   if (["SUPERADMIN_BROADCAST", "VILLAGE_BROADCAST"].includes(source?.toUpperCase() ?? "")) return `/resident/notifications/${notification.id}`;
 

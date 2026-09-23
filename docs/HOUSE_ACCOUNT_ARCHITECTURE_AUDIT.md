@@ -202,3 +202,15 @@ Phase 7 requires no Prisma schema change or migration. Expired pending reservati
 The population registry remains independent: `Person` rows are actual people recorded in a House, while `ResidentHouseAccount` is shared system access for that House. The House Account User is therefore excluded from the House member list and is never synthesized as a Person.
 
 Where an administrative workflow needs to contact a House, it uses `ResidentHouseAccount.contactPhone`. `User.phoneNumber` remains a legacy/Headman field and is not a House contact fallback. `AccountEmail` remains an authentication credential; login aliases are not displayed as requester identity or ordinary contact information. Ownership IDs were not reassigned, and this phase made no Prisma schema or data migration.
+
+## Phase 9 — Legacy Resident runtime retirement
+
+The production Resident runtime now admits only an active `RESIDENT_HOUSE` User whose activated, non-suspended ResidentHouseAccount matches an active Resident VillageMembership for the same House and the configured Village. `LEGACY_RESIDENT` and malformed House Accounts fail closed at `/auth/account-migration-required`. Resident authorization does not use BindingRequest, Person.userId, National ID, citizenVerifiedAt, phone verification, or RegistrationTemp.
+
+Public personal registration endpoints and the old phone-registration OTP page mode were removed. `/auth/register` remains the House Account opening flow. Phone OTP start and verification now require an active Headman membership in the configured Village; `RESIDENT_HOUSE` and `LEGACY_RESIDENT` cannot authenticate by phone. A nullable accountKind is accepted only as transition compatibility when the same User has the required active Headman membership. House Account email OTP login is unchanged.
+
+Resident Binding forms and mutations were removed, compatibility routes only redirect, and no final Resident flow can create a BindingRequest. The old Headman Binding review workspace redirects to the House Account opening-request workspace. Historical BindingRequest rows, audit labels, security-log lookup, deletion cleanup, and Prisma models remain temporarily so existing records can still be interpreted safely.
+
+Population import continues to create/update House and Person records and retains National ID, birth date, gender, contact, status, and movement validation. It no longer creates or updates a personal Resident User, VillageMembership, PhoneRoleSeed, RegistrationTemp-derived identity, citizen-verification state, or Person.userId auth link. National ID remains population data and was not removed from Person records.
+
+The duplicate-account notice mutation and final routing state machine were retired. Historical `DUPLICATE_ID`, RegistrationTemp, RegistrationOtpChallenge, Person.userId, and BindingRequest schema/data remain untouched for a later explicit data migration and cleanup phase. No Phase 9 Prisma schema change or destructive database operation was performed.

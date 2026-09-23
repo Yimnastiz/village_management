@@ -29,17 +29,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   if (systemSettings.maintenanceMode) return <MaintenanceNotice message={systemSettings.maintenanceMessage} />;
 
   const residentMembership = getResidentMembership(session);
-  const isHouseAccount = session.accountKind === "RESIDENT_HOUSE";
-  const latestBindingRequest = residentMembership || isHouseAccount
-    ? null
-    : await prisma.bindingRequest.findFirst({
-        where: {
-          userId: session.id,
-          villageId: session.activeVillageId ?? undefined,
-        },
-        select: { id: true, status: true, reviewNote: true },
-        orderBy: { createdAt: "desc" },
-      });
+  if (!residentMembership) redirect("/auth/account-migration-required");
 
   const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
     prisma.user.findUnique({
@@ -57,33 +47,17 @@ export default async function ResidentLayout({ children }: { children: React.Rea
         status: NotificationStatus.UNREAD,
       },
     }),
-    residentMembership
-      ? prisma.village.findUnique({
-          where: { id: residentMembership.villageId },
-          select: { id: true, name: true, slug: true, moo: true, province: true, district: true, subdistrict: true },
-        })
-      : Promise.resolve(null),
+    prisma.village.findUnique({
+      where: { id: residentMembership.villageId },
+      select: { id: true, name: true, slug: true, moo: true, province: true, district: true, subdistrict: true },
+    }),
   ]);
 
-  const publicVillage = residentMembership
-    ? villageProfile
-    : userProfile?.registrationVillage?.id === session.activeVillageId
-      ? userProfile.registrationVillage
-      : null;
+  const publicVillage = villageProfile;
   const actorDisplay = residentActorDisplay(userProfile, { villageId: session.activeVillageId });
   const residentNavigationState = {
     hasMembership: Boolean(residentMembership),
-    isHouseAccount,
-    bindingRequestHref: residentMembership
-      ? null
-      : latestBindingRequest?.status === "PENDING"
-        ? "/resident/binding/pending"
-        : "/resident/binding",
-    bindingStatus: latestBindingRequest?.status ?? null,
-    bindingRejectReason:
-      latestBindingRequest?.status === "REJECTED"
-        ? latestBindingRequest.reviewNote
-        : null,
+    isHouseAccount: true,
     publicVillageBasePath: publicVillage?.slug ? `/${publicVillage.slug}` : null,
   };
 
@@ -95,8 +69,8 @@ export default async function ResidentLayout({ children }: { children: React.Rea
         <TopBar
           userArea="resident"
           userName={actorDisplay.label}
-          userImageUrl={isHouseAccount ? null : userProfile?.image ?? null}
-          userIdentityKind={isHouseAccount ? "HOUSE" : "PERSON"}
+          userImageUrl={null}
+          userIdentityKind="HOUSE"
           unreadNotificationCount={unreadNotificationCount}
           villageName={publicVillage?.name ?? null}
           villageMoo={publicVillage?.moo ?? null}

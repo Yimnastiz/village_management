@@ -3,13 +3,10 @@
 import {
   HouseholdOccupancyStatus,
   AuditAction,
-  MembershipStatus,
   PersonStatus,
   MovementType,
   PopulationImportStage,
   Prisma,
-  RegistrationTempStatus,
-  VillageMembershipRole,
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
@@ -48,8 +45,6 @@ type CanonicalColumnKey =
   | "movement_date"
   | "latitude"
   | "longitude"
-  | "create_user_account"
-  | "is_citizen_verified"
   | "note";
 
 export type ImportActionState = {
@@ -133,8 +128,6 @@ type NormalizedImportRow = {
   movementDate: Date | null;
   latitude: number | null;
   longitude: number | null;
-  createUserAccount: boolean;
-  isCitizenVerified: boolean;
   note: string | null;
 };
 
@@ -188,23 +181,6 @@ function toTrimmedString(value: unknown): string | null {
 
 function normalizePhoneNumber(raw: string): string {
   return raw.replace(/[\s()-]/g, "");
-}
-
-function parseBooleanValue(value: unknown): boolean | null {
-  const normalized = toTrimmedString(value)?.toLowerCase();
-  if (!normalized) {
-    return null;
-  }
-
-  if (["true", "1", "yes", "y", "ใช่", "จริง"].includes(normalized)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "n", "ไม่", "ไม่ใช่", "เท็จ"].includes(normalized)) {
-    return false;
-  }
-
-  throw new Error(`ค่า boolean ไม่ถูกต้อง: ${normalized}`);
 }
 
 function parseNumericValue(value: unknown, fieldName: string): number | null {
@@ -389,13 +365,6 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     throw new Error("อีเมลไม่ถูกต้อง");
   }
 
-  const createUserAccount = parseBooleanValue(row.create_user_account) ?? false;
-  const isCitizenVerified = parseBooleanValue(row.is_citizen_verified) ?? false;
-
-  if (createUserAccount && !phoneNumber) {
-    throw new Error("ถ้าจะสร้างบัญชีผู้ใช้ ต้องระบุ phone_number");
-  }
-
   return {
     houseNumber,
     firstName,
@@ -414,8 +383,6 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     movementDate,
     latitude: parseNumericValue(row.latitude, "latitude"),
     longitude: parseNumericValue(row.longitude, "longitude"),
-    createUserAccount,
-    isCitizenVerified,
     note: toTrimmedString(row.note),
   };
 }
@@ -614,106 +581,9 @@ async function importRowIntoVillage(
     select: { id: true },
   });
 
-  let resolvedUserId: string | null = null;
-  if (row.phoneNumber && row.firstName && row.lastName) {
-    const existingUser = await tx.user.findUnique({
-      where: { phoneNumber: row.phoneNumber },
-      select: { id: true },
-    });
-
-    if (existingUser || row.createUserAccount) {
-      const fullName = `${row.firstName} ${row.lastName}`;
-      const user = existingUser
-        ? await tx.user.update({
-            where: { phoneNumber: row.phoneNumber },
-            data: {
-              name: fullName,
-              registrationProvince: ctx.province,
-              registrationDistrict: ctx.district,
-              registrationSubdistrict: ctx.subdistrict,
-              registrationVillageId: ctx.villageId,
-            },
-            select: { id: true },
-          })
-        : await tx.user.create({
-            data: {
-              phoneNumber: row.phoneNumber,
-              name: fullName,
-              email: null,
-              registrationProvince: ctx.province,
-              registrationDistrict: ctx.district,
-              registrationSubdistrict: ctx.subdistrict,
-              registrationVillageId: ctx.villageId,
-              citizenVerifiedAt: null,
-              consentAt: null,
-            },
-            select: { id: true },
-          });
-
-      resolvedUserId = user.id;
-
-      await tx.villageMembership.upsert({
-        where: {
-          userId_villageId: {
-            userId: user.id,
-            villageId: ctx.villageId,
-          },
-        },
-        update: {
-          role: VillageMembershipRole.RESIDENT,
-          status: MembershipStatus.PENDING,
-          houseId: house.id,
-          joinedAt: null,
-        },
-        create: {
-          userId: user.id,
-          villageId: ctx.villageId,
-          role: VillageMembershipRole.RESIDENT,
-          status: MembershipStatus.PENDING,
-          houseId: house.id,
-          joinedAt: null,
-        },
-      });
-
-      await tx.phoneRoleSeed.upsert({
-        where: { phoneNumber: row.phoneNumber },
-        update: {
-          villageId: ctx.villageId,
-          membershipRole: VillageMembershipRole.RESIDENT,
-          isCitizenVerified: false,
-          note:
-            row.note ?? `Imported from admin population import / house ${row.houseNumber}`,
-        },
-        create: {
-          phoneNumber: row.phoneNumber,
-          villageId: ctx.villageId,
-          membershipRole: VillageMembershipRole.RESIDENT,
-          isCitizenVerified: false,
-          note:
-            row.note ?? `Imported from admin population import / house ${row.houseNumber}`,
-        },
-      });
-    }
-  }
-
+  const resolvedUserId: string | null = null;
   if (!row.firstName || !row.lastName) {
     return { resolvedUserId, resolvedPersonId: null, resolvedHouseId: house.id };
-  }
-
-  if (!resolvedUserId && row.phoneNumber) {
-    const phoneUser = await tx.user.findUnique({ where: { phoneNumber: row.phoneNumber }, select: { id: true } });
-    resolvedUserId = phoneUser?.id ?? null;
-  }
-  if (!resolvedUserId && row.nationalId) {
-    const verifiedRegistration = await tx.registrationTemp.findFirst({
-      where: { nationalId: row.nationalId, villageId: ctx.villageId, status: RegistrationTempStatus.VERIFIED },
-      orderBy: { updatedAt: "desc" },
-      select: { phoneNumber: true },
-    });
-    if (verifiedRegistration) {
-      const registrationUser = await tx.user.findUnique({ where: { phoneNumber: verifiedRegistration.phoneNumber }, select: { id: true } });
-      resolvedUserId = registrationUser?.id ?? null;
-    }
   }
 
   const personSearchConditions: Prisma.PersonWhereInput[] = [];
@@ -729,12 +599,11 @@ async function importRowIntoVillage(
         where: {
           OR: personSearchConditions,
         },
-        select: { id: true, userId: true },
+        select: { id: true },
         orderBy: { updatedAt: "desc" },
       })
     : null;
 
-  const canLinkUser = Boolean(resolvedUserId && (!existingPerson?.userId || existingPerson.userId === resolvedUserId));
   const personData = {
     villageId: ctx.villageId,
     houseId: house.id,
@@ -746,7 +615,6 @@ async function importRowIntoVillage(
     phone: row.phoneNumber,
     email: row.email,
     status: row.personStatus ?? PersonStatus.ACTIVE,
-    ...(canLinkUser ? { userId: resolvedUserId } : {}),
   };
 
   let resolvedPersonId: string;
@@ -890,7 +758,7 @@ async function validateRowsForPreview(
     } catch (error) {
       failedRows += 1;
       details.push({ rowNumber, action: "FAILED", status: "INVALID", errorCode: "INVALID_ROW", errorMessage: formatError(error), confidenceLevel: "INVALID" });
-        storedRows.push({ houseNumber: "", firstName: null, lastName: null, externalPersonId: null, phoneNumber: null, nationalId: null, dateOfBirth: null, gender: null, email: null, houseAddress: null, zoneName: null, occupancyStatus: null, personStatus: null, movementType: null, movementDate: null, latitude: null, longitude: null, createUserAccount: false, isCitizenVerified: false, note: null, rowNumber, matchedPersonId: null, action: "FAILED" });
+        storedRows.push({ houseNumber: "", firstName: null, lastName: null, externalPersonId: null, phoneNumber: null, nationalId: null, dateOfBirth: null, gender: null, email: null, houseAddress: null, zoneName: null, occupancyStatus: null, personStatus: null, movementType: null, movementDate: null, latitude: null, longitude: null, note: null, rowNumber, matchedPersonId: null, action: "FAILED" });
     }
   }
   return { details, storedRows, createdRows, updatedRows, conflictRows, failedRows };

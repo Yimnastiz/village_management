@@ -12,7 +12,6 @@ import {
   CalendarClock,
   CalendarDays,
   CircleAlert,
-  ClipboardCheck,
   FileDown,
   FileSearch,
   UsersRound,
@@ -41,7 +40,6 @@ export const residentMenuItems: ResidentMenuItem[] = [
   { href: "/resident/news", label: "ข่าว/ประกาศ", icon: Newspaper, desktopPriority: 2, mobilePriority: 2 },
   { href: "/resident/notifications", label: "การแจ้งเตือน", icon: Bell, desktopPriority: 3, mobilePriority: 3 },
   { href: "/resident/calendar", label: "ปฏิทิน", icon: CalendarDays, desktopPriority: 4, mobilePriority: 4 },
-  { href: "/resident/binding", label: "ขอผูกเลขบ้าน", icon: ClipboardCheck, desktopPriority: 5, mobilePriority: 5 },
   { href: "/resident/appointments", label: "นัดหมาย", icon: CalendarClock, desktopPriority: 6, mobilePriority: 6 },
   { href: "/resident/issues", label: "แจ้งปัญหา", icon: CircleAlert, desktopPriority: 7, mobilePriority: 7 },
   { href: "/resident/gallery", label: "แกลเลอรี", icon: Images, desktopPriority: 8, mobilePriority: 8 },
@@ -58,9 +56,6 @@ export type ResidentNavigationState = {
   hasMembership: boolean;
   isHouseAccount?: boolean;
   publicVillageBasePath?: string | null;
-  bindingRequestHref?: string | null;
-  bindingStatus?: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED" | null;
-  bindingRejectReason?: string | null;
 };
 
 const MEMBERS_ONLY_PATHS = new Set([
@@ -71,16 +66,7 @@ const MEMBERS_ONLY_PATHS = new Set([
 ]);
 
 export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
-  const baseItems = state.hasMembership || state.isHouseAccount
-    ? residentMenuItems.filter((item) => item.href !== "/resident/binding")
-    : residentMenuItems;
-  // The sidebar should start at the request form and only become a status link
-  // after a request is actually waiting for review.
-  const bindingHref = state.bindingStatus === "PENDING"
-    ? "/resident/binding/pending"
-    : "/resident/binding";
-
-  return baseItems.map((item) => {
+  return residentMenuItems.map((item) => {
     if (!state.hasMembership && !state.isHouseAccount) {
       if (MEMBERS_ONLY_PATHS.has(item.href)) {
         return {
@@ -90,15 +76,7 @@ export function getResidentNavigationItems(state: ResidentNavigationState): Resi
       }
     }
 
-    if (item.href !== "/resident/binding") {
-      return item;
-    }
-
-    return {
-      ...item,
-      href: bindingHref,
-      label: bindingHref === "/resident/binding/pending" ? "ดูสถานะคำขอผูกเลขบ้าน" : item.label,
-    };
+    return item;
   });
 }
 
@@ -125,7 +103,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
             ) : (
               <div className="text-xs leading-5 text-gray-500">
                 <p>โหมด guest</p>
-                <p className="whitespace-nowrap">ยังไม่ผูกเลขบ้าน</p>
+                <p className="whitespace-nowrap">ยังไม่มีสิทธิ์บัญชีบ้าน</p>
               </div>
             )}
           </div>
@@ -155,7 +133,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
             >
               <item.icon className="h-4 w-4 flex-shrink-0" />
               <span className={cn("min-w-0 flex-1", collapsed && "sr-only")}>{item.label}</span>
-              {item.locked && !collapsed ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องผูกเลขบ้านก่อน" /> : null}
+              {item.locked && !collapsed ? <LockKeyhole className="h-3.5 w-3.5 text-amber-500" aria-label="ต้องมีสิทธิ์บัญชีบ้านก่อน" /> : null}
             </Link></SidebarTooltip>
           );
         })}
@@ -173,7 +151,6 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
 export function LockedResidentMenuDialog({
   open,
   menuLabel,
-  state,
   onClose,
 }: {
   open: boolean;
@@ -182,9 +159,6 @@ export function LockedResidentMenuDialog({
   onClose: () => void;
 }) {
   if (!open) return null;
-
-  const isPending = state.bindingStatus === "PENDING";
-  const isRejected = state.bindingStatus === "REJECTED";
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-3 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="locked-menu-title">
@@ -195,16 +169,12 @@ export function LockedResidentMenuDialog({
         </div>
         <h2 id="locked-menu-title" className="mt-4 text-lg font-semibold text-gray-900">ยังใช้เมนู {menuLabel} ไม่ได้</h2>
         <p className="mt-2 text-sm leading-6 text-gray-600">
-          {isPending
-            ? "คำขอของคุณกำลังรอผู้ใหญ่บ้านตรวจสอบ"
-            : isRejected
-              ? `คำขอผูกเลขบ้านถูกปฏิเสธ${state.bindingRejectReason ? `: ${state.bindingRejectReason}` : ""}`
-              : "เมนูนี้ใช้ได้เฉพาะลูกบ้านที่ผูกเลขบ้านและได้รับการอนุมัติแล้ว"}
+          บัญชีนี้ไม่มีสิทธิ์ใช้เมนูของบัญชีบ้าน กรุณาติดต่อผู้ใหญ่บ้านเพื่อตรวจสอบสถานะบัญชี
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">ยกเลิก</button>
-          <Link href={state.bindingRequestHref ?? "/resident/binding"} onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-            {isPending ? "ดูสถานะคำขอ" : isRejected ? "แก้ไขคำขอและส่งใหม่" : "ไปขอผูกเลขบ้าน"}
+          <Link href="/auth/account-migration-required" onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+            ดูคำแนะนำ
           </Link>
         </div>
       </div>

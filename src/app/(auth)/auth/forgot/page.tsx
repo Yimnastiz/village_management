@@ -1,32 +1,18 @@
-"use client";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Link from "next/link";
 
 export default function ForgotPage() {
-  const [sent, setSent] = useState(false);
   return (
     <div className="mx-auto max-w-md rounded-2xl border border-white/90 bg-white/90 p-6 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8">
-      <h2 className="text-xl font-bold text-gray-900 mb-2">กู้คืนบัญชี</h2>
-      <p className="text-sm text-gray-500 mb-6">ใส่เบอร์โทรศัพท์ที่ลงทะเบียนไว้</p>
-      {sent ? (
-        <div className="text-center py-4">
-          <p className="text-green-600 font-medium">ส่ง OTP ไปแล้ว!</p>
-          <Link href="/auth/verify-otp" className="text-green-600 hover:underline text-sm mt-2 block">
-            ยืนยัน OTP
-          </Link>
-        </div>
-      ) : (
-        <form onSubmit={(e) => { e.preventDefault(); setSent(true); }} className="space-y-4">
-          <Input id="forgot-phone" name="phoneNumber" label="เบอร์โทรศัพท์" type="tel" placeholder="0812345678" required />
-          <Button type="submit" className="w-full">ส่ง OTP</Button>
-        </form>
-      )}
-      <div className="mt-4 text-center">
-        <Link href="/auth/login" className="text-sm text-green-600 hover:underline">
-          กลับไปหน้าเข้าสู่ระบบ
-        </Link>
+      <h1 className="text-xl font-bold text-gray-900">ขอความช่วยเหลือในการเข้าบัญชีบ้าน</h1>
+      <p className="mt-3 text-sm leading-7 text-gray-600">
+        หากไม่สามารถเข้าถึงอีเมลที่เชื่อมกับบัญชีบ้านได้ทั้งหมด กรุณาติดต่อผู้ใหญ่บ้านเพื่อตรวจสอบและช่วยดำเนินการ
+      </p>
+      <p className="mt-3 text-sm leading-7 text-gray-600">
+        ระบบไม่ใช้เบอร์โทรศัพท์เป็นข้อมูลเข้าสู่ระบบของบัญชีบ้าน และยังไม่มีขั้นตอนกู้คืนบัญชีบ้านด้วยตนเองในระยะนี้
+      </p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link href="/auth/login" className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">กลับหน้าเข้าสู่ระบบ</Link>
+        <Link href="/auth/register" className="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">ขอเปิดบัญชีบ้าน</Link>
       </div>
     </div>
   );

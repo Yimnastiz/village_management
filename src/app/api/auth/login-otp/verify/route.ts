@@ -1,4 +1,4 @@
-import { AccountKind, AccountStatus, LoginOtpChallengeStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
+import { LoginOtpChallengeStatus, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
@@ -7,6 +7,7 @@ import { configuredVillageLoginAuditWhere } from "@/lib/login-audit-policy.js";
 import { prisma } from "@/lib/prisma";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { SESSION_COOKIE_NAMES } from "@/lib/session-cookie";
+import { isHeadmanPhoneLoginEligible } from "@/lib/final-account-access-policy";
 import {
   LOGIN_OTP_COOKIE,
   LOGIN_OTP_LOCK_MS,
@@ -76,9 +77,11 @@ export async function POST(request: NextRequest) {
         },
       },
     });
-    const canSignIn = user?.accountKind === AccountKind.HEADMAN
-      && user.accountStatus === AccountStatus.ACTIVE
-      && user.memberships.length > 0;
+    const canSignIn = isHeadmanPhoneLoginEligible({
+      accountKind: user?.accountKind,
+      accountStatus: user?.accountStatus,
+      hasActiveConfiguredHeadmanMembership: Boolean(user?.memberships.length),
+    });
     if (!canSignIn) return { allowed: false as const, status: 403, reason: "phone-login-disabled", challenge };
     const separator = verification.value.lastIndexOf(":");
     const storedCode = separator >= 0 ? verification.value.slice(0, separator) : verification.value;

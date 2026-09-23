@@ -46,13 +46,13 @@ test("House dashboard and household registry do not treat the account as a Perso
   const household = source("src/app/(resident)/resident/household/page.tsx");
   const memberDetail = source("src/app/(resident)/resident/household/members/[memberId]/page.tsx");
   assert.match(dashboard, /actorDisplay\.label/);
-  assert.match(dashboard, /accountKind === "RESIDENT_HOUSE"/);
-  assert.match(dashboard, /effectiveHouseId && session\.accountKind !== "RESIDENT_HOUSE"[\s\S]*villageMembership\.findMany/);
-  assert.match(household, /session\.accountKind === "RESIDENT_HOUSE"[\s\S]*Promise\.resolve\(\[\]\)/);
+  assert.match(dashboard, /if \(!membership\?\.houseId\) redirect\("\/auth\/account-migration-required"\)/);
+  assert.doesNotMatch(dashboard, /bindingRequest|\/resident\/binding/i);
+  assert.doesNotMatch(household, /bindingRequest|\/resident\/binding/i);
   assert.match(memberDetail, /session\.accountKind !== "RESIDENT_HOUSE"/);
 });
 
-test("Binding remains available only to legacy Residents", () => {
-  assert.match(source("src/app/(resident)/resident/binding/page.tsx"), /accountKind === "RESIDENT_HOUSE"[\s\S]*redirect\("\/resident\/dashboard"\)/);
-  assert.match(source("src/app/(resident)/resident/binding/pending/page.tsx"), /accountKind === "RESIDENT_HOUSE"[\s\S]*redirect\("\/resident\/dashboard"\)/);
+test("retired Binding routes only redirect and expose no mutations", () => {
+  assert.match(source("src/app/(resident)/resident/binding/page.tsx"), /redirect\("\/resident\/dashboard"\)/);
+  assert.match(source("src/app/(resident)/resident/binding/pending/page.tsx"), /redirect\("\/resident\/dashboard"\)/);
 });
