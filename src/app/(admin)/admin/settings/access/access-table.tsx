@@ -10,7 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { updateVillageMemberAccessAction } from "../actions";
 
-type Member = { id: string; userId: string; name: string; phone: string; houseNumber: string | null; role: VillageMembershipRole; status: MembershipStatus };
+type Member = { id: string; userId: string; name: string; phone: string | null; houseNumber: string | null; role: VillageMembershipRole; status: MembershipStatus };
 type PendingChange = { member: Member; role: VillageMembershipRole; status: MembershipStatus } | null;
 
 export function AccessTable({ members, currentUserId }: { members: Member[]; currentUserId: string; canManageRoles?: boolean }) {

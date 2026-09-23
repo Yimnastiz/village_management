@@ -120,7 +120,7 @@ export default async function HouseholdPage() {
   const membershipEntries = houseMemberships.map((membership) => ({
     key: `membership-${membership.id}`,
     name: membership.user.name,
-    phone: membership.user.phoneNumber,
+    phone: membership.user.phoneNumber ?? "-",
     source: "ผู้ใช้งานระบบ",
   }));
 

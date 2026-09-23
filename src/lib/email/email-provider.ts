@@ -1,15 +1,15 @@
 import nodemailer from "nodemailer";
 import { maskEmail } from "@/lib/account-email";
 import { buildEmailOtpTemplate } from "./email-template";
-import type { EmailProvider, SendOtpEmailInput } from "./email-provider-contract";
+import type { EmailProvider, SendEmailMessageInput, SendOtpEmailInput } from "./email-provider-contract";
 import {
   readEmailProviderConfig,
   type EmailProviderConfig,
   type SmtpEmailProviderConfig,
 } from "./email-provider-config";
 
-export type { EmailProvider, SendOtpEmailInput } from "./email-provider-contract";
-export { InMemoryEmailProvider, sendOtpEmail } from "./email-provider-contract";
+export type { EmailProvider, SendEmailMessageInput, SendOtpEmailInput } from "./email-provider-contract";
+export { InMemoryEmailProvider, sendEmailMessage, sendOtpEmail } from "./email-provider-contract";
 
 export class ConsoleEmailProvider implements EmailProvider {
   constructor(private readonly nodeEnvironment: string) {
@@ -29,6 +29,14 @@ export class ConsoleEmailProvider implements EmailProvider {
       purpose: input.purpose,
       code: input.code,
       ttlSeconds: input.ttlSeconds,
+    });
+  }
+
+  async sendMessage(input: SendEmailMessageInput): Promise<void> {
+    this.assertNonProduction();
+    console.log("[EMAIL MESSAGE DEV]", {
+      to: maskEmail(input.to),
+      subject: input.subject,
     });
   }
 }
@@ -56,6 +64,17 @@ export class SmtpEmailProvider implements EmailProvider {
       subject: template.subject,
       text: template.text,
       html: template.html,
+    });
+  }
+
+  async sendMessage(input: SendEmailMessageInput): Promise<void> {
+    await this.transport.sendMail({
+      from: this.config.from,
+      to: input.to,
+      replyTo: this.config.replyTo ?? undefined,
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
     });
   }
 }

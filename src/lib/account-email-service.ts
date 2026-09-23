@@ -187,43 +187,54 @@ export async function activateAccountEmail(input: {
   residentHouseAccountId?: string | null;
   activatedAt?: Date;
 }): Promise<AccountEmail> {
-  return prisma.$transaction(async (tx) => {
-    const ownerLock = input.residentHouseAccountId
-      ? `house:${input.residentHouseAccountId}`
-      : `user:${input.userId}`;
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`account-email-owner:${ownerLock}`}))`;
-    const identity = await tx.accountEmail.findUnique({ where: { id: input.accountEmailId } });
-    if (!identity) {
-      throw new AccountEmailServiceError("ACCOUNT_EMAIL_NOT_FOUND", "AccountEmail was not found.");
-    }
-    if (!canTransitionAccountEmail(identity.status, "ACTIVE")) {
+  return prisma.$transaction((tx) => activateAccountEmailInTransaction(tx, input));
+}
+
+export async function activateAccountEmailInTransaction(
+  tx: Prisma.TransactionClient,
+  input: {
+    accountEmailId: string;
+    userId: string;
+    residentHouseAccountId?: string | null;
+    activatedAt?: Date;
+  },
+): Promise<AccountEmail> {
+  const ownerLock = input.residentHouseAccountId
+    ? `house:${input.residentHouseAccountId}`
+    : `user:${input.userId}`;
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`account-email-owner:${ownerLock}`}))`;
+  const identity = await tx.accountEmail.findUnique({ where: { id: input.accountEmailId } });
+  if (!identity) {
+    throw new AccountEmailServiceError("ACCOUNT_EMAIL_NOT_FOUND", "AccountEmail was not found.");
+  }
+  if (!canTransitionAccountEmail(identity.status, "ACTIVE")) {
+    throw new AccountEmailServiceError(
+      "INVALID_STATE_TRANSITION",
+      `Cannot activate an AccountEmail in ${identity.status} state.`,
+    );
+  }
+  if (input.residentHouseAccountId) {
+    const houseAccount = await tx.residentHouseAccount.findUnique({
+      where: { id: input.residentHouseAccountId },
+      select: { userId: true },
+    });
+    if (!houseAccount || houseAccount.userId !== input.userId) {
       throw new AccountEmailServiceError(
-        "INVALID_STATE_TRANSITION",
-        `Cannot activate an AccountEmail in ${identity.status} state.`,
+        "ACCOUNT_OWNERSHIP_MISMATCH",
+        "ResidentHouseAccount and User ownership do not match.",
       );
     }
-    if (input.residentHouseAccountId) {
-      const houseAccount = await tx.residentHouseAccount.findUnique({
-        where: { id: input.residentHouseAccountId },
-        select: { userId: true },
-      });
-      if (!houseAccount || houseAccount.userId !== input.userId) {
-        throw new AccountEmailServiceError(
-          "ACCOUNT_OWNERSHIP_MISMATCH",
-          "ResidentHouseAccount and User ownership do not match.",
-        );
-      }
-    }
-    return tx.accountEmail.update({
-      where: { id: identity.id },
-      data: {
-        status: "ACTIVE",
-        userId: input.userId,
-        residentHouseAccountId: input.residentHouseAccountId ?? null,
-        activatedAt: input.activatedAt ?? new Date(),
-        revokedAt: null,
-      },
-    });
+  }
+  return tx.accountEmail.update({
+    where: { id: identity.id },
+    data: {
+      status: "ACTIVE",
+      source: input.residentHouseAccountId ? "HOUSE_ACCOUNT" : identity.source,
+      userId: input.userId,
+      residentHouseAccountId: input.residentHouseAccountId ?? null,
+      activatedAt: input.activatedAt ?? new Date(),
+      revokedAt: null,
+    },
   });
 }
 

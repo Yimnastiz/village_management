@@ -26,14 +26,16 @@ export async function finalizeAccountDeletion(userId: string) {
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ where: { id: userId }, include: { memberships: { select: { villageId: true, role: true } } } });
     if (!user || user.accountStatus !== AccountStatus.DELETION_PENDING || !user.scheduledDeletionAt || user.scheduledDeletionAt > new Date()) return false;
-    const anonymousPhone = `deleted-${user.id}`;
+    const anonymousPhone = user.phoneNumber ? `deleted-${user.id}` : null;
     await tx.bindingRequest.updateMany({ where: { userId, status: BindingRequestStatus.PENDING }, data: { status: BindingRequestStatus.CANCELLED } });
     await tx.villageMembership.updateMany({ where: { userId }, data: { status: MembershipStatus.SUSPENDED, houseId: null } });
     await tx.authSession.deleteMany({ where: { userId } });
-    await tx.registrationTemp.updateMany({ where: { phoneNumber: user.phoneNumber }, data: { status: RegistrationTempStatus.CANCELLED, nationalId: "", name: "ผู้ใช้ที่ปิดบัญชีแล้ว" } });
-    await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
-    await tx.loginOtpChallenge.deleteMany({ where: { phoneNumber: user.phoneNumber } });
-    await tx.registrationOtpChallenge.deleteMany({ where: { phoneNumber: user.phoneNumber } });
+    if (user.phoneNumber) {
+      await tx.registrationTemp.updateMany({ where: { phoneNumber: user.phoneNumber }, data: { status: RegistrationTempStatus.CANCELLED, nationalId: "", name: "ผู้ใช้ที่ปิดบัญชีแล้ว" } });
+      await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
+      await tx.loginOtpChallenge.deleteMany({ where: { phoneNumber: user.phoneNumber } });
+      await tx.registrationOtpChallenge.deleteMany({ where: { phoneNumber: user.phoneNumber } });
+    }
     await tx.accountDeletionChallenge.deleteMany({ where: { userId } });
     await tx.user.update({
       where: { id: userId },

@@ -81,7 +81,7 @@ export async function buildVillagePopulationWorkbook(villageId: string, options:
   if (options.sheets.includes("accounts")) {
     utils.book_append_sheet(workbook, utils.json_to_sheet(memberships.map((membership) => ({
       user_name: safeText(membership.user.name),
-      phone_number: options.masked ? maskPhone(membership.user.phoneNumber) : safeText(membership.user.phoneNumber),
+      phone_number: options.masked ? maskPhone(membership.user.phoneNumber ?? "") : safeText(membership.user.phoneNumber ?? ""),
       email: options.masked ? "[MASKED]" : safeText(membership.user.email ?? ""),
       house_number: membership.house?.villageId === villageId ? safeText(membership.house.houseNumber) : "",
       membership_role: membership.role,

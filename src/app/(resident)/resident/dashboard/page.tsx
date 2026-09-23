@@ -367,7 +367,7 @@ export default async function ResidentDashboard({ searchParams }: PageProps) {
   const membershipEntries = houseMemberships.map((houseMembership) => ({
     key: `membership-${houseMembership.id}`,
     name: houseMembership.user.name,
-    phone: houseMembership.user.phoneNumber,
+    phone: houseMembership.user.phoneNumber ?? "-",
     source: "ผู้ใช้งานระบบ",
   }));
 

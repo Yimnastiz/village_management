@@ -132,8 +132,14 @@ requestedAt: null → now
 EmailOtpChallenge: VERIFIED → CONSUMED
 ```
 
-The same transaction creates notifications for active Headmen and a public audit entry with `userId = null`. Neither contains email, phone, OTP data, hashes, or salts. Notification metadata intentionally has no action URL until the Phase 5 review route exists.
+The same transaction creates notifications for active Headmen and a public audit entry with `userId = null`. Neither contains email, phone, OTP data, hashes, or salts. Notification metadata carries only the opening-request identifier; Phase 5 now derives the internal review destination from that structured value without storing a brittle action URL.
 
 Applicant access is authorized by a 30-minute signed HTTP-only, SameSite=Lax cookie scoped to the House-opening API. Production requires an explicit `HOUSE_ACCOUNT_OPENING_ACCESS_SECRET` of at least 32 characters; development may fall back to `BETTER_AUTH_SECRET`. Raw request IDs, email addresses, and phone numbers are not used as URL authorization. The cookie permits status recovery, resend, verification, and cancellation. Cancellation is allowed for `PENDING_EMAIL_VERIFICATION` and `PENDING_REVIEW`, cancels live challenges, transitions the request to `CANCELLED`, and revokes/releases the AccountEmail without deleting history.
 
 Phase 4 does not create a User, ResidentHouseAccount, VillageMembership, Person link, or BindingRequest, and it does not issue a session. Phone login, Headman phone login, legacy Binding, and old phone-registration API implementations remain present. Runtime database integration tests remain pending because the additive Phase 2 and Phase 3 migrations have not been applied.
+
+## Phase 5 — Headman review and House Account activation
+
+Active Headmen review verified requests in the distinct `/admin/population/account-opening-requests` workspace. Rejection requires a reason and atomically marks the request rejected, records the reviewer/time, cancels remaining opening challenges, releases the AccountEmail, and writes a safe audit event. Approval and activation are one transaction: it revalidates the configured Village, request, House, Headman membership, and verified email; creates a house-semantic `RESIDENT_HOUSE` User, `ResidentHouseAccount`, and active Resident membership; activates the initial AccountEmail; marks the request approved; and writes notification/audit records. No Person or BindingRequest is created or reconciled.
+
+The initial verified address is stored as the stable Better Auth compatibility `User.email`, while AccountEmail remains authoritative. The new House User has `phoneNumber = null` and `phoneNumberVerified = false`; applicant contact phone is stored only on the opening request and ResidentHouseAccount. The additive phone-nullability migration preserves all existing legacy/Headman phone values and is intentionally not applied by this phase. Approval/rejection result email is attempted only after commit, so delivery failure cannot roll back the business decision. Legacy phone login and Binding remain available, and House Account email login remains a later phase.

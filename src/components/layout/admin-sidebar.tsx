@@ -36,7 +36,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/transparency", label: "ความโปร่งใส", icon: FileSearch, permission: "transparency.manage" },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown, permission: "downloads.manage" },
   { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound, permission: "population.view" },
-  { href: "/admin/population/binding-requests", label: "คำขอผูกเลขบ้าน", icon: ClipboardCheck, permission: "binding.review" },
+  { href: "/admin/population/account-opening-requests", label: "คำขอเปิดบัญชีบ้าน", icon: ClipboardCheck, permission: "binding.review" },
   { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House, permission: "population.house.manage" },
   { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users, permission: "population.person.manage" },
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp, permission: "population.import" },
@@ -57,7 +57,7 @@ const getActiveHref = (pathname: string) => [...adminMenuItems]
 export function getAdminSidebarActionBadge(href: string, counts: AdminSidebarActionCounts) {
   switch (href) {
     case "/admin/population": return { count: counts.population.total, label: "งานทะเบียนครัวเรือน" };
-    case "/admin/population/binding-requests": return { count: counts.population.bindingRequests, label: "คำขอผูกเลขบ้าน" };
+    case "/admin/population/account-opening-requests": return { count: counts.population.accountOpeningRequests, label: "คำขอเปิดบัญชีบ้าน" };
     case "/admin/news": return { count: counts.news, label: "คำขอข่าวสาร" };
     case "/admin/gallery": return { count: counts.gallery, label: "รายการแกลเลอรี" };
     case "/admin/calendar": return { count: counts.calendar, label: "คำขอกิจกรรม" };

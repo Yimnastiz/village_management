@@ -33,6 +33,7 @@ export function resolveAdminNotificationDestination(
   notification: Pick<Notification, "id" | "type" | "metadata">
 ): string | null {
   const metadata = metadataOf(notification);
+  const openingRequestId = stringValue(metadata, "openingRequestId");
   const bindingRequestId = stringValue(metadata, "bindingRequestId");
   const requestId = stringValue(metadata, "requestId") ?? stringValue(metadata, "submissionId");
   const newsId = stringValue(metadata, "newsId");
@@ -52,6 +53,7 @@ export function resolveAdminNotificationDestination(
   if (source?.toUpperCase() === "PUBLIC_FEEDBACK") return fromNotifications(`/admin/feedback/${notification.id}`);
   if (source === "SUPERADMIN_INTERVENTION" && actionUrl?.startsWith("/admin/")) return fromNotifications(actionUrl);
   if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
+  if (openingRequestId) return fromNotifications(`/admin/population/account-opening-requests/${openingRequestId}`);
   if (bindingRequestId) return fromNotifications(`/admin/population/binding-requests/${bindingRequestId}`);
   if (appointmentId) return fromNotifications(`/admin/appointments/${appointmentId}`);
   if (issueId) return action?.includes("ISSUE_DELETED") ? "/admin/issues" : fromNotifications(`/admin/issues/${issueId}`);

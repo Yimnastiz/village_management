@@ -66,7 +66,7 @@ export async function revealOwnNationalIdAction(): Promise<{ success: true; nati
   });
   if (!user) return { success: false };
 
-  const registration = user.person?.nationalId
+  const registration = user.person?.nationalId || !user.phoneNumber
     ? null
     : await prisma.registrationTemp.findFirst({
         where: {

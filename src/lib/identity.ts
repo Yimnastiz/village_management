@@ -141,7 +141,7 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
     return 0;
   }
   const loserUsers = candidates.filter((candidate) => loserIds.includes(candidate.id));
-  const loserPhoneNumbers = [...new Set(loserUsers.map((candidate) => candidate.phoneNumber))];
+  const loserPhoneNumbers = [...new Set(loserUsers.map((candidate) => candidate.phoneNumber).filter((phone): phone is string => Boolean(phone)))];
 
   const resolvedAt = new Date();
   await Promise.all([
@@ -220,7 +220,8 @@ export async function cleanupDuplicateUnboundUsersByNationalId(
   return loserIds.length;
 }
 
-function maskPhoneNumber(value: string) {
+function maskPhoneNumber(value: string | null) {
+  if (!value) return "ไม่มีเบอร์โทร";
   const digits = value.replace(/\D/g, "");
   return digits.length >= 4 ? `${digits.slice(0, 3)}****${digits.slice(-3)}` : "***";
 }

@@ -23,24 +23,26 @@ export async function POST(request: NextRequest) {
   }
   const user = await prisma.user.findUnique({ where: { id: session.id }, select: { phoneNumber: true, accountStatus: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } });
   if (!user || user.accountStatus !== AccountStatus.ACTIVE) return NextResponse.json({ error: "Account is not active." }, { status: 409 });
+  if (!user.phoneNumber) return NextResponse.json({ error: "บัญชีนี้ไม่มีเบอร์โทรเข้าสู่ระบบ ขั้นตอนปิดบัญชีบ้านจะเปิดให้ใช้งานภายหลัง" }, { status: 409 });
+  const phoneNumber = user.phoneNumber;
   const now = new Date();
 
   if (parsed.data.action === "SEND_OTP") {
     const existing = await prisma.accountDeletionChallenge.findUnique({ where: { userId: session.id } });
     if (existing?.lockedUntil && existing.lockedUntil > now) return NextResponse.json({ error: "Verification is temporarily locked.", retryAfterSeconds: Math.ceil((existing.lockedUntil.getTime() - now.getTime()) / 1000) }, { status: 429 });
     if (existing?.resendAvailableAt && existing.resendAvailableAt > now) return NextResponse.json({ error: "Please wait before requesting another OTP.", retryAfterSeconds: Math.ceil((existing.resendAvailableAt.getTime() - now.getTime()) / 1000) }, { status: 429 });
-    await prisma.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
+    await prisma.authVerification.deleteMany({ where: { identifier: phoneNumber } });
     try {
-      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: user.phoneNumber } });
+      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber } });
     } catch {
-      await prisma.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
+      await prisma.authVerification.deleteMany({ where: { identifier: phoneNumber } });
       return NextResponse.json({ error: "OTP provider could not send the code." }, { status: 502 });
     }
     const sentAt = new Date();
     const challenge = await prisma.accountDeletionChallenge.upsert({
       where: { userId: session.id },
-      create: { userId: session.id, phoneNumber: user.phoneNumber, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + 5 * 60_000), resendAvailableAt: new Date(sentAt.getTime() + 60_000) },
-      update: { phoneNumber: user.phoneNumber, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + 5 * 60_000), resendAvailableAt: new Date(sentAt.getTime() + 60_000), failedAttempts: 0, lockedUntil: null, verifiedAt: null },
+      create: { userId: session.id, phoneNumber, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + 5 * 60_000), resendAvailableAt: new Date(sentAt.getTime() + 60_000) },
+      update: { phoneNumber, otpSentAt: sentAt, otpExpiresAt: new Date(sentAt.getTime() + 5 * 60_000), resendAvailableAt: new Date(sentAt.getTime() + 60_000), failedAttempts: 0, lockedUntil: null, verifiedAt: null },
     });
     return NextResponse.json({ ok: true, expiresAt: challenge.otpExpiresAt.toISOString(), resendAvailableAt: challenge.resendAvailableAt.toISOString() });
   }
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
   const delaySeconds = [0, 2, 5, 15, 30][Math.min(challenge.failedAttempts, 4)] ?? 30;
   const retryAt = new Date(challenge.updatedAt.getTime() + delaySeconds * 1000);
   if (challenge.failedAttempts > 0 && retryAt > now) return NextResponse.json({ error: "กรุณารอก่อนลองใหม่", retryAfterSeconds: Math.ceil((retryAt.getTime() - now.getTime()) / 1000) }, { status: 429 });
-  const verification = await prisma.authVerification.findFirst({ where: { identifier: user.phoneNumber, expiresAt: { gt: now } }, orderBy: { updatedAt: "desc" } });
+  const verification = await prisma.authVerification.findFirst({ where: { identifier: phoneNumber, expiresAt: { gt: now } }, orderBy: { updatedAt: "desc" } });
   const storedCode = verification?.value.split(":")[0];
   if (!verification || storedCode !== parsed.data.code) {
     const failedAttempts = challenge.failedAttempts + 1;
@@ -66,7 +68,7 @@ export async function POST(request: NextRequest) {
     await tx.user.update({ where: { id: session.id }, data: { accountStatus: AccountStatus.DELETION_PENDING, deletionRequestedAt: now, scheduledDeletionAt, deletionRecoveryHash: hashRecoveryToken(recoveryToken) } });
     await tx.bindingRequest.updateMany({ where: { userId: session.id, status: BindingRequestStatus.PENDING }, data: { status: BindingRequestStatus.CANCELLED } });
     await tx.authSession.deleteMany({ where: { userId: session.id } });
-    await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
+    await tx.authVerification.deleteMany({ where: { identifier: phoneNumber } });
     await tx.accountDeletionChallenge.update({ where: { id: challenge.id }, data: { verifiedAt: now } });
     await tx.auditLog.createMany({ data: (user.memberships.length ? user.memberships : [{ villageId: null, role: null }]).map((membership) => ({ userId: session.id, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "UserAccount", resourceId: session.id, metadata: { actorRole: membership.role, actionName: "ACCOUNT_DELETION_REQUESTED", status: AccountStatus.DELETION_PENDING, scheduledDeletionAt: scheduledDeletionAt.toISOString() } })) });
   });

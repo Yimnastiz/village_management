@@ -7,13 +7,22 @@ export type SendOtpEmailInput = {
   ttlSeconds: number;
 };
 
+export type SendEmailMessageInput = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+};
+
 export interface EmailProvider {
   sendOtp(input: SendOtpEmailInput): Promise<void>;
+  sendMessage(input: SendEmailMessageInput): Promise<void>;
 }
 
 /** Test-only provider. It performs no network I/O. */
 export class InMemoryEmailProvider implements EmailProvider {
   readonly deliveries: SendOtpEmailInput[] = [];
+  readonly messages: SendEmailMessageInput[] = [];
   private readonly failure: Error | null;
 
   constructor(failure: Error | null = null) {
@@ -24,6 +33,11 @@ export class InMemoryEmailProvider implements EmailProvider {
     if (this.failure) throw this.failure;
     this.deliveries.push({ ...input });
   }
+
+  async sendMessage(input: SendEmailMessageInput): Promise<void> {
+    if (this.failure) throw this.failure;
+    this.messages.push({ ...input });
+  }
 }
 
 export async function sendOtpEmail(
@@ -31,4 +45,11 @@ export async function sendOtpEmail(
   input: SendOtpEmailInput,
 ): Promise<void> {
   await provider.sendOtp(input);
+}
+
+export async function sendEmailMessage(
+  provider: EmailProvider,
+  input: SendEmailMessageInput,
+): Promise<void> {
+  await provider.sendMessage(input);
 }

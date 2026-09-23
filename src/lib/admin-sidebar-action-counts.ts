@@ -4,6 +4,7 @@ import {
   AppointmentStage,
   BindingRequestStatus,
   GalleryItemSubmissionStatus,
+  HouseAccountOpeningRequestStatus,
   IssueStage,
   VillageEventSubmissionStatus,
   VillagePlaceSubmissionStatus,
@@ -14,6 +15,7 @@ import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 export type AdminSidebarActionCounts = {
   population: {
     total: number;
+    accountOpeningRequests: number;
     bindingRequests: number;
   };
   news: number;
@@ -30,7 +32,10 @@ export type AdminSidebarActionCounts = {
  * decision. Every query is scoped to the active admin village.
  */
 export async function getAdminSidebarActionCounts(villageId: string): Promise<AdminSidebarActionCounts> {
-  const [bindingRequests, news, gallery, calendar, appointments, issues, places, contacts] = await Promise.all([
+  const [accountOpeningRequests, bindingRequests, news, gallery, calendar, appointments, issues, places, contacts] = await Promise.all([
+    prisma.houseAccountOpeningRequest.count({
+      where: { villageId, status: HouseAccountOpeningRequestStatus.PENDING_REVIEW },
+    }),
     prisma.bindingRequest.count({
       where: { villageId, status: BindingRequestStatus.PENDING },
     }),
@@ -58,7 +63,8 @@ export async function getAdminSidebarActionCounts(villageId: string): Promise<Ad
 
   return {
     population: {
-      total: bindingRequests,
+      total: accountOpeningRequests,
+      accountOpeningRequests,
       bindingRequests,
     },
     news,

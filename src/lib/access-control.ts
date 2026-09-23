@@ -13,7 +13,7 @@ const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHI
 
 export type SessionContext = {
   id: string;
-  phoneNumber: string;
+  phoneNumber: string | null;
   name: string;
   accountStatus: AccountStatus;
   citizenVerifiedAt: Date | null;

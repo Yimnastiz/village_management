@@ -58,7 +58,7 @@ export default async function EditPersonPage({ params }: PageProps) {
           email: person.email ?? "",
           houseId: person.houseId ?? "",
         }}
-        linkedAccount={person.user ? { phoneNumber: person.user.phoneNumber, email: person.user.email?.endsWith("@local.invalid") ? null : person.user.email } : null}
+        linkedAccount={person.user ? { phoneNumber: person.user.phoneNumber ?? "ไม่มีเบอร์โทรเข้าสู่ระบบ", email: person.user.email?.endsWith("@local.invalid") ? null : person.user.email } : null}
         movedOut={false}
         deceased={false}
         allowNationalIdChecksumBypass={isThaiNationalIdChecksumBypassEnabled()}

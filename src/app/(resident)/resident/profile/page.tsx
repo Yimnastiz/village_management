@@ -72,7 +72,7 @@ export default async function ProfilePage() {
       where: { userId: user.id, villageId: session.activeVillageId ?? undefined },
       include: { house: { select: { houseNumber: true } } },
     }),
-    prisma.registrationTemp.findFirst({
+    user.phoneNumber ? prisma.registrationTemp.findFirst({
       where: {
         phoneNumber: user.phoneNumber,
         status: "VERIFIED",
@@ -80,7 +80,7 @@ export default async function ProfilePage() {
       },
       orderBy: { updatedAt: "desc" },
       select: { firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true },
-    }),
+    }) : Promise.resolve(null),
   ]);
 
   const activeMembership =

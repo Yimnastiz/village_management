@@ -432,6 +432,7 @@ export async function verifyHouseAccountOpeningEmail(
 
 async function cancelHouseAccountOpeningInternal(requestId: string, cancelledAt: Date) {
   return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`house-opening-review:${requestId}`}))`;
     const openingRequest = await tx.houseAccountOpeningRequest.findUnique({
       where: { id: requestId },
       include: { initialEmail: true },
@@ -496,6 +497,7 @@ export async function getHouseAccountOpeningStatus(requestId: string) {
     contactPhone: openingRequest.contactPhone,
     maskedEmail: maskEmail(openingRequest.initialEmail.email),
     requestedAt: openingRequest.requestedAt,
+    rejectionReason: openingRequest.status === "REJECTED" ? openingRequest.rejectionReason : null,
     challengeId: challenge?.id ?? null,
     expiresAt: challenge?.expiresAt ?? null,
     resendAvailableAt: challenge?.resendAvailableAt ?? null,

@@ -17,7 +17,8 @@ function toThaiDate(value: Date | null): string {
   return value.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function maskLoginPhone(value: string) {
+function maskLoginPhone(value: string | null) {
+  if (!value) return "ไม่มีเบอร์โทรเข้าสู่ระบบ";
   if (value.length < 7) return value;
   return `${value.slice(0, 3)}-${"x".repeat(Math.max(3, value.length - 7))}-${value.slice(-4)}`;
 }

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
     },
     select: { phoneNumber: true },
   });
-  if (!user) {
+  if (!user?.phoneNumber) {
     const disabledDuplicate = await prisma.user.findFirst({
       where: {
         phoneNumber: { in: [phoneNumber, `+66${phoneNumber.slice(1)}`] },
@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
     }, { status: disabledDuplicate ? 403 : 400 });
   }
 
+  const otpIdentifier = user.phoneNumber;
   const now = new Date();
   const reservation = await withLoginPhoneLock(phoneNumber, async (tx) => {
     const existing = await tx.loginOtpChallenge.findUnique({ where: { phoneNumber } });
@@ -95,8 +96,8 @@ export async function POST(request: NextRequest) {
     // same phone. It is safe to clean that identifier too, but never delete a
     // verification for a genuinely different phone number.
     const verificationIdentifiers = existing && normalizeLoginPhone(existing.otpIdentifier) === phoneNumber
-      ? [user.phoneNumber, existing.otpIdentifier]
-      : [user.phoneNumber];
+      ? [otpIdentifier, existing.otpIdentifier]
+      : [otpIdentifier];
     if (existing?.lockedUntil && existing.lockedUntil > now) {
       return { resumed: true as const, challenge: existing, locked: true as const };
     }
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const verification = existing && existing.otpIdentifier === user.phoneNumber
+    const verification = existing && existing.otpIdentifier === otpIdentifier
       ? await tx.authVerification.findFirst({
           where: { identifier: existing.otpIdentifier, expiresAt: { gt: now } },
           orderBy: { updatedAt: "desc" },
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
       : null;
     const hasUsableOtp = Boolean(
       existing
-      && existing.otpIdentifier === user.phoneNumber
+      && existing.otpIdentifier === otpIdentifier
       && existing.otpSentAt
       && existing.otpExpiresAt
       && existing.otpExpiresAt > now
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
       where: { phoneNumber },
       create: {
         phoneNumber,
-        otpIdentifier: user.phoneNumber,
+        otpIdentifier,
         challengeToken,
         status: LoginOtpChallengeStatus.PENDING_SEND,
         sendWindowStartedAt: windowStartedAt,
@@ -209,7 +210,7 @@ export async function POST(request: NextRequest) {
         ipHash: requestIpHash(request),
       },
       update: {
-        otpIdentifier: user.phoneNumber,
+        otpIdentifier,
         challengeToken,
         status: LoginOtpChallengeStatus.PENDING_SEND,
         otpSentAt: null,
@@ -252,13 +253,13 @@ export async function POST(request: NextRequest) {
 
   try {
     if (isDevOtpBypassEnabled()) {
-      await prisma.authVerification.create({ data: { identifier: user.phoneNumber, value: `${getDevOtpCode()}:0`, expiresAt: new Date(Date.now() + LOGIN_OTP_TTL_MS) } });
+      await prisma.authVerification.create({ data: { identifier: otpIdentifier, value: `${getDevOtpCode()}:0`, expiresAt: new Date(Date.now() + LOGIN_OTP_TTL_MS) } });
     } else {
-      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: user.phoneNumber } });
+      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber: otpIdentifier } });
     }
   } catch {
     await withLoginPhoneLock(phoneNumber, async (tx) => {
-      await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
+      await tx.authVerification.deleteMany({ where: { identifier: otpIdentifier } });
       await tx.loginOtpChallenge.updateMany({
         where: { id: reservation.challenge.id, status: LoginOtpChallengeStatus.PENDING_SEND },
         data: { status: LoginOtpChallengeStatus.SEND_FAILED, otpSentAt: null, otpExpiresAt: null, resendAvailableAt: null },

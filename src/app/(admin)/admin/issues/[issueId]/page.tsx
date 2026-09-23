@@ -200,7 +200,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   );
 }
 
-function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: { name: string; phoneNumber: string; legacyRole?: string; memberships: { role: string }[] }; internal?: boolean }) {
+function MessageCard({ msg, user, internal = false }: { msg: { content: string; createdAt: Date }; user?: { name: string; phoneNumber: string | null; legacyRole?: string; memberships: { role: string }[] }; internal?: boolean }) {
   return <div className={`rounded-xl border p-3 text-sm sm:p-4 ${internal ? "border-amber-100 bg-amber-50" : "border-gray-200 bg-gray-50"}`}>
     <p className="break-words font-medium text-gray-900">{getUserDisplayName(user)} <span className="font-normal text-gray-500">· {user ? getUserRoleLabel(user) : "ผู้ใช้งาน"}</span></p>
     <p className="mt-1 text-xs text-gray-500">{user?.phoneNumber ? <a className="hover:underline" href={`tel:${user.phoneNumber}`}>{user.phoneNumber}</a> : "ไม่พบข้อมูลผู้ใช้งาน"}</p>

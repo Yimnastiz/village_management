@@ -26,10 +26,12 @@ type OtpState = {
 };
 
 type SuccessState = {
+  status: "PENDING_REVIEW" | "APPROVED" | "REJECTED" | "CANCELLED" | "EXPIRED";
   houseNumber: string;
   applicantName: string;
   contactPhone: string;
   maskedEmail: string;
+  rejectionReason?: string | null;
 };
 
 async function responseError(response: Response, fallback: string): Promise<string> {
@@ -70,6 +72,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         applicantName: string;
         contactPhone: string;
         maskedEmail: string;
+        rejectionReason: string | null;
         challengeId: string | null;
         expiresAt: string | null;
         resendAvailableAt: string | null;
@@ -88,12 +91,14 @@ export function RegisterForm({ village }: { village: VillageOption }) {
           resendAvailableAt: data.resendAvailableAt,
         });
         setStep("OTP");
-      } else if (data.status === "PENDING_REVIEW") {
+      } else if (["PENDING_REVIEW", "APPROVED", "REJECTED", "CANCELLED", "EXPIRED"].includes(data.status)) {
         setSuccessState({
+          status: data.status as SuccessState["status"],
           houseNumber: data.houseNumber,
           applicantName: data.applicantName,
           contactPhone: data.contactPhone,
           maskedEmail: data.maskedEmail,
+          rejectionReason: data.rejectionReason,
         });
         setStep("SUCCESS");
       }
@@ -304,20 +309,30 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   }
 
   if (step === "SUCCESS" && successState) {
+    const statusCopy = successState.status === "APPROVED"
+      ? { heading: "บัญชีบ้านได้รับการอนุมัติแล้ว", description: "บัญชีบ้านเปิดใช้งานแล้ว ระบบเข้าสู่ระบบด้วยอีเมลจะพร้อมในขั้นตอนถัดไป", label: "อนุมัติแล้ว", tone: "text-green-700" }
+      : successState.status === "REJECTED"
+        ? { heading: "คำขอไม่ได้รับการอนุมัติ", description: "กรุณาตรวจสอบเหตุผลด้านล่าง หากต้องการสอบถามเพิ่มเติมให้ติดต่อผู้ใหญ่บ้าน", label: "ไม่อนุมัติ", tone: "text-red-700" }
+        : successState.status === "CANCELLED"
+          ? { heading: "คำขอถูกยกเลิกแล้ว", description: "อีเมลถูกปล่อยและสามารถใช้เริ่มคำขอใหม่ได้", label: "ยกเลิก", tone: "text-gray-700" }
+          : successState.status === "EXPIRED"
+            ? { heading: "คำขอหมดอายุแล้ว", description: "กรุณาเริ่มคำขอเปิดบัญชีบ้านใหม่", label: "หมดอายุ", tone: "text-gray-700" }
+            : { heading: "ส่งคำขอเรียบร้อยแล้ว", description: "ระบบได้ส่งคำขอเปิดบัญชีบ้านให้ผู้ใหญ่บ้านตรวจสอบแล้ว", label: "รอการตรวจสอบ", tone: "text-amber-700" };
     return <div className={cardClass}>
-      <h1 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-gray-900 outline-none">ส่งคำขอเรียบร้อยแล้ว</h1>
-      <p className="mt-2 text-sm leading-6 text-gray-600">ระบบได้ส่งคำขอเปิดบัญชีบ้านให้ผู้ใหญ่บ้านตรวจสอบแล้ว</p>
+      <h1 ref={headingRef} tabIndex={-1} className="text-xl font-bold text-gray-900 outline-none">{statusCopy.heading}</h1>
+      <p className="mt-2 text-sm leading-6 text-gray-600">{statusCopy.description}</p>
       <dl className="mt-6 divide-y divide-gray-100 rounded-xl border border-gray-200 bg-gray-50 px-4">
         <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">บ้านเลขที่</dt><dd className="min-w-0 break-all text-right font-medium text-gray-900">{successState.houseNumber}</dd></div>
         <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">ชื่อผู้ขอ</dt><dd className="min-w-0 break-words text-right font-medium text-gray-900">{successState.applicantName}</dd></div>
         <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">อีเมล</dt><dd className="min-w-0 break-all text-right font-medium text-gray-900">{successState.maskedEmail}</dd></div>
         <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">เบอร์โทรสำหรับติดต่อ</dt><dd className="min-w-0 break-all text-right font-medium text-gray-900">{successState.contactPhone}</dd></div>
-        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">สถานะ</dt><dd className="font-semibold text-amber-700">รอการตรวจสอบ</dd></div>
+        <div className="flex flex-wrap justify-between gap-2 py-3"><dt className="text-sm text-gray-500">สถานะ</dt><dd className={`font-semibold ${statusCopy.tone}`}>{statusCopy.label}</dd></div>
+        {successState.status === "REJECTED" && successState.rejectionReason ? <div className="py-3"><dt className="text-sm text-gray-500">เหตุผลในการปฏิเสธ</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm text-gray-900">{successState.rejectionReason}</dd></div> : null}
       </dl>
       {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Link href="/auth/login" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">กลับไปหน้าเข้าสู่ระบบ</Link>
-        <Button type="button" variant="dangerOutline" disabled={pending} isLoading={pending} onClick={() => void cancelRequest(false)}>ยกเลิกคำขอ</Button>
+        {successState.status === "PENDING_REVIEW" ? <Button type="button" variant="dangerOutline" disabled={pending} isLoading={pending} onClick={() => void cancelRequest(false)}>ยกเลิกคำขอ</Button> : null}
       </div>
     </div>;
   }

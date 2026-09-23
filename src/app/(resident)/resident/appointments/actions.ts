@@ -73,7 +73,6 @@ function proposedAppointmentTimeNotificationCopy(
   title: string,
   date: Date,
   startTime: string,
-  _responderRole: VillageMembershipRole | null | undefined
 ) {
   return {
     title: "มีเวลานัดหมายใหม่รอการยืนยัน",
@@ -126,7 +125,7 @@ async function getAdminResponderSummary(villageId: string, userId: string): Prom
   return {
     userId,
     name: membership.user.name,
-    phoneNumber: membership.user.phoneNumber,
+    phoneNumber: membership.user.phoneNumber ?? "-",
     role: membership.role,
   };
 }
@@ -274,7 +273,7 @@ export async function proposeAppointmentTimeAction(input: z.input<typeof manualS
     await tx.auditLog.create({ data: { userId: session.id, villageId: appointment.villageId, action: AuditAction.UPDATE, resource: "Appointment", resourceId: appointment.id, metadata: { actorRole: membership.role, actionName: "APPOINTMENT_TIME_PROPOSED", affectedUserId: appointment.userId } } });
     return createdSlot;
   });
-  const notification = proposedAppointmentTimeNotificationCopy(appointment.title, date, slot.startTime, responder?.role);
+  const notification = proposedAppointmentTimeNotificationCopy(appointment.title, date, slot.startTime);
   await notifyUser(appointment.userId, appointment.villageId, notification.title, notification.body, { appointmentId: appointment.id });
   revalidateAppointmentViews(appointment.id);
   return { success: true };
@@ -370,7 +369,7 @@ export async function adminUpdateAppointmentAction(input: z.input<typeof adminUp
     return createdSlot;
   });
   const notification = isProposal
-    ? proposedAppointmentTimeNotificationCopy(title, date, slot.startTime, membership.role)
+    ? proposedAppointmentTimeNotificationCopy(title, date, slot.startTime)
     : updatedAdminCreatedAppointmentNotificationCopy(title, date, slot.startTime);
   await notifyUser(appointment.userId, appointment.villageId, notification.title, notification.body, { appointmentId: appointment.id });
   revalidateAppointmentViews(appointment.id); return { success: true };

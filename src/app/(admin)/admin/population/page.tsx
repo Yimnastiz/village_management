@@ -26,7 +26,7 @@ type PendingBindingRequest = {
   user: {
     id: string;
     name: string;
-    phoneNumber: string;
+    phoneNumber: string | null;
   };
   village: {
     id: string;
@@ -133,14 +133,15 @@ async function getPendingBindingRequests(
     },
   });
   return Promise.all(requests.map(async (request) => {
-    const registration = request.user.person?.nationalId ? null : await prisma.registrationTemp.findFirst({
-      where: { phoneNumber: request.user.phoneNumber, villageId: request.villageId ?? undefined, status: RegistrationTempStatus.VERIFIED },
+    const userPhone = request.user.phoneNumber;
+    const registration = request.user.person?.nationalId || !userPhone ? null : await prisma.registrationTemp.findFirst({
+      where: { phoneNumber: userPhone, villageId: request.villageId ?? undefined, status: RegistrationTempStatus.VERIFIED },
       orderBy: { updatedAt: "desc" },
       select: { nationalId: true },
     });
     const nationalId = request.user.person?.nationalId ?? registration?.nationalId ?? null;
-    const duplicateRegistrations = nationalId ? await prisma.registrationTemp.findMany({
-      where: { nationalId, villageId: request.villageId ?? undefined, status: RegistrationTempStatus.VERIFIED, phoneNumber: { not: request.user.phoneNumber } },
+    const duplicateRegistrations = nationalId && userPhone ? await prisma.registrationTemp.findMany({
+      where: { nationalId, villageId: request.villageId ?? undefined, status: RegistrationTempStatus.VERIFIED, phoneNumber: { not: userPhone } },
       orderBy: { createdAt: "asc" },
       select: { phoneNumber: true, createdAt: true },
     }) : [];
@@ -149,11 +150,12 @@ async function getPendingBindingRequests(
       select: { id: true, name: true, phoneNumber: true },
     }) : [];
     const registrationDateByPhone = new Map(duplicateRegistrations.map((item) => [item.phoneNumber, item.createdAt]));
-    const duplicateApplicants = duplicateUsers.map((user) => ({
+    const duplicateApplicants = duplicateUsers.flatMap((user) => user.phoneNumber ? [{
       ...user,
+      phoneNumber: user.phoneNumber,
       createdAt: registrationDateByPhone.get(user.phoneNumber) ?? request.createdAt,
       status: "PENDING" as const,
-    }));
+    }] : []);
     const [claimed, personDuplicateCount] = nationalId ? await Promise.all([
       findBoundIdentityByNationalId(prisma, nationalId, request.user.id, request.villageId),
       prisma.person.count({ where: { nationalId, villageId: request.villageId ?? undefined, userId: { not: request.user.id } } }),
@@ -466,24 +468,24 @@ export default async function Page({ searchParams }: PageProps) {
     .filter((membership) => membership.status === MembershipStatus.ACTIVE && hasVillagePermission(membership.role, "population.view"))
     .map((membership) => membership.villageId);
   const overviewWhere = { villageId: { in: manageableVillageIds } };
-  const [overviewHouses, overviewPeople, overviewBoundMembers, overviewPendingBindings] = await Promise.all([
+  const [overviewHouses, overviewPeople, overviewBoundMembers, overviewPendingAccountOpenings] = await Promise.all([
     prisma.house.count({ where: overviewWhere }),
     prisma.person.count({ where: { ...overviewWhere, status: PersonStatus.ACTIVE } }),
     prisma.villageMembership.count({ where: { ...overviewWhere, status: MembershipStatus.ACTIVE, houseId: { not: null } } }),
-    prisma.bindingRequest.count({ where: { ...overviewWhere, status: BindingRequestStatus.PENDING } }),
+    prisma.houseAccountOpeningRequest.count({ where: { ...overviewWhere, status: "PENDING_REVIEW" } }),
   ]);
 
   const stats = [
     ["บ้านทั้งหมด", overviewHouses],
     ["ประชากรในทะเบียน", overviewPeople],
     ["สมาชิกที่ผูกบ้านแล้ว", overviewBoundMembers],
-    ["คำขอผูกบ้านรอพิจารณา", overviewPendingBindings],
+    ["คำขอเปิดบัญชีบ้านรอตรวจสอบ", overviewPendingAccountOpenings],
   ] as const;
   const adminMembership = getAdminMembership(session);
   const modules = [
     { title: "ทะเบียนบ้าน", description: "ดู เพิ่ม และจัดการบ้านเลขที่", href: "/admin/population/houses", action: "เปิดทะเบียนบ้าน" },
     { title: "ทะเบียนประชากร", description: "ดู เพิ่ม และแก้ไขข้อมูลประชากร", href: "/admin/population/people", action: "เปิดทะเบียนประชากร" },
-    { title: "คำขอผูกเลขบ้าน", description: "ตรวจสอบคำขอจากลูกบ้าน", href: "/admin/population/binding-requests", action: overviewPendingBindings ? `${overviewPendingBindings.toLocaleString("th-TH")} รายการรอพิจารณา` : "ตรวจสอบคำขอ" },
+    { title: "คำขอเปิดบัญชีบ้าน", description: "ตรวจสอบคำขอเปิดบัญชีสำหรับบ้านในหมู่บ้าน", href: "/admin/population/account-opening-requests", action: overviewPendingAccountOpenings ? `${overviewPendingAccountOpenings.toLocaleString("th-TH")} รายการรอตรวจสอบ` : "ตรวจสอบคำขอ" },
     ...(adminMembership && hasVillagePermission(adminMembership.role, "population.import")
       ? [{ title: "นำเข้า/ส่งออก", description: "จัดการข้อมูลจำนวนมาก", href: "/admin/population/import", action: "จัดการข้อมูล" }]
       : []),
@@ -723,11 +725,11 @@ export default async function Page({ searchParams }: PageProps) {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      {request.user.name || request.user.phoneNumber}
+                      {request.user.name || request.user.phoneNumber || "ไม่ระบุชื่อ"}
                     </div>
-                    <a href={`tel:${request.user.phoneNumber}`} className="text-sm font-medium text-green-700 hover:underline">
+                    {request.user.phoneNumber ? <a href={`tel:${request.user.phoneNumber}`} className="text-sm font-medium text-green-700 hover:underline">
                       โทร {request.user.phoneNumber}
-                    </a>
+                    </a> : null}
                   </div>
                   <div className="text-xs text-gray-500">
                     ส่งคำร้องเมื่อ {new Date(request.createdAt).toLocaleString()}

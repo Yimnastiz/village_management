@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   InMemoryEmailProvider,
+  sendEmailMessage,
   sendOtpEmail,
 } from "../src/lib/email/email-provider-contract.ts";
 import { buildEmailOtpTemplate } from "../src/lib/email/email-template.ts";
@@ -22,6 +23,15 @@ test("in-memory provider captures recipient, purpose, and code without network I
 test("provider failures propagate", async () => {
   const provider = new InMemoryEmailProvider(new Error("simulated delivery failure"));
   await assert.rejects(sendOtpEmail(provider, message), /simulated delivery failure/);
+});
+
+test("central provider sends decision messages and reports delivery failures", async () => {
+  const decision = { to: "mom@example.com", subject: "ผลการตรวจสอบ", text: "อนุมัติแล้ว" };
+  const provider = new InMemoryEmailProvider();
+  await sendEmailMessage(provider, decision);
+  assert.deepEqual(provider.messages, [decision]);
+  const failing = new InMemoryEmailProvider(new Error("simulated decision delivery failure"));
+  await assert.rejects(sendEmailMessage(failing, decision), /simulated decision delivery failure/);
 });
 
 test("centralized template includes purpose-specific copy and plain/HTML OTP", () => {
