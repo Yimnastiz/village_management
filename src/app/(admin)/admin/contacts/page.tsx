@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ListChecks, PhoneCall } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -122,7 +122,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
             options: [
               { label: "ทั้งหมด", href: buildContactsHref({ q: keyword, visibility: "ALL", category: activeCategory, sort: activeSort }), active: activeVisibility === "ALL", isDefault: true },
               { label: "สาธารณะ", href: buildContactsHref({ q: keyword, visibility: "PUBLIC", category: activeCategory, sort: activeSort }), active: activeVisibility === "PUBLIC" },
-              { label: "ลูกบ้าน", href: buildContactsHref({ q: keyword, visibility: "RESIDENT_ONLY", category: activeCategory, sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
+              { label: "สมาชิก", href: buildContactsHref({ q: keyword, visibility: "RESIDENT_ONLY", category: activeCategory, sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
             ],
           },
           ...(categories.length ? [{
@@ -140,7 +140,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Link href="/admin/contacts/requests">
-              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอจากลูกบ้าน</span>{pendingRequestCount > 0 ? <span aria-label={`คำขอรอพิจารณา ${pendingRequestCount} รายการ`} className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">{pendingRequestCount}</span> : null}</Button>
+              <Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอจากสมาชิก</span>{pendingRequestCount > 0 ? <span aria-label={`คำขอรอพิจารณา ${pendingRequestCount} รายการ`} className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-semibold text-white">{pendingRequestCount}</span> : null}</Button>
             </Link>
             <ContactCreateDialog compact />
           </div>

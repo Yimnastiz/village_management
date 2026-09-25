@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -118,7 +118,7 @@ export function ContactForm({ mode, editScope = "full", contactId, defaultValues
 
   return (
     <form id={formId} onSubmit={handleSubmit(onSubmit)} className={compact ? "space-y-5" : "space-y-6 rounded-xl border border-gray-200 bg-white p-5 sm:p-6"}>
-      {mode === "edit" && editScope === "visibility" ? <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">ข้อมูลหลักของผู้ติดต่อนี้มาจากคำขอของลูกบ้าน การแก้ไขข้อมูลจะดำเนินการผ่านคำขอแก้ไข</p> : <><section className="space-y-4">
+      {mode === "edit" && editScope === "visibility" ? <p className="rounded-lg bg-gray-50 px-3 py-2 text-sm leading-6 text-gray-600">ข้อมูลหลักของผู้ติดต่อนี้มาจากคำขอของสมาชิก การแก้ไขข้อมูลจะดำเนินการผ่านคำขอแก้ไข</p> : <><section className="space-y-4">
         {!compact ? <h2 className="text-sm font-semibold text-gray-900">ข้อมูลผู้ติดต่อ</h2> : null}
         <Input label="ชื่อผู้ติดต่อ" {...register("name")} error={errors.name?.message} required />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

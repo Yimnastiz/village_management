@@ -1,6 +1,6 @@
 import type { AccountKind } from "@prisma/client";
 
-export type AccountKindValue = AccountKind | null | undefined;
+export type AccountKindValue = AccountKind | undefined;
 
 export function isHeadmanAccount(accountKind: AccountKindValue): accountKind is "HEADMAN" {
   return accountKind === "HEADMAN";
@@ -8,8 +8,4 @@ export function isHeadmanAccount(accountKind: AccountKindValue): accountKind is 
 
 export function isResidentHouseAccount(accountKind: AccountKindValue): accountKind is "RESIDENT_HOUSE" {
   return accountKind === "RESIDENT_HOUSE";
-}
-
-export function isLegacyResidentAccount(accountKind: AccountKindValue): accountKind is "LEGACY_RESIDENT" {
-  return accountKind === "LEGACY_RESIDENT";
 }

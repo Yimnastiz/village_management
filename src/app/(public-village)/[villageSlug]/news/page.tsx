@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+﻿import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Newspaper } from "lucide-react";
@@ -23,8 +23,8 @@ const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; 
     description: "เมื่อแอดมินเผยแพร่ข่าวสาธารณะ ข่าวจะแสดงที่นี่",
   },
   resident: {
-    title: "ยังไม่มีข่าวจากลูกบ้าน",
-    description: "เมื่อมีข่าวสาธารณะจากลูกบ้าน ข่าวจะแสดงที่นี่",
+    title: "ยังไม่มีข่าวจากสมาชิก",
+    description: "เมื่อมีข่าวสาธารณะจากสมาชิก ข่าวจะแสดงที่นี่",
   },
 };
 

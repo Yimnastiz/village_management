@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +58,7 @@ export default async function ResidentEventDetailPage({ params }: ResidentEventD
       <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6 lg:p-8">
         <div className="flex items-center gap-2">
           <Badge variant={event.isPublic ? "success" : "info"}>
-            {event.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+            {event.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
           </Badge>
           <Badge variant="outline">{village.name}</Badge>
         </div>

@@ -1,11 +1,11 @@
-type CalendarPerson = {
+﻿type CalendarPerson = {
   name?: string | null;
   memberships?: Array<{ role?: string | null }>;
 };
 
 const membershipRoleLabels: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  RESIDENT: "ลูกบ้าน",
+  RESIDENT: "สมาชิก",
 };
 
 export function formatCalendarPerson(

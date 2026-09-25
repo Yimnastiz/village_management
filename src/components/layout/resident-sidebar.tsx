@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -97,7 +97,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           {!collapsed ? <Link href="/resident" className="flex min-w-0 items-center gap-2">
           <BrandLogo size="sm" alt="" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900">พื้นที่ลูกบ้าน</p>
+            <p className="text-sm font-semibold text-gray-900">พื้นที่สมาชิก</p>
             {state.hasMembership || state.isHouseAccount ? (
               <p className="text-xs text-gray-500">{state.isHouseAccount ? "บัญชีบ้าน" : "เมนูใช้งานส่วนบุคคล"}</p>
             ) : (
@@ -173,9 +173,6 @@ export function LockedResidentMenuDialog({
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">ยกเลิก</button>
-          <Link href="/auth/account-migration-required" onClick={onClose} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
-            ดูคำแนะนำ
-          </Link>
         </div>
       </div>
     </div>,

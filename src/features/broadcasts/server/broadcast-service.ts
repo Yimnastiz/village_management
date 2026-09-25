@@ -5,8 +5,7 @@ import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 
 export const VILLAGE_BROADCAST_SOURCE = "VILLAGE_BROADCAST";
-export const LEGACY_SUPERADMIN_BROADCAST_SOURCE = "SUPERADMIN_BROADCAST";
-export const BROADCAST_SOURCES = [VILLAGE_BROADCAST_SOURCE, LEGACY_SUPERADMIN_BROADCAST_SOURCE] as const;
+export const BROADCAST_SOURCES = [VILLAGE_BROADCAST_SOURCE] as const;
 const MAX_CUSTOM_DURATION_MINUTES = 365 * 24 * 60;
 const BATCH_SIZE = 1_000;
 type Metadata = { source: typeof VILLAGE_BROADCAST_SOURCE; broadcastGroupId: string; expiresAt: string | null };

@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { AuditAction, MembershipStatus, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { isAccessMembershipStatus } from "@/lib/settings-access";
 import { writeVillagePolicyAuditLog } from "@/lib/audit-log";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
-import { canManageVillageRole, requireVillagePermission } from "@/lib/village-permissions";
+import { requireVillagePermission } from "@/lib/village-permissions";
 
 async function requireAdminVillageContext() {
   const session = await getSessionContextFromServerCookies();
@@ -87,7 +87,6 @@ export async function updatePersonalSettingsAction(data: { email: string; image:
   const current = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { email: true } });
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: session.id }, data: { email, image: data.image, ...(email !== current.email ? { emailVerified: false } : {}) } });
-    await tx.person.updateMany({ where: { userId: session.id }, data: { email } });
     await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.UPDATE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: membership.role, actionName: "USER_PROFILE_UPDATED", changedFields: [email !== current.email ? "email" : null, "profileImage"].filter(Boolean) } } });
   });
   revalidatePath("/admin/settings/profile");
@@ -133,18 +132,13 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
   if (!roleChanged && !statusChanged) return { success: true };
 
   if (roleChanged) {
-    // Phase 2A retains legacy rows but has no live role-assignment workflow.
-    if (roleChanged) return { success: false, error: "การเปลี่ยนบทบาทสมาชิกไม่พร้อมใช้งานในขณะนี้" };
-    requireVillagePermission(membership, "members.roles.manage");
-    if (!canManageVillageRole(membership.role, target.role, nextRole)) {
-      return { success: false, error: "ผู้ใหญ่บ้านจัดการได้เฉพาะบทบาทผู้ช่วยผู้ใหญ่บ้าน และการจัดการผู้ใหญ่บ้านเป็นหน้าที่ของผู้ดูแลระบบส่วนกลางเท่านั้น" };
-    }
+    return { success: false, error: "ระบบนี้ไม่รองรับการเปลี่ยนประเภทบัญชี" };
   }
 
   if (statusChanged) {
     requireVillagePermission(membership, "members.status.manage");
     if (target.role !== VillageMembershipRole.RESIDENT || nextRole !== VillageMembershipRole.RESIDENT) {
-      return { success: false, error: "การจัดการสถานะในพื้นที่นี้ใช้ได้กับลูกบ้านทั่วไปเท่านั้น" };
+      return { success: false, error: "การจัดการสถานะในพื้นที่นี้ใช้ได้กับสมาชิกทั่วไปเท่านั้น" };
     }
   }
 
@@ -194,7 +188,7 @@ export async function updateVillageMemberAccessAction(formData: FormData): Promi
           userId: target.userId,
           villageId,
           type: NotificationType.SYSTEM,
-          title: roleChanged ? "บทบาทในหมู่บ้านของคุณมีการเปลี่ยนแปลง" : nextStatus === MembershipStatus.SUSPENDED ? "บัญชีลูกบ้านถูกระงับ" : "บัญชีลูกบ้านเปิดใช้งานอีกครั้ง",
+          title: roleChanged ? "บทบาทในหมู่บ้านของคุณมีการเปลี่ยนแปลง" : nextStatus === MembershipStatus.SUSPENDED ? "บัญชีสมาชิกถูกระงับ" : "บัญชีสมาชิกเปิดใช้งานอีกครั้ง",
           body: `เหตุผล: ${reason}`,
           metadata: { source: "VILLAGE_MEMBER_ACCESS", policyAction, membershipId, reason },
         },

@@ -1,16 +1,13 @@
 import { isValidStrictThaiNationalId, normalizeNationalId } from "./thai-identity-core.js";
 
 export const INVALID_NATIONAL_ID_MESSAGE = "เลขบัตรประชาชนไม่ถูกต้อง";
-export const LINKED_NATIONAL_ID_IMMUTABLE_MESSAGE = "เลขบัตรประชาชนเชื่อมกับบัญชีผู้ใช้แล้วและแก้ไขจากทะเบียนประชากรไม่ได้";
-
 type ExistingNationalId = {
   nationalId: string | null;
-  userId: string | null;
 };
 
 export type NationalIdUpdateResolution =
   | { ok: true; nationalId: string | null; changed: boolean }
-  | { ok: false; message: typeof INVALID_NATIONAL_ID_MESSAGE | typeof LINKED_NATIONAL_ID_IMMUTABLE_MESSAGE };
+  | { ok: false; message: typeof INVALID_NATIONAL_ID_MESSAGE };
 
 function submittedNationalId(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -42,8 +39,6 @@ export function resolveUpdatedNationalId(existing: ExistingNationalId, submitted
   if (isSameNationalId(existing.nationalId, submittedValue)) {
     return { ok: true, nationalId: existing.nationalId, changed: false };
   }
-  if (existing.userId) return { ok: false, message: LINKED_NATIONAL_ID_IMMUTABLE_MESSAGE };
-
   try {
     return { ok: true, nationalId: normalizeNewNationalId(submittedValue), changed: true };
   } catch {

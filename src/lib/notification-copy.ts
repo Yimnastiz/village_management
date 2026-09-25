@@ -1,12 +1,12 @@
 import type { Prisma } from "@prisma/client";
 
-/** Stable module identifiers for new notifications. Legacy source values remain supported by readers. */
-export const NOTIFICATION_SOURCES = ["NEWS", "ISSUE", "APPOINTMENT", "CALENDAR", "CONTACT", "GALLERY", "PLACE", "DOWNLOAD", "TRANSPARENCY", "HOUSEHOLD", "BINDING", "SYSTEM"] as const;
+/** Stable module identifiers for notifications. */
+export const NOTIFICATION_SOURCES = ["NEWS", "ISSUE", "APPOINTMENT", "CALENDAR", "CONTACT", "GALLERY", "PLACE", "DOWNLOAD", "TRANSPARENCY", "HOUSEHOLD", "SYSTEM"] as const;
 export type NotificationSource = (typeof NOTIFICATION_SOURCES)[number];
 export type NotificationRequestType = "CREATE" | "UPDATE" | "DELETE" | "EDIT";
 
 const MODULE_NOUN: Record<NotificationSource, string> = {
-  NEWS: "ข่าว", ISSUE: "ปัญหา", APPOINTMENT: "นัดหมาย", CALENDAR: "กิจกรรม", CONTACT: "ผู้ติดต่อ", GALLERY: "รูปภาพ", PLACE: "สถานที่", DOWNLOAD: "เอกสาร", TRANSPARENCY: "ข้อมูลความโปร่งใส", HOUSEHOLD: "ครัวเรือน", BINDING: "คำขอผูกเลขบ้าน", SYSTEM: "ระบบ",
+  NEWS: "ข่าว", ISSUE: "ปัญหา", APPOINTMENT: "นัดหมาย", CALENDAR: "กิจกรรม", CONTACT: "ผู้ติดต่อ", GALLERY: "รูปภาพ", PLACE: "สถานที่", DOWNLOAD: "เอกสาร", TRANSPARENCY: "ข้อมูลความโปร่งใส", HOUSEHOLD: "ครัวเรือน", SYSTEM: "ระบบ",
 };
 
 function requestVerb(type: NotificationRequestType) {

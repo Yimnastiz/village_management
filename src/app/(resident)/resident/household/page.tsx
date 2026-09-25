@@ -16,7 +16,7 @@ export default async function HouseholdPage() {
 
   const residentMembership = getResidentMembership(session);
   if (!residentMembership) {
-    redirect("/auth/account-migration-required");
+    redirect("/");
   }
 
   const primaryMembership = await prisma.villageMembership.findFirst({

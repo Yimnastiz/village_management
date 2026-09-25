@@ -1,4 +1,4 @@
-import { PrismaPg } from "@prisma/adapter-pg";
+﻿import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, NotificationStatus } from "@prisma/client";
 
 if (!process.env.DATABASE_URL) {
@@ -45,6 +45,7 @@ async function main() {
       phoneNumber: adminPhone,
       phoneNumberVerified: true,
       name: "Smoke Admin",
+      accountKind: "HEADMAN",
     },
   });
 
@@ -52,7 +53,8 @@ async function main() {
     data: {
       phoneNumber: residentPhone,
       phoneNumberVerified: true,
-      name: "Smoke Resident",
+      name: "Smoke House Account",
+      accountKind: "RESIDENT_HOUSE",
     },
   });
 
@@ -151,7 +153,7 @@ async function main() {
       userId: admin.id,
       villageId: village.id,
       type: "APPOINTMENT_UPDATE",
-      title: "อัปเดตนัดหมาย: ลูกบ้านยืนยันเวลา",
+      title: "อัปเดตนัดหมาย: สมาชิกยืนยันเวลา",
       body: `เรื่อง: ${pendingNoSlot.title}`,
       metadata: { appointmentId: pendingNoSlot.id },
     },
@@ -182,7 +184,7 @@ async function main() {
       userId: admin.id,
       villageId: village.id,
       type: "APPOINTMENT_UPDATE",
-      title: "อัปเดตนัดหมาย: ลูกบ้านปฏิเสธเวลา",
+      title: "อัปเดตนัดหมาย: สมาชิกปฏิเสธเวลา",
       body: `เรื่อง: ${secondApt.title}`,
       metadata: { appointmentId: secondApt.id },
     },

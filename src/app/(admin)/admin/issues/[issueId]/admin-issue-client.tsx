@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -318,11 +318,11 @@ export function AdminMessageForm({ issueId }: { issueId: string }) {
         >
           {isInternal ? (
             <>
-              <Lock className="h-3 w-3" /> บันทึกภายใน (ไม่เห็นโดยลูกบ้าน)
+              <Lock className="h-3 w-3" /> บันทึกภายใน (ไม่เห็นโดยสมาชิก)
             </>
           ) : (
             <>
-              <Globe className="h-3 w-3" /> ข้อความสาธารณะ (ลูกบ้านเห็น)
+              <Globe className="h-3 w-3" /> ข้อความสาธารณะ (สมาชิกเห็น)
             </>
           )}
         </button>

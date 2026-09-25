@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ImagePlus, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
@@ -101,7 +101,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
             options: [
               { label: "ทั้งหมด", href: buildGalleryHref({ q: keyword, visibility: "ALL", submissions: activeSubmissions, sort: activeSort }), active: activeVisibility === "ALL" },
               { label: "สาธารณะ", href: buildGalleryHref({ q: keyword, visibility: "PUBLIC", submissions: activeSubmissions, sort: activeSort }), active: activeVisibility === "PUBLIC" },
-              { label: "ลูกบ้าน", href: buildGalleryHref({ q: keyword, visibility: "RESIDENT_ONLY", submissions: activeSubmissions, sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
+              { label: "สมาชิก", href: buildGalleryHref({ q: keyword, visibility: "RESIDENT_ONLY", submissions: activeSubmissions, sort: activeSort }), active: activeVisibility === "RESIDENT_ONLY" },
             ],
           },
           {
@@ -156,7 +156,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
               <div className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
                   <Badge variant={album.isPublic ? "success" : "info"}>
-                    {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+                    {album.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
                   </Badge>
                   {album.allowResidentSubmissions && (
                     <Badge variant="warning">รับคำขอรูป</Badge>

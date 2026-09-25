@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useId, useState } from "react";
 import { ChevronDown, ChevronUp, Info } from "lucide-react";
@@ -24,7 +24,7 @@ export function ImportPreparationDisclosure() {
         <div id={contentId} className="border-t border-gray-200 px-4 py-3">
           <ul className="space-y-1 text-xs leading-5 text-gray-600 sm:text-sm">
             <li>ระบบจะตรวจสอบข้อมูลเดิมก่อนสร้างรายการใหม่ เพื่อลดข้อมูลซ้ำ</li>
-            <li>การนำเข้าข้อมูลไม่ใช่การยืนยันตัวตนของลูกบ้าน</li>
+            <li>การนำเข้าข้อมูลไม่ใช่การยืนยันตัวตนของสมาชิก</li>
             <li>ข้อมูลจะยังไม่ถูกบันทึกจริงจนกว่าจะตรวจสอบและยืนยัน</li>
           </ul>
         </div>

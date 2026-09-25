@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { AuditAction, NewsStage, NewsVisibility, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
@@ -141,7 +141,7 @@ export async function createNewsCreateRequestAction(
 
   await notifyVillageAdmins(
     ctx.villageId,
-    "มีคำขอข่าวใหม่จากลูกบ้าน",
+    "มีคำขอข่าวใหม่จากสมาชิก",
     `หัวข้อ: ${normalized.value.title}`,
     { requestId: created.id, type: "CREATE" }
   );
@@ -191,7 +191,7 @@ export async function createNewsUpdateRequestAction(
 
   await notifyVillageAdmins(
     ctx.villageId,
-    "มีคำขอแก้ไขข่าวจากลูกบ้าน",
+    "มีคำขอแก้ไขข่าวจากสมาชิก",
     `หัวข้อ: ${targetNews.title}`,
     { requestId: created.id, type: "UPDATE", targetNewsId }
   );
@@ -337,7 +337,7 @@ export async function createNewsDeleteRequestAction(
 
   await notifyVillageAdmins(
     ctx.villageId,
-    "มีคำขอลบข่าวจากลูกบ้าน",
+    "มีคำขอลบข่าวจากสมาชิก",
     `หัวข้อ: ${targetNews.title}`,
     { requestId: created.id, type: "UPDATE", targetNewsId }
   );

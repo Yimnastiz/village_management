@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,7 +17,7 @@ export function ContactRequestDecisionActions({ requestId, contactName, requestT
   const isUpdate = requestType === "UPDATE";
   const isDelete = requestType === "DELETE";
   return <><div className="mt-6 flex flex-col-reverse gap-2 border-t border-gray-100 pt-5 sm:flex-row sm:justify-end"><Button variant="danger" type="button" onClick={() => setDialog("reject")}>ไม่อนุมัติ</Button><Button type="button" onClick={() => setDialog("approve")}>อนุมัติ</Button></div>
-    <ConfirmDialog open={dialog === "approve" && !isDelete} title={isUpdate ? "อนุมัติคำขอแก้ไขผู้ติดต่อ?" : "อนุมัติคำขอเพิ่มผู้ติดต่อ?"} description={isUpdate ? `ระบบจะปรับข้อมูลของ “${contactName}” ตามข้อมูลที่เสนอ` : `ระบบจะเพิ่ม “${contactName}” เข้ารายชื่อผู้ติดต่อของหมู่บ้าน\n\nการมองเห็นเริ่มต้น: เฉพาะลูกบ้าน`} confirmLabel="ยืนยันอนุมัติ" pending={pending} onClose={() => setDialog(null)} onConfirm={() => { void approve(); }} />
+    <ConfirmDialog open={dialog === "approve" && !isDelete} title={isUpdate ? "อนุมัติคำขอแก้ไขผู้ติดต่อ?" : "อนุมัติคำขอเพิ่มผู้ติดต่อ?"} description={isUpdate ? `ระบบจะปรับข้อมูลของ “${contactName}” ตามข้อมูลที่เสนอ` : `ระบบจะเพิ่ม “${contactName}” เข้ารายชื่อผู้ติดต่อของหมู่บ้าน\n\nการมองเห็นเริ่มต้น: เฉพาะสมาชิก`} confirmLabel="ยืนยันอนุมัติ" pending={pending} onClose={() => setDialog(null)} onConfirm={() => { void approve(); }} />
     <ActionReasonDialog open={dialog === "approve" && isDelete} action="content.delete" title="อนุมัติคำขอลบผู้ติดต่อ" description={`ระบบจะนำ “${contactName}” ออกจากรายชื่อ และบันทึกเหตุผลใน Audit Log`} submitLabel="ยืนยันอนุมัติและลบ" loading={pending} onCancel={() => setDialog(null)} onSubmit={approve} />
     <ActionReasonDialog open={dialog === "reject"} action="content.request.reject" title="ไม่อนุมัติคำขอ" description="เหตุผลจะถูกแจ้งแก่ผู้ส่งคำขอและบันทึกใน Audit Log" submitLabel="ยืนยันไม่อนุมัติ" loading={pending} onCancel={() => setDialog(null)} onSubmit={reject} />
   </>;

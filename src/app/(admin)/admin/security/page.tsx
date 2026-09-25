@@ -5,7 +5,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { AUDIT_MODULE_RESOURCES, auditCategoryMatches, auditModuleForResource, auditModuleLabel, auditResourcesForModule, formatAuditEvent, importantAuditWhere } from "@/lib/audit-event";
 import { formatNewsAuthor } from "@/lib/news-author";
-import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
+import { getActorRoleLabel } from "@/lib/actor-role";
 import { prisma } from "@/lib/prisma";
 import { AuditEventList, type AuditListEvent } from "./audit-event-list";
 import { AuditCustomDateFilter } from "./audit-custom-date-filter";
@@ -17,7 +17,7 @@ const EVENT_ACTIONS: Record<string, AuditAction[]> = {
   CREATE: ["CREATE", "VILLAGE_CREATED_FROM_CATALOG", "VILLAGE_CREATED_MANUAL"],
   UPDATE: ["UPDATE", "EXPORT", "POPULATION_IMPORT_STARTED", "POPULATION_IMPORT_VALIDATED", "POPULATION_IMPORT_CONFIRMED", "POPULATION_IMPORT_COMPLETED", "POPULATION_IMPORT_PARTIAL", "POPULATION_IMPORT_FAILED", "POPULATION_IMPORT_ROLLBACK", "POPULATION_EXPORT_CREATED", "VILLAGE_CATALOG_IMPORTED", "VILLAGE_CATALOG_UPDATED"],
   DELETE: ["DELETE"], REVIEW: ["APPROVE", "REJECT"],
-  AUTH_SECURITY: ["LOGIN", "LOGOUT", "VIEW_SENSITIVE", "APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT"],
+  AUTH_SECURITY: ["LOGIN", "LOGOUT", "VIEW_SENSITIVE"],
 };
 type PageProps = { searchParams?: Promise<{ q?: string; view?: string; period?: string; from?: string; to?: string; event?: string; actor?: string; module?: string; page?: string }> };
 
@@ -49,7 +49,7 @@ async function resolveTargetNames(villageId: string, logs: Array<{ id: string; r
   const ids = (resource: string) => logs.filter((log) => log.resource === resource && log.resourceId).map((log) => log.resourceId!);
   const membershipIds = logs.filter((log) => ["VillageMembership", "MembershipSupport", "VillageAdminSupport"].includes(log.resource) && log.resourceId).map((log) => log.resourceId!);
   const userIds = [...new Set([...ids("UserAccount"), ...logs.flatMap((log) => metadataUserIds(log.metadata))])];
-  const [news, places, houses, people, galleries, downloads, events, issues, transparency, contacts, memberships, users, appointments, bindingRequests] = await Promise.all([
+  const [news, places, houses, people, galleries, downloads, events, issues, transparency, contacts, memberships, users, appointments] = await Promise.all([
     prisma.news.findMany({ where: { villageId, id: { in: ids("News") } }, select: { id: true, title: true } }),
     prisma.villagePlace.findMany({ where: { villageId, id: { in: ids("VillagePlace") } }, select: { id: true, name: true } }),
     prisma.house.findMany({ where: { villageId, id: { in: ids("House") } }, select: { id: true, houseNumber: true } }),
@@ -63,9 +63,8 @@ async function resolveTargetNames(villageId: string, logs: Array<{ id: string; r
     prisma.villageMembership.findMany({ where: { villageId, id: { in: membershipIds } }, select: { id: true, user: { select: { name: true } } } }),
     prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }),
     prisma.appointment.findMany({ where: { villageId, id: { in: ids("Appointment") } }, select: { id: true, title: true, user: { select: { name: true } } } }),
-    prisma.bindingRequest.findMany({ where: { villageId, id: { in: [...ids("BindingRequest"), ...ids("BindingRequestSupport")] } }, select: { id: true, user: { select: { name: true } } } }),
   ]);
-  const byResourceId = new Map<string, string>([...news.map((row) => [row.id, row.title] as const), ...places.map((row) => [row.id, row.name] as const), ...houses.map((row) => [row.id, `บ้านเลขที่ ${row.houseNumber}`] as const), ...people.map((row) => [row.id, `${row.firstName} ${row.lastName}`.trim()] as const), ...galleries.map((row) => [row.id, row.title] as const), ...downloads.map((row) => [row.id, row.title] as const), ...events.map((row) => [row.id, row.title] as const), ...issues.map((row) => [row.id, row.title] as const), ...transparency.map((row) => [row.id, row.title] as const), ...contacts.map((row) => [row.id, row.name] as const), ...memberships.map((row) => [row.id, row.user.name] as const), ...users.map((row) => [row.id, row.name] as const), ...appointments.map((row) => [row.id, `${row.title} · ${row.user.name}`] as const), ...bindingRequests.map((row) => [row.id, row.user.name] as const)]);
+  const byResourceId = new Map<string, string>([...news.map((row) => [row.id, row.title] as const), ...places.map((row) => [row.id, row.name] as const), ...houses.map((row) => [row.id, `บ้านเลขที่ ${row.houseNumber}`] as const), ...people.map((row) => [row.id, `${row.firstName} ${row.lastName}`.trim()] as const), ...galleries.map((row) => [row.id, row.title] as const), ...downloads.map((row) => [row.id, row.title] as const), ...events.map((row) => [row.id, row.title] as const), ...issues.map((row) => [row.id, row.title] as const), ...transparency.map((row) => [row.id, row.title] as const), ...contacts.map((row) => [row.id, row.name] as const), ...memberships.map((row) => [row.id, row.user.name] as const), ...users.map((row) => [row.id, row.name] as const), ...appointments.map((row) => [row.id, `${row.title} · ${row.user.name}`] as const)]);
   const usersById = new Map(users.map((row) => [row.id, row.name] as const));
   return new Map(logs.flatMap((log) => {
     const name = log.resourceId ? byResourceId.get(log.resourceId) : undefined;
@@ -97,10 +96,9 @@ export default async function SecurityPage({ searchParams }: PageProps) {
     if (log.user && actorLabel) log.user.name = actorLabel;
     const event = formatAuditEvent(log); const target = names.get(log.id) ?? event.targetFromMetadata; const searchable = `${log.user?.name ?? ""} ${event.label} ${event.resourceLabel} ${target ?? ""}`.toLocaleLowerCase("th-TH");
     if (!auditCategoryMatches(event, eventFilter) || (moduleFilter !== "ALL" && auditModuleForResource(log.resource) !== moduleFilter) || (q && !searchable.includes(loweredQuery))) return [];
-    const isSuperAdmin = event.isSuperAdminIntervention;
-    const historicalRoleLabel = getLegacyActorRoleLabel(event.actorRole);
-    const actor = isSuperAdmin ? (log.user?.name?.trim() ? `${log.user.name.trim()} (ผู้ดูแลระบบระดับสูง)` : "ผู้ดูแลระบบระดับสูง") : log.user ? historicalRoleLabel ? `${log.user.name} (${historicalRoleLabel})` : formatNewsAuthor(log.user.name, log.user.memberships[0]?.role) : "ผู้ดูแลหมู่บ้านเดิม";
-    return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), formattedTime: fullAuditTime(log.createdAt), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes, reason: event.reason, reasonLabel: isSuperAdmin ? "เหตุผลในการดำเนินการ" : "เหตุผล" } satisfies AuditListEvent];
+    const actorRoleLabel = getActorRoleLabel(event.actorRole);
+    const actor = log.user ? actorRoleLabel ? `${log.user.name} (${actorRoleLabel})` : formatNewsAuthor(log.user.name, log.user.memberships[0]?.role) : "ระบบ";
+    return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), formattedTime: fullAuditTime(log.createdAt), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes, reason: event.reason, reasonLabel: "เหตุผล" } satisfies AuditListEvent];
   });
   const visibleEvents = q ? filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : filtered.slice(0, PAGE_SIZE); const hasNext = q ? filtered.length > page * PAGE_SIZE : rawLogs.length > PAGE_SIZE; const activeFilters = view !== "all" || period !== "30D" || eventFilter !== "ALL" || moduleFilter !== "ALL" || actorFilter !== "ALL"; const base = { q: q || undefined, view: view === "all" ? undefined : view, period: period === "30D" ? undefined : period, from: period === "CUSTOM" ? from || undefined : undefined, to: period === "CUSTOM" ? to || undefined : undefined, event: eventFilter === "ALL" ? undefined : eventFilter, actor: actorFilter === "ALL" ? undefined : actorFilter, module: moduleFilter === "ALL" ? undefined : moduleFilter };
   const actorOptions = [{ label: "ทุกคน", value: "ALL" }, { label: "ผู้ใหญ่บ้าน", value: "HEADMAN" }];

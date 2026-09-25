@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -119,7 +119,7 @@ export function EditIssueForm({
 
       <label className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
         <input type="checkbox" {...register("isPublic")} />
-        เปิดเผยปัญหานี้ให้ลูกบ้านคนอื่นในหมู่บ้านเห็นได้
+        เปิดเผยปัญหานี้ให้สมาชิกคนอื่นในหมู่บ้านเห็นได้
       </label>
 
       <IssueImageManager value={images} onChange={setImages} onBusyChange={setImagesBusy} disabled={isSubmitting} />

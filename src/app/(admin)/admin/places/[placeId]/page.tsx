@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Clock3, MapPin, Pencil, Phone } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +106,7 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
               {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
-              <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
+              <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</Badge>
             </div>
             <h2 className="mt-3 text-xl font-bold text-gray-900">{place.name}</h2>
             {creatorName && <p className="mt-1 text-sm text-gray-500">{creatorLabel} {creatorName}</p>}

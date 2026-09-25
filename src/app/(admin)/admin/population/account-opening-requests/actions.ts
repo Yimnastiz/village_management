@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { revalidatePath } from "next/cache";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
@@ -22,7 +22,7 @@ function refreshOpeningRequestViews(requestId: string) {
 }
 
 export async function approveOpeningRequestAction(requestId: string): Promise<OpeningReviewActionResult> {
-  const context = await getVillagePermissionContext("binding.review");
+  const context = await getVillagePermissionContext("house_account_opening.review");
   if (!context) return { success: false, message: "คุณไม่มีสิทธิ์อนุมัติคำขอนี้" };
   try {
     const result = await approveAndActivateHouseAccount(context.session.id, requestId);
@@ -47,7 +47,7 @@ export async function approveOpeningRequestAction(requestId: string): Promise<Op
 }
 
 export async function rejectOpeningRequestAction(requestId: string, reason: string): Promise<OpeningReviewActionResult> {
-  const context = await getVillagePermissionContext("binding.review");
+  const context = await getVillagePermissionContext("house_account_opening.review");
   if (!context) return { success: false, message: "คุณไม่มีสิทธิ์ปฏิเสธคำขอนี้" };
   try {
     const result = await rejectHouseAccountOpeningRequest(context.session.id, requestId, reason);

@@ -1,4 +1,4 @@
-import { AuditAction, Prisma } from "@prisma/client";
+﻿import { AuditAction, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { isContactCategory, validateContactEmail, validateContactPhone } from "@/lib/contact";
 import { prisma } from "@/lib/prisma";
@@ -48,7 +48,7 @@ export async function updateContact(context: VillageActorContext, id: string, in
     await prisma.$transaction(async (tx) => { await tx.contactDirectory.update({ where: { id }, data: { isPublic } }); await audit(tx, context, AuditAction.UPDATE, "ADMIN_RESIDENT_CONTACT_VISIBILITY_CHANGED", id, { changedFields: existing.isPublic === isPublic ? [] : ["isPublic"] }); });
     return { success: true };
   }
-  if (provenance.source === "RESIDENT_REQUESTED") return { success: false, error: "ข้อมูลหลักของผู้ติดต่อนี้ต้องแก้ไขผ่านคำขอจากลูกบ้าน" };
+  if (provenance.source === "RESIDENT_REQUESTED") return { success: false, error: "ข้อมูลหลักของผู้ติดต่อนี้ต้องแก้ไขผ่านคำขอจากสมาชิก" };
   const normalized = normalize(input as ContactInput, existing.category);
   if (!normalized.ok) return { success: false, error: normalized.error };
   await prisma.$transaction(async (tx) => { await tx.contactDirectory.update({ where: { id }, data: normalized.value }); await audit(tx, context, AuditAction.UPDATE, "ADMIN_CONTACT_UPDATED", id, { oldValue: existing, newValue: normalized.value }); });

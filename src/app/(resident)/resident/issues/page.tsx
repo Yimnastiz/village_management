@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { IssueCategory, IssuePriority, Prisma } from "@prisma/client";
@@ -181,7 +181,7 @@ export default async function ResidentIssuesPage({ searchParams }: PageProps) {
                       {issue.location && ` • ${issue.location}`}
                     </p>
                     <p className="text-xs mt-0.5 text-gray-500">
-                      {issue.reporterId === session.id ? "ปัญหาของฉัน" : "ปัญหาของลูกบ้านคนอื่น"}
+                      {issue.reporterId === session.id ? "ปัญหาของฉัน" : "ปัญหาของสมาชิกคนอื่น"}
                     </p>
                   </div>
                 </div>

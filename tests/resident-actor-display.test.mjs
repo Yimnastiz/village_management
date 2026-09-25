@@ -23,12 +23,6 @@ test("Resident House Account displays authoritative House identity and contact",
   });
 });
 
-test("legacy Resident retains personal User identity", () => {
-  assert.deepEqual(residentActorDisplay({ accountKind: "LEGACY_RESIDENT", name: "สมชาย ใจดี", phoneNumber: "0899999999", residentHouseAccount: null }), {
-    label: "สมชาย ใจดี", secondaryLabel: null, contactPhone: "0899999999", houseNumber: null, accountKind: "LEGACY_RESIDENT",
-  });
-});
-
 test("Headman retains normal personal identity", () => {
   assert.deepEqual(residentActorDisplay({ accountKind: "HEADMAN", name: "ผู้ใหญ่ดี", phoneNumber: "0811111111", residentHouseAccount: null }), {
     label: "ผู้ใหญ่ดี", secondaryLabel: "ผู้ใหญ่บ้าน", contactPhone: "0811111111", houseNumber: null, accountKind: "HEADMAN",

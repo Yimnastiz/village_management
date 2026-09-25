@@ -1,7 +1,4 @@
 export const SENSITIVE_ACTIONS = [
-  "binding.approve",
-  "binding.reject",
-  "binding.override_mismatch",
   "house_account_opening.approve",
   "house_account_opening.reject",
   "population.house.create",
@@ -47,9 +44,6 @@ const REASON_NOTIFY: ActionPolicy = { ...REASON, notifyAffectedUser: true };
 
 /** Central policy for meaningful admin actions; domain workflows consume notification intent. */
 export const ACTION_POLICIES: Readonly<Record<SensitiveAction, ActionPolicy>> = {
-  "binding.approve": ROUTINE_NOTIFY,
-  "binding.reject": REASON_NOTIFY,
-  "binding.override_mismatch": REASON_NOTIFY,
   "house_account_opening.approve": ROUTINE_NOTIFY,
   "house_account_opening.reject": { ...REASON_NOTIFY, minReasonLength: 1 },
   "population.house.create": ROUTINE,

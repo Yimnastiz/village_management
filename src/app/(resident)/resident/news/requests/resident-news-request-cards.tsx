@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Globe2, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -77,7 +77,7 @@ export function ResidentPublishedNewsCard({ href, title, summary, publishedAt, v
       <div className="min-w-0 flex-1">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-gray-500">
-            {visibility === "PUBLIC" ? <span className="inline-flex items-center gap-1"><Globe2 className="h-3.5 w-3.5" />สาธารณะ</span> : <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />เฉพาะลูกบ้าน</span>}
+            {visibility === "PUBLIC" ? <span className="inline-flex items-center gap-1"><Globe2 className="h-3.5 w-3.5" />สาธารณะ</span> : <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />เฉพาะสมาชิก</span>}
             {hasPendingRequest ? <span className="text-amber-700">มีคำขอรอพิจารณา</span> : null}
           </div>
           <time className="shrink-0 text-xs text-gray-400">เผยแพร่เมื่อ {publishedAt}</time>

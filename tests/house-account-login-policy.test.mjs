@@ -62,7 +62,6 @@ test("revoked alias and suspended House Account cannot authenticate", () => {
 });
 
 test("legacy resident, Headman, cross-village, and mismatched relations are rejected", () => {
-  assert.equal(houseLoginEligibility({ ...eligible, userAccountKind: "LEGACY_RESIDENT" }), "ACCOUNT_INACTIVE");
   assert.equal(houseLoginEligibility({ ...eligible, userAccountKind: "HEADMAN" }), "ACCOUNT_INACTIVE");
   assert.equal(houseLoginEligibility({ ...eligible, houseVillageId: "village-2" }), "WRONG_VILLAGE");
   assert.equal(houseLoginEligibility({ ...eligible, accountEmailHouseAccountId: "other" }), "IDENTITY_MISMATCH");

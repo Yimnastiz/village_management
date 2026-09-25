@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -32,7 +32,7 @@ export function CreateAppointmentForm({ onClose, onPendingChange, residentsUrl =
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!resident) {
-      setResidentError("กรุณาเลือกลูกบ้าน");
+      setResidentError("กรุณาเลือกสมาชิก");
       return;
     }
     if (pending) return;
@@ -59,7 +59,7 @@ export function CreateAppointmentForm({ onClose, onPendingChange, residentsUrl =
   };
 
   return <form className="space-y-4" onSubmit={submit}>
-    <div className="relative"><Input label="ลูกบ้าน" value={resident ? resident.name : q} onChange={(event) => { setResident(null); setResidentError(null); setQ(event.target.value); }} placeholder="ค้นหาชื่อ / เบอร์ / เลขบ้าน" error={residentError ?? undefined} required />{!resident && q ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-white shadow-lg">{items.length ? items.map((item) => <button key={item.id} type="button" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => { setResident(item); setResidentError(null); setQ(""); }}>{item.name} · บ้าน {item.houseNumber || "-"} · {item.phone}</button>) : <p className="p-3 text-sm text-gray-500">ไม่พบลูกบ้าน</p>}</div> : null}</div>
+    <div className="relative"><Input label="สมาชิก" value={resident ? resident.name : q} onChange={(event) => { setResident(null); setResidentError(null); setQ(event.target.value); }} placeholder="ค้นหาชื่อ / เบอร์ / เลขบ้าน" error={residentError ?? undefined} required />{!resident && q ? <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-white shadow-lg">{items.length ? items.map((item) => <button key={item.id} type="button" className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => { setResident(item); setResidentError(null); setQ(""); }}>{item.name} · บ้าน {item.houseNumber || "-"} · {item.phone}</button>) : <p className="p-3 text-sm text-gray-500">ไม่พบสมาชิก</p>}</div> : null}</div>
     <Input label="เรื่องนัดหมาย" value={title} onChange={(event) => setTitle(event.target.value)} required minLength={3} />
     <Textarea label="รายละเอียด" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} />
     <div className="grid gap-4 sm:grid-cols-2"><Input label="วันที่" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /><Input label="เวลา" type="time" value={startTime} onChange={(event) => setStart(event.target.value)} required step="1800" max="23:00" /></div>

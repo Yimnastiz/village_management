@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Globe2, Users } from "lucide-react";
 import { Prisma } from "@prisma/client";
 import { notFound, redirect } from "next/navigation";
@@ -57,7 +57,7 @@ export default async function ResidentNewsRequestDetailPage({ params, searchPara
       </header>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
-        {visibility === "RESIDENT_ONLY" ? <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" aria-hidden="true" />เฉพาะลูกบ้าน</span> : <span className="inline-flex items-center gap-1.5"><Globe2 className="h-4 w-4" aria-hidden="true" />สาธารณะ</span>}
+        {visibility === "RESIDENT_ONLY" ? <span className="inline-flex items-center gap-1.5"><Users className="h-4 w-4" aria-hidden="true" />เฉพาะสมาชิก</span> : <span className="inline-flex items-center gap-1.5"><Globe2 className="h-4 w-4" aria-hidden="true" />สาธารณะ</span>}
         {Boolean(payload.isPinned) ? <span>ขอปักหมุด</span> : null}
       </div>
 

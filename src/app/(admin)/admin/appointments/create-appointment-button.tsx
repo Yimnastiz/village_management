@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -48,7 +48,7 @@ export function CreateAppointmentButton() {
   const modal = open && typeof document !== "undefined" ? createPortal(
     <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4">
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="create-appointment-title" className="relative flex max-h-[92dvh] w-full max-w-xl flex-col rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4"><h2 id="create-appointment-title" className="text-lg font-semibold">สร้างนัดหมายให้ลูกบ้าน</h2><button ref={closeButtonRef} type="button" aria-label="ปิด" disabled={submitting} onClick={close} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"><X className="h-5 w-5" /></button></div>
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4"><h2 id="create-appointment-title" className="text-lg font-semibold">สร้างนัดหมายให้สมาชิก</h2><button ref={closeButtonRef} type="button" aria-label="ปิด" disabled={submitting} onClick={close} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"><X className="h-5 w-5" /></button></div>
         <div className="overflow-y-auto p-5"><CreateAppointmentForm onClose={close} onPendingChange={setSubmitting} /></div>
       </div>
     </div>,

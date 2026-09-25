@@ -1,4 +1,4 @@
-import { AccountStatus, AuditAction, BindingRequestStatus } from "@prisma/client";
+import { AccountStatus, AuditAction } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -66,7 +66,6 @@ export async function POST(request: NextRequest) {
   const scheduledDeletionAt = new Date(now.getTime() + ACCOUNT_DELETION_GRACE_MS);
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: session.id }, data: { accountStatus: AccountStatus.DELETION_PENDING, deletionRequestedAt: now, scheduledDeletionAt, deletionRecoveryHash: hashRecoveryToken(recoveryToken) } });
-    await tx.bindingRequest.updateMany({ where: { userId: session.id, status: BindingRequestStatus.PENDING }, data: { status: BindingRequestStatus.CANCELLED } });
     await tx.authSession.deleteMany({ where: { userId: session.id } });
     await tx.authVerification.deleteMany({ where: { identifier: phoneNumber } });
     await tx.accountDeletionChallenge.update({ where: { id: challenge.id }, data: { verifiedAt: now } });

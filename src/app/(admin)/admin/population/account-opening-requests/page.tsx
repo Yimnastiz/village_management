@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { HouseAccountOpeningRequestStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
@@ -41,7 +41,7 @@ export default async function Page({
 }: {
   searchParams: Promise<{ tab?: string; q?: string; status?: string; page?: string }>;
 }) {
-  const context = await requireVillagePagePermission("binding.review", {
+  const context = await requireVillagePagePermission("house_account_opening.review", {
     callbackUrl: "/admin/population/account-opening-requests",
     forbiddenRedirect: "/admin/population",
   });

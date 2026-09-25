@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { AuditAction, NotificationType, VillageMembershipRole, VillageEventSubmissionType } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -135,7 +135,7 @@ async function residentRequestContext(requestId: string) {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
-  if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ลูกบ้าน" };
+  if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์สมาชิก" };
   const request = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId }, select: { id: true, status: true, type: true, title: true } });
   if (!request) return { ok: false as const, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   if (request.status !== "PENDING") return { ok: false as const, error: "แก้ไขหรือลบได้เฉพาะคำขอที่รอพิจารณา" };
@@ -146,7 +146,7 @@ export async function updateResidentVillageEventSubmissionAction(requestId: stri
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
-  if (!membership) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้าน" };
+  if (!membership) return { success: false, error: "ไม่พบสิทธิ์สมาชิก" };
   const source = await prisma.villageEventSubmission.findFirst({
     where: { id: requestId, requesterId: session.id, villageId: membership.villageId, type: VillageEventSubmissionType.CREATE, status: { in: ["PENDING", "APPROVED"] } },
     select: { id: true, status: true, eventId: true, villageId: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true },
@@ -217,7 +217,7 @@ export async function createResidentEventChangeRequestAction(requestId: string, 
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
-  if (!membership) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้าน" };
+  if (!membership) return { success: false, error: "ไม่พบสิทธิ์สมาชิก" };
   const source = await prisma.villageEventSubmission.findFirst({ where: { id: requestId, requesterId: session.id, villageId: membership.villageId, status: "APPROVED", type: VillageEventSubmissionType.CREATE }, select: { id: true, villageId: true, eventId: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true } });
   if (!source) return { success: false, error: "ไม่พบคำขอหรือคุณไม่มีสิทธิ์ดำเนินการ" };
   const event = await resolveApprovedSubmissionEvent(source);

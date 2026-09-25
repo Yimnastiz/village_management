@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { AuditAction, NotificationType, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -40,7 +40,7 @@ async function notifyReviewers(villageId: string, requestId: string, requesterNa
 
 export async function createVillagePlaceSubmissionAction(data: PlaceRequestInput): Promise<{ success: true; requestId: string } | { success: false; error: string }> {
   const ctx = await getResidentContext();
-  if (!ctx) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้านสำหรับส่งคำขอสถานที่" };
+  if (!ctx) return { success: false, error: "ไม่พบสิทธิ์สมาชิกสำหรับส่งคำขอสถานที่" };
   const payload = await safeResidentPayload(data, ctx.membership.villageId);
   if (!payload.ok) return { success: false, error: payload.error };
   try {
@@ -57,7 +57,7 @@ export async function createVillagePlaceSubmissionAction(data: PlaceRequestInput
 
 export async function createVillagePlaceUpdateSubmissionAction(targetPlaceId: string, data: PlaceRequestInput): Promise<{ success: true; requestId: string } | { success: false; error: string }> {
   const ctx = await getResidentContext();
-  if (!ctx) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้านสำหรับส่งคำขอสถานที่" };
+  if (!ctx) return { success: false, error: "ไม่พบสิทธิ์สมาชิกสำหรับส่งคำขอสถานที่" };
   const place = await prisma.villagePlace.findFirst({ where: { id: targetPlaceId, villageId: ctx.membership.villageId }, select: { id: true, name: true, createdById: true } });
   if (!place) return { success: false, error: "ไม่พบสถานที่ที่ต้องการเสนอแก้ไข" };
   if (place.createdById !== ctx.session.id) return { success: false, error: "คุณสามารถเสนอแก้ไขได้เฉพาะสถานที่ที่คุณเป็นผู้เสนอสร้าง" };

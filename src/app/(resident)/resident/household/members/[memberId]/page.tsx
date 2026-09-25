@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, User } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
-import { MembershipStatus } from "@prisma/client";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
-import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { formatThaiDate } from "@/lib/utils";
 
 const GENDER_LABELS: Record<string, string> = {
@@ -83,10 +81,7 @@ export default async function MemberDetailPage({ params }: PageProps) {
         nationalId: true,
         phone: true,
         email: true,
-        // A person's stored profilePhoto may be a historical copy. Use the
-        // linked account's image so this page always reflects its current
-        // profile picture.
-        user: { select: { image: true } },
+        profilePhoto: true,
         house: { select: { houseNumber: true } },
       },
     });
@@ -100,27 +95,9 @@ export default async function MemberDetailPage({ params }: PageProps) {
       nationalId: person.nationalId,
       phone: person.phone,
       email: person.email,
-      profilePhoto: person.user?.image ?? null,
+      profilePhoto: person.profilePhoto,
       houseNumber: person.house?.houseNumber,
       source: "ทะเบียนบุคคล",
-    };
-  } else if (type === "membership" && session.accountKind !== "RESIDENT_HOUSE") {
-    const membership = await prisma.villageMembership.findFirst({
-      where: { id: actualId, houseId: effectiveHouseId, villageId: residency.villageId, status: MembershipStatus.ACTIVE },
-      include: {
-        user: { select: { name: true, phoneNumber: true, email: true, image: true } },
-        house: { select: { houseNumber: true } },
-      },
-    });
-    if (!membership) notFound();
-    memberData = {
-      name: membership.user.name,
-      phone: membership.user.phoneNumber,
-      email: membership.user.email,
-      profilePhoto: membership.user.image,
-      houseNumber: membership.house?.houseNumber,
-      role: membership.role,
-      source: "ผู้ใช้งานระบบ",
     };
   } else {
     notFound();
@@ -218,14 +195,6 @@ export default async function MemberDetailPage({ params }: PageProps) {
             <div>
               <dt className="text-gray-500">บ้านเลขที่</dt>
               <dd className="mt-0.5 font-medium text-gray-900">{memberData.houseNumber}</dd>
-            </div>
-          )}
-          {memberData.role && (
-            <div>
-              <dt className="text-gray-500">บทบาทในระบบ</dt>
-              <dd className="mt-0.5 font-medium text-gray-900">
-                {MEMBERSHIP_ROLE_LABELS[memberData.role] ?? memberData.role}
-              </dd>
             </div>
           )}
         </dl>

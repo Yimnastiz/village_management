@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
@@ -73,13 +73,13 @@ export default async function ContactDetailPage({ params }: PageProps) {
       <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <Badge variant={contact.isPublic ? "success" : "info"}>
-            {contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+            {contact.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
           </Badge>
           {contact.category && <Badge variant="outline">{contact.category}</Badge>}
         </div>
         <h2 className="text-xl font-semibold text-gray-900">{contact.name}</h2>
         <div className="space-y-1 text-sm text-gray-500">
-          <p>แหล่งข้อมูล: {isResidentRequested ? "มาจากคำขอลูกบ้าน" : "เพิ่มโดยผู้ดูแล"}</p>
+          <p>แหล่งข้อมูล: {isResidentRequested ? "มาจากคำขอสมาชิก" : "เพิ่มโดยผู้ดูแล"}</p>
           {isResidentRequested ? <Link className="inline-flex text-green-700 hover:underline" href={`/admin/contacts/requests/${provenance.requestId}`}>ดูคำขอต้นทาง</Link> : null}
           {pendingUpdate ? <Link className="block text-amber-700 hover:underline" href={`/admin/contacts/requests/${pendingUpdate.id}`}>มีคำขอแก้ไขรอพิจารณา</Link> : null}
           {pendingDelete ? <Link className="block text-amber-700 hover:underline" href={`/admin/contacts/requests/${pendingDelete.id}`}>มีคำขอลบรอพิจารณา</Link> : null}

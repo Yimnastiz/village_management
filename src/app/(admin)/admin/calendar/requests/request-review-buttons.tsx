@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -77,7 +77,7 @@ export function CalendarRequestReviewButtons({ requestId, requestedVisibility }:
         onChange={(event) => setFinalVisibility(event.target.value as "PUBLIC" | "RESIDENT")}
         disabled={isPending}
         options={[
-          { value: "RESIDENT", label: "เฉพาะลูกบ้าน" },
+          { value: "RESIDENT", label: "เฉพาะสมาชิก" },
           { value: "PUBLIC", label: "สาธารณะ" },
         ]}
       />

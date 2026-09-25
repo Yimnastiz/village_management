@@ -11,7 +11,6 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserRoleLabel } from "@/lib/user-display";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
-import { LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/legacy-superadmin-history";
 import { toggleSaveIssueAction } from "@/features/saved/server/actions";
 import { DeleteIssueButton, MessageForm } from "./issue-client";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
@@ -62,10 +61,9 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
     select: { ...RESIDENT_ACTOR_USER_SELECT, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
-  const superAdminDisplay = { id: "legacy-superadmin", accountKind: null, name: "Super Admin", phoneNumber: null, residentHouseAccount: null, legacyRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const timelineItems = issue.timeline.map((item) => {
-    const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
+    const actor = item.actorId ? userById.get(item.actorId) : undefined;
     return { ...item, actorName: actor ? residentActorDisplay(actor, { villageId: membership.villageId }).label : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
@@ -143,7 +141,7 @@ export default async function ResidentIssueDetailPage({ params }: PageProps) {
         ) : (
           <div className="space-y-3 mb-4">
             {issue.messages.map((msg) => {
-              const sender = userById.get(msg.senderId) ?? (msg.senderId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined);
+              const sender = userById.get(msg.senderId);
               return <div key={msg.id} className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-sm sm:p-4">
                 <p className="break-words font-medium text-gray-900">{msg.senderId === session.id ? "คุณ" : residentActorDisplay(sender, { villageId: membership.villageId }).label} <span className="font-normal text-gray-500">· {sender ? getUserRoleLabel(sender) : "ผู้ใช้งาน"}</span></p>
                 <time className="mt-1 block text-xs text-gray-400">{formatThaiDateTime(msg.createdAt)}</time>

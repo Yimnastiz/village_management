@@ -25,7 +25,7 @@ export default async function ResidentDashboard() {
     redirect("/auth/login?callbackUrl=/resident/dashboard");
   }
   const membership = getResidentMembership(session);
-  if (!membership?.houseId) redirect("/auth/account-migration-required");
+  if (!membership?.houseId) redirect("/");
 
   const effectiveHouseId = membership.houseId;
 

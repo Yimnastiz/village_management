@@ -1,5 +1,5 @@
-import type { AuditAction, Prisma } from "@prisma/client";
-import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
+﻿import type { AuditAction, Prisma } from "@prisma/client";
+import { getActorRoleLabel } from "@/lib/actor-role";
 
 export type AuditEventCategory = "CREATE" | "UPDATE" | "DELETE" | "REVIEW" | "AUTH" | "SECURITY";
 export type AuditEventTone = "success" | "info" | "danger" | "warning" | "neutral";
@@ -21,7 +21,6 @@ export type FormattedAuditEvent = {
   targetFromMetadata: string | null;
   changes: Array<{ label: string; before: string | null; after: string | null }>;
   reason: string | null;
-  isSuperAdminIntervention: boolean;
 };
 
 export const IMPORTANT_AUDIT_ACTIONS: readonly AuditAction[] = [
@@ -29,7 +28,6 @@ export const IMPORTANT_AUDIT_ACTIONS: readonly AuditAction[] = [
   "POPULATION_IMPORT_STARTED", "POPULATION_IMPORT_VALIDATED", "POPULATION_IMPORT_CONFIRMED",
   "POPULATION_IMPORT_COMPLETED", "POPULATION_IMPORT_PARTIAL", "POPULATION_IMPORT_FAILED",
   "POPULATION_IMPORT_ROLLBACK", "POPULATION_EXPORT_CREATED",
-  "APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT",
 ];
 
 export const IMPORTANT_AUDIT_RESOURCES = [
@@ -44,7 +42,7 @@ export const IMPORTANT_AUDIT_ACTION_NAMES = [
   "TRANSPARENCY_PUBLISHED", "TRANSPARENCY_ARCHIVED", "TRANSPARENCY_REPUBLISHED",
   "ISSUE_STATUS_CHANGED",
   "APPOINTMENT_APPROVED", "APPOINTMENT_REJECTED", "APPOINTMENT_COMPLETED", "APPOINTMENT_CANCELLED_BY_HEADMAN",
-  "DUPLICATE_NATIONAL_ID_RESOLVED", "ACCOUNT_DELETION_REQUESTED", "ACCOUNT_ANONYMIZED",
+  "ACCOUNT_DELETION_REQUESTED", "ACCOUNT_ANONYMIZED",
 ] as const;
 
 /** Central database-filterable definition used by the important-events view. */
@@ -78,7 +76,6 @@ export function isImportantAuditEvent(input: AuditInput): boolean {
 export const AUDIT_MODULE_RESOURCES: Record<string, readonly string[]> = {
   ACCOUNTS: ["UserAccount", "UserSystemRole", "UserProfile", "AuthSession", "NationalIdClaim", "VillageMembership", "VillageAdminRoleAssignment", "VillageAdminRoleRemoval", "VillageAdminSupport", "MembershipSupport", "UserMembership", "UserMembershipSuspension"],
   POPULATION: ["Person", "House", "PopulationImportJob", "PopulationExport"],
-  BINDING: ["BindingRequest", "BindingRequestSupport"],
   NEWS: ["News", "NewsSubmission"], CALENDAR: ["VillageEvent", "VillageEventSubmission"], APPOINTMENT: ["Appointment"],
   ISSUE: ["Issue"], GALLERY: ["GalleryAlbum", "GalleryItem", "GalleryItemSubmission"], PLACE: ["VillagePlace", "VillagePlaceSubmission"],
   DOWNLOAD: ["DownloadFile"], TRANSPARENCY: ["TransparencyRecord"],
@@ -92,11 +89,11 @@ export function auditResourcesForModule(module: string) {
 }
 
 export function auditModuleLabel(module: string) {
-  return ({ ACCOUNTS: "บัญชี/สมาชิก", POPULATION: "ประชากร/บ้าน", BINDING: "การผูกบ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", CONTACT: "ผู้ติดต่อ", SETTINGS: "การตั้งค่า", BROADCAST: "ประกาศ" } as Record<string, string>)[module] ?? module;
+  return ({ ACCOUNTS: "บัญชี/สมาชิก", POPULATION: "ประชากร/บ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", CONTACT: "ผู้ติดต่อ", SETTINGS: "การตั้งค่า", BROADCAST: "ประกาศ" } as Record<string, string>)[module] ?? module;
 }
 
 export function auditActorRoleLabel(role?: string | null) {
-  return getLegacyActorRoleLabel(role) ?? role ?? null;
+  return getActorRoleLabel(role) ?? role ?? null;
 }
 
 const resourceLabels: Record<string, string> = {
@@ -104,7 +101,6 @@ const resourceLabels: Record<string, string> = {
   NewsSubmission: "คำขอข่าว",
   House: "ทะเบียนบ้าน",
   Person: "ข้อมูลบุคคล",
-  BindingRequest: "คำขอผูกเลขบ้าน",
   VillagePlace: "สถานที่",
   VillagePlaceSubmission: "คำขอสถานที่",
   GalleryAlbum: "อัลบั้มรูปภาพ",
@@ -121,7 +117,6 @@ const resourceLabels: Record<string, string> = {
   VillageMembership: "สมาชิกหมู่บ้าน",
   MembershipSupport: "สิทธิ์สมาชิก",
   VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน",
-  BindingRequestSupport: "คำขอผูกเลขบ้าน",
   Appointment: "นัดหมาย",
   NationalIdClaim: "การยืนยันตัวตน",
   PopulationImportJob: "การนำเข้าข้อมูลประชากร",
@@ -132,7 +127,6 @@ const investigationResourceLabels: Record<string, string> = {
   SystemSettings: "การตั้งค่าระบบ",
   Village: "หมู่บ้าน", VillageStatus: "สถานะหมู่บ้าน", UserAccount: "บัญชีผู้ใช้", UserProfile: "ข้อมูลผู้ใช้", UserSystemRole: "บทบาทผู้ใช้",
   VillageMembership: "สมาชิกหมู่บ้าน", UserMembership: "สมาชิกหมู่บ้าน", UserMembershipSuspension: "การระงับสมาชิก", VillageAdminRoleAssignment: "การกำหนดบทบาท", VillageAdminRoleRemoval: "การถอดบทบาท", VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน", MembershipSupport: "สมาชิกและบทบาท",
-  Person: "ข้อมูลบุคคล", House: "ทะเบียนบ้าน", BindingRequest: "คำขอผูกเลขที่บ้าน", BindingRequestSupport: "คำขอผูกเลขที่บ้าน", News: "ข่าวสาร", NewsSubmission: "คำขอข่าวสาร",
   VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItem: "รูปภาพในแกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
   VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "ความโปร่งใส", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
   PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศ", VillageBroadcast: "ประกาศ", AccountEmail: "อีเมลเข้าสู่ระบบบัญชีบ้าน",
@@ -148,8 +142,8 @@ const actionNameLabels: Record<string, string> = {
   NEWS_CREATED: "เพิ่มข่าว",
   NEWS_UPDATED: "แก้ไขข่าว",
   NEWS_DELETED: "ลบข่าว",
-  NEWS_SUBMISSION_APPROVED: "อนุมัติข่าวที่ลูกบ้านส่ง",
-  NEWS_SUBMISSION_REJECTED: "ไม่อนุมัติข่าวที่ลูกบ้านส่ง",
+  NEWS_SUBMISSION_APPROVED: "อนุมัติข่าวที่สมาชิกส่ง",
+  NEWS_SUBMISSION_REJECTED: "ไม่อนุมัติข่าวที่สมาชิกส่ง",
   NEWS_CREATE_REQUEST_SUBMITTED: "ส่งคำขอสร้างข่าว",
   NEWS_UPDATE_REQUEST_SUBMITTED: "ส่งคำขอแก้ไขข่าว",
   NEWS_DELETE_REQUEST_SUBMITTED: "ส่งคำขอลบข่าว",
@@ -163,9 +157,6 @@ const actionNameLabels: Record<string, string> = {
   PLACE_CREATE_REQUEST_SUBMITTED: "ส่งคำขอเพิ่มสถานที่",
   PLACE_UPDATE_REQUEST_SUBMITTED: "ส่งคำขอแก้ไขสถานที่",
   GALLERY_SUBMISSION_CREATED: "ส่งรูปภาพเข้ารอการตรวจสอบ",
-  BINDING_REQUEST_SUBMITTED: "ส่งคำขอผูกบ้าน",
-  BINDING_REQUEST_UPDATED: "แก้ไขคำขอผูกบ้าน",
-  BINDING_REQUEST_CANCELLED: "ยกเลิกคำขอผูกบ้าน",
   PLACE_CREATED: "เพิ่มสถานที่",
   PLACE_UPDATED: "แก้ไขข้อมูลสถานที่",
   PLACE_DELETED: "ลบสถานที่",
@@ -175,14 +166,11 @@ const actionNameLabels: Record<string, string> = {
   HOUSE_BATCH_CREATED: "เพิ่มบ้านหลายหลัง",
   HOUSE_UPDATED: "แก้ไขทะเบียนบ้าน",
   HOUSE_DELETED: "ลบทะเบียนบ้าน",
-  HOUSE_CREATED_FROM_VERIFIED_BINDING_REQUEST: "เพิ่มทะเบียนบ้านจากคำขอ",
   PERSON_CREATED: "เพิ่มข้อมูลบุคคล",
   PERSON_UPDATED: "แก้ไขข้อมูลบุคคล",
   PERSON_MOVED_HOUSE: "ย้ายบุคคลไปบ้านใหม่",
   PERSON_MOVED_OUT: "บันทึกการย้ายออก",
   PERSON_MARKED_DECEASED: "บันทึกสถานะเป็นเสียชีวิต",
-  BINDING_APPROVED_TO_EXISTING_HOUSE: "อนุมัติคำขอผูกเลขบ้าน",
-  BINDING_REJECTED: "ไม่อนุมัติคำขอผูกเลขบ้าน",
   GALLERY_ALBUM_EDIT_SAVED: "แก้ไขอัลบั้มรูปภาพ",
   GALLERY_ITEMS_ADDED: "เพิ่มรูปภาพในอัลบั้ม",
   GALLERY_ALBUM_CREATED: "สร้างอัลบั้มรูปภาพ",
@@ -203,7 +191,7 @@ const actionNameLabels: Record<string, string> = {
   ISSUE_STATUS_CHANGED: "เปลี่ยนสถานะคำร้องปัญหา",
   APPOINTMENT_REQUEST_SUBMITTED: "ส่งคำขอนัดหมาย",
   APPOINTMENT_REQUEST_UPDATED: "แก้ไขคำขอนัดหมาย",
-  APPOINTMENT_CANCELLED_BY_RESIDENT: "ลูกบ้านยกเลิกนัดหมาย",
+  APPOINTMENT_CANCELLED_BY_RESIDENT: "สมาชิกยกเลิกนัดหมาย",
   APPOINTMENT_CREATED_BY_HEADMAN: "ผู้ใหญ่บ้านสร้างนัดหมาย",
   APPOINTMENT_UPDATED_BY_HEADMAN: "ผู้ใหญ่บ้านแก้ไขนัดหมาย",
   APPOINTMENT_TIME_PROPOSED: "ผู้ใหญ่บ้านเสนอเวลานัดหมาย",
@@ -211,8 +199,8 @@ const actionNameLabels: Record<string, string> = {
   APPOINTMENT_REJECTED: "ปฏิเสธนัดหมาย",
   APPOINTMENT_COMPLETED: "ปิดนัดหมายว่าเสร็จสิ้น",
   APPOINTMENT_CANCELLED_BY_HEADMAN: "ผู้ใหญ่บ้านยกเลิกนัดหมาย",
-  APPOINTMENT_TIME_CONFIRMED_BY_RESIDENT: "ลูกบ้านยืนยันเวลานัดหมาย",
-  APPOINTMENT_TIME_CHANGE_REQUESTED: "ลูกบ้านขอเปลี่ยนเวลานัดหมาย",
+  APPOINTMENT_TIME_CONFIRMED_BY_RESIDENT: "สมาชิกยืนยันเวลานัดหมาย",
+  APPOINTMENT_TIME_CHANGE_REQUESTED: "สมาชิกขอเปลี่ยนเวลานัดหมาย",
   USER_PROFILE_UPDATED: "แก้ไขข้อมูลบัญชี",
   OWN_NATIONAL_ID_VIEWED: "เปิดดูเลขประจำตัวประชาชนของตนเอง",
   ACCOUNT_DELETION_REQUESTED: "ขอลบบัญชี",
@@ -278,9 +266,7 @@ const valueLabels: Record<string, string> = {
   MALE: "ชาย",
   FEMALE: "หญิง",
   HEADMAN: "ผู้ใหญ่บ้าน",
-  ASSISTANT_HEADMAN: "ผู้ช่วยผู้ใหญ่บ้าน",
-  RESIDENT: "ลูกบ้าน",
-  SUPERADMIN: "ผู้ดูแลระบบระดับสูง",
+  RESIDENT: "สมาชิก",
   SUSPEND: "ระงับสมาชิก",
   ACTIVATE: "เปิดใช้งาน",
 };
@@ -309,7 +295,7 @@ function displayFieldValue(field: string, value: Prisma.JsonValue | undefined): 
 
 function classify(action: AuditAction, resource: string): Pick<FormattedAuditEvent, "category" | "tone" | "icon"> {
   if (["LOGIN", "LOGOUT"].includes(action)) return { category: "AUTH", tone: "neutral", icon: "login" };
-  if (["APPROVE_RESIDENT_WITH_NATIONAL_ID", "REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT", "RELEASE_PHONE_FROM_REVOKED_ACCOUNT", "VIEW_SENSITIVE"].includes(action)) return { category: "SECURITY", tone: "warning", icon: "shield" };
+  if (action === "VIEW_SENSITIVE") return { category: "SECURITY", tone: "warning", icon: "shield" };
   if (resource.includes("Membership") || resource === "UserAccount") return { category: "SECURITY", tone: "warning", icon: "user-cog" };
   if (action === "CREATE") return { category: "CREATE", tone: "success", icon: "plus" };
   if (action === "DELETE" || action === "REJECT") return { category: action === "REJECT" ? "REVIEW" : "DELETE", tone: "danger", icon: action === "REJECT" ? "x" : "trash" };
@@ -329,9 +315,6 @@ function fallbackLabel(action: AuditAction, resourceLabel: string): string {
     POPULATION_IMPORT_FAILED: "นำเข้าข้อมูลประชากรไม่สำเร็จ",
     POPULATION_IMPORT_ROLLBACK: "ย้อนกลับการนำเข้าข้อมูลประชากร",
     POPULATION_EXPORT_CREATED: "ส่งออกข้อมูลประชากร",
-    APPROVE_RESIDENT_WITH_NATIONAL_ID: "ยืนยันตัวตนลูกบ้าน",
-    REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT: "จัดการบัญชีซ้ำ",
-    RELEASE_PHONE_FROM_REVOKED_ACCOUNT: "ปลดเบอร์โทรจากบัญชีเดิม",
   };
   const value = verb[action] ?? "บันทึกเหตุการณ์";
   return ["LOGIN", "LOGOUT"].includes(action) ? value : `${value}${resourceLabel ? ` ${resourceLabel}` : ""}`;
@@ -346,8 +329,6 @@ const actionLabels: Partial<Record<AuditAction, string>> = {
   POPULATION_IMPORT_ROLLBACK: "ย้อนกลับการนำเข้าข้อมูลประชากร", POPULATION_EXPORT_CREATED: "ส่งออกข้อมูลประชากร",
   VILLAGE_CREATED_FROM_CATALOG: "สร้างหมู่บ้านจากฐานข้อมูล", VILLAGE_CREATED_MANUAL: "สร้างหมู่บ้านด้วยตนเอง",
   VILLAGE_CATALOG_IMPORTED: "นำเข้าฐานข้อมูลหมู่บ้าน", VILLAGE_CATALOG_UPDATED: "ปรับปรุงฐานข้อมูลหมู่บ้าน",
-  APPROVE_RESIDENT_WITH_NATIONAL_ID: "ยืนยันตัวตนลูกบ้าน", REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT: "จัดการบัญชีซ้ำ",
-  RELEASE_PHONE_FROM_REVOKED_ACCOUNT: "ปลดเบอร์โทรจากบัญชีเดิม",
 };
 
 export function auditActionLabel(action: AuditAction) {
@@ -374,11 +355,6 @@ export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
     .map(text)
     .find((value): value is string => Boolean(value && value.trim()));
   const actorRole = text(metadata.actorRole);
-  const actorType = text(metadata.actorType);
-  // Current Headman-sensitive actions also store supportReason. It is only a
-  // legacy intervention marker when old metadata has no current actor identity.
-  const isLegacySupportIntervention = Boolean(text(metadata.supportReason)) && !actorRole && !actorType;
-  const isSuperAdminIntervention = actorRole === "SUPERADMIN" || actorType === "SUPERADMIN_ENV" || isLegacySupportIntervention;
   const reason = [metadata.supportReason, metadata.reason]
     .map(text)
     .find((value): value is string => Boolean(value && value.trim())) ?? null;
@@ -390,7 +366,6 @@ export function formatAuditEvent(input: AuditInput): FormattedAuditEvent {
     targetFromMetadata: targetFromMetadata ?? null,
     changes: usefulChanges(metadata),
     reason,
-    isSuperAdminIntervention,
   };
 }
 

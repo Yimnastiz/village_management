@@ -1,6 +1,6 @@
-export const MEMBER_ROLE_LABEL: Record<string, string> = {
+﻿export const MEMBER_ROLE_LABEL: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  RESIDENT: "ลูกบ้าน",
+  RESIDENT: "สมาชิก",
 };
 
 export const MEMBER_STATUS_LABEL: Record<string, string> = {

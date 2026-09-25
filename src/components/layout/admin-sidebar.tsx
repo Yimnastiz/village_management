@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -36,7 +36,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/transparency", label: "ความโปร่งใส", icon: FileSearch, permission: "transparency.manage" },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown, permission: "downloads.manage" },
   { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound, permission: "population.view" },
-  { href: "/admin/population/account-opening-requests", label: "คำขอเปิดบัญชีบ้าน", icon: ClipboardCheck, permission: "binding.review" },
+  { href: "/admin/population/account-opening-requests", label: "คำขอเปิดบัญชีบ้าน", icon: ClipboardCheck, permission: "house_account_opening.review" },
   { href: "/admin/population/houses", label: "ทะเบียนบ้าน", icon: House, permission: "population.house.manage" },
   { href: "/admin/population/people", label: "ทะเบียนประชากร", icon: Users, permission: "population.person.manage" },
   { href: "/admin/population/import", label: "นำเข้า/ส่งออกข้อมูล", icon: FileUp, permission: "population.import" },

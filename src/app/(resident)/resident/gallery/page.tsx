@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Images } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +142,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
               <div className="space-y-2 p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   {membership.hasResidentAccess ? <Badge variant={album.isPublic ? "success" : "info"}>
-                    {album.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+                    {album.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
                   </Badge> : null}
                   {membership.hasResidentAccess && album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
                   <Badge variant="outline">{album._count.items} รูป</Badge>

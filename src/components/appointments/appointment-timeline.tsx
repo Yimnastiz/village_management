@@ -72,8 +72,7 @@ function changeDetails(metadata: Record<string, Prisma.JsonValue>) {
 
 function actorLabel(entry: TimelineEntry, villageId: string, viewerId?: string) {
   if (!entry.actorId) {
-    const metadata = metadataOf(entry.metadata);
-    return metadata.actorRole === "SUPERADMIN" || metadata.actorType === "SUPERADMIN_ENV" ? "ผู้ดูแลระบบระดับสูง (Super Admin)" : "ระบบ";
+    return "ระบบ";
   }
   if (viewerId && entry.actorId === viewerId) return "คุณ";
   const metadata = metadataOf(entry.metadata);

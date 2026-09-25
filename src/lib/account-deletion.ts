@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { AccountStatus, AuditAction, BindingRequestStatus, MembershipStatus, RegistrationTempStatus, VillageMembershipRole } from "@prisma/client";
+import { AccountStatus, AuditAction, MembershipStatus, VillageMembershipRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export const ACCOUNT_DELETION_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -28,14 +28,11 @@ export async function finalizeAccountDeletion(userId: string) {
     const user = await tx.user.findUnique({ where: { id: userId }, include: { memberships: { select: { villageId: true, role: true } } } });
     if (!user || user.accountStatus !== AccountStatus.DELETION_PENDING || !user.scheduledDeletionAt || user.scheduledDeletionAt > new Date()) return false;
     const anonymousPhone = user.phoneNumber ? `deleted-${user.id}` : null;
-    await tx.bindingRequest.updateMany({ where: { userId, status: BindingRequestStatus.PENDING }, data: { status: BindingRequestStatus.CANCELLED } });
     await tx.villageMembership.updateMany({ where: { userId }, data: { status: MembershipStatus.SUSPENDED, houseId: null } });
     await tx.authSession.deleteMany({ where: { userId } });
     if (user.phoneNumber) {
-      await tx.registrationTemp.updateMany({ where: { phoneNumber: user.phoneNumber }, data: { status: RegistrationTempStatus.CANCELLED, nationalId: "", name: "ผู้ใช้ที่ปิดบัญชีแล้ว" } });
       await tx.authVerification.deleteMany({ where: { identifier: user.phoneNumber } });
       await tx.loginOtpChallenge.deleteMany({ where: { phoneNumber: user.phoneNumber } });
-      await tx.registrationOtpChallenge.deleteMany({ where: { phoneNumber: user.phoneNumber } });
     }
     await tx.accountDeletionChallenge.deleteMany({ where: { userId } });
     await tx.user.update({
@@ -43,8 +40,7 @@ export async function finalizeAccountDeletion(userId: string) {
       data: {
         accountStatus: AccountStatus.ANONYMIZED, anonymizedAt: new Date(), name: "ผู้ใช้ที่ปิดบัญชีแล้ว",
         phoneNumber: anonymousPhone, phoneNumberVerified: false, email: null, image: null,
-        registrationProvince: null, registrationDistrict: null, registrationSubdistrict: null,
-        registrationVillageId: null, citizenVerifiedAt: null, deletionRecoveryHash: null,
+        deletionRecoveryHash: null,
       },
     });
     await tx.auditLog.createMany({ data: (user.memberships.length ? user.memberships : [{ villageId: null, role: null }]).map((membership) => ({ userId, villageId: membership.villageId, action: AuditAction.UPDATE, resource: "UserAccount", resourceId: userId, metadata: { actorRole: membership.role, actionName: "ACCOUNT_ANONYMIZED", status: AccountStatus.ANONYMIZED } })) });

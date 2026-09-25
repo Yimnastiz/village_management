@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -57,7 +57,7 @@ export function CalendarRequestEditForm({ requestId, defaultValues }: { requestI
         <Input label="สถานที่" {...register("location")} error={errors.location?.message} />
         <Select label="การมองเห็น" {...register("isPublic")} options={[
           { value: "PUBLIC", label: "สาธารณะ" },
-          { value: "RESIDENT", label: "เฉพาะลูกบ้าน" },
+          { value: "RESIDENT", label: "เฉพาะสมาชิก" },
         ]} error={errors.isPublic?.message} />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -52,13 +52,13 @@ test("canonical removal rotates User.email without changing User or House owners
   assert.match(service, /canonicalEmailRotated = true/u);
 });
 
-test("security and profile UI use House Account semantics while legacy UI remains", () => {
+test("security and profile UI use only House Account semantics", () => {
   assert.match(securityPage, /session\.accountKind === "RESIDENT_HOUSE"/u);
   assert.match(securityPage, /HouseAccountEmailManager/u);
   assert.match(securityPage, /<AccountDeletionCard/u);
-  assert.match(profilePage, /user\.accountKind === "RESIDENT_HOUSE"/u);
+  assert.match(profilePage, /residentHouseAccount\.findUnique/u);
   assert.match(profilePage, /HouseAccountProfile/u);
-  assert.match(profilePage, /<ProfileDetails/u);
+  assert.doesNotMatch(profilePage, /ProfileDetails|prisma\.person/u);
   assert.match(deletionPolicy, /user\.accountKind === "RESIDENT_HOUSE"/u);
 });
 

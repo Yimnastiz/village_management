@@ -14,7 +14,7 @@ export type SessionContext = {
   id: string;
   phoneNumber: string | null;
   name: string;
-  accountKind: AccountKind | null;
+  accountKind: AccountKind;
   accountStatus: AccountStatus;
   activeVillageId: string | null;
   loginAccountEmailId: string | null;
@@ -115,17 +115,6 @@ export async function getSessionContextFromRequest(request: NextRequest | Reques
   return getSessionContextByToken(readSessionCookieFromRequest(request));
 }
 
-/** Maps only preserved legacy account rows to the controlled support page. */
-export async function getLegacyAccountRedirectPathFromRequest(request: NextRequest | Request): Promise<string | null> {
-  const token = readSessionCookieFromRequest(request);
-  if (!token) return null;
-  const session = await loadAuthSession(unsignSessionToken(token)).catch(() => null);
-  if (!session) return null;
-  return session.user.accountKind === AccountKind.LEGACY_RESIDENT || session.user.accountStatus === AccountStatus.DUPLICATE_ID
-    ? "/auth/account-migration-required"
-    : null;
-}
-
 export async function getActiveAuthRedirectPathFromServerCookies(): Promise<string | null> {
   const session = await getSessionContextFromServerCookies();
   return session ? getAuthenticatedAccessRedirectPath(session) : null;
@@ -136,10 +125,8 @@ export async function getActiveAuthRedirectPathFromRequest(request: NextRequest 
   return session ? getAuthenticatedAccessRedirectPath(session) : null;
 }
 
-function isHeadmanAccountKind(accountKind: AccountKind | null): boolean {
-  // Null is a transition-only compatibility case for Headmen created before
-  // the account-kind backfill. The active HEADMAN membership remains required.
-  return accountKind === AccountKind.HEADMAN || accountKind === null;
+function isHeadmanAccountKind(accountKind: AccountKind): boolean {
+  return accountKind === AccountKind.HEADMAN;
 }
 
 export function isAdminUser(session: SessionContext): boolean {
@@ -150,11 +137,6 @@ export function isAdminUser(session: SessionContext): boolean {
 
 export function canManagePopulation(role: VillageMembershipRole): boolean {
   return ADMIN_MEMBERSHIP_ROLE_SET.has(role);
-}
-
-/** Kept for historical-data tools only. The final runtime has no Binding review workflow. */
-export function canReviewBinding(role: VillageMembershipRole): boolean {
-  return role === VillageMembershipRole.HEADMAN;
 }
 
 export function getAdminMembership(
@@ -214,7 +196,7 @@ export function getHeadmanMembership(session: SessionContext) {
 export function computeLandingPath(session: SessionContext): string {
   if (isAdminUser(session)) return "/admin/dashboard";
   if (getResidentMembership(session)) return "/resident/dashboard";
-  return "/auth/account-migration-required";
+  return "/";
 }
 
 export async function getAuthenticatedAccessRedirectPath(session: SessionContext): Promise<string> {
@@ -223,11 +205,11 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
   }
   return getResidentMembership(session)
     ? "/resident/dashboard"
-    : "/auth/account-migration-required";
+    : "/";
 }
 
 export async function getResidentAreaAccessInfo(session: SessionContext): Promise<{ canAccess: boolean; redirectPath: string }> {
   return getResidentMembership(session)
     ? { canAccess: true, redirectPath: "/resident/dashboard" }
-    : { canAccess: false, redirectPath: "/auth/account-migration-required" };
+    : { canAccess: false, redirectPath: "/" };
 }

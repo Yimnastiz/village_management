@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft, House, MailCheck, Phone, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +38,7 @@ function formatDate(value: Date | null) {
 
 export default async function Page({ params }: { params: Promise<{ requestId: string }> }) {
   const { requestId } = await params;
-  const context = await requireVillagePagePermission("binding.review", {
+  const context = await requireVillagePagePermission("house_account_opening.review", {
     callbackUrl: `/admin/population/account-opening-requests/${requestId}`,
     forbiddenRedirect: "/admin/population",
   });

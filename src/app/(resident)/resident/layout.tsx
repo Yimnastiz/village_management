@@ -29,7 +29,7 @@ export default async function ResidentLayout({ children }: { children: React.Rea
   if (systemSettings.maintenanceMode) return <MaintenanceNotice message={systemSettings.maintenanceMessage} />;
 
   const residentMembership = getResidentMembership(session);
-  if (!residentMembership) redirect("/auth/account-migration-required");
+  if (!residentMembership) redirect("/");
 
   const [userProfile, unreadNotificationCount, villageProfile] = await Promise.all([
     prisma.user.findUnique({
@@ -37,7 +37,6 @@ export default async function ResidentLayout({ children }: { children: React.Rea
       select: {
         ...RESIDENT_ACTOR_USER_SELECT,
         image: true,
-        registrationVillage: { select: { id: true, slug: true, name: true, moo: true, province: true, district: true, subdistrict: true } },
       },
     }),
     prisma.notification.count({

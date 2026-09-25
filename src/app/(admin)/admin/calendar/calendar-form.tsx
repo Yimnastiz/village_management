@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -127,7 +127,7 @@ export function CalendarForm({ mode, eventId, defaultValues }: CalendarFormProps
           {...register("isPublic")}
           options={[
             { value: "PUBLIC", label: "สาธารณะ" },
-            { value: "RESIDENT", label: "เฉพาะลูกบ้าน" },
+            { value: "RESIDENT", label: "เฉพาะสมาชิก" },
           ]}
           error={errors.isPublic?.message}
         />

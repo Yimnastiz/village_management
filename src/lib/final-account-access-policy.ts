@@ -1,12 +1,11 @@
-export type FinalAccountKind = "HEADMAN" | "RESIDENT_HOUSE" | "LEGACY_RESIDENT" | null;
+export type FinalAccountKind = "HEADMAN" | "RESIDENT_HOUSE";
 
 export function isHeadmanPhoneLoginEligible(input: {
   accountKind: FinalAccountKind | undefined;
   accountStatus: string | undefined;
   hasActiveConfiguredHeadmanMembership: boolean;
 }): boolean {
-  const isHeadmanKind = input.accountKind === "HEADMAN" || input.accountKind === null;
-  return isHeadmanKind && input.accountStatus === "ACTIVE" && input.hasActiveConfiguredHeadmanMembership;
+  return input.accountKind === "HEADMAN" && input.accountStatus === "ACTIVE" && input.hasActiveConfiguredHeadmanMembership;
 }
 
 export function isResidentHouseAccessEligible(input: {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
-import { MEMBERSHIP_ROLE_LABELS, MEMBERSHIP_STATUS_LABELS, MOVEMENT_TYPE_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
+import { MOVEMENT_TYPE_LABELS, PERSON_STATUS_LABELS } from "@/lib/constants";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { prisma } from "@/lib/prisma";
 import { maskNationalId } from "@/lib/utils";
@@ -17,12 +17,6 @@ function toThaiDate(value: Date | null): string {
   return value.toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function maskLoginPhone(value: string | null) {
-  if (!value) return "ไม่มีเบอร์โทรเข้าสู่ระบบ";
-  if (value.length < 7) return value;
-  return `${value.slice(0, 3)}-${"x".repeat(Math.max(3, value.length - 7))}-${value.slice(-4)}`;
-}
-
 export default async function Page({ params }: PageProps) {
   const { personId } = await params;
   const context = await getVillagePermissionContext("population.person.manage");
@@ -34,17 +28,10 @@ export default async function Page({ params }: PageProps) {
     include: {
       house: { select: { id: true, houseNumber: true } },
       movements: { include: { house: { select: { houseNumber: true } } }, orderBy: { date: "desc" }, take: 10 },
-      user: {
-        select: {
-          id: true, name: true, phoneNumber: true, email: true, accountStatus: true,
-          memberships: { where: { villageId: adminMembership.villageId }, select: { role: true, status: true }, take: 1 },
-        },
-      },
     },
   });
   if (!person) redirect("/admin/population/people");
 
-  const linkedMembership = person.user?.memberships[0] ?? null;
   const canRecordLifecycle = person.status === "ACTIVE" || person.status === "UNKNOWN";
 
   return <div data-admin-compact-top className="space-y-3 sm:space-y-4">
@@ -56,7 +43,7 @@ export default async function Page({ params }: PageProps) {
         backLabel="กลับทะเบียนประชากร"
         backPlacement="header-end"
         title={`${person.firstName} ${person.lastName}`}
-        description="ข้อมูลทะเบียน ประวัติการอยู่อาศัย และบัญชีผู้ใช้ที่เชื่อมโยง"
+        description="ข้อมูลทะเบียนประชากรและประวัติการอยู่อาศัย"
         actions={<div className="flex flex-wrap gap-2">{canRecordLifecycle ? <><Link href={`/admin/population/people/${person.id}/edit`} className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">แก้ไขข้อมูล</Link><MoveOutPersonButton personId={person.id} /><MarkDeceasedPersonButton personId={person.id} /></> : null}</div>}
       />
       {person.status === "MOVED_OUT" ? <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">บุคคลนี้ถูกย้ายออกจากทะเบียนแล้ว หากกลับมาอยู่ใหม่ ให้ผู้ใหญ่บ้านปรับปรุงข้อมูลทะเบียนประชากร</p> : null}
@@ -76,21 +63,6 @@ export default async function Page({ params }: PageProps) {
         <Detail label="อีเมลสำหรับติดต่อ" value={person.email ?? "-"} className="break-all" />
         <div><dt className="text-gray-500">{person.status === "DECEASED" ? "บ้านที่บันทึกล่าสุด" : "บ้านปัจจุบัน"}</dt><dd className="mt-1 font-medium text-gray-900">{person.house ? <Link href={`/admin/population/houses/${person.house.id}`} className="text-blue-600 hover:text-blue-700 hover:underline">{person.house.houseNumber}</Link> : "-"}</dd></div>
       </dl>
-    </section>
-
-    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="border-b border-gray-200 px-4 py-3"><h2 className="font-semibold text-gray-900">บัญชีผู้ใช้</h2></div>
-      {!person.user ? <p className="px-4 py-8 text-sm text-gray-500">ยังไม่มีบัญชีผู้ใช้เชื่อมกับข้อมูลบุคคลนี้</p> : <div className="flex min-w-0 items-start gap-3 p-4 sm:items-center">
-        <div aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-700">{person.user.name.trim().slice(0, 1) || "ผ"}</div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-gray-900">{person.user.name}</p>
-          <p className="mt-0.5 break-all text-sm text-gray-600">เบอร์เข้าสู่ระบบ {maskLoginPhone(person.user.phoneNumber)}</p>
-          {person.user.email && !person.user.email.endsWith("@local.invalid") ? <p className="mt-0.5 break-all text-sm text-gray-600">อีเมลบัญชี {person.user.email}</p> : null}
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-            {linkedMembership ? <><span>{MEMBERSHIP_ROLE_LABELS[linkedMembership.role] ?? linkedMembership.role}</span><span aria-hidden="true">·</span><Badge variant={linkedMembership.status === "ACTIVE" ? "success" : linkedMembership.status === "SUSPENDED" ? "warning" : "default"}>{MEMBERSHIP_STATUS_LABELS[linkedMembership.status] ?? linkedMembership.status}</Badge></> : <span>ไม่มี membership ของหมู่บ้านนี้ · สถานะบัญชี {person.user.accountStatus === "ACTIVE" ? "ใช้งานอยู่" : "ไม่พร้อมใช้งาน"}</span>}
-          </div>
-        </div>
-      </div>}
     </section>
 
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">

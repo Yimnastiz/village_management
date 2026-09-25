@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -127,7 +127,7 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, cancelHref =
         <legend className="text-sm font-medium text-gray-700">การมองเห็นที่ต้องการ <span className="text-red-500">*</span></legend>
         <div className="mt-2 grid gap-2 sm:grid-cols-2">
           <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[:checked]:border-green-600 has-[:checked]:bg-green-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-green-500"><input type="radio" value="PUBLIC" className="sr-only" {...register("visibility")} /><Globe2 className="h-4 w-4 text-gray-500" aria-hidden="true" />สาธารณะ</label>
-          <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[:checked]:border-green-600 has-[:checked]:bg-green-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-green-500"><input type="radio" value="RESIDENT_ONLY" className="sr-only" {...register("visibility")} /><Users className="h-4 w-4 text-gray-500" aria-hidden="true" />เฉพาะลูกบ้าน</label>
+          <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 has-[:checked]:border-green-600 has-[:checked]:bg-green-50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-green-500"><input type="radio" value="RESIDENT_ONLY" className="sr-only" {...register("visibility")} /><Users className="h-4 w-4 text-gray-500" aria-hidden="true" />เฉพาะสมาชิก</label>
         </div>
         <p id="news-request-visibility-helper" className="mt-2 text-xs text-gray-500">ผู้ดูแลหมู่บ้านสามารถปรับการมองเห็นก่อนอนุมัติได้</p>
         {errors.visibility ? <p className="mt-1 text-sm text-red-600">{errors.visibility.message}</p> : null}

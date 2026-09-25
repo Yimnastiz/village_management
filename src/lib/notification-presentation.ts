@@ -1,6 +1,6 @@
 import type { Notification, Prisma } from "@prisma/client";
 import type { LucideIcon } from "lucide-react";
-import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, House, Images, MapPin, Megaphone, MessageSquareText, Newspaper, Phone, ShieldCheck, UsersRound } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, CircleAlert, FileDown, FileSearch, House, Images, MapPin, Megaphone, MessageSquareText, Newspaper, Phone, UsersRound } from "lucide-react";
 
 type NotificationMetadata = Record<string, Prisma.JsonValue | undefined>;
 
@@ -21,8 +21,6 @@ const PRESENTATIONS = {
   houseAccountOpening: { icon: House, iconClassName: "text-emerald-700", iconContainerClassName: "bg-emerald-50" },
   feedback: { icon: MessageSquareText, iconClassName: "text-violet-700", iconContainerClassName: "bg-violet-50", bodyClassName: "line-clamp-2 whitespace-normal" },
   broadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศ", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ใหญ่บ้าน" },
-  legacyBroadcast: { icon: Megaphone, iconClassName: "text-amber-700", iconContainerClassName: "bg-amber-50", accentClassName: "border-l-4 border-l-amber-500", badge: "ประกาศ", badgeClassName: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200", sourceAttribution: "ประกาศโดยผู้ดูแลระบบระดับสูง" },
-  superadmin: { icon: ShieldCheck, iconClassName: "text-sky-700", iconContainerClassName: "bg-sky-50", accentClassName: "border-l-4 border-l-sky-500", badge: "ผู้ดูแลระดับสูง", badgeClassName: "bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200" },
 } satisfies Record<string, NotificationPresentation>;
 
 function metadataOf(notification: Pick<Notification, "metadata">): NotificationMetadata {
@@ -38,7 +36,6 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   const metadata = metadataOf(notification);
   const source = typeof metadata.source === "string" ? metadata.source.toUpperCase() : "";
   const actionUrl = typeof metadata.actionUrl === "string" ? metadata.actionUrl : "";
-  if (source === "SUPERADMIN_INTERVENTION") return PRESENTATIONS.superadmin;
   if (source === "PUBLIC_FEEDBACK") return PRESENTATIONS.feedback;
   if (hasString(metadata, "openingRequestId")) return PRESENTATIONS.houseAccountOpening;
   if (notification.type === "NEWS" || hasString(metadata, "newsId") || source.includes("NEWS")) return PRESENTATIONS.news;
@@ -55,9 +52,8 @@ export function resolveNotificationPresentation(notification: Pick<Notification,
   if (hasString(metadata, "placeId") || source.includes("PLACE") || actionUrl.includes("/places")) return PRESENTATIONS.places;
   if (hasString(metadata, "fileId") || source.includes("DOWNLOAD") || actionUrl.includes("/downloads")) return PRESENTATIONS.downloads;
   if (hasString(metadata, "transparencyId") || source.includes("TRANSPARENCY") || actionUrl.includes("/transparency")) return PRESENTATIONS.transparency;
-  if (notification.type === "BINDING_REQUEST" || hasString(metadata, "bindingRequestId") || actionUrl.includes("/binding") || actionUrl.includes("/household")) return PRESENTATIONS.household;
+  if (actionUrl.includes("/household")) return PRESENTATIONS.household;
   if (source === "VILLAGE_BROADCAST") return PRESENTATIONS.broadcast;
-  if (source === "SUPERADMIN_BROADCAST") return PRESENTATIONS.legacyBroadcast;
   if (notification.type === "SYSTEM" && hasString(metadata, "personId")) return PRESENTATIONS.household;
   return DEFAULT_PRESENTATION;
 }

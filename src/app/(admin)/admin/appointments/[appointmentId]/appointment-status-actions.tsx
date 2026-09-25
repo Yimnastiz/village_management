@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -86,7 +86,7 @@ export function AppointmentStatusActions({ appointmentId, canReject, canCancel, 
     {canReject ? <Button type="button" variant="danger" size="sm" onClick={() => setRejectOpen(true)}>ปฏิเสธคำขอ</Button> : null}
     {canCancel ? <Button type="button" variant="danger" size="sm" onClick={() => setCancelOpen(true)}>ยกเลิกนัดหมาย</Button> : null}
 
-    <ActionReasonDialog open={rejectOpen} action="appointment.reject_time" title="ปฏิเสธคำขอนัดหมาย" description="กรุณาระบุเหตุผลเพื่อแจ้งให้ลูกบ้านทราบ" submitLabel="ยืนยันปฏิเสธ" loading={rejectPending} onCancel={() => setRejectOpen(false)} onSubmit={submitReject} />
+    <ActionReasonDialog open={rejectOpen} action="appointment.reject_time" title="ปฏิเสธคำขอนัดหมาย" description="กรุณาระบุเหตุผลเพื่อแจ้งให้สมาชิกทราบ" submitLabel="ยืนยันปฏิเสธ" loading={rejectPending} onCancel={() => setRejectOpen(false)} onSubmit={submitReject} />
     <ActionReasonDialog open={cancelOpen} action="appointment.cancel" title="ยกเลิกนัดหมาย" description="กรุณาระบุเหตุผลในการยกเลิกนัดหมาย" submitLabel="ยืนยันยกเลิกนัดหมาย" loading={cancelPending} onCancel={() => setCancelOpen(false)} onSubmit={submitCancel} />
   </>;
 }

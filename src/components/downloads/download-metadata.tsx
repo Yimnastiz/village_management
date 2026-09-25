@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+﻿import { Fragment, type ReactNode } from "react";
 import { Globe2, Users } from "lucide-react";
 import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/downloads/constants";
 
@@ -25,7 +25,7 @@ export function DownloadVisibilityMetadata({ visibility, category, categoryLabel
       ? DOWNLOAD_CATEGORY_LABELS[category] || category
       : "ทั่วไป";
   const VisibilityIcon = visibility === "PUBLIC" ? Globe2 : Users;
-  const visibilityLabel = visibility === "PUBLIC" ? "สาธารณะ" : "เฉพาะลูกบ้าน";
+  const visibilityLabel = visibility === "PUBLIC" ? "สาธารณะ" : "เฉพาะสมาชิก";
 
   return <><span className="inline-flex items-center gap-1"><VisibilityIcon className="h-3.5 w-3.5 shrink-0" />{visibilityLabel}</span><span>{categoryText}</span></>;
 }
@@ -45,7 +45,7 @@ export function DownloadMetadata({
       ? DOWNLOAD_CATEGORY_LABELS[category] || category
       : null;
   const VisibilityIcon = visibility === "PUBLIC" ? Globe2 : Users;
-  const visibilityLabel = visibility === "PUBLIC" ? "สาธารณะ" : "เฉพาะลูกบ้าน";
+  const visibilityLabel = visibility === "PUBLIC" ? "สาธารณะ" : "เฉพาะสมาชิก";
   const items = [
     <span key="visibility" className="inline-flex items-center gap-1.5"><VisibilityIcon className="h-3.5 w-3.5 shrink-0" />{visibilityLabel}</span>,
     categoryText ? <span key="category">{categoryText}</span> : null,

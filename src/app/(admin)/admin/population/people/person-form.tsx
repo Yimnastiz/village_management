@@ -85,7 +85,7 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, linked
 
   return <form onSubmit={handleSubmit(submit)} className="space-y-6 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
     {linkedAccount ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">ข้อมูลนี้เชื่อมกับบัญชีผู้ใช้แล้ว สามารถแก้ชื่อและนามสกุลจริงได้เมื่อระบุเหตุผล โดยระบบจะอัปเดตชื่อบัญชีให้ตรงกัน ส่วนเลขบัตรประชาชนและข้อมูลเข้าสู่ระบบยังคงได้รับการป้องกัน</p> : null}
-    {movedOut ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">บุคคลนี้ย้ายออกจากทะเบียนแล้ว จึงไม่สามารถผูกบ้านหรือกลับเข้าสถานะเดิมจากหน้านี้ได้</p> : null}
+    {movedOut ? <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">บุคคลนี้ย้ายออกจากทะเบียนแล้ว จึงไม่สามารถเลือกบ้านหรือกลับเข้าสถานะเดิมจากหน้านี้ได้</p> : null}
     {deceased ? <p className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm leading-6 text-gray-700">บุคคลนี้ถูกบันทึกว่าเสียชีวิตแล้ว สามารถแก้ไขข้อมูลทะเบียนพื้นฐานได้ แต่ไม่สามารถเปลี่ยนบ้านหรือกลับเป็นสถานะอยู่ในทะเบียนจากแบบฟอร์มนี้</p> : null}
 
     <fieldset className="space-y-4"><legend className="text-sm font-semibold text-gray-900">ข้อมูลระบุตัวตน</legend>

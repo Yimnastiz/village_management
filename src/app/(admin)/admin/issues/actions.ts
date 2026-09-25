@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import {
   IssueCategory,
@@ -160,7 +160,7 @@ export async function adminEditIssueAction(
   if (!issue) return { success: false, error: "ไม่พบคำร้องหรือไม่ใช่คำร้องในหมู่บ้านของคุณ" };
   const initialTimeline = issue.timeline[0];
   const wasCreatedByAdmin = initialTimeline?.action === "แจ้งปัญหา" && initialTimeline.description === "แอดมินสร้างคำร้องใหม่";
-  if (!wasCreatedByAdmin) return { success: false, error: "ไม่สามารถแก้ไขข้อมูลคำร้องที่ลูกบ้านส่งได้" };
+  if (!wasCreatedByAdmin) return { success: false, error: "ไม่สามารถแก้ไขข้อมูลคำร้องที่สมาชิกส่งได้" };
 
   await prisma.$transaction(async (tx) => {
     await tx.issue.update({ where: { id: issueId }, data: {

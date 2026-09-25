@@ -14,17 +14,6 @@ function stringValue(metadata: NotificationMetadata, key: string) {
   return typeof value === "string" && value.length > 0 ? value : null;
 }
 
-function interventionMetadata(notification: Pick<Notification, "metadata">) {
-  const metadata = metadataOf(notification);
-  return typeof metadata.source === "string" && metadata.source.toUpperCase() === "SUPERADMIN_INTERVENTION" ? metadata : null;
-}
-
-const interventionResourceLabels: Record<string, string> = {
-  House: "ข้อมูลบ้าน", Person: "ข้อมูลบุคคล", MembershipSupport: "ข้อมูลสมาชิก", VillageMembership: "สมาชิกหมู่บ้าน",
-  VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน", Issue: "คำร้อง", Appointment: "นัดหมาย", PopulationExport: "ทะเบียนประชากร",
-  VillageEventSubmission: "คำขอกิจกรรม", GallerySubmission: "คำขอรูปภาพ", Download: "เอกสาร", TransparencyRecord: "ข้อมูลความโปร่งใส",
-};
-
 /**
  * Resolves a destination from structured notification metadata.  Keep this in
  * one place so a notification always opens the most specific admin resource.
@@ -34,7 +23,6 @@ export function resolveAdminNotificationDestination(
 ): string | null {
   const metadata = metadataOf(notification);
   const openingRequestId = stringValue(metadata, "openingRequestId");
-  const bindingRequestId = stringValue(metadata, "bindingRequestId");
   const requestId = stringValue(metadata, "requestId") ?? stringValue(metadata, "submissionId");
   const newsId = stringValue(metadata, "newsId");
   const eventId = stringValue(metadata, "eventId");
@@ -49,12 +37,10 @@ export function resolveAdminNotificationDestination(
 
   const fromNotifications = (path: string) => `${path}${path.includes("?") ? "&" : "?"}from=notifications`;
   const actionUrl = stringValue(metadata, "actionUrl");
-  if (["SUPERADMIN_BROADCAST", "VILLAGE_BROADCAST"].includes(source?.toUpperCase() ?? "")) return `/admin/notifications/${notification.id}`;
+  if (source?.toUpperCase() === "VILLAGE_BROADCAST") return `/admin/notifications/${notification.id}`;
   if (source?.toUpperCase() === "PUBLIC_FEEDBACK") return fromNotifications(`/admin/feedback/${notification.id}`);
-  if (source === "SUPERADMIN_INTERVENTION" && actionUrl?.startsWith("/admin/")) return fromNotifications(actionUrl);
   if (action?.includes("ISSUE_DELETED")) return "/admin/issues";
   if (openingRequestId) return fromNotifications(`/admin/population/account-opening-requests/${openingRequestId}`);
-  if (bindingRequestId) return fromNotifications("/admin/security");
   if (appointmentId) return fromNotifications(`/admin/appointments/${appointmentId}`);
   if (issueId) return action?.includes("ISSUE_DELETED") ? "/admin/issues" : fromNotifications(`/admin/issues/${issueId}`);
 
@@ -85,12 +71,10 @@ export function resolveAdminNotificationDestination(
 
   // actionUrl is retained for existing structured notifications, but never
   // sends an administrator out of the admin area.
-  if (actionUrl?.startsWith("/admin/population/binding-requests")) return fromNotifications("/admin/security");
   return actionUrl?.startsWith("/admin/") ? actionUrl : null;
 }
 
 const LEGACY_THAI_COPY: Partial<Record<NotificationType, { title: string; body?: string }>> = {
-  BINDING_REQUEST: { title: "มีคำขอผูกเลขบ้านใหม่", body: "มีลูกบ้านส่งคำขอผูกเลขบ้าน กรุณาตรวจสอบรายละเอียดคำขอ" },
   APPOINTMENT_UPDATE: { title: "มีการอัปเดตนัดหมาย" },
   ISSUE_UPDATE: { title: "มีการอัปเดตการแจ้งปัญหา" },
   NEWS: { title: "มีรายการข่าวที่เกี่ยวข้อง" },
@@ -102,19 +86,9 @@ export function getAdminNotificationCopy(notification: Pick<Notification, "type"
   if (typeof metadata.source === "string" && metadata.source.toUpperCase() === "PUBLIC_FEEDBACK") {
     return { title: feedbackNotificationTitle(stringValue(metadata, "category")), body: notification.body };
   }
-  const intervention = interventionMetadata(notification);
-  if (intervention) {
-    const actionLabel = stringValue(intervention, "actionLabel") ?? "ดำเนินการในหมู่บ้าน";
-    const actorLabel = stringValue(intervention, "actorLabel") ?? "ผู้ดูแลระบบระดับสูง";
-    const resource = interventionResourceLabels[stringValue(intervention, "targetType") ?? ""] ?? "รายการที่เกี่ยวข้อง";
-    const reason = stringValue(intervention, "supportReason");
-    const legacyBody = notification.body?.replace(/^.*?\n/, "").replace(/^เหตุผล:\s*/u, "").trim();
-    return { title: `${actorLabel}${actionLabel}`, body: `${legacyBody && legacyBody !== reason ? `ดำเนินการกับ${resource}: ${legacyBody}` : `ดำเนินการกับ${resource}`}${reason ? `\nเหตุผล: ${reason}` : ""}` };
-  }
   const fallback = LEGACY_THAI_COPY[notification.type];
   const titleIsEnglish = /^[\x00-\x7F]+$/.test(notification.title);
   const bodyIsEnglish = notification.body ? /^[\x00-\x7F]+$/.test(notification.body) : false;
 
-  const isLegacyBinding = notification.type === "BINDING_REQUEST" && (titleIsEnglish || bodyIsEnglish);
-  return { title: isLegacyBinding ? fallback!.title : titleIsEnglish && fallback ? fallback.title : notification.title, body: isLegacyBinding ? fallback!.body : bodyIsEnglish && fallback?.body ? fallback.body : notification.body };
+  return { title: titleIsEnglish && fallback ? fallback.title : notification.title, body: bodyIsEnglish && fallback?.body ? fallback.body : notification.body };
 }

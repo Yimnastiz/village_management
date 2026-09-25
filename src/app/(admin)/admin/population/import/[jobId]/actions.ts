@@ -146,7 +146,6 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
     where: { id: { in: personIds }, villageId },
     select: {
       id: true,
-      userId: true,
       firstName: true,
       lastName: true,
       createdAt: true,
@@ -157,7 +156,6 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
   for (const person of people) {
     const label = `${person.firstName} ${person.lastName}`;
     if (person.createdAt < jobCreatedAt) skipped.push({ kind: "person", label, reason: "ข้อมูลไม่ได้ถูกสร้างจากงานนี้" });
-    else if (person.userId) skipped.push({ kind: "person", label, reason: "เชื่อมกับบัญชีลูกบ้านแล้ว" });
     else if (person.movements.some((movement) => movement.populationImportJobId !== jobId)) skipped.push({ kind: "person", label, reason: "มีประวัติการเปลี่ยนแปลงหลังนำเข้า" });
     else deletablePersonIds.push(person.id);
   }
@@ -168,7 +166,7 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
       houseNumber: true,
       sourceType: true,
       createdAt: true,
-      _count: { select: { memberships: true, bindingRequests: true } },
+      _count: { select: { memberships: true, houseAccountOpeningRequests: true } },
       movementHistory: { select: { personId: true, populationImportJobId: true } },
     },
   }) : [];
@@ -179,7 +177,7 @@ async function assessImportCleanup(tx: Prisma.TransactionClient, villageId: stri
     const remainingPeople = await tx.person.count({ where: { houseId: house.id, id: { notIn: deletablePersonIds } } });
     if (remainingPeople > 0) skipped.push({ kind: "house", label, reason: "ยังมีประชากรอยู่" });
     else if (house._count.memberships > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลสมาชิกหมู่บ้านที่เกี่ยวข้อง" });
-    else if (house._count.bindingRequests > 0) skipped.push({ kind: "house", label, reason: "มีข้อมูลการผูกบ้านที่เกี่ยวข้อง" });
+    else if (house._count.houseAccountOpeningRequests > 0) skipped.push({ kind: "house", label, reason: "มีคำขอเปิดบัญชีบ้านที่เกี่ยวข้อง" });
     else if (house.movementHistory.some((movement) => movement.populationImportJobId !== jobId || !deletablePersonIds.includes(movement.personId))) skipped.push({ kind: "house", label, reason: "มีประวัติการเปลี่ยนแปลงหลังนำเข้า" });
     else deletableHouseIds.push(house.id);
   }
@@ -224,7 +222,6 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
         where: {
           id: personId,
           villageId,
-          userId: null,
           createdAt: { gte: createdAt },
           movements: { none: { OR: [{ populationImportJobId: null }, { populationImportJobId: { not: jobId } }] } },
         },
@@ -236,7 +233,7 @@ export async function deleteImportJobDatasetAction(formData: FormData) {
     const houseLabels = new Map((await tx.house.findMany({ where: { id: { in: afterPeople.deletableHouseIds } }, select: { id: true, houseNumber: true } })).map((house) => [house.id, `บ้าน ${house.houseNumber}`]));
     let deletedHouses = 0;
     for (const houseId of afterPeople.deletableHouseIds) {
-      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, bindingRequests: { none: {} }, movementHistory: { none: {} } } });
+      const deleted = await tx.house.deleteMany({ where: { id: houseId, villageId, sourceType: "IMPORT", createdAt: { gte: createdAt }, persons: { none: {} }, memberships: { none: {} }, houseAccountOpeningRequests: { none: {} }, residentHouseAccount: { is: null }, movementHistory: { none: {} } } });
       deletedHouses += deleted.count;
     }
     if (deletedPeople === 0 && deletedHouses === 0 && assessment.skipped.length === 0) {

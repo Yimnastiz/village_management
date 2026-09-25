@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { Bell, ChevronDown, ChevronRight, Home, LockKeyhole, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -76,7 +76,7 @@ export function TopBar({
     ? `${adminRoleLabel} · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
     : adminRoleLabel;
   const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership && !residentNavigationState?.isHouseAccount;
-  const residentStatusLabel = residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่มีสิทธิ์บัญชีบ้าน" : "ลูกบ้าน";
+  const residentStatusLabel = residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่มีสิทธิ์บัญชีบ้าน" : "สมาชิก";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
   const mobilePopulationMenuId = "admin-mobile-population-menu";
 
@@ -247,7 +247,7 @@ export function TopBar({
                   "text-sm font-semibold",
                   isAdminArea ? "text-white" : "text-gray-900"
                 )}>
-                  {userArea === "resident" ? "เมนูลูกบ้าน" : `เมนู${adminRoleLabel}`}
+                  {userArea === "resident" ? "เมนูสมาชิก" : `เมนู${adminRoleLabel}`}
                 </p>
                 {isAdminArea ? (
                   <span title={adminVillageLabel} className="max-w-[12rem] truncate rounded-full bg-blue-500 px-2 py-0.5 text-[11px] font-semibold text-white">{adminVillageLabel}</span>

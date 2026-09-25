@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { randomUUID } from "crypto";
 import { AuditAction, ContactRequestType, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
@@ -57,8 +57,8 @@ async function createContactRequestNotifications(
       userId: admin.userId,
       villageId: input.villageId,
       type: NotificationType.SYSTEM,
-      title: isDelete ? "มีคำขอลบผู้ติดต่อจากลูกบ้าน" : isUpdate ? "มีคำขอแก้ไขผู้ติดต่อจากลูกบ้าน" : "มีคำขอเพิ่มผู้ติดต่อจากลูกบ้าน",
-      body: `${input.requesterName || "ลูกบ้าน"} ส่งคำขอ${isDelete ? "ลบ" : isUpdate ? "แก้ไข" : "เพิ่ม"}ผู้ติดต่อ “${input.contactName}”`,
+      title: isDelete ? "มีคำขอลบผู้ติดต่อจากสมาชิก" : isUpdate ? "มีคำขอแก้ไขผู้ติดต่อจากสมาชิก" : "มีคำขอเพิ่มผู้ติดต่อจากสมาชิก",
+      body: `${input.requesterName || "สมาชิก"} ส่งคำขอ${isDelete ? "ลบ" : isUpdate ? "แก้ไข" : "เพิ่ม"}ผู้ติดต่อ “${input.contactName}”`,
       metadata: {
         source: "CONTACT",
         requestId: input.requestId,
@@ -180,7 +180,7 @@ async function residentContext() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
-  if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ลูกบ้าน" };
+  if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์สมาชิก" };
   const actor = await getResidentActorDisplayByUserId(session.id, { villageId: membership.villageId });
   return { ok: true as const, session: { ...session, name: actor.label }, membership };
 }

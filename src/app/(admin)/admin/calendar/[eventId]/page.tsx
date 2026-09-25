@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,7 +59,7 @@ export default async function VillageEventDetailPage({ params }: PageProps) {
       <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex items-center gap-2">
           <Badge variant={event.isPublic ? "success" : "info"}>
-            {event.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+            {event.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
           </Badge>
         </div>
         <h2 className="text-xl font-semibold text-gray-900">{event.title}</h2>

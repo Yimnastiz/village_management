@@ -1,6 +1,6 @@
-import { prisma } from "@/lib/prisma";
+﻿import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
-import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
+import { getActorRoleLabel } from "@/lib/actor-role";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Prisma, type VillageMembershipRole } from "@prisma/client";
@@ -111,8 +111,8 @@ function getAppointmentSource(appointment: { timeline: Array<{ action: string; m
   const name = typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
   if (!name) return null;
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
-  if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${getLegacyActorRoleLabel(role) ?? "เจ้าหน้าที่"})`;
-  if (entry.action === "CREATED") return `ส่งคำขอโดย ${name} (${getLegacyActorRoleLabel(role) ?? "ลูกบ้าน"})`;
+  if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${getActorRoleLabel(role) ?? "เจ้าหน้าที่"})`;
+  if (entry.action === "CREATED") return `ส่งคำขอโดย ${name} (${getActorRoleLabel(role) ?? "สมาชิก"})`;
   return null;
 }
 
@@ -185,7 +185,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
             options: [
               { label: "ทั้งหมด", href: buildAppointmentsHref({ q: keyword, stage: "ALL", sort: activeSort }), active: activeStage === "ALL" },
               { label: "รออนุมัติ", href: buildAppointmentsHref({ q: keyword, stage: "PENDING_APPROVAL", sort: activeSort }), active: activeStage === "PENDING_APPROVAL" },
-              { label: "รอลูกบ้านยืนยันเวลา", href: buildAppointmentsHref({ q: keyword, stage: "TIME_SUGGESTED", sort: activeSort }), active: activeStage === "TIME_SUGGESTED" },
+              { label: "รอสมาชิกยืนยันเวลา", href: buildAppointmentsHref({ q: keyword, stage: "TIME_SUGGESTED", sort: activeSort }), active: activeStage === "TIME_SUGGESTED" },
               { label: "อนุมัติแล้ว", href: buildAppointmentsHref({ q: keyword, stage: "APPROVED", sort: activeSort }), active: activeStage === "APPROVED" },
               { label: "เสร็จสิ้น", href: buildAppointmentsHref({ q: keyword, stage: "COMPLETED", sort: activeSort }), active: activeStage === "COMPLETED" },
             ],
@@ -235,7 +235,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                       {apt.title}
                     </p>
                     <Badge variant={stageVariant[apt.stage] ?? "default"}>
-                      {isTimeSuggested ? "รอลูกบ้านยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[apt.stage]}
+                      {isTimeSuggested ? "รอสมาชิกยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[apt.stage]}
                     </Badge>
                   </div>
                   <div className="space-y-1 text-sm text-gray-600">

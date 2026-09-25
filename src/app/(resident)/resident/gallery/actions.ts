@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { randomUUID } from "node:crypto";
 import { AuditAction, NotificationType, VillageMembershipRole } from "@prisma/client";
@@ -31,7 +31,7 @@ export async function createGalleryItemSubmissionAction(albumId: string, data: S
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) return { success: false, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getResidentMembership(session);
-  if (!membership) return { success: false, error: "ไม่พบสิทธิ์ลูกบ้าน" };
+  if (!membership) return { success: false, error: "ไม่พบสิทธิ์สมาชิก" };
   const parsed = schema.safeParse(data);
   if (!parsed.success) return { success: false, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
   if (!parsed.data.items.every((entry) => entry.url === galleryUploadUrl(entry.fileKey) && verifyPlaceUploadToken(entry.uploadToken, entry.fileKey, membership.villageId, session.id))) return { success: false, error: "ข้อมูลรูปภาพไม่ถูกต้อง กรุณาอัปโหลดใหม่อีกครั้ง" };

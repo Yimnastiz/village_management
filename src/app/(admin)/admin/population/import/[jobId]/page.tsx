@@ -1,4 +1,4 @@
-import { AuditAction, PopulationImportStage } from "@prisma/client";
+﻿import { AuditAction, PopulationImportStage } from "@prisma/client";
 import { Archive, CheckCircle2, CircleAlert, Clock3, LoaderCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -7,7 +7,7 @@ import { POPULATION_IMPORT_HEADER_ALIASES } from "@/features/population/server/i
 import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { hasVillagePermission } from "@/lib/village-permissions";
-import { getLegacyActorRoleLabel } from "@/lib/legacy-actor-role";
+import { getActorRoleLabel } from "@/lib/actor-role";
 import { ImportJobActions } from "./import-confirm-form";
 import { getImportCleanupPreflightAction } from "./actions";
 
@@ -43,7 +43,7 @@ function statusPresentation(stage: PopulationImportStage) {
   return { title: "รอตรวจสอบก่อนนำเข้า", Icon: Clock3, tone: "text-amber-700" };
 }
 function formatDateTime(value: Date) { return value.toLocaleString("th-TH", { dateStyle: "long", timeStyle: "short" }); }
-function actorRoleLabel(role?: string | null) { return getLegacyActorRoleLabel(role) ?? role ?? "ผู้ดูแลหมู่บ้าน"; }
+function actorRoleLabel(role?: string | null) { return getActorRoleLabel(role) ?? role ?? "ผู้ดูแลหมู่บ้าน"; }
 function headerKey(header: string) { return header.normalize("NFKC").trim().toLowerCase().replace(/[\s_\-./()]+/g, "").replace(/[:;]/g, ""); }
 function canonicalHeader(header: string) {
   const normalized = headerKey(header);

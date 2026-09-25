@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ContactRequestType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,7 @@ export default async function ResidentContactDetailPage({ params }: PageProps) {
       <div className="space-y-3 rounded-xl border border-gray-200 bg-white p-5 sm:p-6">
         <div className="flex items-center gap-2">
           <Badge variant={contact.isPublic ? "success" : "info"}>
-            {contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}
+            {contact.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
           </Badge>
           {contact.category ? <Badge variant="outline">{contact.category}</Badge> : null}
         </div>

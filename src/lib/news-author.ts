@@ -1,8 +1,8 @@
-import type { VillageMembershipRole } from "@prisma/client";
+﻿import type { VillageMembershipRole } from "@prisma/client";
 
 const membershipLabels: Partial<Record<VillageMembershipRole, string>> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  RESIDENT: "ลูกบ้าน",
+  RESIDENT: "สมาชิก",
 };
 
 export function formatNewsAuthor(name?: string | null, membershipRole?: VillageMembershipRole | null) {

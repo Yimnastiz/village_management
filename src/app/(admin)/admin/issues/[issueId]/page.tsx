@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { ArrowLeft, Clock, Lock } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Timeline } from "@/components/ui/timeline";
@@ -10,7 +10,6 @@ import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-co
 import { formatThaiDateTime } from "@/lib/utils";
 import { getUserRoleLabel } from "@/lib/user-display";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay, type ResidentActorUser } from "@/lib/resident-actor-display";
-import { LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID } from "@/lib/legacy-superadmin-history";
 import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
 import {
@@ -61,7 +60,6 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
     },
   });
   const userById = new Map(users.map((user) => [user.id, user]));
-  const superAdminDisplay = { id: "legacy-superadmin", accountKind: null, name: "Super Admin", phoneNumber: "", residentHouseAccount: null, legacyRole: "SUPERADMIN", memberships: [] };
   const reporter = userById.get(issue.reporterId);
   const reporterDisplay = residentActorDisplay(reporter, { villageId: membership.villageId });
   const initialTimeline = issue.timeline[0];
@@ -69,7 +67,7 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
   const isAdminCreated = wasCreatedByAdmin;
   const imageUrls = Array.isArray(issue.imageUrls) ? issue.imageUrls.map((value) => String(value)).filter((url) => url.length > 0) : [];
   const timelineItems = issue.timeline.map((item) => {
-    const actor = item.actorId ? userById.get(item.actorId) ?? (item.actorId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined) : undefined;
+    const actor = item.actorId ? userById.get(item.actorId) : undefined;
     return { ...item, actorName: actor ? residentActorDisplay(actor, { villageId: membership.villageId }).label : null, actorRoleLabel: actor ? getUserRoleLabel(actor) : null };
   });
 
@@ -156,17 +154,17 @@ export default async function AdminIssueDetailPage({ params }: PageProps) {
               <p className="text-sm text-gray-400 mb-4">ยังไม่มีข้อความสาธารณะ</p>
             ) : (
               <div className="space-y-3 mb-4">
-                {publicMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId) ?? (msg.senderId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined)} />)}
+                {publicMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId)} />)}
               </div>
             )}
             {internalMessages.length > 0 && (
               <>
                 <div className="mb-2 flex items-center gap-2 border-t border-gray-200 pt-4">
                   <Lock className="h-3.5 w-3.5 text-amber-500" />
-                  <p className="text-xs font-medium text-amber-700">บันทึกภายใน (ลูกบ้านไม่เห็น)</p>
+                  <p className="text-xs font-medium text-amber-700">บันทึกภายใน (สมาชิกไม่เห็น)</p>
                 </div>
                 <div className="space-y-3 mb-4">
-                  {internalMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId) ?? (msg.senderId === LEGACY_SUPERADMIN_ISSUE_MESSAGE_SENDER_ID ? superAdminDisplay : undefined)} internal />)}
+                  {internalMessages.map((msg) => <MessageCard key={msg.id} msg={msg} user={userById.get(msg.senderId)} internal />)}
                 </div>
               </>
             )}

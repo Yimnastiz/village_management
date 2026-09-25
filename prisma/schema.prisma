@@ -13,36 +13,15 @@ enum VillageMembershipRole {
   RESIDENT
 }
 
-enum RegistrationMode {
-  RESIDENT
-  HEADMAN
-}
-
-enum RegistrationTempStatus {
-  WAITING_OTP
-  VERIFIED
-  REJECTED
-  CANCELLED
-}
-
-enum RegistrationOtpChallengeStatus {
-  PENDING_SEND
-  ACTIVE
-  SEND_FAILED
-  CONSUMED
-}
-
 enum AccountStatus {
   ACTIVE
   DELETION_PENDING
-  DUPLICATE_ID
   ANONYMIZED
 }
 
 enum AccountKind {
   HEADMAN
   RESIDENT_HOUSE
-  LEGACY_RESIDENT
 }
 
 enum HouseAccountOpeningRequestStatus {
@@ -92,13 +71,6 @@ enum MembershipStatus {
   ACTIVE
   SUSPENDED
   REJECTED
-}
-
-enum BindingRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
 }
 
 enum NewsStage {
@@ -245,7 +217,6 @@ enum NotificationType {
   ISSUE_UPDATE
   APPOINTMENT_UPDATE
   NEWS
-  BINDING_REQUEST
   SYSTEM
 }
 
@@ -253,7 +224,6 @@ enum FileOwnerType {
   ISSUE
   ISSUE_MESSAGE
   APPOINTMENT
-  BINDING_REQUEST
   DOWNLOAD
   TRANSPARENCY
   GALLERY
@@ -319,55 +289,37 @@ enum AuditAction {
   VILLAGE_CREATED_MANUAL
   VILLAGE_CATALOG_IMPORTED
   VILLAGE_CATALOG_UPDATED
-  APPROVE_RESIDENT_WITH_NATIONAL_ID
-  REVOKE_DUPLICATE_NATIONAL_ID_ACCOUNT
-  RELEASE_PHONE_FROM_REVOKED_ACCOUNT
 }
 
 enum HouseSourceType {
   ADMIN_CREATED
   IMPORT
-  RESIDENT_REQUEST_VERIFIED
-  SUPERADMIN_CREATED
   SEED
 }
 
 // ========== MODELS ==========
 
 model User {
-  id                         String        @id @default(cuid())
-  phoneNumber                String?       @unique
-  phoneNumberVerified        Boolean       @default(false)
-  name                       String
-  email                      String?       @unique
-  emailVerified              Boolean       @default(false)
-  accountKind                AccountKind?
-  image                      String?
-  registrationProvince       String?
-  registrationDistrict       String?
-  registrationSubdistrict    String?
-  registrationVillageId      String?
-  citizenVerifiedAt          DateTime?
-  consentAt                  DateTime?
-  createdAt                  DateTime      @default(now())
-  updatedAt                  DateTime      @updatedAt
-  accountStatus              AccountStatus @default(ACTIVE)
-  duplicateOfUserId          String?
-  duplicateResolvedAt        DateTime?
-  duplicateReason            String?
-  duplicateNoticeLoginUsedAt DateTime?
-  duplicateNoticeSeenAt      DateTime?
-  deletionRequestedAt        DateTime?
-  scheduledDeletionAt        DateTime?
-  anonymizedAt               DateTime?
-  deletionRecoveryHash       String?
+  id                   String        @id @default(cuid())
+  phoneNumber          String?       @unique
+  phoneNumberVerified  Boolean       @default(false)
+  name                 String
+  email                String?       @unique
+  emailVerified        Boolean       @default(false)
+  accountKind          AccountKind
+  image                String?
+  consentAt            DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  accountStatus        AccountStatus @default(ACTIVE)
+  deletionRequestedAt  DateTime?
+  scheduledDeletionAt  DateTime?
+  anonymizedAt         DateTime?
+  deletionRecoveryHash String?
 
   authSessions             AuthSession[]
   authAccounts             AuthAccount[]
-  registrationTemps        RegistrationTemp[]           @relation("RegistrationTempOwner")
   memberships              VillageMembership[]
-  person                   Person?
-  bindingRequests          BindingRequest[]
   contactRequests          ContactRequest[]
   notifications            Notification[]
   systemBroadcastsCreated  SystemBroadcast[]            @relation("SystemBroadcastCreator")
@@ -388,7 +340,6 @@ model User {
   openingRequestsReviewed  HouseAccountOpeningRequest[] @relation("HouseAccountOpeningRequestReviewer")
   openingRequestsActivated HouseAccountOpeningRequest[] @relation("HouseAccountOpeningRequestActivatedUser")
   emailOtpChallenges       EmailOtpChallenge[]          @relation("EmailOtpChallengeUser")
-  registrationVillage      Village?                     @relation("UserRegistrationVillage", fields: [registrationVillageId], references: [id])
 
   @@index([phoneNumber])
 }
@@ -479,9 +430,6 @@ model Village {
   authSessions                AuthSession[]
   importJobs                  PopulationImportJob[]
   auditLogs                   AuditLog[]
-  registeredUsers             User[]                       @relation("UserRegistrationVillage")
-  phoneRoleSeeds              PhoneRoleSeed[]
-  bindingRequests             BindingRequest[]
   residentHouseAccounts       ResidentHouseAccount[]
   houseAccountOpeningRequests HouseAccountOpeningRequest[]
   catalogVillage              ThailandVillageMaster?       @relation(fields: [catalogVillageId], references: [id], onDelete: SetNull)
@@ -587,7 +535,6 @@ model House {
   zone                        VillageZone?                 @relation(fields: [zoneId], references: [id])
   persons                     Person[]
   memberships                 VillageMembership[]
-  bindingRequests             BindingRequest[]
   movementHistory             PersonMovement[]
   residentHouseAccount        ResidentHouseAccount?
   houseAccountOpeningRequests HouseAccountOpeningRequest[]
@@ -730,7 +677,6 @@ model EmailOtpChallenge {
 
 model Person {
   id           String       @id @default(cuid())
-  userId       String?      @unique
   houseId      String?
   villageId    String?
   nationalId   String?
@@ -745,7 +691,6 @@ model Person {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  user      User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   house     House?           @relation(fields: [houseId], references: [id])
   movements PersonMovement[]
 
@@ -770,29 +715,6 @@ model PersonMovement {
   @@index([personId])
   @@index([houseId])
   @@index([populationImportJobId])
-}
-
-model BindingRequest {
-  id          String               @id @default(cuid())
-  userId      String
-  villageId   String?
-  houseId     String?
-  houseNumber String?
-  note        String?
-  status      BindingRequestStatus @default(PENDING)
-  reviewedBy  String?
-  reviewedAt  DateTime?
-  reviewNote  String?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-
-  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  village Village? @relation(fields: [villageId], references: [id])
-  house   House?   @relation(fields: [houseId], references: [id])
-
-  @@index([userId])
-  @@index([status])
-  @@index([villageId])
 }
 
 model News {
@@ -1482,78 +1404,6 @@ model LoginOtpChallenge {
   @@index([lockedUntil])
 }
 
-model RegistrationTemp {
-  id               String                 @id @default(cuid())
-  userId           String?
-  phoneNumber      String
-  registrationMode RegistrationMode       @default(RESIDENT)
-  name             String
-  firstName        String?
-  lastName         String?
-  nationalId       String
-  dateOfBirth      DateTime?
-  gender           String?
-  province         String
-  district         String
-  subdistrict      String
-  villageId        String
-  callbackUrl      String?
-  status           RegistrationTempStatus @default(WAITING_OTP)
-  rejectReason     String?
-  rejectedAt       DateTime?
-  otpSentAt        DateTime?
-  otpResendCount   Int                    @default(0)
-  otpFailedCount   Int                    @default(0)
-  otpLastAttemptAt DateTime?
-  otpLockedUntil   DateTime?
-  expiresAt        DateTime
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-
-  user             User?                         @relation("RegistrationTempOwner", fields: [userId], references: [id], onDelete: SetNull)
-  verifierSessions RegistrationVerifierSession[]
-
-  @@index([userId])
-  @@index([phoneNumber])
-  @@index([status])
-  @@index([expiresAt])
-}
-
-model RegistrationOtpChallenge {
-  id                  String                         @id @default(cuid())
-  phoneNumber         String                         @unique
-  otpIdentifier       String
-  status              RegistrationOtpChallengeStatus @default(PENDING_SEND)
-  otpSentAt           DateTime?
-  otpExpiresAt        DateTime?
-  resendAvailableAt   DateTime?
-  resendCount         Int                            @default(0)
-  sendWindowStartedAt DateTime
-  sendCount           Int                            @default(0)
-  createdAt           DateTime                       @default(now())
-  updatedAt           DateTime                       @updatedAt
-
-  @@index([status])
-}
-
-model RegistrationVerifierSession {
-  id             String    @id @default(cuid())
-  registrationId String
-  ipHash         String
-  failedAttempts Int       @default(0)
-  nextAttemptAt  DateTime?
-  lockedUntil    DateTime?
-  expiresAt      DateTime
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-
-  registration RegistrationTemp @relation(fields: [registrationId], references: [id], onDelete: Cascade)
-
-  @@unique([registrationId])
-  @@index([ipHash, createdAt])
-  @@index([expiresAt])
-}
-
 model AccountDeletionChallenge {
   id                String    @id @default(cuid())
   userId            String    @unique
@@ -1568,21 +1418,6 @@ model AccountDeletionChallenge {
   updatedAt         DateTime  @updatedAt
 
   @@index([otpExpiresAt])
-}
-
-model PhoneRoleSeed {
-  id                String                @id @default(cuid())
-  phoneNumber       String                @unique
-  villageId         String?
-  membershipRole    VillageMembershipRole @default(RESIDENT)
-  isCitizenVerified Boolean               @default(true)
-  note              String?
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-
-  village Village? @relation(fields: [villageId], references: [id], onDelete: SetNull)
-
-  @@index([villageId])
 }
 
 model SavedItem {

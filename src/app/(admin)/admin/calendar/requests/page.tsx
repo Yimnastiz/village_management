@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { FileClock } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,7 @@ export default async function AdminCalendarRequestListPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">คำขอกิจกรรมจากลูกบ้าน</h1>
+        <h1 className="text-2xl font-bold text-gray-900">คำขอกิจกรรมจากสมาชิก</h1>
         <p className="mt-1 text-sm text-gray-500">ตรวจสอบและอนุมัติคำขอเพิ่มกิจกรรมหมู่บ้าน</p>
       </div>
 

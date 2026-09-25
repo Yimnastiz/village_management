@@ -19,7 +19,7 @@ export async function buildVillagePopulationWorkbook(villageId: string, options:
   const createdAt = options.from || options.to
     ? { ...(options.from ? { gte: new Date(options.from) } : {}), ...(options.to ? { lt: new Date(`${options.to}T23:59:59.999Z`) } : {}) }
     : undefined;
-  const [village, houses, people, memberships] = await Promise.all([
+  const [village, houses, people] = await Promise.all([
     prisma.village.findUnique({ where: { id: villageId }, select: { name: true } }),
     prisma.house.findMany({
       where: { villageId, ...(options.zoneId ? { zoneId: options.zoneId } : {}), ...(createdAt ? { createdAt } : {}) },
@@ -31,10 +31,6 @@ export async function buildVillagePopulationWorkbook(villageId: string, options:
       orderBy: [{ house: { houseNumber: "asc" } }, { firstName: "asc" }],
       include: { house: { select: { houseNumber: true, address: true, villageId: true } } },
     }),
-    prisma.villageMembership.findMany({
-      where: { villageId, ...(options.activeOnly ? { status: "ACTIVE" as const } : {}), ...(createdAt ? { createdAt } : {}) },
-      include: { user: { select: { name: true, phoneNumber: true, email: true, citizenVerifiedAt: true } }, house: { select: { houseNumber: true, villageId: true } } },
-    }),
   ]);
 
   if (!village) throw new Error("Village not found");
@@ -45,7 +41,6 @@ export async function buildVillagePopulationWorkbook(villageId: string, options:
     exported_at: new Date().toISOString(),
     total_houses: houses.length,
     total_people: people.length,
-    total_memberships: memberships.length,
   }]), "summary");
 
   if (options.sheets.includes("houses")) {
@@ -78,27 +73,13 @@ export async function buildVillagePopulationWorkbook(villageId: string, options:
     }))), "people");
   }
 
-  if (options.sheets.includes("accounts")) {
-    utils.book_append_sheet(workbook, utils.json_to_sheet(memberships.map((membership) => ({
-      user_name: safeText(membership.user.name),
-      phone_number: options.masked ? maskPhone(membership.user.phoneNumber ?? "") : safeText(membership.user.phoneNumber ?? ""),
-      email: options.masked ? "[MASKED]" : safeText(membership.user.email ?? ""),
-      house_number: membership.house?.villageId === villageId ? safeText(membership.house.houseNumber) : "",
-      membership_role: membership.role,
-      membership_status: membership.status,
-      citizen_verified_at: options.masked ? "[MASKED]" : membership.user.citizenVerifiedAt?.toISOString() ?? "",
-      joined_at: membership.joinedAt?.toISOString() ?? "",
-      created_at: membership.createdAt.toISOString(),
-    }))), "accounts");
-  }
-
-  return { buffer: write(workbook, { type: "buffer", bookType: "xlsx" }), villageName: village.name, counts: { houses: houses.length, people: people.length, memberships: memberships.length } };
+  return { buffer: write(workbook, { type: "buffer", bookType: "xlsx" }), villageName: village.name, counts: { houses: houses.length, people: people.length } };
 }
 
 export function parsePopulationExportOptions(url: URL, forceMasked = false, defaultMasked = true): PopulationExportOptions {
   const requestedMasked = url.searchParams.get("masked");
   return {
-    sheets: (url.searchParams.get("sheets") ?? "houses,people,accounts").split(",").filter((value) => ["houses", "people", "accounts"].includes(value)),
+    sheets: (url.searchParams.get("sheets") ?? "houses,people").split(",").filter((value) => ["houses", "people"].includes(value)),
     masked: forceMasked || (requestedMasked === null ? defaultMasked : requestedMasked !== "false"),
     activeOnly: url.searchParams.get("activeOnly") === "true",
     zoneId: url.searchParams.get("zoneId"),

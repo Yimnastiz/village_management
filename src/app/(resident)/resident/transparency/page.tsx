@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +96,7 @@ export default async function ResidentTransparencyPage({
           description={
             hasFilter
               ? "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง"
-              : "รายการที่เผยแพร่ให้ลูกบ้านจะปรากฏที่นี่"
+              : "รายการที่เผยแพร่ให้สมาชิกจะปรากฏที่นี่"
           }
         />
       ) : (

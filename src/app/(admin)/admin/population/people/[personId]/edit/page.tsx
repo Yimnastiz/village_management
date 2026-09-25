@@ -27,7 +27,6 @@ export default async function EditPersonPage({ params }: PageProps) {
   const [person, houses] = await Promise.all([
     prisma.person.findFirst({
       where: { id: personId, villageId: membership.villageId },
-      include: { user: { select: { phoneNumber: true, email: true } } },
     }),
     prisma.house.findMany({
       where: { villageId: membership.villageId },
@@ -58,7 +57,7 @@ export default async function EditPersonPage({ params }: PageProps) {
           email: person.email ?? "",
           houseId: person.houseId ?? "",
         }}
-        linkedAccount={person.user ? { phoneNumber: person.user.phoneNumber ?? "ไม่มีเบอร์โทรเข้าสู่ระบบ", email: person.user.email?.endsWith("@local.invalid") ? null : person.user.email } : null}
+        linkedAccount={null}
         movedOut={false}
         deceased={false}
         allowNationalIdChecksumBypass={isThaiNationalIdChecksumBypassEnabled()}

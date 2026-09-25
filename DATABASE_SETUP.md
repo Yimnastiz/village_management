@@ -27,7 +27,6 @@ The CLI-only bootstrap creates a Village only when no active Village exists. Wit
 
 The Headman is created or reused as a normal `User` and receives an ACTIVE `VillageMembership` with role `HEADMAN`. The script never creates a Super Admin or Assistant Headman, never demotes another active Headman, and never creates a web/API bootstrap route. The Headman uses the normal OTP login flow after provisioning.
 
-`PhoneRoleSeed` is not used as production authority and is not created by this command. It remains a development helper only.
 
 Bootstrap variables are needed only for initial provisioning; runtime Village resolution uses database records. The Thailand Village catalog is required before bootstrap.
 

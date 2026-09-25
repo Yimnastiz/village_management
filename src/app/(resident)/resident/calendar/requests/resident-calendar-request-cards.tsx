@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { CalendarDays, Globe2, MapPin, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -9,7 +9,7 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
 function VisibilityMetadata({ isPublic }: { isPublic: boolean }) {
   return isPublic
     ? <span className="inline-flex items-center gap-1"><Globe2 className="h-3.5 w-3.5" aria-hidden="true" />สาธารณะ</span>
-    : <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" aria-hidden="true" />เฉพาะลูกบ้าน</span>;
+    : <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" aria-hidden="true" />เฉพาะสมาชิก</span>;
 }
 
 function ScheduleMetadata({ schedule }: { schedule: string }) {

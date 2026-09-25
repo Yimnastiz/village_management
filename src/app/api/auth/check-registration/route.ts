@@ -4,7 +4,12 @@ import { z } from "zod";
 import { getActiveAuthRedirectPathFromRequest } from "@/lib/access-control";
 import { getConfiguredVillage } from "@/lib/configured-village";
 import { prisma } from "@/lib/prisma";
-import { toPhoneCandidates } from "@/lib/registration-temp";
+
+function toPhoneCandidates(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!/^0\d{9}$/.test(digits)) return [];
+  return [digits, `+66${digits.slice(1)}`];
+}
 
 const checkRegistrationSchema = z.object({ phoneNumber: z.string().trim().min(1) });
 
@@ -22,7 +27,7 @@ export async function POST(request: NextRequest) {
   const user = await prisma.user.findFirst({
     where: {
       phoneNumber: { in: candidates },
-      OR: [{ accountKind: AccountKind.HEADMAN }, { accountKind: null }],
+      accountKind: AccountKind.HEADMAN,
       accountStatus: AccountStatus.ACTIVE,
       memberships: { some: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE } },
     },

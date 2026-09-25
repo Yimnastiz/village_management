@@ -3,11 +3,11 @@ export type ResidentActorDisplay = {
   secondaryLabel: string | null;
   contactPhone: string | null;
   houseNumber: string | null;
-  accountKind: "HEADMAN" | "RESIDENT_HOUSE" | "LEGACY_RESIDENT" | null;
+  accountKind: "HEADMAN" | "RESIDENT_HOUSE" | null;
 };
 
 type ResidentActorInput = {
-  accountKind: "HEADMAN" | "RESIDENT_HOUSE" | "LEGACY_RESIDENT" | null;
+  accountKind: "HEADMAN" | "RESIDENT_HOUSE" | null;
   name: string | null;
   phoneNumber: string | null;
   residentHouseAccount: {

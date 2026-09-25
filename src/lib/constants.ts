@@ -1,4 +1,4 @@
-export { ISSUE_STAGE_LABELS } from "@/lib/issues/status";
+﻿export { ISSUE_STAGE_LABELS } from "@/lib/issues/status";
 export { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
 
 export const ISSUE_CATEGORY_LABELS: Record<string, string> = {
@@ -29,7 +29,7 @@ export const NEWS_STAGE_LABELS: Record<string, string> = {
 
 export const NEWS_VISIBILITY_LABELS: Record<string, string> = {
   PUBLIC: "สาธารณะ",
-  RESIDENT_ONLY: "เฉพาะลูกบ้าน",
+  RESIDENT_ONLY: "เฉพาะสมาชิก",
 };
 
 export const NEWS_SUBMISSION_TYPE_LABELS: Record<string, string> = {
@@ -45,7 +45,7 @@ export const NEWS_SUBMISSION_STATUS_LABELS: Record<string, string> = {
 
 export const NEWS_AUTHOR_SOURCE_LABELS: Record<string, string> = {
   ADMIN: "โดยแอดมิน",
-  RESIDENT: "โดยลูกบ้าน",
+  RESIDENT: "โดยสมาชิก",
   UNKNOWN: "ไม่ระบุผู้สร้าง",
 };
 
@@ -57,7 +57,7 @@ export const VILLAGE_EVENT_SUBMISSION_STATUS_LABELS: Record<string, string> = {
 
 export const VILLAGE_EVENT_VISIBILITY_LABELS: Record<string, string> = {
   PUBLIC: "สาธารณะ",
-  RESIDENT: "เฉพาะลูกบ้าน",
+  RESIDENT: "เฉพาะสมาชิก",
 };
 
 export const VILLAGE_PLACE_CATEGORY_LABELS: Record<string, string> = {
@@ -88,7 +88,7 @@ export const VILLAGE_PLACE_SUBMISSION_TYPE_LABELS: Record<string, string> = {
 
 export const MEMBERSHIP_ROLE_LABELS: Record<string, string> = {
   HEADMAN: "ผู้ใหญ่บ้าน",
-  RESIDENT: "ลูกบ้าน",
+  RESIDENT: "สมาชิก",
 };
 
 export const MEMBERSHIP_STATUS_LABELS: Record<string, string> = {
@@ -104,7 +104,6 @@ export const ACCOUNT_STATUS_LABELS: Record<string, string> = {
   PENDING: "รอตรวจสอบ",
   DELETION_PENDING: "รอปิดบัญชี",
   ANONYMIZED: "ปิดบัญชีแล้ว",
-  DUPLICATE_ID: "ข้อมูลซ้ำ",
 };
 
 export const TRANSPARENCY_STAGE_LABELS: Record<string, string> = {
@@ -120,13 +119,6 @@ export const PERSON_STATUS_LABELS: Record<string, string> = {
   UNKNOWN: "ไม่ทราบสถานะ",
 };
 
-export const BINDING_REQUEST_STATUS_LABELS: Record<string, string> = {
-  PENDING: "รอพิจารณา",
-  APPROVED: "อนุมัติแล้ว",
-  REJECTED: "ปฏิเสธ",
-  CANCELLED: "ยกเลิก",
-};
-
 export const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   MOVE_IN: "ย้ายเข้า",
   MOVE_OUT: "ย้ายออก",
@@ -138,8 +130,6 @@ export const MOVEMENT_TYPE_LABELS: Record<string, string> = {
 export const HOUSE_SOURCE_TYPE_LABELS: Record<string, string> = {
   ADMIN_CREATED: "เพิ่มโดยผู้ดูแลหมู่บ้าน",
   IMPORT: "นำเข้าข้อมูล",
-  RESIDENT_REQUEST_VERIFIED: "ยืนยันคำขอของลูกบ้าน",
-  SUPERADMIN_CREATED: "เพิ่มโดยผู้ดูแลระบบ",
   SEED: "ข้อมูลตั้งต้นระบบ",
 };
 

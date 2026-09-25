@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Building2, ListChecks, Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
@@ -172,7 +172,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
             options: [
               { label: "ทั้งหมด", href: buildHref({ q: keyword, category: activeCategory, visibility: "ALL" }), active: activeVisibility === "ALL", isDefault: true },
               { label: "สาธารณะ", href: buildHref({ q: keyword, category: activeCategory, visibility: "PUBLIC" }), active: activeVisibility === "PUBLIC" },
-              { label: "เฉพาะลูกบ้าน", href: buildHref({ q: keyword, category: activeCategory, visibility: "RESIDENT" }), active: activeVisibility === "RESIDENT" },
+              { label: "เฉพาะสมาชิก", href: buildHref({ q: keyword, category: activeCategory, visibility: "RESIDENT" }), active: activeVisibility === "RESIDENT" },
             ],
           },
           {
@@ -202,7 +202,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
           <p className="font-medium text-gray-800">{activeFeatured === "FEATURED" ? "ยังไม่มีสถานที่ที่ถูกกำหนดเป็นสถานที่สำคัญ" : keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ไม่พบสถานที่ที่ตรงกับเงื่อนไข" : "ยังไม่มีสถานที่"}</p>
-          <p className="mt-1 text-sm text-gray-500">{keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มสถานที่เพื่อให้ลูกบ้านและประชาชนค้นหาข้อมูลได้"}</p>
+          <p className="mt-1 text-sm text-gray-500">{keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มสถานที่เพื่อให้สมาชิกและประชาชนค้นหาข้อมูลได้"}</p>
           {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มสถานที่</Link>}
         </div>
       ) : (
@@ -226,7 +226,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
                     {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
-                    <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
+                    <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</Badge>
                   </div>
                   <p className="line-clamp-1 font-medium text-gray-900">{place.name}</p>
                   {place.address && <p className="line-clamp-1 text-sm text-gray-600">{place.address}</p>}

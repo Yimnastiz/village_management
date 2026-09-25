@@ -1,4 +1,4 @@
-"use server";
+﻿"use server";
 
 import { AuditAction, IssueCategory, IssuePriority, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
@@ -304,7 +304,7 @@ export async function deleteIssueAction(
           villageId: issue.villageId,
           userId,
           type: NotificationType.ISSUE_UPDATE,
-          title: "ลูกบ้านลบคำร้องปัญหา",
+          title: "สมาชิกลบคำร้องปัญหา",
           body: `หัวข้อ: ${issue.title}\nผู้ดำเนินการ: ${actor.label}\nเหตุผล: ${trimmedReason}`,
           metadata: notificationMetadata("ISSUE", { action: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, deletedBy: actor.label, deletionReason: trimmedReason }),
         })),

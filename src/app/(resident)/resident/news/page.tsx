@@ -1,4 +1,4 @@
-import { Newspaper } from "lucide-react";
+﻿import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,8 +27,8 @@ const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; 
     description: "เมื่อแอดมินเผยแพร่ข่าว ข่าวจะแสดงที่นี่",
   },
   resident: {
-    title: "ยังไม่มีข่าวจากลูกบ้าน",
-    description: "เมื่อมีข่าวจากลูกบ้านที่เผยแพร่แล้ว ข่าวจะแสดงที่นี่",
+    title: "ยังไม่มีข่าวจากสมาชิก",
+    description: "เมื่อมีข่าวจากสมาชิกที่เผยแพร่แล้ว ข่าวจะแสดงที่นี่",
   },
 };
 

@@ -2,12 +2,9 @@ import {
   AuditAction,
   HouseholdOccupancyStatus,
   HouseSourceType,
-  MembershipStatus,
   MovementType,
-  NotificationType,
   PersonStatus,
   Prisma,
-  VillageMembershipRole,
 } from "@prisma/client";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import {
@@ -522,10 +519,10 @@ export async function updateVillageHouse(
 export async function deleteVillageHouse(villageId: string, houseId: string, reason: string, actor: PopulationActor) {
   const normalizedReason = normalizedActionReason("population.house.delete", reason);
   await prisma.$transaction(async (tx) => {
-    const house = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, _count: { select: { persons: true, memberships: true, bindingRequests: true, movementHistory: true } } } });
+    const house = await tx.house.findFirst({ where: { id: houseId, villageId }, select: { id: true, houseNumber: true, _count: { select: { persons: true, memberships: true, movementHistory: true, houseAccountOpeningRequests: true } } } });
     if (!house) throw new PopulationValidationError("ไม่พบบ้านในหมู่บ้านนี้");
     const counts = house._count;
-    if (counts.persons || counts.memberships || counts.bindingRequests || counts.movementHistory) throw new PopulationValidationError("ไม่สามารถลบบ้านนี้ได้ เนื่องจากมีประชากร สมาชิก หรือประวัติที่เชื่อมโยงอยู่");
+    if (counts.persons || counts.memberships || counts.movementHistory || counts.houseAccountOpeningRequests) throw new PopulationValidationError("ไม่สามารถลบบ้านนี้ได้ เนื่องจากมีประชากร บัญชีบ้าน คำขอเปิดบัญชี หรือประวัติที่เชื่อมโยงอยู่");
     await tx.house.delete({ where: { id: house.id } });
     await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.DELETE, resource: "House", resourceId: house.id, metadata: { actorRole: actor.role, actionName: "HOUSE_DELETED", houseNumber: house.houseNumber, reason: normalizedReason } } });
   });
@@ -540,13 +537,6 @@ export async function createVillagePerson(villageId: string, data: VillagePerson
     if (value.nationalId && await tx.person.findFirst({ where: { villageId, nationalId: value.nationalId }, select: { id: true } })) throw new PopulationValidationError("เลขบัตรประชาชนนี้มีอยู่ในทะเบียนแล้ว");
     const person = await tx.person.create({ data: { villageId, ...value, status: PersonStatus.ACTIVE }, select: { id: true } });
     if (value.houseId) await tx.personMovement.create({ data: { personId: person.id, houseId: value.houseId, movementType: MovementType.MOVE_IN, date: new Date() } });
-    if (value.houseId && value.phone) {
-      const user = await tx.user.findUnique({ where: { phoneNumber: value.phone }, select: { id: true } });
-      if (user) {
-        const activeAdmin = await tx.villageMembership.findFirst({ where: { userId: user.id, villageId, status: MembershipStatus.ACTIVE, role: VillageMembershipRole.HEADMAN }, select: { id: true } });
-        if (!activeAdmin) await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId } }, update: { role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId }, create: { userId: user.id, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE, houseId: value.houseId } });
-      }
-    }
     await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.CREATE, resource: "Person", resourceId: person.id, metadata: { actorRole: actor.role, actionName: "PERSON_CREATED", houseId: value.houseId, reason: supportReason } } });
     return person;
   });
@@ -554,7 +544,7 @@ export async function createVillagePerson(villageId: string, data: VillagePerson
 
 export async function updateVillagePerson(villageId: string, personId: string, data: VillagePersonInput, actor: PopulationActor) {
   return prisma.$transaction(async (tx) => {
-    const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true, firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true, phone: true, email: true, house: { select: { houseNumber: true } } } });
+    const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, houseId: true, status: true, firstName: true, lastName: true, nationalId: true, dateOfBirth: true, gender: true, phone: true, email: true, house: { select: { houseNumber: true } } } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");
     if (person.status === PersonStatus.MOVED_OUT || person.status === PersonStatus.DECEASED) {
       throw new PopulationValidationError("ข้อมูลผู้ย้ายออกหรือผู้เสียชีวิตเป็นข้อมูลประวัติ ไม่สามารถแก้ไขข้อมูลทั่วไปได้");
@@ -563,16 +553,14 @@ export async function updateVillagePerson(villageId: string, personId: string, d
     const nationalId = resolveUpdatedNationalId(person, data.nationalId);
     if (!nationalId.ok) throw new PopulationValidationError(nationalId.message);
     const resolvedValue = { ...value, nationalId: nationalId.nationalId };
-    if (person.userId && person.phone !== resolvedValue.phone) throw new PopulationValidationError("เบอร์นี้ใช้สำหรับเข้าสู่ระบบและต้องเปลี่ยนผ่านขั้นตอนบัญชีผู้ใช้");
     await assertHouseInVillage(tx, villageId, resolvedValue.houseId);
     if (nationalId.changed && resolvedValue.nationalId && await tx.person.findFirst({ where: { villageId, nationalId: resolvedValue.nationalId, id: { not: personId } }, select: { id: true } })) throw new PopulationValidationError("เลขบัตรประชาชนนี้มีอยู่ในทะเบียนแล้ว");
     const houseChanged = person.houseId !== resolvedValue.houseId;
     const reason = typeof data.reason === "string" ? data.reason.trim() : "";
-    const nameChanged = person.firstName !== resolvedValue.firstName || person.lastName !== resolvedValue.lastName;
     const oldGender = normalizePersonGender(person.gender);
     const genderChanged = oldGender !== resolvedValue.gender;
     const dateOfBirthChanged = comparableValue(person.dateOfBirth) !== comparableValue(resolvedValue.dateOfBirth);
-    const requiresReason = houseChanged || (Boolean(person.userId) && nameChanged) || (Boolean(person.gender) && genderChanged) || (Boolean(person.dateOfBirth) && dateOfBirthChanged);
+    const requiresReason = houseChanged || (Boolean(person.gender) && genderChanged) || (Boolean(person.dateOfBirth) && dateOfBirthChanged);
     const normalizedReason = requiresReason ? normalizedActionReason("population.person.move_out", reason) : reason;
     const changedFields = (Object.keys(resolvedValue) as Array<keyof typeof resolvedValue>).filter((key) => comparableValue(person[key as keyof typeof person]) !== comparableValue(resolvedValue[key]));
     const oldValue = Object.fromEntries(changedFields.map((key) => [key, comparableValue(person[key as keyof typeof person]) ?? null]));
@@ -583,11 +571,7 @@ export async function updateVillagePerson(villageId: string, personId: string, d
     if (houseChanged) {
       if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: normalizedReason } });
       if (resolvedValue.houseId) await tx.personMovement.create({ data: { personId, houseId: resolvedValue.houseId, movementType: MovementType.MOVE_IN, date: new Date(), note: normalizedReason } });
-      if (person.userId) {
-        await tx.villageMembership.updateMany({ where: { userId: person.userId, villageId, role: VillageMembershipRole.RESIDENT, status: MembershipStatus.ACTIVE }, data: { houseId: resolvedValue.houseId } });
-      }
     }
-    if (person.userId && nameChanged) await tx.user.update({ where: { id: person.userId }, data: { name: `${resolvedValue.firstName} ${resolvedValue.lastName}` } });
     if (changedFields.length) await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: houseChanged ? "PERSON_MOVED_HOUSE" : "PERSON_UPDATED", subject: `${resolvedValue.firstName} ${resolvedValue.lastName}`, reason: normalizedReason || null, changedFields, oldValue: { ...oldValue, ...(houseChanged ? { houseNumber: person.house?.houseNumber ?? null } : {}) }, newValue: { ...newValue, ...(houseChanged ? { houseNumber: newHouse?.houseNumber ?? null } : {}) } } } });
     return { moved: houseChanged };
   });
@@ -596,20 +580,13 @@ export async function updateVillagePerson(villageId: string, personId: string, d
 export async function moveOutVillagePerson(villageId: string, personId: string, reason: string, actor: PopulationActor) {
   const normalizedReason = normalizedActionReason("population.person.move_out", reason);
   await prisma.$transaction(async (tx) => {
-    const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true } });
+    const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, houseId: true, status: true } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");
     if (person.status !== PersonStatus.ACTIVE && person.status !== PersonStatus.UNKNOWN) throw new PopulationValidationError("สถานะปัจจุบันไม่สามารถบันทึกการย้ายออกได้");
-    const linkedMembership = person.userId ? await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: person.userId, villageId } }, select: { role: true, status: true, houseId: true } }) : null;
-    if (linkedMembership && linkedMembership.role !== VillageMembershipRole.RESIDENT) throw new PopulationValidationError("บัญชีผู้ใช้นี้มีบทบาทผู้ดูแลหมู่บ้าน จึงไม่สามารถย้ายออกผ่านรายการประชากรได้");
     const updated = await tx.person.updateMany({ where: { id: personId, villageId, status: person.status }, data: { status: PersonStatus.MOVED_OUT, houseId: null } });
     if (updated.count !== 1) throw new PopulationValidationError("ไม่สามารถยกเลิกบุคคลข้ามหมู่บ้านได้");
     if (person.houseId) await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.MOVE_OUT, date: new Date(), note: normalizedReason } });
-    if (person.userId && linkedMembership?.role === VillageMembershipRole.RESIDENT) {
-      await tx.villageMembership.updateMany({ where: { userId: person.userId, villageId, role: VillageMembershipRole.RESIDENT }, data: { status: MembershipStatus.SUSPENDED, houseId: null, joinedAt: null } });
-      await tx.authSession.updateMany({ where: { userId: person.userId, activeVillageId: villageId, expiresAt: { gt: new Date() } }, data: { activeVillageId: null } });
-      await tx.notification.create({ data: { userId: person.userId, villageId, type: NotificationType.SYSTEM, title: "สถานะทะเบียนของคุณมีการเปลี่ยนแปลง", body: "ข้อมูลบุคคลของคุณถูกย้ายออกจากทะเบียนบ้านของหมู่บ้านนี้ กรุณาติดต่อผู้ใหญ่บ้านหากต้องการตรวจสอบข้อมูล", metadata: { personId } } });
-    }
-    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: "PERSON_MOVED_OUT", reason: normalizedReason, changedFields: ["status", "houseId"], oldValue: { status: person.status, houseId: person.houseId }, newValue: { status: PersonStatus.MOVED_OUT, houseId: null }, previousMembershipStatus: linkedMembership?.status ?? null, newMembershipStatus: linkedMembership?.role === VillageMembershipRole.RESIDENT ? MembershipStatus.SUSPENDED : null } } });
+    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: "PERSON_MOVED_OUT", reason: normalizedReason, changedFields: ["status", "houseId"], oldValue: { status: person.status, houseId: person.houseId }, newValue: { status: PersonStatus.MOVED_OUT, houseId: null } } } });
   });
 }
 
@@ -620,19 +597,13 @@ export async function markVillagePersonDeceased(villageId: string, personId: str
   if (!normalizedDate || !parsedDate.valid || !parsedDate.value) throw new PopulationValidationError(!parsedDate.valid && parsedDate.reason === "FUTURE" ? "วันที่เสียชีวิตต้องไม่เป็นวันในอนาคต" : "วันที่เสียชีวิตไม่ถูกต้อง");
   const deceasedAt = parsedDate.value;
   await prisma.$transaction(async (tx) => {
-    const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, userId: true, houseId: true, status: true, firstName: true, lastName: true, dateOfBirth: true } });
+    const person = await tx.person.findFirst({ where: { id: personId, villageId }, select: { id: true, houseId: true, status: true, firstName: true, lastName: true, dateOfBirth: true } });
     if (!person) throw new PopulationValidationError("ไม่พบบุคคลในหมู่บ้านนี้");
     if (person.status !== PersonStatus.ACTIVE && person.status !== PersonStatus.UNKNOWN) throw new PopulationValidationError("สถานะปัจจุบันไม่สามารถบันทึกการเสียชีวิตได้");
     if (person.dateOfBirth && deceasedAt < person.dateOfBirth) throw new PopulationValidationError("วันที่เสียชีวิตต้องไม่ก่อนวันเกิด");
-    const linkedMembership = person.userId ? await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: person.userId, villageId } }, select: { role: true, status: true, houseId: true } }) : null;
-    if (linkedMembership && linkedMembership.role !== VillageMembershipRole.RESIDENT) throw new PopulationValidationError("บัญชีนี้ยังมีบทบาทผู้ดูแลหมู่บ้าน กรุณาปรับสิทธิ์บัญชีก่อนบันทึกการเสียชีวิต");
     const updated = await tx.person.updateMany({ where: { id: personId, villageId, status: person.status }, data: { status: PersonStatus.DECEASED } });
     if (updated.count !== 1) throw new PopulationValidationError("สถานะบุคคลถูกเปลี่ยนไปแล้ว กรุณาโหลดหน้าใหม่");
     await tx.personMovement.create({ data: { personId, houseId: person.houseId, movementType: MovementType.DEATH, date: deceasedAt, note: normalizedReason } });
-    if (person.userId && linkedMembership?.role === VillageMembershipRole.RESIDENT) {
-      await tx.villageMembership.updateMany({ where: { userId: person.userId, villageId, role: VillageMembershipRole.RESIDENT }, data: { status: MembershipStatus.SUSPENDED, houseId: null, joinedAt: null } });
-      await tx.authSession.updateMany({ where: { userId: person.userId, activeVillageId: villageId, expiresAt: { gt: new Date() } }, data: { activeVillageId: null } });
-    }
-    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: "PERSON_MARKED_DECEASED", subject: `${person.firstName} ${person.lastName}`, reason: normalizedReason, changedFields: ["status", "dateOfDeath"], oldValue: { status: person.status, dateOfDeath: null }, newValue: { status: PersonStatus.DECEASED, dateOfDeath: normalizedDate }, previousMembershipStatus: linkedMembership?.status ?? null, newMembershipStatus: linkedMembership?.role === VillageMembershipRole.RESIDENT ? MembershipStatus.SUSPENDED : null } } });
+    await tx.auditLog.create({ data: { userId: actor.id, villageId, action: AuditAction.UPDATE, resource: "Person", resourceId: personId, metadata: { actorRole: actor.role, actionName: "PERSON_MARKED_DECEASED", subject: `${person.firstName} ${person.lastName}`, reason: normalizedReason, changedFields: ["status", "dateOfDeath"], oldValue: { status: person.status, dateOfDeath: null }, newValue: { status: PersonStatus.DECEASED, dateOfDeath: normalizedDate } } } });
   });
 }

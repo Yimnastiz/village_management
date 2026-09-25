@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { AccountStatus, MembershipStatus, PrismaClient, VillageMembershipRole } from "@prisma/client";
+import { AccountKind, AccountStatus, MembershipStatus, PrismaClient, VillageMembershipRole } from "@prisma/client";
 import { BootstrapInputError, planVillageBootstrap, readBootstrapInput } from "./bootstrap-village-headman-core.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
@@ -43,7 +43,8 @@ async function main() {
       if (existingUser && existingUser.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The bootstrap phone belongs to a non-active account and was not changed.");
       const otherHeadmen = await tx.villageMembership.findMany({ where: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, ...(existingUser ? { userId: { not: existingUser.id } } : {}) }, select: { userId: true } });
       if (otherHeadmen.length > 0) throw new BootstrapInputError("ACTIVE_HEADMAN_EXISTS", "The configured Village already has another active Headman; no membership was changed.");
-      const user = existingUser ?? await tx.user.create({ data: { phoneNumber: input.headman.phoneNumber, name: input.headman.name, registrationVillageId: village.id, phoneNumberVerified: false } });
+      if (existingUser && existingUser.accountKind !== AccountKind.HEADMAN) throw new BootstrapInputError("HEADMAN_ACCOUNT_KIND_MISMATCH", "The bootstrap phone belongs to a Resident House Account.");
+      const user = existingUser ?? await tx.user.create({ data: { phoneNumber: input.headman.phoneNumber, name: input.headman.name, accountKind: AccountKind.HEADMAN, phoneNumberVerified: false } });
       const existingMembership = await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: user.id, villageId: village.id } }, select: { joinedAt: true } });
       const joinedAt = existingMembership?.joinedAt ?? new Date();
       await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId: village.id } }, update: { role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, joinedAt }, create: { userId: user.id, villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, joinedAt } });

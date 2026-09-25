@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -40,7 +40,7 @@ export function TransparencyForm({ mode, transparencyId, defaultValues }: Props)
   return <form onSubmit={handleSubmit(onSubmit)} className="space-y-7 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
     <section className="space-y-4"><div><h2 className="font-semibold text-gray-900">ข้อมูลรายการ</h2><p className="mt-1 text-sm text-gray-500">ระบุรายละเอียดที่ช่วยให้ตรวจสอบข้อมูลได้ชัดเจน</p></div><Input label="หัวข้อ" {...register("title")} error={errors.title?.message} /><Textarea label="รายละเอียด" {...register("description")} error={errors.description?.message} rows={5} /><Input label="หมวดหมู่" {...register("category")} error={errors.category?.message} /></section>
     <section className="space-y-4 border-t border-gray-100 pt-6"><h2 className="font-semibold text-gray-900">ข้อมูลงบประมาณ</h2><div className="grid grid-cols-1 gap-4 md:grid-cols-2"><Input label="จำนวนเงิน (บาท)" {...register("amount")} error={errors.amount?.message} inputMode="decimal" placeholder="เช่น 120,000" /><Input label="ปีงบประมาณ" {...register("fiscalYear")} error={errors.fiscalYear?.message} placeholder="เช่น 2569" /></div></section>
-    <section className="space-y-4 border-t border-gray-100 pt-6"><div><h2 className="font-semibold text-gray-900">การมองเห็น</h2><p className="mt-1 text-sm text-gray-500">กำหนดผู้ที่เห็นรายการหลังเผยแพร่</p></div><Select label="การมองเห็น" {...register("visibility")} options={[{ value: "PUBLIC", label: "สาธารณะ" }, { value: "RESIDENT_ONLY", label: "เฉพาะลูกบ้าน" }]} error={errors.visibility?.message} /><p className="text-sm text-gray-500">สาธารณะ: บุคคลทั่วไปสามารถดูรายการนี้จากหน้าหมู่บ้านได้<br />เฉพาะลูกบ้าน: เฉพาะสมาชิกของหมู่บ้านที่มีสิทธิ์เท่านั้นที่ดูได้</p></section>
+    <section className="space-y-4 border-t border-gray-100 pt-6"><div><h2 className="font-semibold text-gray-900">การมองเห็น</h2><p className="mt-1 text-sm text-gray-500">กำหนดผู้ที่เห็นรายการหลังเผยแพร่</p></div><Select label="การมองเห็น" {...register("visibility")} options={[{ value: "PUBLIC", label: "สาธารณะ" }, { value: "RESIDENT_ONLY", label: "เฉพาะสมาชิก" }]} error={errors.visibility?.message} /><p className="text-sm text-gray-500">สาธารณะ: บุคคลทั่วไปสามารถดูรายการนี้จากหน้าหมู่บ้านได้<br />เฉพาะสมาชิก: เฉพาะสมาชิกของหมู่บ้านที่มีสิทธิ์เท่านั้นที่ดูได้</p></section>
     {errors.root ? <p className="text-sm text-red-600">{errors.root.message}</p> : null}
     <div className="flex flex-col-reverse gap-3 sm:flex-row"><Button type="button" variant="outline" onClick={() => router.back()}>ยกเลิก</Button><Button type="submit" isLoading={isSubmitting} className="w-full sm:w-auto">{mode === "create" ? "บันทึกฉบับร่าง" : "บันทึกการแก้ไข"}</Button></div>
   </form>;

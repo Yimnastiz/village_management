@@ -1,4 +1,4 @@
-/** Village-admin authorization vocabulary. SUPERADMIN is intentionally out of scope. */
+/** Village permissions available to the Headman workspace. */
 export const VILLAGE_PERMISSIONS = [
   "dashboard.view",
   "news.manage",
@@ -21,7 +21,7 @@ export const VILLAGE_PERMISSIONS = [
   "population.import",
   "population.import.rollback",
   "population.export_sensitive",
-  "binding.review",
+  "house_account_opening.review",
   "members.view",
   "members.status.manage",
   "members.roles.manage",
@@ -32,7 +32,7 @@ export const VILLAGE_PERMISSIONS = [
 ] as const;
 
 export type VillagePermission = (typeof VILLAGE_PERMISSIONS)[number];
-/** Active runtime administrator role. Legacy membership values remain parseable in Prisma. */
+/** Active runtime administrator role. */
 export type VillageAdminRole = "HEADMAN";
 
 const OPERATIONAL_PERMISSIONS = [
@@ -54,7 +54,7 @@ const OPERATIONAL_PERMISSIONS = [
   "population.view",
   "population.person.manage",
   "population.house.manage",
-  "binding.review",
+  "house_account_opening.review",
   "members.view",
   "members.status.manage",
   "audit.view",
@@ -101,12 +101,4 @@ export class VillagePermissionError extends Error {
 export function requireVillagePermission<T extends { role: string }>(context: T, permission: VillagePermission): T {
   if (!hasVillagePermission(context.role, permission)) throw new VillagePermissionError(permission);
   return context;
-}
-
-/** Role mutation is retired during the transitional single-Headman refactor. */
-export function canManageVillageRole(actorRole: string, targetRole: string, nextRole: string): boolean {
-  void actorRole;
-  void targetRole;
-  void nextRole;
-  return false;
 }

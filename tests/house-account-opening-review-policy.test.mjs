@@ -74,9 +74,9 @@ test("activation plan creates a House-semantic account without a phone credentia
   });
 });
 
-test("activation service does not create Person or BindingRequest records", () => {
+test("activation service keeps population Person records independent", () => {
   const source = readFileSync(new URL("../src/lib/house-account-opening-review-service.ts", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /\.(?:person|bindingRequest)\.create\s*\(/u);
+  assert.doesNotMatch(source, /\.person\.create\s*\(/u);
   assert.match(source, /residentHouseAccount\.create\s*\(/u);
   assert.match(source, /villageMembership\.create\s*\(/u);
   assert.match(source, /user\.create\s*\(/u);

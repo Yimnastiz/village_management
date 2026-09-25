@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 /* eslint-disable react-hooks/set-state-in-effect -- prop changes must reset the optimistic drag order. */
 
@@ -29,7 +29,7 @@ function ContactCard({ contact, sortable, disabled }: { contact: AdminContactLis
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="mb-1 flex flex-wrap items-center gap-2">
-            <Badge variant={contact.isPublic ? "success" : "info"}>{contact.isPublic ? "สาธารณะ" : "เฉพาะลูกบ้าน"}</Badge>
+            <Badge variant={contact.isPublic ? "success" : "info"}>{contact.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</Badge>
             {contact.category ? <Badge variant="outline">{contact.category}</Badge> : null}
           </div>
           <p className="font-semibold text-gray-900">{contact.name}</p>

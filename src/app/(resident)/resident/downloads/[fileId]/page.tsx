@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Fragment } from "react";
 import { ArrowLeft, Download, FileText, Globe2, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
@@ -23,7 +23,7 @@ export default async function ResidentDownloadDetailPage({ params }: PageProps) 
       ? DOWNLOAD_CATEGORY_LABELS[file.category] || file.category
       : "ทั่วไป";
   const VisibilityIcon = file.visibility === "PUBLIC" ? Globe2 : Users;
-  const visibilityLabel = file.visibility === "PUBLIC" ? "สาธารณะ" : "เฉพาะลูกบ้าน";
+  const visibilityLabel = file.visibility === "PUBLIC" ? "สาธารณะ" : "เฉพาะสมาชิก";
   const metadataItems = [
     <span key="visibility" className="inline-flex items-center gap-1.5"><VisibilityIcon className="h-3.5 w-3.5 shrink-0" />{visibilityLabel}</span>,
     <span key="category">{categoryText}</span>,

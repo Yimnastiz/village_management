@@ -32,7 +32,7 @@ export function AccountDeletionCard() {
 
   return (
     <section className="rounded-xl border border-red-200 bg-white p-4 sm:p-6">
-      <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" /><div><h2 className="font-semibold text-red-700">ปิดหรือลบบัญชี</h2><p className="mt-1 text-sm text-gray-600">Session ทุกอุปกรณ์จะถูกเพิกถอน คำขอผูกบ้านที่รออยู่จะถูกยกเลิก และหลังระยะผ่อนผัน 7 วันจะย้อนกลับไม่ได้ ข้อมูลทะเบียน Person, House และประวัติที่จำเป็นจะยังคงอยู่</p></div></div>
+      <div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" /><div><h2 className="font-semibold text-red-700">ปิดหรือลบบัญชี</h2><p className="mt-1 text-sm text-gray-600">Session ทุกอุปกรณ์จะถูกเพิกถอน และหลังระยะผ่อนผัน 7 วันจะย้อนกลับไม่ได้ ข้อมูลทะเบียนประชากร บ้าน และประวัติที่จำเป็นจะยังคงอยู่</p></div></div>
       {!sent ? <Button type="button" variant="danger" className="mt-4" isLoading={busy} onClick={sendOtp}>ส่ง OTP เพื่อดำเนินการ</Button> : (
         <div className="mt-4 space-y-3">
           <input value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" placeholder="OTP 6 หลัก" className="w-full rounded-lg border border-gray-300 px-3 py-2" />

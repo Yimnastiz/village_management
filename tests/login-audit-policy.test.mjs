@@ -24,8 +24,6 @@ test("successful login audits include only active Resident and Headman membershi
     role: { in: ["HEADMAN", "RESIDENT"] },
   });
   assert.equal(isConfiguredActiveVillageActorMembership({ villageId: "village-a", status: "ACTIVE", role: "RESIDENT" }, "village-a"), true);
-  assert.equal(isConfiguredActiveVillageActorMembership({ villageId: "village-a", status: "ACTIVE", role: "ASSISTANT_HEADMAN" }, "village-a"), false);
-  assert.equal(isConfiguredActiveVillageActorMembership({ villageId: "village-a", status: "ACTIVE", role: "SUPERADMIN" }, "village-a"), false);
 });
 
 test("configured Village A is the only eligible Headman login audit membership", () => {
