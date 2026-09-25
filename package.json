@@ -16,6 +16,8 @@
     "identity:backfill": "node scripts/backfill-resident-identity.mjs",
     "identity:duplicate-report": "node scripts/report-duplicate-identity.mjs",
     "house-account:readiness": "node scripts/report-house-account-migration-readiness.mjs",
+    "house-account:cutover-preflight": "node scripts/report-house-account-cutover-preflight.mjs",
+    "house-account:cutover-verify": "node --experimental-transform-types --experimental-loader ./scripts/typescript-path-alias-loader.mjs scripts/verify-house-account-cutover.mjs",
     "population:legacy-registration-report": "node scripts/report-legacy-registration-person-placeholders.mjs",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",

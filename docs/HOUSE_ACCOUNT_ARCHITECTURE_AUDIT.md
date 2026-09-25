@@ -214,3 +214,50 @@ Resident Binding forms and mutations were removed, compatibility routes only red
 Population import continues to create/update House and Person records and retains National ID, birth date, gender, contact, status, and movement validation. It no longer creates or updates a personal Resident User, VillageMembership, PhoneRoleSeed, RegistrationTemp-derived identity, citizen-verification state, or Person.userId auth link. National ID remains population data and was not removed from Person records.
 
 The duplicate-account notice mutation and final routing state machine were retired. Historical `DUPLICATE_ID`, RegistrationTemp, RegistrationOtpChallenge, Person.userId, and BindingRequest schema/data remain untouched for a later explicit data migration and cleanup phase. No Phase 9 Prisma schema change or destructive database operation was performed.
+
+## Phase 10 — Database cutover readiness verification
+
+Phase 10 did not deploy a migration, seed, setup command, or data update to the configured main database. The existing `house-account:readiness` script was inspected first and confirmed to contain only Prisma `findMany`/`count` reads. It could not execute against the configured database because the generated Prisma Client expects `User.accountKind` while that column is absent. The new `house-account:cutover-preflight` script uses a PostgreSQL read-only transaction plus catalog inspection, so it can safely report both pre- and post-House-Account schemas without querying nonexistent columns.
+
+### Configured database preflight
+
+The configured local target is `localhost:55432`, database `village_management`; no credential was printed or persisted. `prisma migrate status` found 65 committed migrations and zero applied migrations. The database nevertheless contains the pre-House-Account application tables, with zero Users, Villages, Houses, Person links, Binding requests, business-owner rows, email conflicts, or House Account rows. `User.phoneNumber` remains `NOT NULL`, as expected before the additive nullability migration.
+
+This is an `UNMANAGED_EMPTY_SCHEMA`, not a migration-managed fresh database. Applying `migrate deploy` directly would encounter existing untracked objects. The concrete main-database blocker is therefore migration history/schema provenance, not legacy data. Before a later cutover, the operator must choose either a clean reset of this confirmed-empty DEV database or a reviewed Prisma baseline. Phase 10 made neither choice and changed no main-database row or schema object.
+
+### Disposable migration rehearsals
+
+All mutations used the isolated Docker container `village-house-account-cutover-test` on port `55434`. The verifier required `HOUSE_ACCOUNT_CUTOVER_TEST=true`, rejected `NODE_ENV=production`, and required the database name to contain `cutover_test` before creating fixtures.
+
+After verification, that exact disposable container (and its two non-volume databases) was stopped and removed. The configured main PostgreSQL container was only started for read-only inspection and was returned to its prior stopped state; its persistent volume was not removed.
+
+Two scenarios passed:
+
+1. `village_management_cutover_test`: all 65 migrations deployed from an empty database; final `prisma migrate status` reported the schema up to date.
+2. `village_management_upgrade_cutover_test`: the first 61 migrations created the schema immediately before `20260923090000_introduce_house_account_foundation`; a synthetic Headman, legacy Resident, House, Person link, pending Binding request, notification, saved item, appointment, issue, news row, and audit row were added; the four additive House Account migrations then deployed cleanly; final status reported all 65 migrations applied.
+
+The upgrade classified the Headman as `HEADMAN`, the personal Resident as `LEGACY_RESIDENT`, preserved the phone-only identities and all historical/business rows, left `Person.userId` and the pending Binding request intact, made `User.phoneNumber` nullable, and created empty House Account tables. The pre- and post-migration reports produced warnings for the legacy Resident, phone-only login, Person link, pending Binding history, and four active legacy-owned business records. None prevented the additive migrations.
+
+### Schema, service, and concurrency evidence
+
+Database checks verified:
+
+- `ResidentHouseAccount.userId` and `ResidentHouseAccount.houseId` uniqueness;
+- global `AccountEmail.normalizedEmail` uniqueness;
+- one live opening request per House and one live Email OTP per email/purpose partial indexes;
+- `HouseAccountLoginFlow` and `AuthSession.loginAccountEmailId` indexes;
+- nullable `User.phoneNumber` after migration;
+- `AuthSession.loginAccountEmailId` foreign-key `ON DELETE SET NULL` behavior;
+- preservation of `BindingRequest`, `RegistrationTemp`, and nullable `Person.userId` schema.
+
+The disposable service verifier passed House opening, `HOUSE_OPENING` OTP verification, Headman approval, single transactional activation, two active aliases on the same User/ResidentHouseAccount, both aliases resolving to that same User, session Village/alias attribution, canonical-email rotation, per-alias session revocation, final-email protection, Headman phone/account compatibility, House-semantic audit/notification creation, and Person creation without a User, membership, or `Person.userId` auth link. The Better Auth memory-adapter suite separately verified real Better Auth session creation, cookie handling, `getSession`, sign-out, and OTP replay rejection.
+
+Database-backed concurrency checks passed for simultaneous opening starts on one House, simultaneous approvals, case-insensitive global email reservation, simultaneous same-alias additions, live Email OTP uniqueness, and simultaneous attempts to remove the final two aliases. The outcomes left one live opening, one House Account, one normalized email identity, at most one live challenge, and at least one active login alias.
+
+Focused source tests also confirm Headman-only phone OTP policy, Resident/Headman access separation, Binding mutation retirement, population import separation, and National ID validation remaining population-only. No real SMTP or SMS provider was used.
+
+### Setup and cutover classification
+
+`npm run setup` and `npm run setup:db` both generate Prisma Client and invoke `prisma migrate deploy`; that is correct for a new, migration-managed database and reached the latest schema in the disposable rehearsal. They are not safe remedies for the current unmanaged local schema. `.env.example` already documents console email for local development, production SMTP fields, Email OTP controls, and the required signing/hash secrets.
+
+The migration chain and final runtime are technically ready, but the current configured main database is **NOT READY — BLOCKERS REMAIN** until its empty unmanaged schema is explicitly reset or baselined. A future operator must first take a PostgreSQL backup, rerun migration status and the read-only preflight, resolve the provenance decision, deploy migrations once, rerun status/preflight, bootstrap the Village/Headman if the chosen path is fresh, and then execute the focused House Account smoke tests. No main-database migration was executed in Phase 10, and legacy schema was not dropped.
