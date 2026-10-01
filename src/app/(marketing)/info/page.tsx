@@ -1,27 +1,3 @@
-﻿export default function InfoPage() {
-  return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">ข้อมูลโครงการ</h1>
-      <div className="prose prose-gray max-w-none">
-        <p className="text-gray-600 leading-relaxed">
-          ระบบบริหารจัดการหมู่บ้านอัจฉริยะ (Smart Village Management System)
-          คือแพลตฟอร์มดิจิทัลสำหรับชุมชนในประเทศไทย ที่ช่วยให้การบริหารจัดการหมู่บ้าน
-          มีความโปร่งใส มีประสิทธิภาพ และเชื่อมต่อสมาชิกกับผู้นำชุมชนได้ดียิ่งขึ้น
-        </p>
-        <h2 className="text-xl font-semibold text-gray-800 mt-8 mb-4">วัตถุประสงค์</h2>
-        <ul className="space-y-2 text-gray-600">
-          <li>• เพิ่มประสิทธิภาพการบริหารจัดการหมู่บ้าน</li>
-          <li>• ส่งเสริมความโปร่งใสในการใช้งบประมาณและโครงการ</li>
-          <li>• อำนวยความสะดวกให้แก่สมาชิกในการเข้าถึงบริการ</li>
-          <li>• สร้างช่องทางสื่อสารระหว่างชุมชนและผู้นำ</li>
-        </ul>
-        <h2 className="text-xl font-semibold text-gray-800 mt-8 mb-4">กลุ่มเป้าหมาย</h2>
-        <ul className="space-y-2 text-gray-600">
-          <li>• สมาชิกและสมาชิกในชุมชน</li>
-          <li>• ผู้ใหญ่บ้าน</li>
-          <li>• หน่วยงานที่เกี่ยวข้องในพื้นที่</li>
-        </ul>
-      </div>
-    </div>
-  );
+export default function InfoPage() {
+  return <main className="mx-auto max-w-4xl px-4 py-12"><h1 className="mb-6 text-3xl font-bold text-gray-900">เกี่ยวกับระบบ</h1><div className="space-y-7 text-gray-600"><p className="text-lg leading-8">ระบบบริหารจัดการข้อมูลพื้นฐานของหมู่บ้าน ช่วยให้บุคคลทั่วไป สมาชิก และผู้ใหญ่บ้านเข้าถึงข้อมูล บริการ และการจัดการภายในหมู่บ้านได้อย่างเป็นระบบ</p><section><h2 className="mb-3 text-xl font-semibold text-gray-800">ระบบรองรับ</h2><ul className="list-disc space-y-2 pl-5"><li>ข้อมูลหมู่บ้านสำหรับบุคคลทั่วไป</li><li>บัญชีบ้านสำหรับสมาชิก</li><li>การจัดการบ้านและข้อมูลประชากร</li><li>การแจ้งปัญหาและการนัดหมาย</li><li>คำขอเผยแพร่ข้อมูลและการแจ้งเตือน</li><li>บริการต่าง ๆ ของหมู่บ้าน</li></ul></section><section><h2 className="mb-3 text-xl font-semibold text-gray-800">กลุ่มผู้ใช้งาน</h2><ul className="list-disc space-y-2 pl-5"><li><span className="font-medium text-gray-800">บุคคลทั่วไป</span> ดูข้อมูลหมู่บ้านและข่าวสารที่เผยแพร่</li><li><span className="font-medium text-gray-800">สมาชิก</span> ใช้บัญชีบ้านเพื่อเข้าถึงบริการและส่งคำขอ</li><li><span className="font-medium text-gray-800">ผู้ใหญ่บ้าน</span> ดูแลข้อมูลหมู่บ้าน บ้าน บัญชีบ้าน และการดำเนินงานต่าง ๆ</li></ul></section><p className="border-t border-gray-100 pt-5 text-sm leading-6">หน้านี้อธิบายภาพรวมของระบบ ส่วนข้อมูลจริงของหมู่บ้านอยู่ที่หน้าข้อมูลหมู่บ้านของหมู่บ้านนั้น</p></div></main>;
 }
