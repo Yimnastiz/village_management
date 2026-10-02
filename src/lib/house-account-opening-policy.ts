@@ -39,9 +39,7 @@ function normalizeName(value: string): string {
 }
 
 export function normalizeContactPhone(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (/^66\d{9}$/.test(digits)) return `0${digits.slice(2)}`;
-  return digits;
+  return value.replace(/\D/g, "").slice(0, 10);
 }
 
 export function validateHouseAccountOpeningInput(
@@ -62,7 +60,7 @@ export function validateHouseAccountOpeningInput(
   else if (applicantFirstName.length > 100) errors.push("FIRST_NAME_TOO_LONG");
   if (!applicantLastName) errors.push("LAST_NAME_REQUIRED");
   else if (applicantLastName.length > 100) errors.push("LAST_NAME_TOO_LONG");
-  if (!/^0\d{8,9}$/.test(contactPhone)) errors.push("CONTACT_PHONE_INVALID");
+  if (!/^\d{10}$/.test(contactPhone)) errors.push("CONTACT_PHONE_INVALID");
   if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) {
     errors.push("EMAIL_INVALID");
   }

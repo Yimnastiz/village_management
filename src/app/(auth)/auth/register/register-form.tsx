@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PrivacyPolicyContent } from "@/components/privacy-policy-content";
 
 type VillageOption = {
   id: string;
@@ -50,6 +52,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   const [contactPhone, setContactPhone] = useState("");
   const [email, setEmail] = useState("");
   const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpState, setOtpState] = useState<OtpState | null>(null);
   const [successState, setSuccessState] = useState<SuccessState | null>(null);
@@ -166,8 +169,8 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       setError("กรุณากรอกชื่อและนามสกุลผู้ขอ");
       return;
     }
-    const phoneDigits = contactPhone.replace(/\D/g, "");
-    if (!/^(?:0\d{8,9}|66\d{9})$/.test(phoneDigits)) {
+    const phoneDigits = contactPhone.replace(/\D/g, "").slice(0, 10);
+    if (!/^\d{10}$/.test(phoneDigits)) {
       setError("กรุณากรอกเบอร์โทรสำหรับติดต่อให้ถูกต้อง");
       return;
     }
@@ -189,7 +192,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
           houseId: selectedHouse.houseId,
           applicantFirstName: firstName,
           applicantLastName: lastName,
-          contactPhone,
+          contactPhone: phoneDigits,
           email,
           privacyConsent,
         }),
@@ -360,15 +363,16 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         <Input id="house-opening-first-name" name="givenName" label="ชื่อผู้ขอ" value={firstName} onChange={(event) => setFirstName(event.target.value.slice(0, 100))} autoComplete="given-name" maxLength={100} required />
         <Input id="house-opening-last-name" name="familyName" label="นามสกุลผู้ขอ" value={lastName} onChange={(event) => setLastName(event.target.value.slice(0, 100))} autoComplete="family-name" maxLength={100} required />
       </div>
-      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="tel" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value.slice(0, 20))} placeholder="0812345678" helperText="ใช้สำหรับให้ผู้ใหญ่บ้านติดต่อเพิ่มเติม ไม่ใช้เข้าสู่ระบบและไม่มี SMS OTP" maxLength={20} required />
+      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="numeric" pattern="[0-9]{10}" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="0812345678" helperText="ใช้สำหรับให้ผู้ใหญ่บ้านติดต่อเพิ่มเติม ไม่ใช้เข้าสู่ระบบและไม่มี SMS OTP" maxLength={10} required />
       <Input id="house-opening-email" name="email" label="อีเมลสำหรับเข้าสู่ระบบ" type="email" inputMode="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value.slice(0, 320))} placeholder="name@example.com" maxLength={320} required />
       <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
         <input type="checkbox" checked={privacyConsent} onChange={(event) => setPrivacyConsent(event.target.checked)} className="mt-1 h-4 w-4 accent-green-600" required />
-        <span>ฉันยอมรับ <Link href="/consent" target="_blank" className="font-medium text-green-700 underline">นโยบายความเป็นส่วนตัว</Link> สำหรับการส่งคำขอเปิดบัญชีบ้าน</span>
+        <span>ฉันยอมรับ <button type="button" onClick={() => setPrivacyOpen(true)} className="font-medium text-green-700 underline focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">นโยบายความเป็นส่วนตัว</button> สำหรับการส่งคำขอเปิดบัญชีบ้าน</span>
       </label>
       {error ? <p role="alert" aria-live="polite" className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" className="w-full" isLoading={pending}>ส่งรหัสยืนยันอีเมล</Button>
     </form>
     <p className="mt-6 text-center text-sm text-gray-600">มีบัญชีอยู่แล้ว? <Link href="/auth/login" className="font-medium text-green-700 underline">เข้าสู่ระบบ</Link></p>
+    <Dialog open={privacyOpen} title="นโยบายความเป็นส่วนตัว" onClose={() => setPrivacyOpen(false)} className="max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]"><PrivacyPolicyContent /></Dialog>
   </div>;
 }

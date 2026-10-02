@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Calendar, Compass, Download, Eye, FileText, FolderOpen, Globe, HeartPulse, Home, Landmark, Mail, MapPin, Newspaper, Phone, School, Sprout, Users } from "lucide-react";
+import { BookOpen, Calendar, Compass, Download, Eye, FolderOpen, Globe, HeartPulse, Home, Landmark, Mail, MapPin, Newspaper, Phone, School, Sprout, Users } from "lucide-react";
 import { notFound } from "next/navigation";
 import { VillagePlaceCategory } from "@prisma/client";
 import { getCommunityProfile } from "@/features/public-village/server/community-profile";
