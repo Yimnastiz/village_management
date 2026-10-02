@@ -1,47 +1,9 @@
-import { Home, Mail, Phone, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Home, Mail, Phone, ShieldCheck } from "lucide-react";
 
-function phoneDisplay(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-  if (digits.length === 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
-  return value;
-}
+function phoneDisplay(value: string): string { const digits = value.replace(/\D/g, ""); if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`; if (digits.length === 9) return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`; return value; }
 
-export function HouseAccountProfile(props: {
-  houseNumber: string;
-  villageName: string;
-  moo: string | null;
-  contactPhone: string;
-  activeEmailCount: number;
-}) {
-  const rows = [
-    { icon: ShieldCheck, label: "สถานะบัญชี", value: "ใช้งานอยู่" },
-    { icon: Phone, label: "เบอร์โทรสำหรับติดต่อ", value: phoneDisplay(props.contactPhone) },
-    { icon: Mail, label: "จำนวนอีเมลสำหรับเข้าสู่ระบบ", value: `${props.activeEmailCount.toLocaleString("th-TH")} อีเมล` },
-  ];
-  return (
-    <div className="mx-auto max-w-3xl space-y-5">
-      <header>
-        <p className="text-sm font-medium text-green-700">บัญชีบ้าน</p>
-        <h1 className="mt-1 text-2xl font-bold text-gray-900">บ้านเลขที่ {props.houseNumber}</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          {props.villageName}{props.moo != null ? ` หมู่ ${props.moo}` : ""}
-        </p>
-      </header>
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="flex items-center gap-3 border-b border-gray-100 p-5">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-green-700"><Home className="h-5 w-5" aria-hidden="true" /></span>
-          <div><h2 className="font-semibold text-gray-900">ข้อมูลบัญชีบ้าน</h2><p className="text-sm text-gray-500">บัญชีนี้ใช้ร่วมกันสำหรับบ้านหลังนี้</p></div>
-        </div>
-        <dl className="divide-y divide-gray-100">
-          {rows.map(({ icon: Icon, label, value }) => (
-            <div key={label} className="flex items-start gap-3 p-5">
-              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" />
-              <div className="min-w-0"><dt className="text-sm text-gray-500">{label}</dt><dd className="mt-1 break-words font-medium text-gray-900">{value}</dd></div>
-            </div>
-          ))}
-        </dl>
-      </section>
-    </div>
-  );
+export function HouseAccountProfile(props: { houseNumber: string; villageName: string; moo: string | null; contactPhone: string; activeEmailCount: number }) {
+  const rows = [{ icon: ShieldCheck, label: "สถานะบัญชี", value: "ใช้งานอยู่" }, { icon: Phone, label: "เบอร์โทรสำหรับติดต่อ", value: phoneDisplay(props.contactPhone) }];
+  return <div className="mx-auto max-w-3xl space-y-6"><header><p className="text-sm font-medium text-green-700">บัญชีบ้าน</p><h1 className="mt-1 text-2xl font-bold text-gray-900">บ้านเลขที่ {props.houseNumber}</h1><p className="mt-1 text-sm text-gray-600">{props.villageName}{props.moo != null ? ` หมู่ ${props.moo}` : ""}</p></header><section className="overflow-hidden rounded-xl border border-gray-200 bg-white"><div className="flex items-center gap-3 border-b border-gray-100 p-5"><span className="flex h-11 w-11 items-center justify-center rounded-full bg-green-50 text-green-700"><Home className="h-5 w-5" aria-hidden="true" /></span><div><h2 className="font-semibold text-gray-900">ข้อมูลบัญชีบ้าน</h2><p className="text-sm text-gray-500">บัญชีนี้ใช้ร่วมกันสำหรับบ้านหลังนี้</p></div></div><dl className="divide-y divide-gray-100">{rows.map(({ icon: Icon, label, value }) => <div key={label} className="flex items-start gap-3 p-5"><Icon className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" aria-hidden="true" /><div className="min-w-0"><dt className="text-sm text-gray-500">{label}</dt><dd className="mt-1 break-words font-medium text-gray-900">{value}</dd></div></div>)}</dl></section><section><h2 className="mb-3 text-base font-semibold text-gray-900">ความปลอดภัยและการเข้าสู่ระบบ</h2><Link href="/resident/profile/security" className="group flex min-h-[76px] items-center gap-4 rounded-xl border border-gray-200 bg-white p-4 transition hover:border-green-300 hover:bg-green-50/30 focus:outline-none focus:ring-2 focus:ring-green-500 sm:p-5"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-green-50 text-green-700"><Mail className="h-5 w-5" aria-hidden="true" /></span><span className="min-w-0 flex-1"><span className="block font-semibold text-gray-900">อีเมลสำหรับเข้าสู่ระบบ</span><span className="mt-1 block text-sm text-gray-600">เพิ่มหรือลบอีเมลที่ใช้เข้าสู่บัญชีบ้าน</span></span><span className="flex shrink-0 items-center gap-2 text-sm font-medium text-green-700"><span className="hidden sm:inline">จัดการอีเมล</span><ArrowRight className="h-5 w-5" aria-hidden="true" /></span></Link></section></div>;
 }
