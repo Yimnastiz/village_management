@@ -24,7 +24,7 @@ import {
   chooseCanonicalReplacement,
   MAX_HOUSE_ACCOUNT_EMAILS,
 } from "@/lib/house-account-email-policy";
-import { revokeSessionsForAccountEmail } from "@/lib/house-account-login-service";
+import { revokeSessionsForAccountEmail } from "@/lib/account-login-service";
 import { prisma } from "@/lib/prisma";
 
 export type HouseAccountEmailManagementErrorCode =

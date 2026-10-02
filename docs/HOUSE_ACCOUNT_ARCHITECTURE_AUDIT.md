@@ -1,5 +1,13 @@
 # House Account Architecture Audit
 
+## Final authentication rule (supersedes staged login notes below)
+
+`/auth/login` now has one form for every account: email, then an email verification code. Residents may use any active verified `AccountEmail` owned by their active `ResidentHouseAccount`; the Headman uses the active `HEADMAN` User's configured email. The server resolves the account kind, active configured-Village membership, landing area, and permissions. The browser never supplies a role or account type.
+
+House number remains household data and the `ResidentHouseAccount`–`House` relation remains authoritative, but House number is not an authentication credential. Headman phone remains contact and account-deletion verification data; it is not accepted by the login UI or login APIs. Better Auth continues to create and serialize all authenticated sessions after the existing hashed, expiring, retry-limited, single-use `EmailOtpChallenge` is verified.
+
+The global normalized-email namespace is checked across `AccountEmail.normalizedEmail` and case-insensitive `User.email`. A duplicate that points to the same User is one identity; references to different Users fail closed. Fresh bootstrap requires `BOOTSTRAP_HEADMAN_EMAIL`, and both bootstrap and Headman profile changes reject conflicts with Resident login aliases.
+
 The target product is **ระบบบริหารจัดการข้อมูลพื้นฐานของหมู่บ้าน** / **Village Basic Information Management System**.
 
 The architecture audit found that the existing runtime treats `User` as both an authentication principal and an individual Resident. Phase 2 introduces an additive data-model foundation while preserving phone OTP, `BindingRequest`, `Person.userId`, and every existing route. Existing Resident users are not converted or merged in this phase.

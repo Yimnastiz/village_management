@@ -2,20 +2,18 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { phoneNumber } from "better-auth/plugins";
 import { prisma } from "./prisma";
-import { houseAccountAuthPlugin } from "./house-account-auth-plugin";
+import { accountLoginAuthPlugin } from "./account-login-auth-plugin";
 import {
-  consumeHouseAccountLoginOtp,
-  verifyHouseAccountLoginOtp,
-} from "./house-account-login-service";
+  consumeAccountLoginOtp,
+  verifyAccountLoginOtp,
+} from "./account-login-service";
 
 const defaultBaseUrl = "http://localhost:3000";
 const appUrl = process.env.BETTER_AUTH_URL;
 const isProduction = process.env.NODE_ENV === "production";
 const localDevelopmentOrigins = ["http://localhost:*", "http://127.0.0.1:*"];
 const authSecret = process.env.BETTER_AUTH_SECRET;
-const shouldShowDevelopmentOtp =
-  process.env.NODE_ENV === "development" &&
-  process.env.DEV_SHOW_OTP === "true";
+const shouldShowDevelopmentOtp = process.env.NODE_ENV === "development" && process.env.DEV_SHOW_OTP === "true";
 
 if (!authSecret) {
   throw new Error(
@@ -23,9 +21,7 @@ if (!authSecret) {
   );
 }
 
-function normalizePhoneNumber(raw: string): string {
-  return raw.replace(/[\s-]/g, "");
-}
+function normalizePhoneNumber(raw: string): string { return raw.replace(/[\s-]/g, ""); }
 
 function parseDevelopmentOrigins(value: string | undefined): string[] {
   if (!value) return [];
@@ -79,10 +75,6 @@ export const auth = betterAuth({
     enabled: true,
     window: 60,
     max: 100,
-    customRules: {
-      "/phone-number/send-otp": { window: 60, max: 5 },
-      "/phone-number/verify": { window: 60, max: 10 },
-    },
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -160,40 +152,19 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    houseAccountAuthPlugin({
-      verifyHouseAccountLoginOtp,
-      consumeHouseAccountLoginOtp,
-    }),
+    accountLoginAuthPlugin({ verifyAccountLoginOtp, consumeAccountLoginOtp }),
+    // Retained only for authenticated account-deletion verification. Public
+    // phone sign-in endpoints are blocked in the Next.js auth handler.
     phoneNumber({
       expiresIn: 60 * 5,
       allowedAttempts: 5,
-      sendOTP: async ({ phoneNumber, code }) => {
-        const maskedOtpLog = {
-          phoneSuffix: phoneNumber.slice(-4),
-          codeLength: code.length,
-          expiresInSeconds: 300,
-        };
-
-        if (shouldShowDevelopmentOtp) {
-          console.log("[auth] OTP generated", {
-            ...maskedOtpLog,
-            otp: code,
-          });
-        } else {
-          console.log("[auth] OTP generated", maskedOtpLog);
-        }
-        
-        // TODO: integrate with SMS provider (e.g. Twilio, DTAC, AIS)
-        // For production:
-        // await sendSMS(phoneNumber, `Your OTP code is: ${code}`);
+      sendOTP: async ({ phoneNumber: destination, code }) => {
+        const metadata = { phoneSuffix: destination.slice(-4), codeLength: code.length, expiresInSeconds: 300 };
+        console.log("[auth] account-deletion OTP generated", shouldShowDevelopmentOtp ? { ...metadata, otp: code } : metadata);
+        // TODO: integrate the deployment SMS provider for account deletion.
       },
-      signUpOnVerification: {
-        getTempEmail: (phoneNumber) =>
-          `phone_${normalizePhoneNumber(phoneNumber)}@local.invalid`,
-        getTempName: (phoneNumber) => normalizePhoneNumber(phoneNumber),
-      },
-      phoneNumberValidator: (phoneNumber) =>
-        /^\+?\d{9,15}$/.test(normalizePhoneNumber(phoneNumber)),
+      signUpOnVerification: { getTempEmail: (value) => `phone_${normalizePhoneNumber(value)}@local.invalid`, getTempName: normalizePhoneNumber },
+      phoneNumberValidator: (value) => /^\+?\d{9,15}$/.test(normalizePhoneNumber(value)),
     }),
   ],
   trustedOrigins: [

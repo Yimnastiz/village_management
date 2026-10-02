@@ -182,7 +182,7 @@ async function main() {
 
   if (databaseOnly || !importCatalogDuringSetup) {
     if (!databaseOnly) console.log("\nCatalog import is optional. Run npm run catalog:setup only when catalog data is explicitly needed.");
-    if (!databaseOnly) console.log("ตั้งค่า BOOTSTRAP_HEADMAN_* แล้วรัน npm run setup:bootstrap เพื่อสร้างหมู่บ้านและผู้ใหญ่บ้าน");
+    if (!databaseOnly) console.log("ตั้งค่า BOOTSTRAP_HEADMAN_EMAIL, BOOTSTRAP_HEADMAN_PHONE และ BOOTSTRAP_HEADMAN_NAME แล้วรัน npm run setup:bootstrap ผู้ใหญ่บ้านจะเข้าสู่ระบบด้วยอีเมล");
     console.log("\nฐานข้อมูลพร้อมใช้งานแล้ว");
     return;
   }

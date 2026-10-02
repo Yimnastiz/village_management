@@ -4,6 +4,8 @@ import { AuditAction, MembershipStatus, NotificationType, VillageMembershipRole 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { normalizeAccountEmail } from "@/lib/account-email";
+import { lockAccountEmailNamespace } from "@/lib/account-email-service";
 import { isSafeImageSource } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
 import { isAccessMembershipStatus } from "@/lib/settings-access";
@@ -77,18 +79,24 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
 
 export async function updatePersonalSettingsAction(data: { email: string; image: string | null }): Promise<{ success: true } | { success: false; error: string }> {
   const { session, membership, villageId } = await requireAdminVillageContext();
-  const email = data.email.trim() || null;
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
+  const email = normalizeAccountEmail(data.email);
+  if (!email || !/^\S+@\S+\.\S+$/.test(email) || email.length > 320) return { success: false, error: "กรุณาระบุอีเมลเข้าสู่ระบบให้ถูกต้อง" };
   if (data.image && !isSafeImageSource(data.image)) {
     return { success: false, error: "รูปโปรไฟล์ไม่ถูกต้อง" };
   }
-  const conflict = email ? await prisma.user.findFirst({ where: { email, id: { not: session.id } }, select: { id: true } }) : null;
-  if (conflict) return { success: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
   const current = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { email: true } });
-  await prisma.$transaction(async (tx) => {
+  const updated = await prisma.$transaction(async (tx) => {
+    await lockAccountEmailNamespace(tx, email);
+    const [userConflict, accountEmailConflict] = await Promise.all([
+      tx.user.findFirst({ where: { email: { equals: email, mode: "insensitive" }, id: { not: session.id } }, select: { id: true } }),
+      tx.accountEmail.findUnique({ where: { normalizedEmail: email }, select: { userId: true } }),
+    ]);
+    if (userConflict || (accountEmailConflict && accountEmailConflict.userId !== session.id)) return false;
     await tx.user.update({ where: { id: session.id }, data: { email, image: data.image, ...(email !== current.email ? { emailVerified: false } : {}) } });
     await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.UPDATE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: membership.role, actionName: "USER_PROFILE_UPDATED", changedFields: [email !== current.email ? "email" : null, "profileImage"].filter(Boolean) } } });
+    return true;
   });
+  if (!updated) return { success: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
   revalidatePath("/admin/settings/profile");
   revalidatePath("/admin", "layout");
   return { success: true };

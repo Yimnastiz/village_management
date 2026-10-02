@@ -26,3 +26,12 @@ export function sanitizeResidentCallbackUrl(
   if (candidate === "/resident" || candidate?.startsWith("/resident/")) return candidate;
   return fallback;
 }
+
+export function sanitizeAdminCallbackUrl(
+  value: string | null | undefined,
+  fallback: string | null = null,
+): string | null {
+  const candidate = sanitizeInternalCallbackUrl(value);
+  if (candidate === "/admin" || candidate?.startsWith("/admin/")) return candidate;
+  return fallback;
+}

@@ -95,7 +95,7 @@ export function PersonForm({ mode, personId, houseOptions, defaultValues, linked
     </fieldset>
 
     <fieldset className="space-y-4 border-t border-gray-100 pt-5"><legend className="text-sm font-semibold text-gray-900">ข้อมูลติดต่อ</legend>
-      <div className="grid gap-4 sm:grid-cols-2">{linkedAccount ? <Input label="เบอร์เข้าสู่ระบบ" value={linkedAccount.phoneNumber} disabled readOnly helperText="เบอร์นี้ใช้สำหรับเข้าสู่ระบบและต้องเปลี่ยนผ่านขั้นตอนบัญชีผู้ใช้" /> : <ThaiPhoneInput label="เบอร์โทรสำหรับติดต่อ" {...register("phone", { validate: (value) => isValidOptionalThaiPhone(value) || "กรุณาระบุเบอร์โทร 10 หลัก" })} error={errors.phone?.message} />}<Input label="อีเมลสำหรับติดต่อ" type="email" {...register("email")} error={errors.email?.message} helperText={linkedAccount?.email ? `แยกจากอีเมลบัญชี: ${linkedAccount.email}` : "ข้อมูลติดต่อในทะเบียน ไม่ใช้เป็น credential ของบัญชี"} /></div>
+      <div className="grid gap-4 sm:grid-cols-2">{linkedAccount ? <Input label="เบอร์โทรในบัญชี" value={linkedAccount.phoneNumber} disabled readOnly helperText="ข้อมูลสำหรับติดต่อ ไม่ใช้เข้าสู่ระบบ" /> : <ThaiPhoneInput label="เบอร์โทรสำหรับติดต่อ" {...register("phone", { validate: (value) => isValidOptionalThaiPhone(value) || "กรุณาระบุเบอร์โทร 10 หลัก" })} error={errors.phone?.message} />}<Input label="อีเมลสำหรับติดต่อ" type="email" {...register("email")} error={errors.email?.message} helperText={linkedAccount?.email ? `แยกจากอีเมลบัญชี: ${linkedAccount.email}` : "ข้อมูลติดต่อในทะเบียน ไม่ใช้เป็นข้อมูลเข้าสู่ระบบ"} /></div>
     </fieldset>
 
     <fieldset className="space-y-4 border-t border-gray-100 pt-5"><legend className="text-sm font-semibold text-gray-900">ข้อมูลทะเบียน</legend>

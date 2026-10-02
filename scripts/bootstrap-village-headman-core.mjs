@@ -25,6 +25,11 @@ export function normalizeBootstrapPhone(value) {
   return "";
 }
 
+export function normalizeBootstrapEmail(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return /^\S+@\S+\.\S+$/.test(normalized) && normalized.length <= 320 ? normalized : "";
+}
+
 /** Keep CLI slug normalization aligned with the public Village slug convention. */
 export function normalizeBootstrapVillageSlug(value) {
   return String(value ?? "")
@@ -42,9 +47,11 @@ export function normalizeBootstrapVillageSlug(value) {
 export function readBootstrapInput(environment = process.env) {
   const phoneNumber = normalizeBootstrapPhone(environment.BOOTSTRAP_HEADMAN_PHONE);
   if (!phoneNumber) throw new BootstrapInputError("INVALID_PHONE", "BOOTSTRAP_HEADMAN_PHONE must be a Thai 10-digit phone number.");
+  const email = normalizeBootstrapEmail(environment.BOOTSTRAP_HEADMAN_EMAIL);
+  if (!email) throw new BootstrapInputError("INVALID_EMAIL", "BOOTSTRAP_HEADMAN_EMAIL must be a valid email address.");
 
   return {
-    headman: { phoneNumber, name: requiredText(environment.BOOTSTRAP_HEADMAN_NAME, "BOOTSTRAP_HEADMAN_NAME") },
+    headman: { phoneNumber, email, name: requiredText(environment.BOOTSTRAP_HEADMAN_NAME, "BOOTSTRAP_HEADMAN_NAME") },
   };
 }
 

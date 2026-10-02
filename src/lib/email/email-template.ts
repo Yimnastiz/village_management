@@ -4,9 +4,9 @@ const PRODUCT_NAME_TH = "ระบบบริหารจัดการข้�
 
 const PURPOSE_COPY: Record<EmailOtpPurpose, string> = {
   HOUSE_OPENING: "รหัสยืนยันอีเมลสำหรับขอเปิดบัญชีบ้าน",
-  HOUSE_LOGIN: "รหัสเข้าสู่ระบบบัญชีบ้าน",
+  HOUSE_LOGIN: "รหัสยืนยันสำหรับเข้าสู่ระบบ",
   ADD_HOUSE_EMAIL: "รหัสยืนยันเพื่อเพิ่มอีเมลเข้าสู่บัญชีบ้าน",
-  HEADMAN_LOGIN: "รหัสเข้าสู่ระบบผู้ใหญ่บ้าน",
+  HEADMAN_LOGIN: "รหัสยืนยันสำหรับเข้าสู่ระบบ",
   ACCOUNT_RECOVERY: "รหัสยืนยันการกู้คืนบัญชี",
 };
 

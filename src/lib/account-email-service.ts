@@ -87,6 +87,13 @@ export async function reserveEmailForOpeningRequestInTransaction(
     where: { normalizedEmail: identity.normalizedEmail },
     include: { openingRequest: { select: { status: true } } },
   });
+  const canonicalOwner = await tx.user.findFirst({
+    where: { email: { equals: identity.normalizedEmail, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (canonicalOwner) {
+    throw new AccountEmailServiceError("EMAIL_ALREADY_RESERVED", "This email is already assigned to a login account.");
+  }
   const decision = decideAccountEmailReservation({
     identity: existing,
     targetOpeningRequestId: openingRequest.id,

@@ -214,7 +214,7 @@ export async function deliverOpeningDecisionEmailSafely(
   const approved = input.decision === "APPROVED";
   const subject = approved ? "บัญชีบ้านได้รับการอนุมัติแล้ว" : "ผลการตรวจสอบคำขอเปิดบัญชีบ้าน";
   const text = approved
-    ? `คำขอเปิดบัญชีบ้านเลขที่ ${input.houseNumber} ได้รับการอนุมัติแล้ว\n\nบัญชีบ้านเปิดใช้งานแล้ว และจะสามารถเข้าสู่ระบบด้วยอีเมลที่ยืนยันไว้เมื่อระบบเปิดใช้การเข้าสู่ระบบด้วยอีเมล`
+    ? `คำขอเปิดบัญชีบ้านเลขที่ ${input.houseNumber} ได้รับการอนุมัติแล้ว\n\nบัญชีบ้านเปิดใช้งานแล้ว คุณสามารถเข้าสู่ระบบด้วยอีเมลที่ยืนยันไว้และรหัสยืนยันทางอีเมล`
     : `คำขอเปิดบัญชีบ้านเลขที่ ${input.houseNumber} ไม่ได้รับการอนุมัติ\n\nเหตุผล:\n${input.rejectionReason ?? "ไม่ระบุเหตุผล"}\n\nหากต้องการสอบถามเพิ่มเติม กรุณาติดต่อผู้ใหญ่บ้าน`;
   try {
     const deliveryProvider = provider ?? getEmailProvider();

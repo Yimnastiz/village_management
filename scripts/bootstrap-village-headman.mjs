@@ -41,12 +41,21 @@ async function main() {
       const activeVillages = await tx.village.findMany({ where: { isActive: true }, select: { id: true, catalogVillageId: true }, orderBy: { createdAt: "asc" }, take: 3 });
       const plan = planVillageBootstrap(activeVillages, catalogVillage);
       const village = plan.kind === "existing" ? plan.village : await tx.village.create({ data: { ...plan.village, isActive: true } });
-      const existingUser = await tx.user.findUnique({ where: { phoneNumber: input.headman.phoneNumber } });
-      if (existingUser && existingUser.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The bootstrap phone belongs to a non-active account and was not changed.");
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`account-email:${input.headman.email}`}))`;
+      const matchingUsers = await tx.user.findMany({ where: { OR: [{ phoneNumber: input.headman.phoneNumber }, { email: { equals: input.headman.email, mode: "insensitive" } }] } });
+      if (matchingUsers.length > 1) throw new BootstrapInputError("HEADMAN_IDENTITY_AMBIGUOUS", "The bootstrap email and phone belong to different users.");
+      const existingUser = matchingUsers[0] ?? null;
+      if (existingUser && existingUser.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The bootstrap identity belongs to a non-active account and was not changed.");
+      if (existingUser?.phoneNumber && existingUser.phoneNumber !== input.headman.phoneNumber) throw new BootstrapInputError("HEADMAN_PHONE_CONFLICT", "The bootstrap email belongs to a user with a different phone number.");
+      if (existingUser?.email && existingUser.email.toLowerCase() !== input.headman.email) throw new BootstrapInputError("HEADMAN_EMAIL_CONFLICT", "The bootstrap phone belongs to a user with a different email.");
+      const accountEmail = await tx.accountEmail.findUnique({ where: { normalizedEmail: input.headman.email }, select: { userId: true } });
+      if (accountEmail && accountEmail.userId !== existingUser?.id) throw new BootstrapInputError("HEADMAN_EMAIL_CONFLICT", "The bootstrap email is reserved by another login account.");
       const otherHeadmen = await tx.villageMembership.findMany({ where: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, ...(existingUser ? { userId: { not: existingUser.id } } : {}) }, select: { userId: true } });
       if (otherHeadmen.length > 0) throw new BootstrapInputError("ACTIVE_HEADMAN_EXISTS", "The configured Village already has another active Headman; no membership was changed.");
-      if (existingUser && existingUser.accountKind !== AccountKind.HEADMAN) throw new BootstrapInputError("HEADMAN_ACCOUNT_KIND_MISMATCH", "The bootstrap phone belongs to a Resident House Account.");
-      const user = existingUser ?? await tx.user.create({ data: { phoneNumber: input.headman.phoneNumber, name: input.headman.name, accountKind: AccountKind.HEADMAN, phoneNumberVerified: false } });
+      if (existingUser && existingUser.accountKind !== AccountKind.HEADMAN) throw new BootstrapInputError("HEADMAN_ACCOUNT_KIND_MISMATCH", "The bootstrap identity belongs to a Resident House Account.");
+      const user = existingUser
+        ? await tx.user.update({ where: { id: existingUser.id }, data: { email: input.headman.email, phoneNumber: existingUser.phoneNumber ?? input.headman.phoneNumber } })
+        : await tx.user.create({ data: { phoneNumber: input.headman.phoneNumber, email: input.headman.email, emailVerified: false, name: input.headman.name, accountKind: AccountKind.HEADMAN, phoneNumberVerified: false } });
       const existingMembership = await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: user.id, villageId: village.id } }, select: { joinedAt: true } });
       const joinedAt = existingMembership?.joinedAt ?? new Date();
       await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId: village.id } }, update: { role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, joinedAt }, create: { userId: user.id, villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, joinedAt } });
@@ -56,7 +65,7 @@ async function main() {
     console.log("ติดตั้งข้อมูลหมู่บ้านเขาทราย หมู่ 10 แล้ว");
     console.log(`Headman user: ${result.userCreated ? "created" : "existing"}`);
     console.log("Headman membership: ACTIVE");
-    console.log("Use the normal OTP login flow to sign in.");
+    console.log("Headman login: use BOOTSTRAP_HEADMAN_EMAIL and the verification code sent by email.");
   } finally { await prisma.$disconnect(); }
 }
 

@@ -620,16 +620,14 @@ model AccountEmail {
   @@index([createdByUserId])
 }
 
-model HouseAccountLoginFlow {
+model AccountLoginFlow {
   id                String    @id
   challengeId       String?   @unique
-  houseId           String?
   accountEmailId    String?
   callbackUrl       String?
   maskedEmail       String
   ipHash            String?
   emailHash         String?
-  houseNumberHash   String?
   expiresAt         DateTime
   resendAvailableAt DateTime
   completedAt       DateTime?

@@ -3,7 +3,7 @@
 import { LogOut } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/components/ui/toast";
-import { clearLoginOtpState, SignOutError, signOutCurrentSession } from "@/lib/auth-client";
+import { SignOutError, signOutCurrentSession } from "@/lib/auth-client";
 
 type LogoutButtonProps = {
   mode?: "icon" | "menu";
@@ -21,7 +21,6 @@ export function LogoutButton({ mode = "icon" }: LogoutButtonProps) {
     try {
       await signOutCurrentSession();
 
-      clearLoginOtpState();
       // Navigation begins only after Better Auth has invalidated the session
       // and the browser has applied its Set-Cookie headers.
       window.location.replace("/auth/login");

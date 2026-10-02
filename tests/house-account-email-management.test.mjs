@@ -53,9 +53,8 @@ test("canonical removal rotates User.email without changing User or House owners
 });
 
 test("security and profile UI use only House Account semantics", () => {
-  assert.match(securityPage, /session\.accountKind === "RESIDENT_HOUSE"/u);
+  assert.match(securityPage, /session\.accountKind !== "RESIDENT_HOUSE"/u);
   assert.match(securityPage, /HouseAccountEmailManager/u);
-  assert.match(securityPage, /<AccountDeletionCard/u);
   assert.match(profilePage, /residentHouseAccount\.findUnique/u);
   assert.match(profilePage, /HouseAccountProfile/u);
   assert.doesNotMatch(profilePage, /ProfileDetails|prisma\.person/u);
@@ -69,10 +68,11 @@ test("audit events carry House semantics and masked email only", () => {
   assert.doesNotMatch(service, /metadata:[\s\S]{0,300}\botp\b/iu);
 });
 
-test("new active aliases remain compatible with Phase 6 AccountEmail House login", () => {
-  const login = readFileSync(new URL("../src/lib/house-account-login-service.ts", import.meta.url), "utf8");
+test("new active aliases remain compatible with unified AccountEmail login", () => {
+  const login = readFileSync(new URL("../src/lib/account-login-resolver.ts", import.meta.url), "utf8");
+  const loginService = readFileSync(new URL("../src/lib/account-login-service.ts", import.meta.url), "utf8");
   assert.match(login, /accountEmail\.findUnique/u);
-  assert.match(login, /status:\s*true/u);
-  assert.match(login, /loginAccountEmailId:\s*input\.identity\.accountEmailId/u);
+  assert.match(login, /residentLoginEligibility/u);
+  assert.match(loginService, /loginAccountEmailId:\s*input\.identity\.accountEmailId/u);
   assert.match(service, /status:\s*"ACTIVE"/u);
 });

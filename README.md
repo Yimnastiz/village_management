@@ -18,7 +18,9 @@ npm run dev
 
 `npm run setup:bootstrap` is an operator-run CLI command that provisions only the configured Village and its initial Headman. It reads the complete installation identity from `config/installation-village.json` (official code `66080210`) and creates or updates only that one `ThailandVillageMaster` record as needed. Set the documented Headman `BOOTSTRAP_*` values first. It provides no web endpoint.
 
-The initial Headman is a normal user with an ACTIVE HEADMAN membership and signs in through the normal OTP flow.
+The initial Headman is a normal user with an ACTIVE HEADMAN membership. Configure `BOOTSTRAP_HEADMAN_EMAIL`, `BOOTSTRAP_HEADMAN_PHONE`, and `BOOTSTRAP_HEADMAN_NAME`; the Headman signs in with that email and an email verification code. The phone remains contact information, not a login credential.
+
+`/auth/login` is shared by every account type. Residents use any active verified House Account email, while the Headman uses the configured User email. The server resolves the account and permissions; House number is household data and is not a login credential.
 
 Catalog utilities are optional maintenance tooling and are not part of fresh installation:
 
