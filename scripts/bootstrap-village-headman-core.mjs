@@ -45,10 +45,13 @@ export function normalizeBootstrapVillageSlug(value) {
 }
 
 export function readBootstrapInput(environment = process.env) {
-  const phoneNumber = normalizeBootstrapPhone(environment.BOOTSTRAP_HEADMAN_PHONE);
-  if (!phoneNumber) throw new BootstrapInputError("INVALID_PHONE", "BOOTSTRAP_HEADMAN_PHONE must be a Thai 10-digit phone number.");
   const email = normalizeBootstrapEmail(environment.BOOTSTRAP_HEADMAN_EMAIL);
   if (!email) throw new BootstrapInputError("INVALID_EMAIL", "BOOTSTRAP_HEADMAN_EMAIL must be a valid email address.");
+  const suppliedPhoneNumber = optionalText(environment.BOOTSTRAP_HEADMAN_PHONE);
+  const phoneNumber = suppliedPhoneNumber ? normalizeBootstrapPhone(suppliedPhoneNumber) : null;
+  if (suppliedPhoneNumber && !phoneNumber) {
+    throw new BootstrapInputError("INVALID_PHONE", "BOOTSTRAP_HEADMAN_PHONE must be a Thai 10-digit contact phone number when provided.");
+  }
 
   return {
     headman: { phoneNumber, email, name: requiredText(environment.BOOTSTRAP_HEADMAN_NAME, "BOOTSTRAP_HEADMAN_NAME") },

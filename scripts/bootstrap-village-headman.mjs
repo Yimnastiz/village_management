@@ -42,19 +42,33 @@ async function main() {
       const plan = planVillageBootstrap(activeVillages, catalogVillage);
       const village = plan.kind === "existing" ? plan.village : await tx.village.create({ data: { ...plan.village, isActive: true } });
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`account-email:${input.headman.email}`}))`;
-      const matchingUsers = await tx.user.findMany({ where: { OR: [{ phoneNumber: input.headman.phoneNumber }, { email: { equals: input.headman.email, mode: "insensitive" } }] } });
-      if (matchingUsers.length > 1) throw new BootstrapInputError("HEADMAN_IDENTITY_AMBIGUOUS", "The bootstrap email and phone belong to different users.");
-      const existingUser = matchingUsers[0] ?? null;
-      if (existingUser && existingUser.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The bootstrap identity belongs to a non-active account and was not changed.");
-      if (existingUser?.phoneNumber && existingUser.phoneNumber !== input.headman.phoneNumber) throw new BootstrapInputError("HEADMAN_PHONE_CONFLICT", "The bootstrap email belongs to a user with a different phone number.");
-      if (existingUser?.email && existingUser.email.toLowerCase() !== input.headman.email) throw new BootstrapInputError("HEADMAN_EMAIL_CONFLICT", "The bootstrap phone belongs to a user with a different email.");
-      const accountEmail = await tx.accountEmail.findUnique({ where: { normalizedEmail: input.headman.email }, select: { userId: true } });
-      if (accountEmail && accountEmail.userId !== existingUser?.id) throw new BootstrapInputError("HEADMAN_EMAIL_CONFLICT", "The bootstrap email is reserved by another login account.");
-      const otherHeadmen = await tx.villageMembership.findMany({ where: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, ...(existingUser ? { userId: { not: existingUser.id } } : {}) }, select: { userId: true } });
-      if (otherHeadmen.length > 0) throw new BootstrapInputError("ACTIVE_HEADMAN_EXISTS", "The configured Village already has another active Headman; no membership was changed.");
-      if (existingUser && existingUser.accountKind !== AccountKind.HEADMAN) throw new BootstrapInputError("HEADMAN_ACCOUNT_KIND_MISMATCH", "The bootstrap identity belongs to a Resident House Account.");
+      const activeHeadmen = await tx.villageMembership.findMany({
+        where: { villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE },
+        select: { user: true },
+      });
+      if (activeHeadmen.length > 1) throw new BootstrapInputError("ACTIVE_HEADMAN_EXISTS", "The configured Village already has more than one active Headman; no membership was changed.");
+      const configuredHeadman = activeHeadmen[0]?.user ?? null;
+      if (configuredHeadman && configuredHeadman.accountKind !== AccountKind.HEADMAN) throw new BootstrapInputError("HEADMAN_ACCOUNT_KIND_MISMATCH", "The active Headman membership belongs to a non-Headman account.");
+      if (configuredHeadman && configuredHeadman.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The active Headman account is unavailable and was not changed.");
+
+      // A rerun preserves the established Headman's login email. The bootstrap
+      // email is an initial-provisioning value, not an account-update command.
+      const emailUsers = configuredHeadman ? [] : await tx.user.findMany({
+        where: { email: { equals: input.headman.email, mode: "insensitive" } },
+      });
+      if (emailUsers.length > 1) throw new BootstrapInputError("HEADMAN_IDENTITY_AMBIGUOUS", "The bootstrap email resolves to more than one User.");
+      const existingUser = configuredHeadman ?? emailUsers[0] ?? null;
+      if (existingUser && existingUser.accountStatus !== AccountStatus.ACTIVE) throw new BootstrapInputError("HEADMAN_ACCOUNT_UNAVAILABLE", "The bootstrap email belongs to a non-active account and was not changed.");
+      if (existingUser && existingUser.accountKind !== AccountKind.HEADMAN) throw new BootstrapInputError("HEADMAN_ACCOUNT_KIND_MISMATCH", "The bootstrap email belongs to a Resident House Account.");
+
+      if (!configuredHeadman) {
+        const accountEmail = await tx.accountEmail.findUnique({ where: { normalizedEmail: input.headman.email }, select: { userId: true } });
+        if (accountEmail && accountEmail.userId !== existingUser?.id) {
+          throw new BootstrapInputError("HEADMAN_EMAIL_CONFLICT", "The bootstrap email is already reserved by another login identity.");
+        }
+      }
       const user = existingUser
-        ? await tx.user.update({ where: { id: existingUser.id }, data: { email: input.headman.email, phoneNumber: existingUser.phoneNumber ?? input.headman.phoneNumber } })
+        ? existingUser
         : await tx.user.create({ data: { phoneNumber: input.headman.phoneNumber, email: input.headman.email, emailVerified: false, name: input.headman.name, accountKind: AccountKind.HEADMAN, phoneNumberVerified: false } });
       const existingMembership = await tx.villageMembership.findUnique({ where: { userId_villageId: { userId: user.id, villageId: village.id } }, select: { joinedAt: true } });
       const joinedAt = existingMembership?.joinedAt ?? new Date();
