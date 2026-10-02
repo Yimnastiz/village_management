@@ -3,16 +3,14 @@ import path from "node:path";
 import process from "node:process";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { AccountKind, AccountStatus, MembershipStatus, PrismaClient, VillageMembershipRole } from "@prisma/client";
-import { BootstrapInputError, planVillageBootstrap, readBootstrapInput } from "./bootstrap-village-headman-core.mjs";
+import { BootstrapInputError, planVillageBootstrap, readBootstrapInput, villageMasterFromInstallation } from "./bootstrap-village-headman-core.mjs";
 
 const projectRoot = path.resolve(import.meta.dirname, "..");
 const installationVillagePath = path.join(projectRoot, "config", "installation-village.json");
 
-async function readInstallationVillageCode() {
+async function readInstallationVillage() {
   const config = JSON.parse(await fs.readFile(installationVillagePath, "utf8"));
-  const officialCode = typeof config.catalogOfficialCode === "string" ? config.catalogOfficialCode.trim() : "";
-  if (!officialCode) throw new BootstrapInputError("MISSING_INSTALLATION_CATALOG", "config/installation-village.json must contain catalogOfficialCode.");
-  return officialCode;
+  return villageMasterFromInstallation(config);
 }
 
 async function loadEnvironmentFile() {
@@ -30,12 +28,16 @@ async function main() {
   await loadEnvironmentFile();
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required. Run npm run setup after configuring PostgreSQL.");
   const input = readBootstrapInput();
-  const officialCode = await readInstallationVillageCode();
+  const installationVillage = await readInstallationVillage();
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
   try {
     const result = await prisma.$transaction(async (tx) => {
-      const catalogVillage = await tx.thailandVillageMaster.findUnique({ where: { officialCode }, select: { id: true, officialCode: true, villageName: true, moo: true, slug: true, province: true, district: true, subdistrict: true } });
-      if (!catalogVillage) throw new BootstrapInputError("CATALOG_VILLAGE_NOT_FOUND", `Catalog Village ${officialCode} was not found. Import the catalog before bootstrap.`);
+      const catalogVillage = await tx.thailandVillageMaster.upsert({
+        where: { officialCode: installationVillage.officialCode },
+        update: installationVillage,
+        create: installationVillage,
+        select: { id: true, officialCode: true, villageName: true, moo: true, slug: true, province: true, district: true, subdistrict: true },
+      });
       const activeVillages = await tx.village.findMany({ where: { isActive: true }, select: { id: true, catalogVillageId: true }, orderBy: { createdAt: "asc" }, take: 3 });
       const plan = planVillageBootstrap(activeVillages, catalogVillage);
       const village = plan.kind === "existing" ? plan.village : await tx.village.create({ data: { ...plan.village, isActive: true } });
@@ -50,7 +52,8 @@ async function main() {
       await tx.villageMembership.upsert({ where: { userId_villageId: { userId: user.id, villageId: village.id } }, update: { role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, joinedAt }, create: { userId: user.id, villageId: village.id, role: VillageMembershipRole.HEADMAN, status: MembershipStatus.ACTIVE, joinedAt } });
       return { villageCreated: plan.kind === "create", userCreated: !existingUser };
     });
-    console.log(`Village: ${result.villageCreated ? "created" : "existing"}`);
+    console.log(`Village: ${result.villageCreated ? "สร้างแล้ว" : "ใช้ข้อมูลเดิม"}`);
+    console.log("ติดตั้งข้อมูลหมู่บ้านเขาทราย หมู่ 10 แล้ว");
     console.log(`Headman user: ${result.userCreated ? "created" : "existing"}`);
     console.log("Headman membership: ACTIVE");
     console.log("Use the normal OTP login flow to sign in.");

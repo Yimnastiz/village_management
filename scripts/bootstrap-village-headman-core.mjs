@@ -48,7 +48,7 @@ export function readBootstrapInput(environment = process.env) {
   };
 }
 
-/** Derive the configured Village identity exclusively from its catalog record. */
+/** Derive the configured Village identity from the single installation record. */
 export function villageFromCatalog(catalogVillage) {
   if (!catalogVillage?.id || !catalogVillage.officialCode || !catalogVillage.villageName || !catalogVillage.moo || !catalogVillage.slug || !catalogVillage.province || !catalogVillage.district || !catalogVillage.subdistrict) {
     throw new BootstrapInputError("INVALID_CATALOG_VILLAGE", "The configured catalog Village is incomplete and cannot be used for bootstrap.");
@@ -61,6 +61,30 @@ export function villageFromCatalog(catalogVillage) {
     district: catalogVillage.district,
     subdistrict: catalogVillage.subdistrict,
     catalogVillageId: catalogVillage.id,
+  };
+}
+
+export function villageMasterFromInstallation(config) {
+  const officialCode = String(config?.officialCode ?? "").trim();
+  const villageName = String(config?.villageName ?? "").trim();
+  const moo = String(config?.moo ?? "").trim();
+  const province = String(config?.province ?? "").trim();
+  const district = String(config?.district ?? "").trim();
+  const subdistrict = String(config?.subdistrict ?? "").trim();
+  if (!officialCode || !villageName || !moo || !province || !district || !subdistrict) {
+    throw new BootstrapInputError("INVALID_INSTALLATION_VILLAGE", "config/installation-village.json must contain the complete installation Village.");
+  }
+  const slug = normalizeBootstrapVillageSlug(`${villageName}-${moo}-${officialCode}`);
+  return {
+    officialCode, villageName, moo, province, district, subdistrict, slug,
+    provinceCode: config.provinceCode ?? null,
+    districtCode: config.districtCode ?? null,
+    subdistrictCode: config.subdistrictCode ?? null,
+    lookupKey: `${province}|${district}|${subdistrict}|${villageName}|${officialCode}`.toLocaleLowerCase("th-TH"),
+    normalizedName: villageName.toLocaleLowerCase("th-TH"),
+    normalizedProvince: province.toLocaleLowerCase("th-TH"),
+    normalizedDistrict: district.toLocaleLowerCase("th-TH"),
+    normalizedSubdistrict: subdistrict.toLocaleLowerCase("th-TH"),
   };
 }
 
