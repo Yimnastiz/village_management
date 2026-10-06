@@ -2,7 +2,7 @@
 
 This deployment serves exactly one configured active Village. Public pages, registration, and authenticated workspaces resolve that Village on the server and show a controlled configuration error when zero or multiple active Village rows exist.
 
-Active actors are Public / Guest, Resident, and Headman. Headman is the only active administrator and works in `/admin`; there is no Super Admin runtime.
+The final formal actors are สมาชิก (Resident) and ผู้ใหญ่บ้าน (Headman). Public pages and unauthenticated member-facing flows remain available where intended, but Public / Guest is not a formal system actor. Headman is the only active administrator and works in `/admin`; there is no Super Admin runtime.
 
 ## Local setup
 

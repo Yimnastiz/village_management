@@ -15,7 +15,6 @@ skinparam rectangle {
     BorderColor black
 }
 
-actor "บุคคลทั่วไป" as Guest
 actor "สมาชิก" as Resident
 actor "ผู้ใหญ่บ้าน" as Headman
 
@@ -59,11 +58,11 @@ rectangle "ระบบบริหารจัดการหมู่บ้า
 }
 
 ' =========================
-' ความสัมพันธ์ของบุคคลทั่วไป
+' ความสัมพันธ์ของสมาชิก (รวมการใช้งานก่อนเข้าสู่ระบบ)
 ' =========================
-Guest -- UC01
-Guest -- UC02
-Guest -- UC03
+Resident -- UC01
+Resident -- UC02
+Resident -- UC03
 
 ' =========================
 ' ความสัมพันธ์ของสมาชิก
