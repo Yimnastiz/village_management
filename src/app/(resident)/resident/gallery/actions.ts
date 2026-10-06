@@ -10,6 +10,7 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { adminRequestCopy, notificationMetadata } from "@/lib/notification-copy";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 const item = z.object({
   fileKey: z.string().trim().min(1),
@@ -48,7 +49,7 @@ export async function createGalleryItemSubmissionAction(albumId: string, data: S
       data: parsed.data.items.map((entry, batchOrder) => ({ albumId: album.id, requesterId: session.id, batchId, batchOrder, title: entry.title?.trim() || null, fileUrl: entry.url, fileKey: entry.fileKey, mimeType: null, note: parsed.data.note?.trim() || null })),
       select: { id: true },
     });
-    await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "GalleryItemSubmission", resourceId: batchId, metadata: { actorRole: "RESIDENT", actorLabel: session.name, loginAccountEmailId: session.loginAccountEmailId, actionName: "GALLERY_SUBMISSION_CREATED", albumId: album.id, albumTitle: album.title, batchId, submissionCount: submissions.length } } });
+    await writeVillageAuditLog(tx, { userId: session.id, villageId: membership.villageId, actorAuthSessionId: session.authSessionId, action: AuditAction.CREATE, resource: "GalleryItemSubmission", resourceId: batchId, metadata: { actorRole: "RESIDENT", actorLabel: session.name, actionName: "GALLERY_SUBMISSION_CREATED", albumId: album.id, albumTitle: album.title, batchId, submissionCount: submissions.length } });
     return submissions;
   });
   const admins = await prisma.villageMembership.findMany({ where: { villageId: membership.villageId, status: "ACTIVE", role: VillageMembershipRole.HEADMAN }, select: { userId: true }, distinct: ["userId"] });

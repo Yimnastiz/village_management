@@ -7,6 +7,7 @@ import { isContactCategory, validateContactEmail, validateContactPhone } from "@
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 const ADMIN_ROLES: VillageMembershipRole[] = [
   VillageMembershipRole.HEADMAN,
@@ -127,7 +128,7 @@ export async function createResidentContactRequestAction(formData: FormData): Pr
     });
 
     await createContactRequestNotifications(tx, { requestId: request.id, villageId: membership.villageId, requesterId: session.id, requesterName: session.name, contactName: name, requestType: ContactRequestType.CREATE });
-    await tx.auditLog.create({ data: { userId: session.id, villageId: membership.villageId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: session.name, loginAccountEmailId: session.loginAccountEmailId, actionName: "RESIDENT_CONTACT_CREATE_REQUESTED", requestType: "CREATE", name } } });
+    await writeVillageAuditLog(tx, { userId: session.id, villageId: membership.villageId, actorAuthSessionId: session.authSessionId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: session.name, actionName: "RESIDENT_CONTACT_CREATE_REQUESTED", requestType: "CREATE", name } });
     return { requestId: request.id };
   });
 
@@ -198,7 +199,7 @@ export async function updateResidentContactRequestAction(requestId: string, form
   const updated = await prisma.$transaction(async (tx) => {
     const claimed = await tx.contactRequest.updateMany({ where: { id: request.id, requesterId: context.session.id, villageId: context.membership.villageId, status: "PENDING" }, data: value });
     if (claimed.count !== 1) return false;
-    await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.UPDATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "RESIDENT_CONTACT_REQUEST_UPDATED", requestType: request.type } } });
+    await writeVillageAuditLog(tx, { userId: context.session.id, villageId: context.membership.villageId, actorAuthSessionId: context.session.authSessionId, action: AuditAction.UPDATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "RESIDENT_CONTACT_REQUEST_UPDATED", requestType: request.type } });
     return true;
   });
   if (!updated) return { success: false, error: "คำขอนี้ไม่สามารถแก้ไขได้" };
@@ -225,7 +226,7 @@ export async function createResidentContactUpdateRequestAction(contactId: string
     created = await prisma.$transaction(async (tx) => {
       const request = await tx.contactRequest.create({ data: { id: randomUUID(), villageId: context.membership.villageId, requesterId: context.session.id, type: ContactRequestType.UPDATE, targetContactId: contact.id, targetSnapshot: snapshot as Prisma.InputJsonValue, ...value }, select: { id: true } });
       await createContactRequestNotifications(tx, { requestId: request.id, villageId: context.membership.villageId, requesterId: context.session.id, requesterName: context.session.name, contactName: contact.name, requestType: ContactRequestType.UPDATE });
-      await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: context.session.name, loginAccountEmailId: context.session.loginAccountEmailId, actionName: "RESIDENT_CONTACT_UPDATE_REQUESTED", requestType: "UPDATE", targetContactId: contact.id } } });
+      await writeVillageAuditLog(tx, { userId: context.session.id, villageId: context.membership.villageId, actorAuthSessionId: context.session.authSessionId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: context.session.name, actionName: "RESIDENT_CONTACT_UPDATE_REQUESTED", requestType: "UPDATE", targetContactId: contact.id } });
       return request;
     });
   } catch (error) {
@@ -252,7 +253,7 @@ export async function createResidentContactDeleteRequestAction(contactId: string
     const request = await prisma.$transaction(async (tx) => {
       const created = await tx.contactRequest.create({ data: { id: randomUUID(), villageId: context.membership.villageId, requesterId: context.session.id, type: ContactRequestType.DELETE, targetContactId: contact.id, targetSnapshot: snapshot as Prisma.InputJsonValue, name: contact.name, role: contact.role, phone: contact.phone ?? "", email: contact.email, address: contact.address, category: contact.category, deleteReason }, select: { id: true } });
       await createContactRequestNotifications(tx, { requestId: created.id, villageId: context.membership.villageId, requesterId: context.session.id, requesterName: context.session.name, contactName: contact.name, requestType: ContactRequestType.DELETE });
-      await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: created.id, metadata: { actorRole: "RESIDENT", actorLabel: context.session.name, loginAccountEmailId: context.session.loginAccountEmailId, actionName: "CONTACT_DELETE_REQUESTED", requestType: "DELETE", targetContactId: contact.id } } });
+      await writeVillageAuditLog(tx, { userId: context.session.id, villageId: context.membership.villageId, actorAuthSessionId: context.session.authSessionId, action: AuditAction.CREATE, resource: "ContactRequest", resourceId: created.id, metadata: { actorRole: "RESIDENT", actorLabel: context.session.name, actionName: "CONTACT_DELETE_REQUESTED", requestType: "DELETE", targetContactId: contact.id } });
       return created;
     });
     revalidateResidentContactRequest(request.id, contact.id);
@@ -274,7 +275,7 @@ export async function cancelResidentContactRequestAction(requestId: string): Pro
     const claimed = await tx.contactRequest.updateMany({ where: { id: request.id, villageId: context.membership.villageId, requesterId: context.session.id, status: "PENDING" }, data: { status: "CANCELLED", reviewedAt: cancelledAt } });
     if (claimed.count !== 1) return false;
     await tx.notification.updateMany({ where: { villageId: context.membership.villageId, metadata: { path: ["requestId"], equals: request.id } }, data: { status: "ARCHIVED", readAt: cancelledAt } });
-    await tx.auditLog.create({ data: { userId: context.session.id, villageId: context.membership.villageId, action: AuditAction.UPDATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "CONTACT_REQUEST_CANCELLED", requestType: request.type, targetContactId: request.targetContactId, workflowEvent: "CONTACT_REQUEST_CANCELLED" } } });
+    await writeVillageAuditLog(tx, { userId: context.session.id, villageId: context.membership.villageId, actorAuthSessionId: context.session.authSessionId, action: AuditAction.UPDATE, resource: "ContactRequest", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "CONTACT_REQUEST_CANCELLED", requestType: request.type, targetContactId: request.targetContactId, workflowEvent: "CONTACT_REQUEST_CANCELLED" } });
     return true;
   });
   if (!updated) return { success: false, error: "คำขอนี้ไม่สามารถยกเลิกได้" };

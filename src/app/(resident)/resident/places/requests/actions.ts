@@ -8,6 +8,7 @@ import { normalizeVillagePlaceInput } from "@/lib/village-place";
 import type { PlaceImageInput } from "@/lib/place-image";
 import { sanitizeSubmissionImages } from "@/lib/place-image.server";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 type PlaceRequestInput = { name: string; category: string; description?: string; address?: string; openingHours?: string; contactPhone?: string; mapUrl?: string; latitude?: number | string | null; longitude?: number | string | null; images?: PlaceImageInput[] };
 const REVIEWER_ROLES = [VillageMembershipRole.HEADMAN] as const;
@@ -46,7 +47,7 @@ export async function createVillagePlaceSubmissionAction(data: PlaceRequestInput
   try {
     const created = await prisma.$transaction(async (tx) => {
       const request = await tx.villagePlaceSubmission.create({ data: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "CREATE", payload: payload.value, status: "PENDING" }, select: { id: true } });
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.membership.villageId, action: AuditAction.CREATE, resource: "VillagePlaceSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: ctx.session.name, loginAccountEmailId: ctx.session.loginAccountEmailId, actionName: "PLACE_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", name: payload.value.name } } });
+      await writeVillageAuditLog(tx, { userId: ctx.session.id, villageId: ctx.membership.villageId, actorAuthSessionId: ctx.session.authSessionId, action: AuditAction.CREATE, resource: "VillagePlaceSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: ctx.session.name, actionName: "PLACE_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", name: payload.value.name } });
       return request;
     });
     await notifyReviewers(ctx.membership.villageId, created.id, ctx.session.name, payload.value.name, "CREATE");
@@ -68,7 +69,7 @@ export async function createVillagePlaceUpdateSubmissionAction(targetPlaceId: st
   try {
     const created = await prisma.$transaction(async (tx) => {
       const request = await tx.villagePlaceSubmission.create({ data: { villageId: ctx.membership.villageId, requesterId: ctx.session.id, type: "UPDATE", targetPlaceId, payload: payload.value, status: "PENDING" }, select: { id: true } });
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.membership.villageId, action: AuditAction.CREATE, resource: "VillagePlaceSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: ctx.session.name, loginAccountEmailId: ctx.session.loginAccountEmailId, actionName: "PLACE_UPDATE_REQUEST_SUBMITTED", requestType: "UPDATE", name: payload.value.name, targetPlaceId } } });
+      await writeVillageAuditLog(tx, { userId: ctx.session.id, villageId: ctx.membership.villageId, actorAuthSessionId: ctx.session.authSessionId, action: AuditAction.CREATE, resource: "VillagePlaceSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actorLabel: ctx.session.name, actionName: "PLACE_UPDATE_REQUEST_SUBMITTED", requestType: "UPDATE", name: payload.value.name, targetPlaceId } });
       return request;
     });
     await notifyReviewers(ctx.membership.villageId, created.id, ctx.session.name, place.name, "UPDATE");

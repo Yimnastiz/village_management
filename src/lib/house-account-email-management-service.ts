@@ -26,6 +26,7 @@ import {
 } from "@/lib/house-account-email-policy";
 import { revokeSessionsForAccountEmail } from "@/lib/account-login-service";
 import { prisma } from "@/lib/prisma";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 export type HouseAccountEmailManagementErrorCode =
   | "UNAUTHORIZED"
@@ -357,21 +358,17 @@ export async function verifyHouseAccountEmailAddition(
           verifiedAt: challenge.verifiedAt,
           activatedAt: challenge.verifiedAt,
         });
-        await tx.auditLog.create({
-          data: {
-            villageId: current.villageId,
-            userId: current.userId,
-            action: AuditAction.CREATE,
-            resource: "AccountEmail",
-            resourceId: active.id,
-            metadata: {
-              actorRole: "RESIDENT",
-              accountKind: "RESIDENT_HOUSE",
-              actionName: "HOUSE_ACCOUNT_EMAIL_ADDED",
-              accountEmailId: active.id,
-              maskedEmail: maskEmail(active.email),
-              houseId: current.houseId,
-            },
+        await writeVillageAuditLog(tx, {
+          villageId: current.villageId,
+          userId: current.userId,
+          actorAuthSessionId: current.authSessionId,
+          action: AuditAction.CREATE,
+          resource: "AccountEmail",
+          resourceId: active.id,
+          metadata: {
+            actionName: "HOUSE_ACCOUNT_EMAIL_ADDED",
+            accountEmailId: active.id,
+            maskedEmail: maskEmail(active.email),
           },
         });
         return { id: active.id, email: active.email };
@@ -431,24 +428,20 @@ export async function removeHouseAccountEmail(
         where: { id: target.id },
         data: { status: "REVOKED", userId: null, residentHouseAccountId: null, revokedAt: new Date() },
       });
-      const revokedSessionCount = await revokeSessionsForAccountEmail(target.id, tx);
-      await tx.auditLog.create({
-        data: {
-          villageId: current.villageId,
-          userId: current.userId,
-          action: AuditAction.DELETE,
-          resource: "AccountEmail",
-          resourceId: target.id,
-          metadata: {
-            actorRole: "RESIDENT",
-            accountKind: "RESIDENT_HOUSE",
-            actionName: "HOUSE_ACCOUNT_EMAIL_REMOVED",
-            accountEmailId: target.id,
-            maskedEmail: maskEmail(target.email),
-            houseId: current.houseId,
-          },
+      await writeVillageAuditLog(tx, {
+        villageId: current.villageId,
+        userId: current.userId,
+        actorAuthSessionId: current.authSessionId,
+        action: AuditAction.DELETE,
+        resource: "AccountEmail",
+        resourceId: target.id,
+        metadata: {
+          actionName: "HOUSE_ACCOUNT_EMAIL_REMOVED",
+          accountEmailId: target.id,
+          maskedEmail: maskEmail(target.email),
         },
       });
+      const revokedSessionCount = await revokeSessionsForAccountEmail(target.id, tx);
       return {
         currentSessionRevoked: session.loginAccountEmailId === target.id,
         canonicalEmailRotated,

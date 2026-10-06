@@ -9,6 +9,7 @@ import { hashEmailOtpAbuseContext } from "@/lib/email/email-otp-crypto";
 import { readEmailOtpConfig } from "@/lib/email/email-otp-config";
 import { consumeVerifiedEmailOtpChallenge, issueEmailOtpChallenge, resendEmailOtpChallenge, verifyEmailOtpChallenge, type EmailOtpClientContext } from "@/lib/email/email-otp-service";
 import { prisma } from "@/lib/prisma";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 export type AccountLoginErrorCode = "FLOW_NOT_FOUND" | "FLOW_EXPIRED" | "INVALID_CODE" | "OTP_UNAVAILABLE" | "ACCOUNT_UNAVAILABLE" | "RATE_LIMITED" | "INVALID_EMAIL";
 export class AccountLoginError extends Error {
@@ -17,7 +18,7 @@ export class AccountLoginError extends Error {
 
 type PublicFlow = { flowId: string; maskedEmail: string; expiresAt: Date; resendAvailableAt: Date };
 type VerifiedLoginIdentity = AccountLoginIdentity & { callbackUrl: string; challengeId: string };
-type LoginDb = Pick<Prisma.TransactionClient, "authSession" | "auditLog" | "accountLoginFlow">;
+type LoginDb = Pick<Prisma.TransactionClient, "authSession" | "accountLoginFlow">;
 
 function flowFromRow(flow: { id: string; maskedEmail: string; expiresAt: Date; resendAvailableAt: Date }): PublicFlow {
   return { flowId: flow.id, maskedEmail: flow.maskedEmail, expiresAt: flow.expiresAt, resendAvailableAt: flow.resendAvailableAt };
@@ -117,7 +118,7 @@ export async function consumeAccountLoginOtp(input: { flowId: string; challengeI
     const attributed = await db.authSession.updateMany({ where: { id: input.sessionId, token: input.sessionToken, userId: input.identity.userId }, data: { activeVillageId: input.identity.villageId, loginAccountEmailId: input.identity.accountEmailId } });
     if (attributed.count !== 1) throw new AccountLoginError("ACCOUNT_UNAVAILABLE", "Session attribution failed.");
     await db.accountLoginFlow.update({ where: { id: flow.id }, data: { completedAt: new Date() } });
-    await db.auditLog.create({ data: { villageId: input.identity.villageId, userId: input.identity.userId, action: "LOGIN", resource: "AuthSession", resourceId: input.sessionId, metadata: { actorRole: input.identity.accountKind === "HEADMAN" ? "HEADMAN" : "RESIDENT", accountKind: input.identity.accountKind, actionName: "ACCOUNT_EMAIL_LOGIN_SUCCEEDED", ...(input.identity.houseId ? { houseId: input.identity.houseId, houseNumber: input.identity.houseNumber } : {}), ...(input.identity.accountEmailId ? { loginAccountEmailId: input.identity.accountEmailId } : {}), maskedEmail: maskEmail(input.identity.email) } } });
+    await writeVillageAuditLog(tx, { villageId: input.identity.villageId, userId: input.identity.userId, actorAuthSessionId: input.sessionId, action: "LOGIN", resource: "AuthSession", resourceId: input.sessionId, metadata: { actorRole: input.identity.accountKind === "HEADMAN" ? "HEADMAN" : "RESIDENT", actionName: "ACCOUNT_EMAIL_LOGIN_SUCCEEDED" } });
   } });
 }
 

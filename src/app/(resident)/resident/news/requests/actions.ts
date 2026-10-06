@@ -8,6 +8,7 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib/access-control";
 import { areSafeImageSources } from "@/lib/image-input";
 import { notificationMetadata } from "@/lib/notification-copy";
+import { writeVillageAuditLog } from "@/lib/audit-log";
 
 const requestSchema = z.object({
   title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
@@ -33,15 +34,15 @@ const ADMIN_MEMBERSHIP_ROLES: VillageMembershipRole[] = [
 async function requireResidentVillage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
-    return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", userId: "", villageId: "" };
+    return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", userId: "", villageId: "", authSessionId: "" };
   }
 
   const membership = getResidentMembership(session);
   if (!membership) {
-    return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", userId: "", villageId: "" };
+    return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", userId: "", villageId: "", authSessionId: "" };
   }
 
-  return { ok: true as const, error: null, userId: session.id, villageId: membership.villageId };
+  return { ok: true as const, error: null, userId: session.id, villageId: membership.villageId, authSessionId: session.authSessionId };
 }
 
 async function notifyVillageAdmins(
@@ -135,7 +136,7 @@ export async function createNewsCreateRequestAction(
       data: { villageId: ctx.villageId, requesterId: ctx.userId, type: "CREATE", payload: normalized.value },
       select: { id: true },
     });
-    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", title: normalized.value.title } } });
+    await writeVillageAuditLog(tx, { userId: ctx.userId, villageId: ctx.villageId, actorAuthSessionId: ctx.authSessionId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_CREATE_REQUEST_SUBMITTED", requestType: "CREATE", title: normalized.value.title } });
     return request;
   });
 
@@ -185,7 +186,7 @@ export async function createNewsUpdateRequestAction(
       data: { villageId: ctx.villageId, requesterId: ctx.userId, type: "UPDATE", targetNewsId, payload: normalized.value },
       select: { id: true },
     });
-    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_UPDATE_REQUEST_SUBMITTED", requestType: "UPDATE", title: normalized.value.title, targetNewsId } } });
+    await writeVillageAuditLog(tx, { userId: ctx.userId, villageId: ctx.villageId, actorAuthSessionId: ctx.authSessionId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_UPDATE_REQUEST_SUBMITTED", requestType: "UPDATE", title: normalized.value.title, targetNewsId } });
     return request;
   });
 
@@ -231,7 +232,7 @@ export async function updatePendingNewsSubmissionAction(
       where: { id: submissionId, requesterId: ctx.userId, villageId: ctx.villageId, status: "PENDING", type: { in: ["CREATE", "UPDATE"] } },
       data: { payload: normalized.value, updatedAt: new Date() },
     });
-    if (result.count === 1) await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.UPDATE, resource: "NewsSubmission", resourceId: submissionId, metadata: { actorRole: "RESIDENT", actionName: "NEWS_REQUEST_UPDATED", title: normalized.value.title } } });
+    if (result.count === 1) await writeVillageAuditLog(tx, { userId: ctx.userId, villageId: ctx.villageId, actorAuthSessionId: ctx.authSessionId, action: AuditAction.UPDATE, resource: "NewsSubmission", resourceId: submissionId, metadata: { actorRole: "RESIDENT", actionName: "NEWS_REQUEST_UPDATED", title: normalized.value.title } });
     return result;
   });
 
@@ -258,7 +259,7 @@ export async function deletePendingNewsSubmissionAction(
     const request = await tx.newsSubmission.findFirst({ where: { id: submissionId, requesterId: ctx.userId, villageId: ctx.villageId, status: "PENDING", type: { in: ["CREATE", "UPDATE"] } }, select: { type: true } });
     if (!request) return { count: 0 };
     const result = await tx.newsSubmission.deleteMany({ where: { id: submissionId, requesterId: ctx.userId, villageId: ctx.villageId, status: "PENDING", type: { in: ["CREATE", "UPDATE"] } } });
-    if (result.count === 1) await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "NewsSubmission", resourceId: submissionId, metadata: { actorRole: "RESIDENT", actionName: "NEWS_REQUEST_CANCELLED", requestType: request.type } } });
+    if (result.count === 1) await writeVillageAuditLog(tx, { userId: ctx.userId, villageId: ctx.villageId, actorAuthSessionId: ctx.authSessionId, action: AuditAction.DELETE, resource: "NewsSubmission", resourceId: submissionId, metadata: { actorRole: "RESIDENT", actionName: "NEWS_REQUEST_CANCELLED", requestType: request.type } });
     return result;
   });
 
@@ -331,7 +332,7 @@ export async function createNewsDeleteRequestAction(
         deleteReason: parsedReason.data,
       },
     }, select: { id: true } });
-    await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_DELETE_REQUEST_SUBMITTED", requestType: "DELETE", title: targetNews.title, targetNewsId } } });
+    await writeVillageAuditLog(tx, { userId: ctx.userId, villageId: ctx.villageId, actorAuthSessionId: ctx.authSessionId, action: AuditAction.CREATE, resource: "NewsSubmission", resourceId: request.id, metadata: { actorRole: "RESIDENT", actionName: "NEWS_DELETE_REQUEST_SUBMITTED", requestType: "DELETE", title: targetNews.title, targetNewsId } });
     return request;
   });
 

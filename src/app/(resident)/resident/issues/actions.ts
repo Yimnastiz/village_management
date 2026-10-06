@@ -135,7 +135,7 @@ export async function createIssueAction(
       description: "สร้างคำร้องใหม่",
       metadata: { eventType: "ISSUE_CREATED", createdBy: "RESIDENT" },
     } });
-    await writeVillageAuditLog(tx, { villageId: membership.villageId, userId: session.id, action: AuditAction.CREATE, resource: "Issue", resourceId: created.id, metadata: { actorRole: "RESIDENT", actionName: "ISSUE_CREATED_BY_RESIDENT", title: created.title, category: created.category, priority: created.priority } });
+    await writeVillageAuditLog(tx, { villageId: membership.villageId, userId: session.id, actorAuthSessionId: session.authSessionId, action: AuditAction.CREATE, resource: "Issue", resourceId: created.id, metadata: { actorRole: "RESIDENT", actionName: "ISSUE_CREATED_BY_RESIDENT", title: created.title, category: created.category, priority: created.priority } });
     return created;
   });
 
@@ -244,7 +244,7 @@ export async function editIssueAction(
       action: "แก้ไขคำร้อง",
       description: changes.length > 0 ? `แก้ไข: ${changes.join(", ")}` : "ปรับปรุงข้อมูลคำร้อง",
     } });
-    await writeVillageAuditLog(tx, { villageId: issue.villageId, userId: session.id, action: AuditAction.UPDATE, resource: "Issue", resourceId: issueId, metadata: { actorRole: "RESIDENT", actionName: "ISSUE_UPDATED_BY_RESIDENT", title: parsed.data.title, changedFields: changeDetails.flatMap((change) => typeof change.field === "string" ? [change.field] : []) } });
+    await writeVillageAuditLog(tx, { villageId: issue.villageId, userId: session.id, actorAuthSessionId: session.authSessionId, action: AuditAction.UPDATE, resource: "Issue", resourceId: issueId, metadata: { actorRole: "RESIDENT", actionName: "ISSUE_UPDATED_BY_RESIDENT", title: parsed.data.title, changedFields: changeDetails.flatMap((change) => typeof change.field === "string" ? [change.field] : []) } });
   });
 
   await notifyVillageAdmins(
@@ -313,10 +313,11 @@ export async function deleteIssueAction(
     await writeVillageAuditLog(tx, {
       villageId: issue.villageId,
       userId: session.id,
+      actorAuthSessionId: session.authSessionId,
       action: AuditAction.DELETE,
       resource: "Issue",
       resourceId: issue.id,
-      metadata: { actionName: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, actorLabel: actor.label, reason: trimmedReason, loginAccountEmailId: session.loginAccountEmailId },
+      metadata: { actionName: "ISSUE_DELETED_BY_RESIDENT", issueTitle: issue.title, actorLabel: actor.label, reason: trimmedReason },
     });
     await tx.savedItem.deleteMany({ where: { issueId } });
     await tx.issue.delete({ where: { id: issueId } });
