@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { AuditEventList, type AuditListEvent } from "./audit-event-list";
 import { AuditCustomDateFilter } from "./audit-custom-date-filter";
 import { AuditViewSwitch } from "./audit-view-switch";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 const PAGE_SIZE = 25;
 const MODULE_KEYS = Object.keys(AUDIT_MODULE_RESOURCES);
@@ -61,11 +62,11 @@ async function resolveTargetNames(villageId: string, logs: Array<{ id: string; r
     prisma.transparencyRecord.findMany({ where: { villageId, id: { in: ids("TransparencyRecord") } }, select: { id: true, title: true } }),
     prisma.contactDirectory.findMany({ where: { villageId, id: { in: ids("ContactDirectory") } }, select: { id: true, name: true } }),
     prisma.villageMembership.findMany({ where: { villageId, id: { in: membershipIds } }, select: { id: true, user: { select: { name: true } } } }),
-    prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }),
-    prisma.appointment.findMany({ where: { villageId, id: { in: ids("Appointment") } }, select: { id: true, title: true, user: { select: { name: true } } } }),
+    prisma.user.findMany({ where: { id: { in: userIds } }, select: RESIDENT_ACTOR_USER_SELECT }),
+    prisma.appointment.findMany({ where: { villageId, id: { in: ids("Appointment") } }, select: { id: true, title: true, user: { select: RESIDENT_ACTOR_USER_SELECT } } }),
   ]);
-  const byResourceId = new Map<string, string>([...news.map((row) => [row.id, row.title] as const), ...places.map((row) => [row.id, row.name] as const), ...houses.map((row) => [row.id, `บ้านเลขที่ ${row.houseNumber}`] as const), ...people.map((row) => [row.id, `${row.firstName} ${row.lastName}`.trim()] as const), ...galleries.map((row) => [row.id, row.title] as const), ...downloads.map((row) => [row.id, row.title] as const), ...events.map((row) => [row.id, row.title] as const), ...issues.map((row) => [row.id, row.title] as const), ...transparency.map((row) => [row.id, row.title] as const), ...contacts.map((row) => [row.id, row.name] as const), ...memberships.map((row) => [row.id, row.user.name] as const), ...users.map((row) => [row.id, row.name] as const), ...appointments.map((row) => [row.id, `${row.title} · ${row.user.name}`] as const)]);
-  const usersById = new Map(users.map((row) => [row.id, row.name] as const));
+  const byResourceId = new Map<string, string>([...news.map((row) => [row.id, row.title] as const), ...places.map((row) => [row.id, row.name] as const), ...houses.map((row) => [row.id, `บ้านเลขที่ ${row.houseNumber}`] as const), ...people.map((row) => [row.id, `${row.firstName} ${row.lastName}`.trim()] as const), ...galleries.map((row) => [row.id, row.title] as const), ...downloads.map((row) => [row.id, row.title] as const), ...events.map((row) => [row.id, row.title] as const), ...issues.map((row) => [row.id, row.title] as const), ...transparency.map((row) => [row.id, row.title] as const), ...contacts.map((row) => [row.id, row.name] as const), ...memberships.map((row) => [row.id, row.user.name] as const), ...users.map((row) => [row.id, residentActorDisplay(row, { villageId }).label] as const), ...appointments.map((row) => [row.id, `${row.title} · ${residentActorDisplay(row.user, { villageId }).label}`] as const)]);
+  const usersById = new Map(users.map((row) => [row.id, residentActorDisplay(row, { villageId }).label] as const));
   return new Map(logs.flatMap((log) => {
     const name = log.resourceId ? byResourceId.get(log.resourceId) : undefined;
     const metadataName = metadataUserIds(log.metadata).map((id) => usersById.get(id)).find(Boolean);
@@ -87,17 +88,18 @@ export default async function SecurityPage({ searchParams }: PageProps) {
       ...(headmanUserIds.length ? [{ userId: { in: headmanUserIds }, metadata: { path: ["actorRole"], equals: Prisma.DbNull } }] : []),
     ] }
     : {};
-  const rawLogs = await prisma.auditLog.findMany({ where: { villageId: membership.villageId, ...(view === "important" ? importantAuditWhere() : {}), ...(createdAt ? { createdAt } : {}), ...actorWhere, ...(moduleFilter !== "ALL" ? { resource: { in: [...auditResourcesForModule(moduleFilter)] } } : {}), ...(eventFilter !== "ALL" ? { action: { in: EVENT_ACTIONS[eventFilter] } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: q ? 0 : (page - 1) * PAGE_SIZE, take: q ? 200 : PAGE_SIZE + 1, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } } } } });
+  const rawLogs = await prisma.auditLog.findMany({ where: { villageId: membership.villageId, ...(view === "important" ? importantAuditWhere() : {}), ...(createdAt ? { createdAt } : {}), ...actorWhere, ...(moduleFilter !== "ALL" ? { resource: { in: [...auditResourcesForModule(moduleFilter)] } } : {}), ...(eventFilter !== "ALL" ? { action: { in: EVENT_ACTIONS[eventFilter] } } : {}) }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], skip: q ? 0 : (page - 1) * PAGE_SIZE, take: q ? 200 : PAGE_SIZE + 1, select: { id: true, action: true, resource: true, resourceId: true, metadata: true, createdAt: true, user: { select: { ...RESIDENT_ACTOR_USER_SELECT, memberships: { where: { villageId: membership.villageId, status: MembershipStatus.ACTIVE }, select: { role: true }, take: 1 } } } } });
   const names = await resolveTargetNames(membership.villageId, rawLogs);
   const loweredQuery = q.toLocaleLowerCase("th-TH");
   const filtered = rawLogs.flatMap((log) => {
     const metadata = log.metadata && typeof log.metadata === "object" && !Array.isArray(log.metadata) ? log.metadata as Record<string, unknown> : null;
     const actorLabel = typeof metadata?.actorLabel === "string" && metadata.actorLabel.trim() ? metadata.actorLabel.trim() : null;
-    if (log.user && actorLabel) log.user.name = actorLabel;
+    if (log.user && actorLabel && log.user.accountKind !== "RESIDENT_HOUSE") log.user.name = actorLabel;
     const event = formatAuditEvent(log); const target = names.get(log.id) ?? event.targetFromMetadata; const searchable = `${log.user?.name ?? ""} ${event.label} ${event.resourceLabel} ${target ?? ""}`.toLocaleLowerCase("th-TH");
     if (!auditCategoryMatches(event, eventFilter) || (moduleFilter !== "ALL" && auditModuleForResource(log.resource) !== moduleFilter) || (q && !searchable.includes(loweredQuery))) return [];
     const actorRoleLabel = getActorRoleLabel(event.actorRole);
-    const actor = log.user ? actorRoleLabel ? `${log.user.name} (${actorRoleLabel})` : formatNewsAuthor(log.user.name, log.user.memberships[0]?.role) : "ระบบ";
+    const actorDisplay = log.user ? residentActorDisplay(log.user, { villageId: membership.villageId }).label : null;
+    const actor = actorDisplay ? actorRoleLabel ? `${actorDisplay} (${actorRoleLabel})` : formatNewsAuthor(actorDisplay, log.user?.memberships[0]?.role) : "ระบบ";
     return [{ id: log.id, actor, event: event.label, item: target, time: log.createdAt.toISOString(), formattedTime: fullAuditTime(log.createdAt), shortTime: shortTime(log.createdAt), dateGroup: groupDate(log.createdAt), icon: event.icon, tone: event.tone, changes: event.changes, reason: event.reason, reasonLabel: "เหตุผล" } satisfies AuditListEvent];
   });
   const visibleEvents = q ? filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : filtered.slice(0, PAGE_SIZE); const hasNext = q ? filtered.length > page * PAGE_SIZE : rawLogs.length > PAGE_SIZE; const activeFilters = view !== "all" || period !== "30D" || eventFilter !== "ALL" || moduleFilter !== "ALL" || actorFilter !== "ALL"; const base = { q: q || undefined, view: view === "all" ? undefined : view, period: period === "30D" ? undefined : period, from: period === "CUSTOM" ? from || undefined : undefined, to: period === "CUSTOM" ? to || undefined : undefined, event: eventFilter === "ALL" ? undefined : eventFilter, actor: actorFilter === "ALL" ? undefined : actorFilter, module: moduleFilter === "ALL" ? undefined : moduleFilter };

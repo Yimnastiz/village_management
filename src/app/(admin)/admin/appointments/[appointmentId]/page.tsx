@@ -13,11 +13,12 @@ import { AppointmentStatusActions } from "./appointment-status-actions";
 import { AppointmentTimeline } from "@/components/appointments/appointment-timeline";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
-function getAppointmentSource(timeline: Array<{ action: string; actorId: string | null; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }>) {
+function getAppointmentSource(timeline: Array<{ action: string; actorId: string | null; metadata: Prisma.JsonValue | null; actor: { accountKind: "HEADMAN" | "RESIDENT_HOUSE" | null; name: string | null; phoneNumber: string | null; residentHouseAccount: { villageId: string; contactPhone: string; house: { houseNumber: string } } | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }>, villageId: string) {
   const entry = timeline[0]; const actor = entry?.actor;
   if (!entry || !actor) return { label: null, isAdminCreated: false, creatorId: null };
   const metadata = entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata) ? entry.metadata : null;
-  const name = typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
+  const display = residentActorDisplay(actor, { villageId });
+  const name = actor.accountKind === "RESIDENT_HOUSE" ? display.label : typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : display.label;
   if (!name) return { label: null, isAdminCreated: metadata?.adminCreated === true, creatorId: entry.actorId };
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
   if (metadata?.adminCreated === true) return { label: `สร้างโดย ${name} (${getActorRoleLabel(role) ?? "เจ้าหน้าที่"})`, isAdminCreated: true, creatorId: entry.actorId };
@@ -47,13 +48,13 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const context = await getVillagePermissionContext("appointments.manage"); if (!context) redirect("/auth/login");
   const session = context.session;
   const { appointmentId } = await params;
-  const appointmentRow = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId: context.villageId }, include: { user: { select: { ...RESIDENT_ACTOR_USER_SELECT, email: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
+  const appointmentRow = await prisma.appointment.findFirst({ where: { id: appointmentId, villageId: context.villageId }, include: { user: { select: { ...RESIDENT_ACTOR_USER_SELECT, email: true } }, slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { ...RESIDENT_ACTOR_USER_SELECT, email: true, memberships: { where: { status: "ACTIVE" }, select: { villageId: true, role: true } } } } } } } });
   if (!appointmentRow) redirect("/admin/appointments");
   const residentDisplay = residentActorDisplay(appointmentRow.user, { villageId: context.villageId });
   const appointment = { ...appointmentRow, user: { ...appointmentRow.user, name: residentDisplay.label, phoneNumber: residentDisplay.contactPhone } };
   const stageLabel = appointment.stage === "TIME_SUGGESTED" ? "รอสมาชิกยืนยันเวลา" : APPOINTMENT_STAGE_LABELS[appointment.stage];
   const isConfirmed = ["APPROVED", "COMPLETED"].includes(appointment.stage);
-  const source = getAppointmentSource(appointment.timeline);
+  const source = getAppointmentSource(appointment.timeline, context.villageId);
   const canProposeTime = !source.isAdminCreated && appointment.stage === "PENDING_APPROVAL";
   const canEditAdminCreated = source.isAdminCreated && source.creatorId === session.id && appointment.stage === "TIME_SUGGESTED";
   const canReject = !source.isAdminCreated && appointment.stage === "PENDING_APPROVAL";
@@ -66,7 +67,7 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
   const cancellationMetadata = metadataOf(cancellationEntry?.metadata ?? null);
   const cancellationReason = stringValue(cancellationMetadata, "reason");
   const cancellationMembership = cancellationEntry?.actor?.memberships.find((item) => item.villageId === appointment.villageId);
-  const cancellationActorName = cancellationEntry?.actor?.name || cancellationEntry?.actor?.email || null;
+  const cancellationActorName = cancellationEntry?.actor ? residentActorDisplay(cancellationEntry.actor, { villageId: appointment.villageId }).label : null;
   const cancellationActor = cancellationActorName ? `${cancellationActorName}${cancellationMembership ? ` (${getActorRoleLabel(cancellationMembership.role) ?? "ผู้ดำเนินการ"})` : ""}` : null;
   return <div className="mx-auto max-w-3xl space-y-5">
     <Link href="/admin/appointments" className="text-sm text-gray-500 hover:text-gray-800">← กลับไปรายการนัดหมาย</Link>
@@ -76,7 +77,7 @@ export default async function AdminAppointmentDetailPage({ params }: { params: P
         <Badge className="shrink-0" variant={appointment.stage === "APPROVED" ? "success" : appointment.stage === "TIME_SUGGESTED" ? "info" : appointment.stage === "REJECTED" ? "danger" : "warning"}>{stageLabel}</Badge>
       </div>
       <div className="mt-5 grid gap-x-8 gap-y-4 border-t border-gray-200 pt-4 text-sm sm:grid-cols-2">
-        <div><p className="text-xs text-gray-500">นัดหมายกับ</p><p className="mt-1 text-gray-900">{appointment.user.name || appointment.user.email}</p></div>
+        <div><p className="text-xs text-gray-500">นัดหมายกับ</p><p className="mt-1 text-gray-900">{appointment.user.name}</p></div>
         <div><p className="text-xs text-gray-500">เบอร์ติดต่อ</p><p className="mt-1 text-gray-900">{appointment.user.phoneNumber || "-"}</p></div>
       </div>
       {appointment.slot || appointmentContent.preferredTime ? <div className="mt-4 border-t border-gray-200 pt-4 text-sm"><div className="space-y-4">{appointment.slot ? <div className="flex items-start gap-2"><Clock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-gray-500" /><p className="text-gray-900">{isConfirmed ? "นัดหมาย" : "เสนอเวลา"}: {formatThaiDate(appointment.slot.date)} เวลา {appointment.slot.startTime}</p></div> : null}{appointmentContent.preferredTime ? <div><p className="text-xs text-gray-500">ช่วงเวลาที่สะดวก</p><p className="mt-1 text-gray-700">{appointmentContent.preferredTime}</p></div> : null}</div></div> : null}

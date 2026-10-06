@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 import { AppointmentActions } from "./appointment-actions";
+import { RESIDENT_ACTOR_USER_SELECT } from "@/lib/resident-actor-display";
 
 interface PageProps { params: Promise<{ appointmentId: string }>; searchParams?: Promise<{ from?: string; month?: string; date?: string }> }
 
@@ -32,7 +33,7 @@ export default async function AppointmentDetailPage({ params, searchParams }: Pa
   const query = searchParams ? await searchParams : {};
   const appointment = await prisma.appointment.findFirst({
     where: { id: appointmentId, userId: session.id, villageId: membership.villageId },
-    include: { slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } } } },
+    include: { slot: true, timeline: { orderBy: { createdAt: "asc" }, include: { actor: { select: { ...RESIDENT_ACTOR_USER_SELECT, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } } } },
   });
   if (!appointment) redirect("/resident/appointments");
 

@@ -96,7 +96,7 @@ export default async function Page({ params }: { params: Promise<{ requestId: st
         <div><dt className="text-slate-500">วันที่ดำเนินการล่าสุด</dt><dd className="mt-1 font-medium text-slate-900">{formatDate(request.status === "PENDING_REVIEW" ? null : request.reviewedAt ?? request.updatedAt)}</dd></div>
         {request.reviewedBy ? <div><dt className="text-slate-500">ผู้พิจารณา</dt><dd className="mt-1 font-medium text-slate-900">{request.reviewedBy.name}</dd></div> : null}
         {request.status === "REJECTED" ? <div className="sm:col-span-2"><dt className="text-slate-500">เหตุผลในการปฏิเสธ</dt><dd className="mt-1 whitespace-pre-wrap break-words font-medium text-slate-900">{request.rejectionReason ?? "-"}</dd></div> : null}
-        {request.status === "APPROVED" && request.activatedUser ? <div className="sm:col-span-2"><dt className="text-slate-500">บัญชีบ้านที่เปิดใช้งาน</dt><dd className="mt-1 break-words font-medium text-slate-900">{request.activatedUser.name} · {request.activatedUser.email ?? "-"}</dd><p className="mt-1 text-xs text-slate-500">เปิดใช้งาน {formatDate(request.activatedUser.residentHouseAccount?.activatedAt ?? null)}</p></div> : null}
+        {request.status === "APPROVED" && request.activatedUser ? <div className="sm:col-span-2"><dt className="text-slate-500">บัญชีบ้านที่เปิดใช้งาน</dt><dd className="mt-1 break-words font-medium text-slate-900">บ้านเลขที่ {request.house.houseNumber} · อีเมลสำหรับเข้าสู่ระบบ {request.activatedUser.email ?? "-"}</dd><p className="mt-1 text-xs text-slate-500">เปิดใช้งาน {formatDate(request.activatedUser.residentHouseAccount?.activatedAt ?? null)}</p></div> : null}
       </dl>
     </section>
   </div>;

@@ -4,11 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsSaveButton } from "./news-save-button";
-import { formatNewsAuthor } from "@/lib/news-author";
 import { NewsMetadata } from "@/components/news/news-metadata";
 import { PageBackLink } from "@/components/ui/page-back-link";
 import { newsListHref, newsRequestEditHref, readResidentNewsContext, requestDetailHref, requestListHref } from "@/lib/resident-news-navigation";
 import { ResidentNewsOwnerActions } from "./resident-news-owner-actions";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 interface PageProps {
   params: Promise<{ newsId: string }>;
@@ -39,7 +39,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
       include: {
         author: {
           select: {
-            name: true,
+            ...RESIDENT_ACTOR_USER_SELECT,
             memberships: {
               where: {
                 villageId: membership.villageId,
@@ -72,6 +72,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
       : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
   const isOwner = membership.hasResidentAccess && Boolean(news.authorId) && news.authorId === session.id;
   const pendingRequestHref = pendingRequest?.requesterId === session.id ? requestDetailHref(pendingRequest.id, context) : null;
+  const authorDisplay = news.author ? residentActorDisplay(news.author, { villageId: membership.villageId }).label : "ไม่ระบุ";
 
   const imageUrls = Array.isArray(news.imageUrls)
     ? news.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
@@ -96,7 +97,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
             {sourceLabel} · {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
           </p>
           <p className="mt-1 text-xs text-gray-500">
-            ผู้สร้างข่าว: {formatNewsAuthor(news.author?.name, news.author?.memberships[0]?.role)}
+            ผู้สร้างข่าว: {authorDisplay}
           </p>
           {news.summary && <p className="text-sm text-gray-600 mt-3">{news.summary}</p>}
         </div>

@@ -61,7 +61,7 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
     slot: { select: { date: true, startTime: true, endTime: true } },
     timeline: {
       orderBy: { createdAt: "asc" }, take: 1,
-      select: { action: true, metadata: true, actor: { select: { name: true, email: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } },
+      select: { action: true, metadata: true, actor: { select: { ...RESIDENT_ACTOR_USER_SELECT, email: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true }, take: 1 } } } },
     },
   } satisfies Prisma.AppointmentSelect;
 
@@ -100,15 +100,16 @@ async function fetchPendingAppointments(params: { q?: string; stage?: string; so
     : rows;
   const totalCount = activeSort === "upcoming" ? upcomingAppointments.length : databaseTotalCount;
 
-  return { appointments, totalCount };
+  return { appointments, totalCount, villageId: membership.villageId };
 }
 
-function getAppointmentSource(appointment: { timeline: Array<{ action: string; metadata: Prisma.JsonValue | null; actor: { name: string | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }> }) {
+function getAppointmentSource(appointment: { timeline: Array<{ action: string; metadata: Prisma.JsonValue | null; actor: { accountKind: "HEADMAN" | "RESIDENT_HOUSE" | null; name: string | null; phoneNumber: string | null; residentHouseAccount: { villageId: string; contactPhone: string; house: { houseNumber: string } } | null; email: string | null; memberships: Array<{ role: VillageMembershipRole }> } | null }> }, villageId: string) {
   const entry = appointment.timeline[0];
   const actor = entry?.actor;
   if (!entry || !actor) return null;
   const metadata = entry.metadata && typeof entry.metadata === "object" && !Array.isArray(entry.metadata) ? entry.metadata : null;
-  const name = typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : actor.name || actor.email;
+  const display = residentActorDisplay(actor, { villageId });
+  const name = actor.accountKind === "RESIDENT_HOUSE" ? display.label : typeof metadata?.actorLabel === "string" ? metadata.actorLabel : typeof metadata?.creatorName === "string" ? metadata.creatorName : display.label;
   if (!name) return null;
   const role = typeof metadata?.creatorRole === "string" ? metadata.creatorRole : actor.memberships[0]?.role;
   if (metadata?.adminCreated === true) return `สร้างโดย ${name} (${getActorRoleLabel(role) ?? "เจ้าหน้าที่"})`;
@@ -150,7 +151,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
   const activeSort = params.sort === "oldest" || params.sort === "upcoming" ? params.sort : "newest";
   const page = Math.max(1, Number(params.page ?? "1") || 1);
   const pageSize = 25;
-  const { appointments, totalCount } = await fetchPendingAppointments(params);
+  const { appointments, totalCount, villageId } = await fetchPendingAppointments(params);
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   const suggestionTitles = Array.from(new Set(appointments.map((appointment) => appointment.title))).slice(0, 12);
@@ -220,7 +221,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
             const slotDateTime = getAppointmentSlotDateTime(apt);
             const isTimeSuggested = apt.stage === "TIME_SUGGESTED";
             const isConfirmed = ["APPROVED", "COMPLETED"].includes(apt.stage);
-            const source = getAppointmentSource(apt);
+            const source = getAppointmentSource(apt, villageId);
 
             return (
             <div
@@ -239,7 +240,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
                     </Badge>
                   </div>
                   <div className="space-y-1 text-sm text-gray-600">
-                    <p><span className="text-gray-500">นัดหมายกับ: </span><span className="break-words text-gray-900">{apt.user?.name || apt.user?.email}</span></p>
+                    <p><span className="text-gray-500">นัดหมายกับ: </span><span className="break-words text-gray-900">{apt.user?.name ?? "ไม่พบข้อมูลบัญชีประจำบ้าน"}</span></p>
                     {source ? <p className="break-words text-gray-500">{source}</p> : null}
                   </div>
                 </div>

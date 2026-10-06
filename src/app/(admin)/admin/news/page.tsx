@@ -5,11 +5,11 @@ import { NewsCard } from "@/components/news/news-card";
 import { NewsMetadata } from "@/components/news/news-metadata";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
-import { formatNewsAuthor } from "@/lib/news-author";
 import { AdminNewsToolbar } from "./admin-news-toolbar";
 import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
 import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
@@ -68,7 +68,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       publishedAt: true,
       createdAt: true,
       author: {
-        select: { name: true, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
+        select: { ...RESIDENT_ACTOR_USER_SELECT, memberships: { where: { villageId: membership.villageId, status: "ACTIVE" }, select: { role: true } } },
       },
     },
   }), getPendingNewsSubmissionCount(membership.villageId), getActiveSystemBroadcastTickerItems(session.id, "admin")]);
@@ -96,7 +96,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
               metadata={<NewsMetadata stage={news.stage} visibility={news.visibility} isPinned={news.isPinned} showPinned={false} />}
-              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${formatNewsAuthor(news.author?.name, news.author?.memberships[0]?.role)}`}
+              meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${news.author ? residentActorDisplay(news.author, { villageId: membership.villageId }).label : "ไม่ระบุ"}`}
             />
           ))}
         </div>

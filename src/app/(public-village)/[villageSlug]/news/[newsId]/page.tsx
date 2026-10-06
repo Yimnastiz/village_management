@@ -6,6 +6,7 @@ import { ImageCarousel } from "@/components/ui/image-carousel";
 import { prisma } from "@/lib/prisma";
 import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
+import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 
 interface PageProps {
   params: Promise<{ villageSlug: string; newsId: string }>;
@@ -32,7 +33,7 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
     include: {
       author: {
         select: {
-          name: true,
+          ...RESIDENT_ACTOR_USER_SELECT,
           memberships: {
             where: {
               villageId: village.id,
@@ -53,6 +54,7 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
     : isAdminAuthor
       ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN
       : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
+  const authorDisplay = news.author ? residentActorDisplay(news.author, { villageId: village.id }).label : "ไม่ระบุ";
 
   const imageUrls = Array.isArray(news.imageUrls)
     ? news.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
@@ -76,7 +78,7 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
         <p className="text-sm text-gray-400 mt-2">
           {(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
         </p>
-        <p className="text-xs text-gray-500 mt-1">ผู้สร้างข่าว: {news.author?.name || "ไม่ระบุ"}</p>
+        <p className="text-xs text-gray-500 mt-1">ผู้สร้างข่าว: {authorDisplay}</p>
         {news.summary && <p className="text-sm text-gray-600 mt-3">{news.summary}</p>}
 
         {imageUrls.length > 0 && (

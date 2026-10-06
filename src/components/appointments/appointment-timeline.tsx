@@ -1,6 +1,7 @@
 import type { Prisma, VillageMembershipRole } from "@prisma/client";
 import { MEMBERSHIP_ROLE_LABELS } from "@/lib/constants";
 import { formatThaiDateTime } from "@/lib/utils";
+import { residentActorDisplay } from "@/lib/resident-actor-display-core";
 
 type TimelineEntry = {
   id: string;
@@ -9,8 +10,11 @@ type TimelineEntry = {
   metadata: Prisma.JsonValue | null;
   createdAt: Date;
   actor: {
+    accountKind: "HEADMAN" | "RESIDENT_HOUSE" | null;
     name: string | null;
+    phoneNumber: string | null;
     email?: string | null;
+    residentHouseAccount: { villageId: string; contactPhone: string; house: { houseNumber: string } } | null;
     memberships: Array<{ villageId?: string; role: VillageMembershipRole }>;
   } | null;
 };
@@ -77,10 +81,10 @@ function actorLabel(entry: TimelineEntry, villageId: string, viewerId?: string) 
   if (viewerId && entry.actorId === viewerId) return "คุณ";
   const metadata = metadataOf(entry.metadata);
   const storedActorLabel = stringValue(metadata, "actorLabel");
-  if (storedActorLabel) return storedActorLabel;
+  if (storedActorLabel && entry.actor?.accountKind !== "RESIDENT_HOUSE") return storedActorLabel;
   const membership = entry.actor?.memberships.find((item) => !item.villageId || item.villageId === villageId);
   const role = membership ? MEMBERSHIP_ROLE_LABELS[membership.role] : null;
-  const name = entry.actor?.name || entry.actor?.email || "ไม่พบข้อมูลผู้ดำเนินการ";
+  const name = entry.actor ? residentActorDisplay(entry.actor, { villageId }).label : "ไม่พบข้อมูลผู้ดำเนินการ";
   return role ? `${name} (${role})` : name;
 }
 
