@@ -35,7 +35,7 @@ type VillagePersonFormProps = {
   defaultValues?: VillagePersonInput;
   /** Base list URL for creation, or concrete detail URL for editing. */
   successPath: string;
-  /** Delay the Super Admin support reason until final save confirmation. */
+  /** Delay the sensitive-operation reason until final save confirmation. */
   confirmReason?: boolean;
 };
 

@@ -33,9 +33,9 @@ type Props = {
   onSuccess?: (id?: string) => void;
 
   /**
-   * Use this for Super Admin village operations.
+   * Use this for sensitive village operations.
    *
-   * Super Admin mutations must provide a fresh support reason
+   * Sensitive mutations must provide a fresh support reason
    * for every create/update operation.
    */
   requireReason?: boolean;

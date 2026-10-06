@@ -110,7 +110,7 @@ input[type="radio"]:disabled {
 .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
 .sidebar-scroll::-webkit-scrollbar-thumb { border-radius: 999px; background: color-mix(in srgb, currentColor 22%, transparent); }
 
-/* Shared Super Admin member-list fallback until its client markup is split into WorkspaceTable. */
+/* Shared member-list fallback until its client markup is split into WorkspaceTable. */
 .workspace-list-page > div > .rounded-xl.border-slate-200.bg-white {
   margin-inline: -1rem;
   min-height: 0;
