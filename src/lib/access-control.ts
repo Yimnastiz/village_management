@@ -5,6 +5,11 @@ import { getTokenLogMetadata, readSessionCookieFromRequest, readSessionCookieFro
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
 import { getConfiguredVillage } from "@/lib/configured-village";
 import { isResidentHouseAccessEligible } from "@/lib/final-account-access-policy";
+import {
+  inspectPendingResidentAccessFromRequest,
+  inspectPendingResidentAccessFromServerCookies,
+  type PendingResidentContext,
+} from "@/lib/pending-resident-access";
 
 export const ADMIN_MEMBERSHIP_ROLES = [VillageMembershipRole.HEADMAN] as const;
 const ADMIN_MEMBERSHIP_ROLE_SET = new Set<VillageMembershipRole>(ADMIN_MEMBERSHIP_ROLES);
@@ -174,6 +179,68 @@ export async function getResidentVillageAccess(session: SessionContext) {
   return membership ? { villageId: membership.villageId, hasResidentAccess: true } as const : null;
 }
 
+export type ResidentContentAccess =
+  | {
+      accessMode: "ACTIVE_RESIDENT";
+      villageId: string;
+      hasResidentAccess: true;
+      session: SessionContext;
+      pendingResident: null;
+    }
+  | {
+      accessMode: "PENDING_RESIDENT";
+      villageId: string;
+      hasResidentAccess: false;
+      session: null;
+      pendingResident: PendingResidentContext;
+    };
+
+export async function getResidentContentAccessFromServerCookies(): Promise<ResidentContentAccess | null> {
+  const session = await getSessionContextFromServerCookies();
+  if (session) {
+    const membership = await getResidentVillageAccess(session);
+    if (membership) return {
+      accessMode: "ACTIVE_RESIDENT",
+      villageId: membership.villageId,
+      hasResidentAccess: true,
+      session,
+      pendingResident: null,
+    };
+    return null;
+  }
+  const pending = await inspectPendingResidentAccessFromServerCookies();
+  return pending.kind === "PENDING" ? {
+    accessMode: "PENDING_RESIDENT",
+    villageId: pending.context.villageId,
+    hasResidentAccess: false,
+    session: null,
+    pendingResident: pending.context,
+  } : null;
+}
+
+export async function getResidentContentAccessFromRequest(request: NextRequest): Promise<ResidentContentAccess | null> {
+  const session = await getSessionContextFromRequest(request);
+  if (session) {
+    const membership = await getResidentVillageAccess(session);
+    if (membership) return {
+      accessMode: "ACTIVE_RESIDENT",
+      villageId: membership.villageId,
+      hasResidentAccess: true,
+      session,
+      pendingResident: null,
+    };
+    return null;
+  }
+  const pending = await inspectPendingResidentAccessFromRequest(request);
+  return pending.kind === "PENDING" ? {
+    accessMode: "PENDING_RESIDENT",
+    villageId: pending.context.villageId,
+    hasResidentAccess: false,
+    session: null,
+    pendingResident: pending.context,
+  } : null;
+}
+
 export async function setActiveVillageForCurrentSession(villageId: string): Promise<boolean> {
   const configuredVillage = await getConfiguredVillage();
   if (villageId !== configuredVillage.id) return false;
@@ -211,5 +278,5 @@ export async function getAuthenticatedAccessRedirectPath(session: SessionContext
 export async function getResidentAreaAccessInfo(session: SessionContext): Promise<{ canAccess: boolean; redirectPath: string }> {
   return getResidentMembership(session)
     ? { canAccess: true, redirectPath: "/resident/dashboard" }
-    : { canAccess: false, redirectPath: "/" };
+    : { canAccess: false, redirectPath: await getAuthenticatedAccessRedirectPath(session) };
 }

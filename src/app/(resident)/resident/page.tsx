@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
-import { getSessionContextFromServerCookies, setActiveVillageForCurrentSession } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies, getSessionContextFromServerCookies, setActiveVillageForCurrentSession } from "@/lib/access-control";
 
 export default async function ResidentRootPage() {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
+    const access = await getResidentContentAccessFromServerCookies();
+    if (access?.accessMode === "PENDING_RESIDENT") redirect("/resident/dashboard");
     redirect("/auth/login?callbackUrl=/resident");
   }
 

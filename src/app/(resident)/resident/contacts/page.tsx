@@ -4,7 +4,7 @@ import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { contactFilterCategories } from "@/lib/contact";
 import { parseContactSort, sortContactsByName } from "@/lib/contact-sort";
 import { toggleSaveContactAction } from "@/features/saved/server/actions";
@@ -17,10 +17,7 @@ type ResidentContactsPageProps = {
 };
 
 export default async function ResidentContactsPage({ searchParams }: ResidentContactsPageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
@@ -53,10 +50,10 @@ export default async function ResidentContactsPage({ searchParams }: ResidentCon
       select: { category: true },
       orderBy: { category: "asc" },
     }),
-    prisma.savedItem.findMany({
-      where: { userId: session.id, contactId: { not: null } },
+    membership.hasResidentAccess ? prisma.savedItem.findMany({
+      where: { userId: membership.session.id, contactId: { not: null } },
       select: { contactId: true },
-    }),
+    }) : Promise.resolve([]),
   ]);
 
   const contacts = sort === "name_asc" ? sortContactsByName(contactRows, "asc") : sort === "name_desc" ? sortContactsByName(contactRows, "desc") : contactRows;

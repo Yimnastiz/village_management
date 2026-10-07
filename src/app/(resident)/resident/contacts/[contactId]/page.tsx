@@ -2,7 +2,7 @@
 import { notFound, redirect } from "next/navigation";
 import { ContactRequestType } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ResidentContactRequestModal } from "../resident-contact-request-modal";
 import { ResidentContactDeleteRequestDialog } from "../resident-contact-delete-request-dialog";
@@ -13,10 +13,7 @@ interface PageProps {
 
 export default async function ResidentContactDetailPage({ params }: PageProps) {
   const { contactId } = await params;
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const contact = await prisma.contactDirectory.findFirst({
@@ -26,8 +23,8 @@ export default async function ResidentContactDetailPage({ params }: PageProps) {
   if (!contact) notFound();
 
   const [originRequest, pendingMutation] = membership.hasResidentAccess ? await Promise.all([
-    prisma.contactRequest.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: contact.id }, select: { id: true } }),
-    prisma.contactRequest.findFirst({ where: { villageId: membership.villageId, requesterId: session.id, type: { in: [ContactRequestType.UPDATE, ContactRequestType.DELETE] }, status: "PENDING", targetContactId: contact.id }, select: { id: true, type: true } }),
+    prisma.contactRequest.findFirst({ where: { villageId: membership.villageId, requesterId: membership.session.id, type: ContactRequestType.CREATE, status: "APPROVED", approvedContactId: contact.id }, select: { id: true } }),
+    prisma.contactRequest.findFirst({ where: { villageId: membership.villageId, requesterId: membership.session.id, type: { in: [ContactRequestType.UPDATE, ContactRequestType.DELETE] }, status: "PENDING", targetContactId: contact.id }, select: { id: true, type: true } }),
   ]) : [null, null];
 
   return (

@@ -3,7 +3,7 @@ import { Images } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { formatThaiShortDate } from "@/lib/utils";
 import { ResidentGalleryToolbar } from "./resident-gallery-toolbar";
@@ -14,10 +14,7 @@ type ResidentGalleryPageProps = {
 };
 
 export default async function ResidentGalleryPage({ searchParams }: ResidentGalleryPageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};

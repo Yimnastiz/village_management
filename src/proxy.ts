@@ -7,6 +7,8 @@ import {
 } from "@/lib/access-control";
 import { isMaintenanceModeEnabled } from "@/lib/system-settings";
 import { ADMIN_MAINTENANCE_PATH, isMaintenanceBlockedAdminPath, isMaintenanceBlockedMutation, isMaintenanceRecoveryApiPath } from "@/lib/maintenance-policy";
+import { inspectPendingResidentAccessFromRequest } from "@/lib/pending-resident-access";
+import { isPendingResidentPathAllowed } from "@/lib/pending-resident-policy";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -26,6 +28,17 @@ export async function proxy(request: NextRequest) {
 
   if (pathname.startsWith("/resident")) {
     if (!session) {
+      const pendingAccess = await inspectPendingResidentAccessFromRequest(request);
+      if (pendingAccess.kind === "PENDING") {
+        if (isPendingResidentPathAllowed(pathname)) return NextResponse.next();
+        return NextResponse.redirect(new URL("/resident/dashboard?locked=1", request.url));
+      }
+      if (pendingAccess.kind === "TERMINAL") {
+        const destination = pendingAccess.status === "APPROVED" ? "/auth/login" : "/auth/register";
+        const redirectUrl = new URL(destination, request.url);
+        redirectUrl.searchParams.set("openingStatus", pendingAccess.status);
+        return NextResponse.redirect(redirectUrl);
+      }
       const loginUrl = new URL("/auth/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);
       return NextResponse.redirect(loginUrl);

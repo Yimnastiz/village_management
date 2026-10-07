@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { SaveButton } from "@/components/ui/save-button";
 import { prisma } from "@/lib/prisma";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { toggleSaveTransparencyAction } from "@/features/saved/server/actions";
 
@@ -15,10 +15,7 @@ interface PageProps {
 export default async function ResidentTransparencyDetailPage({ params }: PageProps) {
   const { transparencyId } = await params;
 
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const record = await prisma.transparencyRecord.findFirst({
@@ -31,10 +28,10 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
   });
   if (!record) notFound();
 
-  const saved = await prisma.savedItem.findFirst({
-    where: { userId: session.id, transparencyId: record.id },
+  const saved = membership.hasResidentAccess ? await prisma.savedItem.findFirst({
+    where: { userId: membership.session.id, transparencyId: record.id },
     select: { id: true },
-  });
+  }) : null;
 
   return (
     <div className="max-w-3xl space-y-6">

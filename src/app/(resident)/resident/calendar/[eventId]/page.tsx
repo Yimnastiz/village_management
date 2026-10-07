@@ -2,7 +2,7 @@
 import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { formatCalendarPerson } from "@/lib/calendar-person";
 import { prisma } from "@/lib/prisma";
 
@@ -13,10 +13,7 @@ type ResidentEventDetailPageProps = {
 export default async function ResidentEventDetailPage({ params }: ResidentEventDetailPageProps) {
   const { eventId } = await params;
 
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const village = await prisma.village.findUnique({

@@ -96,7 +96,7 @@ export function setHouseOpeningAccessCookie(
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/api/auth/house-account-opening",
+    path: "/",
     maxAge: HOUSE_OPENING_ACCESS_TTL_SECONDS,
   });
 }
@@ -108,7 +108,7 @@ export function clearHouseOpeningAccessCookie(response: NextResponse): void {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/api/auth/house-account-opening",
+    path: "/",
     maxAge: 0,
   });
 }

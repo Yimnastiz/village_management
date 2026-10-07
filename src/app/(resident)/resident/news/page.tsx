@@ -4,7 +4,7 @@ import { NewsVisibility } from "@prisma/client";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NewsMetadata } from "@/components/news/news-metadata";
 import { prisma } from "@/lib/prisma";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { ResidentNewsToolbar } from "./resident-news-toolbar";
 import { NewsCard } from "@/components/news/news-card";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
@@ -33,10 +33,7 @@ const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; 
 };
 
 export default async function ResidentNewsPage({ searchParams }: PageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const query = await searchParams;
@@ -107,7 +104,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
       },
       take: 100,
     }),
-    getActiveSystemBroadcastTickerItems(session.id, "resident"),
+    membership.hasResidentAccess ? getActiveSystemBroadcastTickerItems(membership.session.id, "resident") : Promise.resolve([]),
   ]);
 
   const filteredNewsList = newsList.filter((newsItem) => {

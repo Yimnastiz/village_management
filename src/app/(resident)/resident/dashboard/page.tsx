@@ -1,11 +1,11 @@
-import { AlertCircle, Bell, Calendar, CalendarDays, Home, Newspaper } from "lucide-react";
+import { AlertCircle, Bell, Calendar, CalendarDays, FileDown, FileSearch, Home, Images, MapPin, Newspaper, Phone } from "lucide-react";
 import { StatCard } from "@/components/ui/stat-card";
 import { WelcomeBanner } from "@/components/ui/welcome-banner";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies, getResidentMembership } from "@/lib/access-control";
 import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
@@ -20,10 +20,39 @@ function toThaiDate(date: Date) {
 }
 
 export default async function ResidentDashboard() {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) {
+  const residentAccess = await getResidentContentAccessFromServerCookies();
+  if (!residentAccess) {
     redirect("/auth/login?callbackUrl=/resident/dashboard");
   }
+  if (residentAccess.accessMode === "PENDING_RESIDENT") {
+    const shortcuts = [
+      { href: "/resident/news", label: "ข่าวสาร", icon: Newspaper },
+      { href: "/resident/calendar", label: "ปฏิทิน", icon: CalendarDays },
+      { href: "/resident/gallery", label: "แกลเลอรี", icon: Images },
+      { href: "/resident/places", label: "สถานที่", icon: MapPin },
+      { href: "/resident/downloads", label: "เอกสาร", icon: FileDown },
+      { href: "/resident/transparency", label: "ความโปร่งใส", icon: FileSearch },
+      { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone },
+    ];
+    return <div className="mx-auto w-full max-w-5xl space-y-6">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 sm:p-7">
+        <p className="text-sm font-semibold text-amber-700">กำลังตรวจสอบคำขอ</p>
+        <h1 className="mt-2 text-xl font-bold text-gray-900 sm:text-2xl">คำขอเปิดบัญชีบ้านอยู่ระหว่างการตรวจสอบ</h1>
+        <p className="mt-2 text-sm leading-6 text-gray-700">ระหว่างรอการอนุมัติ คุณสามารถดูข้อมูลสาธารณะของหมู่บ้านได้ บริการสำหรับสมาชิกจะเปิดใช้งานหลังผู้ใหญ่บ้านอนุมัติและคุณเข้าสู่ระบบตามปกติ</p>
+        <dl className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-amber-100 bg-white px-4 py-3"><dt className="text-xs text-gray-500">บ้านเลขที่</dt><dd className="mt-1 break-words font-semibold text-gray-900">{residentAccess.pendingResident.houseNumber}</dd></div>
+          <div className="rounded-xl border border-amber-100 bg-white px-4 py-3"><dt className="text-xs text-gray-500">สถานะ</dt><dd className="mt-1 font-semibold text-amber-700">รอการตรวจสอบ</dd></div>
+        </dl>
+      </section>
+      <section>
+        <h2 className="text-lg font-semibold text-gray-900">ข้อมูลสาธารณะของหมู่บ้าน</h2>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {shortcuts.map((item) => <Link key={item.href} href={item.href} className="flex min-h-28 flex-col items-center justify-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-center text-sm font-medium text-gray-700 transition hover:border-green-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"><item.icon className="h-6 w-6 text-green-700" />{item.label}</Link>)}
+        </div>
+      </section>
+    </div>;
+  }
+  const session = residentAccess.session;
   const membership = getResidentMembership(session);
   if (!membership?.houseId) redirect("/");
 

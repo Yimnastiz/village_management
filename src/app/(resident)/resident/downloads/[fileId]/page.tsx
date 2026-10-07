@@ -6,17 +6,16 @@ import { SaveButton } from "@/components/ui/save-button";
 import { downloadTypeLabel } from "@/lib/download-upload";
 import { DOWNLOAD_CATEGORY_LABELS } from "@/lib/downloads/constants";
 import { formatFileSize } from "@/lib/utils";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { toggleSaveDownloadAction } from "@/features/saved/server/actions";
 
 interface PageProps { params: Promise<{ fileId: string }> }
 
 export default async function ResidentDownloadDetailPage({ params }: PageProps) {
-  const { fileId } = await params; const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login");
-  const membership = await getResidentVillageAccess(session); if (!membership) redirect("/resident/dashboard");
+  const { fileId } = await params; const membership = await getResidentContentAccessFromServerCookies(); if (!membership) redirect("/resident/dashboard");
   const file = await prisma.downloadFile.findFirst({ where: { id: fileId, villageId: membership.villageId, stage: "PUBLISHED", visibility: membership.hasResidentAccess ? { in: ["PUBLIC", "RESIDENT_ONLY"] } : "PUBLIC" }, include: { attachments: { orderBy: { sortOrder: "asc" } } } }); if (!file) notFound();
-  const saved = await prisma.savedItem.findFirst({ where: { userId: session.id, downloadId: file.id }, select: { id: true } });
+  const saved = membership.hasResidentAccess ? await prisma.savedItem.findFirst({ where: { userId: membership.session.id, downloadId: file.id }, select: { id: true } }) : null;
   const categoryText = file.category === "OTHER"
     ? file.categoryLabel || DOWNLOAD_CATEGORY_LABELS.OTHER
     : file.category

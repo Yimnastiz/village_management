@@ -53,6 +53,7 @@ export const residentMenuItems: ResidentMenuItem[] = [
 ];
 
 export type ResidentNavigationState = {
+  accessMode?: "ACTIVE" | "PENDING";
   hasMembership: boolean;
   isHouseAccount?: boolean;
   publicVillageBasePath?: string | null;
@@ -63,11 +64,13 @@ const MEMBERS_ONLY_PATHS = new Set([
   "/resident/appointments",
   "/resident/household",
   "/resident/saved",
+  "/resident/notifications",
+  "/resident/profile",
 ]);
 
 export function getResidentNavigationItems(state: ResidentNavigationState): ResidentMenuItem[] {
   return residentMenuItems.map((item) => {
-    if (!state.hasMembership && !state.isHouseAccount) {
+    if (state.accessMode === "PENDING" || (!state.hasMembership && !state.isHouseAccount)) {
       if (MEMBERS_ONLY_PATHS.has(item.href)) {
         return {
           ...item,
@@ -98,7 +101,12 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
           <BrandLogo size="sm" alt="" />
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900">พื้นที่สมาชิก</p>
-            {state.hasMembership || state.isHouseAccount ? (
+            {state.accessMode === "PENDING" ? (
+              <div className="text-xs leading-5 text-amber-700">
+                <p>รอการอนุมัติ</p>
+                <p className="whitespace-nowrap">กำลังตรวจสอบคำขอ</p>
+              </div>
+            ) : state.hasMembership || state.isHouseAccount ? (
               <p className="text-xs text-gray-500">{state.isHouseAccount ? "บัญชีบ้าน" : "เมนูใช้งานส่วนบุคคล"}</p>
             ) : (
               <div className="text-xs leading-5 text-gray-500">
@@ -151,6 +159,7 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
 export function LockedResidentMenuDialog({
   open,
   menuLabel,
+  state,
   onClose,
 }: {
   open: boolean;
@@ -167,9 +176,13 @@ export function LockedResidentMenuDialog({
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-700">
           <LockKeyhole className="h-5 w-5" />
         </div>
-        <h2 id="locked-menu-title" className="mt-4 text-lg font-semibold text-gray-900">ยังใช้เมนู {menuLabel} ไม่ได้</h2>
+        <h2 id="locked-menu-title" className="mt-4 text-lg font-semibold text-gray-900">
+          {state.accessMode === "PENDING" ? "เมนูนี้จะใช้งานได้หลังได้รับการอนุมัติ" : `ยังใช้เมนู ${menuLabel} ไม่ได้`}
+        </h2>
         <p className="mt-2 text-sm leading-6 text-gray-600">
-          บัญชีนี้ไม่มีสิทธิ์ใช้เมนูของบัญชีบ้าน กรุณาติดต่อผู้ใหญ่บ้านเพื่อตรวจสอบสถานะบัญชี
+          {state.accessMode === "PENDING"
+            ? "คำขอเปิดบัญชีบ้านของคุณอยู่ระหว่างการตรวจสอบจากผู้ใหญ่บ้าน เมื่อได้รับอนุมัติแล้วจึงจะสามารถใช้บริการสำหรับสมาชิกได้"
+            : "บัญชีนี้ไม่มีสิทธิ์ใช้เมนูของบัญชีบ้าน กรุณาติดต่อผู้ใหญ่บ้านเพื่อตรวจสอบสถานะบัญชี"}
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button type="button" onClick={onClose} className="min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700">ยกเลิก</button>

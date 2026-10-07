@@ -3,7 +3,7 @@ import { ListChecks } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { getVillageCalendarEvents } from "@/features/public-village/server/public-village-data";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
@@ -14,9 +14,7 @@ import { ResidentCalendarTypeFilter, type ResidentCalendarItemType } from "./res
 type Props = { searchParams?: Promise<{ month?: string; date?: string; q?: string; type?: string }> };
 export default async function ResidentVillageCalendarPage({ searchParams }: Props) {
   const params = (searchParams ? await searchParams : {}) ?? {};
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
   const village = await prisma.village.findUnique({ where: { id: membership.villageId }, select: { id: true, name: true } });
   if (!village) redirect("/auth/login");
@@ -28,7 +26,7 @@ export default async function ResidentVillageCalendarPage({ searchParams }: Prop
   const start = new Date(year, monthIndex, 1), end = new Date(year, monthIndex + 1, 1);
   const [events, appointments] = await Promise.all([
     getVillageCalendarEvents({ villageId: village.id, startsAt: start, endsBefore: end, publicOnly: !membership.hasResidentAccess }),
-    membership.hasResidentAccess ? prisma.appointment.findMany({ where: { villageId: village.id, userId: session.id, stage: { notIn: ["CANCELLED", "REJECTED"] }, OR: [{ scheduledAt: { gte: start, lt: end } }, { slot: { date: { gte: start, lt: end } } }] }, select: { id: true, title: true, stage: true, scheduledAt: true, slot: { select: { date: true, startTime: true, endTime: true } } } }) : [],
+    membership.hasResidentAccess ? prisma.appointment.findMany({ where: { villageId: village.id, userId: membership.session.id, stage: { notIn: ["CANCELLED", "REJECTED"] }, OR: [{ scheduledAt: { gte: start, lt: end } }, { slot: { date: { gte: start, lt: end } } }] }, select: { id: true, title: true, stage: true, scheduledAt: true, slot: { select: { date: true, startTime: true, endTime: true } } } }) : [],
   ]);
   return <div className="space-y-6">
     <CalendarToolbar namespace="resident-calendar" residentCompact registerHeader title="ปฏิทิน" description={`ดูกิจกรรมทั้งหมดของ ${village.name}`} currentYear={year} currentMonth={monthIndex + 1} yearStart={yearStart} yearEnd={yearEnd} todayMonthKey={toMonthKey(new Date())} search={{ keyword: searchKeyword, placeholder: "ค้นหากิจกรรมหรือนัดหมาย", label: "ค้นหากิจกรรมหรือนัดหมาย" }} filters={<ResidentCalendarTypeFilter type={itemType as ResidentCalendarItemType} />} actions={membership.hasResidentAccess ? <><Link href="/resident/calendar/requests"><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><ListChecks className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอของฉัน</span></Button></Link><ResidentEventRequestModal /></> : undefined} />

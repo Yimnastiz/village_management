@@ -3,7 +3,7 @@ import { ArrowLeft, Clock3, Eye, MapPin, Phone, Star, Tag } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { SaveButton } from "@/components/ui/save-button";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getVillagePlaceEmbedMapUrl } from "@/lib/village-place";
@@ -40,10 +40,7 @@ type VillagePlaceDetailDelegate = {
 export default async function ResidentPlaceDetailPage({ params }: PageProps) {
   const { placeId } = await params;
 
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const villagePlace = (prisma as unknown as { villagePlace: VillagePlaceDetailDelegate }).villagePlace;
@@ -75,10 +72,10 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
     savedItem: { findFirst(args: unknown): Promise<{ id: string } | null> };
   }).savedItem;
 
-  const saved = await savedItemDelegate.findFirst({
-    where: { userId: session.id, placeId: place.id },
+  const saved = membership.hasResidentAccess ? await savedItemDelegate.findFirst({
+    where: { userId: membership.session.id, placeId: place.id },
     select: { id: true },
-  });
+  }) : null;
 
   const imageUrls = orderedPlaceImages(place.images, place.imageUrls).map((image) => image.url);
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
@@ -96,7 +93,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
             toggleAction={toggleSavePlaceAction}
             label="บันทึกสถานที่"
           />
-          {place.createdById === session.id ? <Link href={`/resident/places/${place.id}/request-edit`} className="text-sm font-medium text-green-700 hover:text-green-800">เสนอแก้ไข</Link> : null}
+          {place.createdById === membership.session.id ? <Link href={`/resident/places/${place.id}/request-edit`} className="text-sm font-medium text-green-700 hover:text-green-800">เสนอแก้ไข</Link> : null}
         </div> : null}
       </div>
 

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ShieldCheck } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { NEWS_VISIBILITY_LABELS } from "@/lib/constants";
 import { ResidentTransparencyToolbar } from "./resident-transparency-toolbar";
 
@@ -18,10 +18,7 @@ export default async function ResidentTransparencyPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const { q = "", sort = "date_desc", visibility = "" } = await searchParams;

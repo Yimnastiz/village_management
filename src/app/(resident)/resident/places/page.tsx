@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Building2, Eye, MapPin, Star, Tag } from "lucide-react";
 import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/ui/empty-state";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { ResidentPlacesToolbar } from "./resident-places-toolbar";
@@ -31,10 +31,7 @@ type PageProps = {
 };
 
 export default async function ResidentPlacesPage({ searchParams }: PageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};

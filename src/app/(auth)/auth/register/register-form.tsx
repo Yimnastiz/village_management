@@ -334,7 +334,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       </dl>
       {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
-        <Link href="/auth/login" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">กลับไปหน้าเข้าสู่ระบบ</Link>
+        <Link href={successState.status === "PENDING_REVIEW" ? "/resident/dashboard" : "/auth/login"} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-green-700">{successState.status === "PENDING_REVIEW" ? "ดูข้อมูลหมู่บ้านระหว่างรออนุมัติ" : "กลับไปหน้าเข้าสู่ระบบ"}</Link>
         {successState.status === "PENDING_REVIEW" ? <Button type="button" variant="dangerOutline" disabled={pending} isLoading={pending} onClick={() => void cancelRequest(false)}>ยกเลิกคำขอ</Button> : null}
       </div>
     </div>;

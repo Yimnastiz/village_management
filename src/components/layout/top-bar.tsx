@@ -75,8 +75,9 @@ export function TopBar({
   const adminVillageLabel = villageName?.trim()
     ? `${adminRoleLabel} · ${villageName.trim()}${villageMooLabel ? ` · หมู่ ${villageMooLabel}` : ""}`
     : adminRoleLabel;
-  const isResidentGuest = userArea === "resident" && !residentNavigationState?.hasMembership && !residentNavigationState?.isHouseAccount;
-  const residentStatusLabel = residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่มีสิทธิ์บัญชีบ้าน" : "สมาชิก";
+  const isPendingResident = userArea === "resident" && residentNavigationState?.accessMode === "PENDING";
+  const isResidentGuest = userArea === "resident" && !isPendingResident && !residentNavigationState?.hasMembership && !residentNavigationState?.isHouseAccount;
+  const residentStatusLabel = isPendingResident ? "รอการอนุมัติ" : residentNavigationState?.isHouseAccount ? "บัญชีบ้าน" : isResidentGuest ? "ยังไม่มีสิทธิ์บัญชีบ้าน" : "สมาชิก";
   const topBarHidden = useAutoHideTopBar(mobileMenuOpen || Boolean(lockedMenuLabel) || focusWithin);
   const mobilePopulationMenuId = "admin-mobile-population-menu";
 
@@ -148,6 +149,12 @@ export function TopBar({
         )}
         <Link
           href={notificationsHref}
+          onClick={(event) => {
+            if (isPendingResident) {
+              event.preventDefault();
+              setLockedMenuLabel("การแจ้งเตือน");
+            }
+          }}
           className={cn(
             "relative p-2",
             isAdminArea
@@ -167,7 +174,10 @@ export function TopBar({
             type="button"
             aria-expanded={profileMenuOpen}
             aria-haspopup="menu"
-            onClick={() => setProfileMenuOpen((open) => !open)}
+            onClick={() => {
+              if (isPendingResident) setLockedMenuLabel("โปรไฟล์");
+              else setProfileMenuOpen((open) => !open);
+            }}
             className={cn(
             "list-none flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 md:px-2",
             isAdminArea ? "hover:bg-gray-800" : "hover:bg-gray-100"
@@ -202,7 +212,7 @@ export function TopBar({
               {userArea === "resident" ? (
                 <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                   <span>{residentVillageLabel}</span>
-                  <span className={cn("rounded-full px-2 py-0.5 font-medium", isResidentGuest ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700")}>
+                  <span className={cn("rounded-full px-2 py-0.5 font-medium", isResidentGuest || isPendingResident ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700")}>
                     {residentStatusLabel}
                   </span>
                 </div>
@@ -324,7 +334,7 @@ export function TopBar({
               })}
             </nav>
             <div className={cn("mt-auto border-t p-3", isAdminArea ? "border-slate-800" : "border-gray-200")}>
-              <LogoutButton mode="menu" />
+              {isPendingResident ? <Link href="/auth/register" className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">ดูสถานะคำขอ</Link> : <LogoutButton mode="menu" />}
             </div>
           </aside>
         </div>

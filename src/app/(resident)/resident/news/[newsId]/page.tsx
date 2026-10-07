@@ -1,7 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { NewsSaveButton } from "./news-save-button";
 import { NewsMetadata } from "@/components/news/news-metadata";
@@ -22,10 +22,7 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
   const backHref = fromPublished ? requestListHref(context) : newsListHref(context);
   const adminRoles = ["HEADMAN"] as const;
 
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const [news, savedItem, pendingRequest] = await Promise.all([
@@ -51,14 +48,14 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
         },
       },
     }),
-    prisma.savedItem.findFirst({
-      where: { userId: session.id, newsId },
+    membership.hasResidentAccess ? prisma.savedItem.findFirst({
+      where: { userId: membership.session.id, newsId },
       select: { id: true },
-    }),
-    prisma.newsSubmission.findFirst({
+    }) : Promise.resolve(null),
+    membership.hasResidentAccess ? prisma.newsSubmission.findFirst({
       where: { targetNewsId: newsId, villageId: membership.villageId, status: "PENDING" },
       select: { id: true, requesterId: true },
-    }),
+    }) : Promise.resolve(null),
   ]);
 
   if (!news) notFound();
@@ -70,8 +67,8 @@ export default async function ResidentNewsDetailPage({ params, searchParams }: P
     : isAdminAuthor
       ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN
       : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
-  const isOwner = membership.hasResidentAccess && Boolean(news.authorId) && news.authorId === session.id;
-  const pendingRequestHref = pendingRequest?.requesterId === session.id ? requestDetailHref(pendingRequest.id, context) : null;
+  const isOwner = membership.hasResidentAccess && Boolean(news.authorId) && news.authorId === membership.session.id;
+  const pendingRequestHref = membership.hasResidentAccess && pendingRequest?.requesterId === membership.session.id ? requestDetailHref(pendingRequest.id, context) : null;
   const authorDisplay = news.author ? residentActorDisplay(news.author, { villageId: membership.villageId }).label : "ไม่ระบุ";
 
   const imageUrls = Array.isArray(news.imageUrls)

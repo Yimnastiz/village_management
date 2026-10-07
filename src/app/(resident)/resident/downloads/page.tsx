@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { NewsVisibility } from "@prisma/client";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DownloadMetadata } from "@/components/downloads/download-metadata";
-import { getResidentVillageAccess, getSessionContextFromServerCookies } from "@/lib/access-control";
+import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { prisma } from "@/lib/prisma";
 import { ResidentDownloadsToolbar } from "./resident-downloads-toolbar";
 
@@ -13,10 +13,7 @@ type ResidentDownloadsPageProps = {
 };
 
 export default async function ResidentDownloadsPage({ searchParams }: ResidentDownloadsPageProps) {
-  const session = await getSessionContextFromServerCookies();
-  if (!session?.id) redirect("/auth/login");
-
-  const membership = await getResidentVillageAccess(session);
+  const membership = await getResidentContentAccessFromServerCookies();
   if (!membership) redirect("/resident/dashboard");
 
   const query = (searchParams ? await searchParams : {}) ?? {};
