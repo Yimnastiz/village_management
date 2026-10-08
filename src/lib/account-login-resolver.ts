@@ -20,8 +20,17 @@ export type AccountLoginIdentity = {
 
 export type AccountLoginResolution =
   | { kind: "RESOLVED"; identity: AccountLoginIdentity }
+  | { kind: "PENDING_RESIDENT"; identity: PendingResidentLoginIdentity }
   | { kind: "NOT_FOUND" }
   | { kind: "AMBIGUOUS" };
+
+export type PendingResidentLoginIdentity = {
+  requestId: string;
+  villageId: string;
+  email: string;
+  normalizedEmail: string;
+  accountEmailId: string;
+};
 
 export async function resolveLoginEmail(
   email: string,
@@ -39,6 +48,7 @@ export async function resolveLoginEmail(
         userId: true, residentHouseAccountId: true,
         user: { select: { id: true, accountKind: true, accountStatus: true, memberships: { where: { villageId: configuredVillageId, role: "RESIDENT" }, orderBy: { updatedAt: "desc" }, take: 1, select: { role: true, status: true, villageId: true, houseId: true } } } },
         residentHouseAccount: { select: { id: true, userId: true, villageId: true, houseId: true, activatedAt: true, suspendedAt: true, house: { select: { villageId: true, houseNumber: true } } } },
+        openingRequest: { select: { id: true, villageId: true, status: true, house: { select: { residentHouseAccount: { select: { id: true } } } } } },
       },
     }),
     db.user.findMany({
@@ -71,7 +81,14 @@ export async function resolveLoginEmail(
     return headmanLoginEligibility({ accountKind: user.accountKind, accountStatus: user.accountStatus, membershipRole: membership?.role ?? null, membershipStatus: membership?.status ?? null, membershipVillageId: membership?.villageId ?? null, configuredVillageId }) === "ELIGIBLE";
   });
   if (headman?.email) {
+    if (alias?.openingRequest) return { kind: "AMBIGUOUS" };
     return { kind: "RESOLVED", identity: { userId: headman.id, accountKind: "HEADMAN", villageId: configuredVillageId, email: headman.email, normalizedEmail, accountEmailId: null, residentHouseAccountId: null, houseId: null, houseNumber: null } };
   }
+  const openingRequest = alias?.openingRequest;
+  if (
+    alias && openingRequest && alias.status === "VERIFIED_PENDING_REVIEW" && Boolean(alias.verifiedAt)
+    && openingRequest.status === "PENDING_REVIEW" && openingRequest.villageId === configuredVillageId
+    && !openingRequest.house.residentHouseAccount
+  ) return { kind: "PENDING_RESIDENT", identity: { requestId: openingRequest.id, villageId: openingRequest.villageId, email: alias.email, normalizedEmail: alias.normalizedEmail, accountEmailId: alias.id } };
   return { kind: "NOT_FOUND" };
 }

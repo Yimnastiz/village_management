@@ -17,7 +17,9 @@ export class AccountLoginError extends Error {
 }
 
 type PublicFlow = { flowId: string; maskedEmail: string; expiresAt: Date; resendAvailableAt: Date };
-type VerifiedLoginIdentity = AccountLoginIdentity & { callbackUrl: string; challengeId: string };
+export type VerifiedAccountLogin =
+  | { kind: "ACTIVE"; identity: AccountLoginIdentity & { callbackUrl: string; challengeId: string } }
+  | { kind: "PENDING"; requestId: string; challengeId: string };
 type LoginDb = Pick<Prisma.TransactionClient, "authSession" | "accountLoginFlow">;
 
 function flowFromRow(flow: { id: string; maskedEmail: string; expiresAt: Date; resendAvailableAt: Date }): PublicFlow {
@@ -44,18 +46,19 @@ export async function startAccountLogin(input: { email: string; callbackUrl?: st
   ]);
   if (ipAttempts >= config.maxRequestsPerIp || emailAttempts >= config.maxRequestsPerEmail) throw new AccountLoginError("RATE_LIMITED", "Login request limit reached.");
 
+  const resolution = await resolveLoginEmail(normalizedEmail);
+  if (resolution.kind !== "RESOLVED" && resolution.kind !== "PENDING_RESIDENT") throw new AccountLoginError("ACCOUNT_UNAVAILABLE", "This email cannot be used to sign in.");
   const fallbackExpiresAt = new Date(now.getTime() + ACCOUNT_LOGIN_FLOW_TTL_SECONDS * 1_000);
   const flow = await prisma.accountLoginFlow.create({ data: { id: randomUUID(), callbackUrl: sanitizeInternalCallbackUrl(input.callbackUrl), maskedEmail: maskEmail(normalizedEmail), ipHash, emailHash, expiresAt: fallbackExpiresAt, resendAvailableAt: new Date(now.getTime() + config.resendSeconds * 1_000) } });
-  const resolution = await resolveLoginEmail(normalizedEmail);
-  if (resolution.kind !== "RESOLVED") return flowFromRow(flow);
-  const identity = resolution.identity;
   try {
-    const challenge = await issueEmailOtpChallenge({ email: identity.email, purpose: identity.accountKind === "HEADMAN" ? "HEADMAN_LOGIN" : "HOUSE_LOGIN", accountEmailId: identity.accountEmailId, userId: identity.userId, context });
-    const updated = await prisma.accountLoginFlow.update({ where: { id: flow.id }, data: { challengeId: challenge.challengeId, accountEmailId: identity.accountEmailId, expiresAt: challenge.expiresAt, resendAvailableAt: challenge.resendAvailableAt } });
+    const challenge = resolution.kind === "PENDING_RESIDENT"
+      ? await issueEmailOtpChallenge({ email: resolution.identity.email, purpose: "HOUSE_OPENING", accountEmailId: resolution.identity.accountEmailId, context })
+      : await issueEmailOtpChallenge({ email: resolution.identity.email, purpose: resolution.identity.accountKind === "HEADMAN" ? "HEADMAN_LOGIN" : "HOUSE_LOGIN", accountEmailId: resolution.identity.accountEmailId, userId: resolution.identity.userId, context });
+    const updated = await prisma.accountLoginFlow.update({ where: { id: flow.id }, data: { challengeId: challenge.challengeId, accountEmailId: resolution.identity.accountEmailId, expiresAt: challenge.expiresAt, resendAvailableAt: challenge.resendAvailableAt } });
     return flowFromRow(updated);
   } catch (error) {
     console.error("[account-login] OTP was not issued", { errorName: error instanceof Error ? error.name : "UnknownError" });
-    return flowFromRow(flow);
+    throw new AccountLoginError("OTP_UNAVAILABLE", "Unable to issue the login code.");
   }
 }
 
@@ -77,7 +80,7 @@ export async function resendAccountLoginOtp(headers: Headers, claimedFlowId: str
   const challengeRow = await prisma.emailOtpChallenge.findUnique({ where: { id: flow.challengeId }, select: { normalizedEmail: true, userId: true, accountEmailId: true } });
   if (!challengeRow) return flowFromRow(flow);
   const resolution = await resolveLoginEmail(challengeRow.normalizedEmail);
-  if (resolution.kind !== "RESOLVED" || resolution.identity.userId !== challengeRow.userId || resolution.identity.accountEmailId !== challengeRow.accountEmailId) return flowFromRow(flow);
+  if ((resolution.kind !== "RESOLVED" && resolution.kind !== "PENDING_RESIDENT") || resolution.identity.accountEmailId !== challengeRow.accountEmailId || (resolution.kind === "RESOLVED" && resolution.identity.userId !== challengeRow.userId) || (resolution.kind === "PENDING_RESIDENT" && challengeRow.userId)) return flowFromRow(flow);
   try {
     const challenge = await resendEmailOtpChallenge({ challengeId: flow.challengeId, email: resolution.identity.email, context });
     return flowFromRow(await prisma.accountLoginFlow.update({ where: { id: flow.id }, data: { expiresAt: challenge.expiresAt, resendAvailableAt: challenge.resendAvailableAt } }));
@@ -88,26 +91,26 @@ export async function cancelAccountLogin(headers: Headers, claimedFlowId?: strin
   const flow = await loadOwnedFlow(headers, claimedFlowId);
   await prisma.$transaction(async (tx) => {
     await tx.accountLoginFlow.update({ where: { id: flow.id }, data: { cancelledAt: new Date() } });
-    if (flow.challengeId) await tx.emailOtpChallenge.updateMany({ where: { id: flow.challengeId, purpose: { in: ["HOUSE_LOGIN", "HEADMAN_LOGIN"] }, status: { in: ["PENDING_DELIVERY", "ACTIVE", "VERIFIED"] } }, data: { status: "CANCELLED" } });
+    if (flow.challengeId) await tx.emailOtpChallenge.updateMany({ where: { id: flow.challengeId, purpose: { in: ["HOUSE_LOGIN", "HEADMAN_LOGIN", "HOUSE_OPENING"] }, status: { in: ["PENDING_DELIVERY", "ACTIVE", "VERIFIED"] } }, data: { status: "CANCELLED" } });
   });
 }
 
-export async function verifyAccountLoginOtp(headers: Headers, input: { flowId: string; code: string }): Promise<VerifiedLoginIdentity> {
+export async function verifyAccountLoginOtp(headers: Headers, input: { flowId: string; code: string }): Promise<VerifiedAccountLogin> {
   const flow = await loadOwnedFlow(headers, input.flowId);
   if (!flow.challengeId) throw new AccountLoginError("INVALID_CODE", "Unable to verify the login code.");
   let verified;
   try { verified = await verifyEmailOtpChallenge({ challengeId: flow.challengeId, code: input.code }); }
   catch { throw new AccountLoginError("INVALID_CODE", "Unable to verify the login code."); }
-  if (!verified.userId || !["HOUSE_LOGIN", "HEADMAN_LOGIN"].includes(verified.purpose)) throw new AccountLoginError("OTP_UNAVAILABLE", "Unable to verify the login code.");
   const resolution = await resolveLoginEmail(verified.normalizedEmail);
-  if (resolution.kind !== "RESOLVED" || resolution.identity.userId !== verified.userId || resolution.identity.accountEmailId !== verified.accountEmailId || (resolution.identity.accountKind === "HEADMAN") !== (verified.purpose === "HEADMAN_LOGIN")) {
+  if (resolution.kind === "PENDING_RESIDENT" && verified.purpose === "HOUSE_OPENING" && !verified.userId && resolution.identity.accountEmailId === verified.accountEmailId) return { kind: "PENDING", requestId: resolution.identity.requestId, challengeId: flow.challengeId };
+  if (!verified.userId || !["HOUSE_LOGIN", "HEADMAN_LOGIN"].includes(verified.purpose) || resolution.kind !== "RESOLVED" || resolution.identity.userId !== verified.userId || resolution.identity.accountEmailId !== verified.accountEmailId || (resolution.identity.accountKind === "HEADMAN") !== (verified.purpose === "HEADMAN_LOGIN")) {
     await prisma.emailOtpChallenge.updateMany({ where: { id: flow.challengeId, status: "VERIFIED" }, data: { status: "CANCELLED" } });
     throw new AccountLoginError("ACCOUNT_UNAVAILABLE", "Account is unavailable.");
   }
-  return { ...resolution.identity, challengeId: flow.challengeId, callbackUrl: landingPath(resolution.identity, flow.callbackUrl) };
+  return { kind: "ACTIVE", identity: { ...resolution.identity, challengeId: flow.challengeId, callbackUrl: landingPath(resolution.identity, flow.callbackUrl) } };
 }
 
-export async function consumeAccountLoginOtp(input: { flowId: string; challengeId: string; sessionId: string; sessionToken: string; identity: VerifiedLoginIdentity }): Promise<void> {
+export async function consumeAccountLoginOtp(input: { flowId: string; challengeId: string; sessionId: string; sessionToken: string; identity: AccountLoginIdentity & { callbackUrl: string; challengeId: string } }): Promise<void> {
   const configuredVillageId = (await getConfiguredVillage()).id;
   await consumeVerifiedEmailOtpChallenge(input.challengeId, { apply: async (tx, challenge) => {
     const db = tx as typeof tx & LoginDb;
@@ -119,6 +122,17 @@ export async function consumeAccountLoginOtp(input: { flowId: string; challengeI
     if (attributed.count !== 1) throw new AccountLoginError("ACCOUNT_UNAVAILABLE", "Session attribution failed.");
     await db.accountLoginFlow.update({ where: { id: flow.id }, data: { completedAt: new Date() } });
     await writeVillageAuditLog(tx, { villageId: input.identity.villageId, userId: input.identity.userId, actorAuthSessionId: input.sessionId, action: "LOGIN", resource: "AuthSession", resourceId: input.sessionId, metadata: { actorRole: input.identity.accountKind === "HEADMAN" ? "HEADMAN" : "RESIDENT", actionName: "ACCOUNT_EMAIL_LOGIN_SUCCEEDED" } });
+  } });
+}
+
+export async function consumePendingAccountLoginOtp(input: { flowId: string; challengeId: string; requestId: string }): Promise<void> {
+  const configuredVillageId = (await getConfiguredVillage()).id;
+  await consumeVerifiedEmailOtpChallenge(input.challengeId, { apply: async (tx, challenge) => {
+    const flow = await tx.accountLoginFlow.findUnique({ where: { id: input.flowId } });
+    if (!flow || flow.completedAt || flow.cancelledAt || flow.challengeId !== input.challengeId || challenge.purpose !== "HOUSE_OPENING" || challenge.userId) throw new AccountLoginError("OTP_UNAVAILABLE", "Login challenge is unavailable.");
+    const resolution = await resolveLoginEmail(challenge.normalizedEmail, { db: tx, configuredVillageId });
+    if (resolution.kind !== "PENDING_RESIDENT" || resolution.identity.requestId !== input.requestId || resolution.identity.accountEmailId !== challenge.accountEmailId) throw new AccountLoginError("ACCOUNT_UNAVAILABLE", "Account is unavailable.");
+    await tx.accountLoginFlow.update({ where: { id: flow.id }, data: { completedAt: new Date() } });
   } });
 }
 

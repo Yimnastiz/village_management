@@ -5,6 +5,7 @@ import { prisma } from "./prisma";
 import { accountLoginAuthPlugin } from "./account-login-auth-plugin";
 import {
   consumeAccountLoginOtp,
+  consumePendingAccountLoginOtp,
   verifyAccountLoginOtp,
 } from "./account-login-service";
 
@@ -152,7 +153,7 @@ export const auth = betterAuth({
     },
   },
   plugins: [
-    accountLoginAuthPlugin({ verifyAccountLoginOtp, consumeAccountLoginOtp }),
+    accountLoginAuthPlugin({ verifyAccountLoginOtp, consumeAccountLoginOtp, consumePendingAccountLoginOtp }),
     // Retained only for authenticated account-deletion verification. Public
     // phone sign-in endpoints are blocked in the Next.js auth handler.
     phoneNumber({

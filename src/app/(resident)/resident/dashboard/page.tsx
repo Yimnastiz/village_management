@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { NotificationStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getResidentContentAccessFromServerCookies, getResidentMembership } from "@/lib/access-control";
+import { inspectPendingResidentAccessFromServerCookies } from "@/lib/pending-resident-access";
 import { APPOINTMENT_STAGE_LABELS, ISSUE_STAGE_LABELS } from "@/lib/constants";
 import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
@@ -22,6 +23,10 @@ function toThaiDate(date: Date) {
 export default async function ResidentDashboard() {
   const residentAccess = await getResidentContentAccessFromServerCookies();
   if (!residentAccess) {
+    const pending = await inspectPendingResidentAccessFromServerCookies();
+    if (pending.kind === "TERMINAL" && pending.status === "APPROVED") {
+      redirect("/auth/login?message=approved");
+    }
     redirect("/auth/login?callbackUrl=/resident/dashboard");
   }
   if (residentAccess.accessMode === "PENDING_RESIDENT") {

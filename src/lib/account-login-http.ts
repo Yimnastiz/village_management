@@ -16,6 +16,9 @@ export function accountLoginProblemResponse(error: unknown): NextResponse {
   if (error instanceof ConfiguredVillageError) return NextResponse.json({ error: "ระบบยังไม่ได้ตั้งค่าหมู่บ้านสำหรับเข้าสู่ระบบ" }, { status: 503 });
   if (error instanceof AccountLoginError) {
     const status = error.code === "INVALID_EMAIL" ? 400 : error.code === "RATE_LIMITED" ? 429 : error.code === "FLOW_EXPIRED" ? 410 : error.code === "FLOW_NOT_FOUND" ? 404 : 401;
+    if (error.code === "ACCOUNT_UNAVAILABLE") {
+      return NextResponse.json({ error: "ไม่สามารถเข้าสู่ระบบด้วยอีเมลนี้ได้ กรุณาตรวจสอบอีเมลหรือขอเปิดบัญชีประจำบ้านก่อน" }, { status });
+    }
     const message = error.code === "INVALID_EMAIL" ? "กรุณากรอกอีเมลให้ถูกต้อง" : error.code === "RATE_LIMITED" ? "มีการขอรหัสบ่อยเกินไป กรุณารอสักครู่แล้วลองใหม่" : "ไม่สามารถดำเนินการเข้าสู่ระบบได้ กรุณาเริ่มใหม่";
     return NextResponse.json({ error: message }, { status });
   }

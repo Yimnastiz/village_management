@@ -5,11 +5,16 @@ import {
   isAdminUser,
   isResidentUser,
 } from "@/lib/access-control";
+import { inspectPendingResidentAccessFromRequest } from "@/lib/pending-resident-access";
 
 export async function GET(request: NextRequest) {
   const session = await getSessionContextFromRequest(request);
 
   if (!session) {
+    const pending = await inspectPendingResidentAccessFromRequest(request);
+    if (pending.kind === "PENDING") {
+      return NextResponse.json({ landingPath: "/resident/dashboard", isAdmin: false, isResident: false });
+    }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
