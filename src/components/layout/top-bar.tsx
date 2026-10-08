@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "./logout-button";
+import { PendingExitButton } from "./pending-exit-button";
 import {
   getResidentNavigationItems,
   LockedResidentMenuDialog,
@@ -175,7 +176,7 @@ export function TopBar({
             aria-expanded={profileMenuOpen}
             aria-haspopup="menu"
             onClick={() => {
-              if (isPendingResident) setLockedMenuLabel("โปรไฟล์");
+              if (isPendingResident) setProfileMenuOpen((open) => !open);
               else setProfileMenuOpen((open) => !open);
             }}
             className={cn(
@@ -228,7 +229,7 @@ export function TopBar({
               การแจ้งเตือน
             </Link>
             <div className="my-1 h-px bg-gray-100" />
-            <LogoutButton mode="menu" />
+            {isPendingResident ? <PendingExitButton /> : <LogoutButton mode="menu" />}
           </div> : null}
         </div>
       </div>
@@ -334,7 +335,7 @@ export function TopBar({
               })}
             </nav>
             <div className={cn("mt-auto border-t p-3", isAdminArea ? "border-slate-800" : "border-gray-200")}>
-              {isPendingResident ? <Link href="/auth/register" className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">ดูสถานะคำขอ</Link> : <LogoutButton mode="menu" />}
+              {isPendingResident ? <><Link href="/auth/register" className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">ดูสถานะคำขอ</Link><PendingExitButton /></> : <LogoutButton mode="menu" />}
             </div>
           </aside>
         </div>

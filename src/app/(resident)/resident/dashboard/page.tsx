@@ -12,6 +12,7 @@ import { getVillageDisplayName } from "@/lib/village-display-name.server";
 import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
 import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
+import { PendingResidentDashboard } from "@/components/resident/pending-resident-dashboard";
 
 const OPEN_ISSUE_STAGES = ["OPEN", "IN_PROGRESS", "WAITING"] as const;
 const UPCOMING_APPOINTMENT_STAGES = ["PENDING_APPROVAL", "TIME_SUGGESTED", "APPROVED"] as const;
@@ -21,7 +22,7 @@ function toThaiDate(date: Date) {
 }
 
 export default async function ResidentDashboard() {
-  const residentAccess = await getResidentContentAccessFromServerCookies();
+  const residentAccess = await getResidentContentAccessFromServerCookies() as any;
   if (!residentAccess) {
     const pending = await inspectPendingResidentAccessFromServerCookies();
     if (pending.kind === "TERMINAL" && pending.status === "APPROVED") {
@@ -30,6 +31,8 @@ export default async function ResidentDashboard() {
     redirect("/auth/login?callbackUrl=/resident/dashboard");
   }
   if (residentAccess.accessMode === "PENDING_RESIDENT") {
+    return <PendingResidentDashboard context={residentAccess.pendingResident} />;
+    /* Legacy pending layout retained below only as an unreachable compatibility block. */
     const shortcuts = [
       { href: "/resident/news", label: "ข่าวสาร", icon: Newspaper },
       { href: "/resident/calendar", label: "ปฏิทิน", icon: CalendarDays },
