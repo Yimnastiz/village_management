@@ -89,7 +89,7 @@ export function auditResourcesForModule(module: string) {
 }
 
 export function auditModuleLabel(module: string) {
-  return ({ ACCOUNTS: "บัญชี/สมาชิก", POPULATION: "ประชากร/บ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "ความโปร่งใส", CONTACT: "ผู้ติดต่อ", SETTINGS: "การตั้งค่า", BROADCAST: "ประกาศ" } as Record<string, string>)[module] ?? module;
+  return ({ ACCOUNTS: "บัญชี/สมาชิก", POPULATION: "ประชากร/บ้าน", NEWS: "ข่าวสาร", CALENDAR: "ปฏิทิน", APPOINTMENT: "นัดหมาย", ISSUE: "แจ้งปัญหา", GALLERY: "แกลเลอรี", PLACE: "สถานที่", DOWNLOAD: "เอกสารดาวน์โหลด", TRANSPARENCY: "งบประมาณ", CONTACT: "ผู้ติดต่อ", SETTINGS: "การตั้งค่า", BROADCAST: "ประกาศ" } as Record<string, string>)[module] ?? module;
 }
 
 export function auditActorRoleLabel(role?: string | null) {
@@ -111,7 +111,7 @@ const resourceLabels: Record<string, string> = {
   Issue: "คำร้องปัญหา",
   ContactDirectory: "ข้อมูลผู้ติดต่อ",
   ContactRequest: "คำขอข้อมูลติดต่อ",
-  TransparencyRecord: "รายการความโปร่งใส",
+  TransparencyRecord: "รายการงบประมาณ",
   Village: "ข้อมูลหมู่บ้าน",
   UserAccount: "บัญชีผู้ใช้",
   VillageMembership: "สมาชิกหมู่บ้าน",
@@ -128,7 +128,7 @@ const investigationResourceLabels: Record<string, string> = {
   Village: "หมู่บ้าน", VillageStatus: "สถานะหมู่บ้าน", UserAccount: "บัญชีผู้ใช้", UserProfile: "ข้อมูลผู้ใช้", UserSystemRole: "บทบาทผู้ใช้",
   VillageMembership: "สมาชิกหมู่บ้าน", UserMembership: "สมาชิกหมู่บ้าน", UserMembershipSuspension: "การระงับสมาชิก", VillageAdminRoleAssignment: "การกำหนดบทบาท", VillageAdminRoleRemoval: "การถอดบทบาท", VillageAdminSupport: "บทบาทผู้ดูแลหมู่บ้าน", MembershipSupport: "สมาชิกและบทบาท",
   VillageEvent: "ปฏิทิน", VillageEventSubmission: "คำขอกิจกรรม", Appointment: "นัดหมาย", Issue: "แจ้งปัญหา", GalleryAlbum: "แกลเลอรี", GalleryItem: "รูปภาพในแกลเลอรี", GalleryItemSubmission: "คำขอรูปภาพ",
-  VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "ความโปร่งใส", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
+  VillagePlace: "สถานที่", VillagePlaceSubmission: "คำขอสถานที่", DownloadFile: "เอกสารดาวน์โหลด", TransparencyRecord: "งบประมาณ", ContactDirectory: "ข้อมูลการติดต่อ", ContactRequest: "คำขอข้อมูลติดต่อ",
   PopulationImportJob: "การนำเข้าข้อมูลประชากร", PopulationExport: "การส่งออกข้อมูลประชากร", GlobalSetting: "การตั้งค่าระบบ", SystemWideBroadcast: "ประกาศ", VillageBroadcast: "ประกาศ", AccountEmail: "อีเมลเข้าสู่ระบบบัญชีบ้าน",
 };
 
@@ -215,12 +215,12 @@ const actionNameLabels: Record<string, string> = {
   RESIDENT_CONTACT_REQUEST_UPDATED: "แก้ไขคำขอผู้ติดต่อ",
   CONTACT_DELETE_REQUESTED: "ส่งคำขอลบผู้ติดต่อ",
   CONTACT_REQUEST_CANCELLED: "ยกเลิกคำขอผู้ติดต่อ",
-  TRANSPARENCY_CREATED: "เพิ่มรายการความโปร่งใส",
-  TRANSPARENCY_UPDATED: "แก้ไขรายการความโปร่งใส",
-  TRANSPARENCY_PUBLISHED: "เผยแพร่รายการความโปร่งใส",
-  TRANSPARENCY_ARCHIVED: "จัดเก็บรายการความโปร่งใส",
-  TRANSPARENCY_REPUBLISHED: "นำข้อมูลความโปร่งใสกลับมาเผยแพร่",
-  TRANSPARENCY_DRAFT_DELETED: "ลบรายการความโปร่งใส",
+  TRANSPARENCY_CREATED: "เพิ่มรายการงบประมาณ",
+  TRANSPARENCY_UPDATED: "แก้ไขรายการงบประมาณ",
+  TRANSPARENCY_PUBLISHED: "เผยแพร่รายการงบประมาณ",
+  TRANSPARENCY_ARCHIVED: "จัดเก็บรายการงบประมาณ",
+  TRANSPARENCY_REPUBLISHED: "นำข้อมูลงบประมาณกลับมาเผยแพร่",
+  TRANSPARENCY_DRAFT_DELETED: "ลบรายการงบประมาณ",
 };
 
 const fieldLabels: Record<string, string> = {

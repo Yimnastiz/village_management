@@ -34,7 +34,7 @@ export default async function EditTransparencyPage({ params }: PageProps) {
         <Link href={`/admin/transparency/${transparencyId}`} className="text-gray-400 hover:text-gray-600">
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">แก้ไขรายการความโปร่งใส</h1>
+        <h1 className="text-2xl font-bold text-gray-900">แก้ไขรายการงบประมาณ</h1>
       </div>
       <TransparencyForm
         mode="edit"

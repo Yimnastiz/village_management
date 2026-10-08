@@ -39,7 +39,7 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
         href="/resident/transparency"
         className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
       >
-        <ArrowLeft className="h-4 w-4" /> กลับรายการความโปร่งใส
+        <ArrowLeft className="h-4 w-4" /> กลับรายการงบประมาณ
       </Link>
 
       <div className="rounded-xl border border-gray-200 bg-white p-8">
@@ -52,7 +52,7 @@ export default async function ResidentTransparencyDetailPage({ params }: PagePro
             itemId={record.id}
             initialSaved={Boolean(saved)}
             toggleAction={toggleSaveTransparencyAction}
-            label="บันทึกความโปร่งใส"
+            label="บันทึกงบประมาณ"
           /> : null}
         </div>
 

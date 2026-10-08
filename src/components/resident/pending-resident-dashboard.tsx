@@ -8,7 +8,7 @@ const links = [
   ["แกลเลอรี", "ภาพกิจกรรมของหมู่บ้าน", "/resident/gallery", Images],
   ["สถานที่", "สถานที่สำคัญในหมู่บ้าน", "/resident/places", MapPin],
   ["เอกสาร", "เอกสารและดาวน์โหลด", "/resident/downloads", FileDown],
-  ["ความโปร่งใส", "ข้อมูลสาธารณะของหมู่บ้าน", "/resident/transparency", FileSearch],
+  ["งบประมาณ", "ข้อมูลสาธารณะของหมู่บ้าน", "/resident/transparency", FileSearch],
   ["ผู้ติดต่อ", "ช่องทางติดต่อหมู่บ้าน", "/resident/contacts", Phone],
 ] as const;
 

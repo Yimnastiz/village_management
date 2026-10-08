@@ -34,7 +34,7 @@ export default async function TransparencyDetailPage({ params }: PageProps) {
         href={`/${village.slug}/transparency`}
         className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
       >
-        <ArrowLeft className="h-4 w-4" /> กลับรายการความโปร่งใส
+        <ArrowLeft className="h-4 w-4" /> กลับรายการงบประมาณ
       </Link>
 
       <div className="rounded-xl border border-gray-200 bg-white p-8">

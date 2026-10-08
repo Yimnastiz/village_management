@@ -6,7 +6,7 @@ export type NotificationSource = (typeof NOTIFICATION_SOURCES)[number];
 export type NotificationRequestType = "CREATE" | "UPDATE" | "DELETE" | "EDIT";
 
 const MODULE_NOUN: Record<NotificationSource, string> = {
-  NEWS: "ข่าว", ISSUE: "ปัญหา", APPOINTMENT: "นัดหมาย", CALENDAR: "กิจกรรม", CONTACT: "ผู้ติดต่อ", GALLERY: "รูปภาพ", PLACE: "สถานที่", DOWNLOAD: "เอกสาร", TRANSPARENCY: "ข้อมูลความโปร่งใส", HOUSEHOLD: "ครัวเรือน", SYSTEM: "ระบบ",
+  NEWS: "ข่าว", ISSUE: "ปัญหา", APPOINTMENT: "นัดหมาย", CALENDAR: "กิจกรรม", CONTACT: "ผู้ติดต่อ", GALLERY: "รูปภาพ", PLACE: "สถานที่", DOWNLOAD: "เอกสาร", TRANSPARENCY: "ข้อมูลงบประมาณ", HOUSEHOLD: "ครัวเรือน", SYSTEM: "ระบบ",
 };
 
 function requestVerb(type: NotificationRequestType) {

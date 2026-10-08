@@ -20,7 +20,7 @@ export default async function VillageHomePage({ params }: PageProps) {
   const welcome = village.description ?? `ยินดีต้อนรับสู่${villageName} แหล่งข้อมูลและบริการออนไลน์สำหรับชุมชน`;
   const stats = [["จำนวนประชากร", catalog?.populationTotal, "คน", Users], ["จำนวนครัวเรือน", catalog?.householdCount, "ครัวเรือน", Home], ["ประชากรชาย", catalog?.malePopulation, "คน", Users], ["ประชากรหญิง", catalog?.femalePopulation, "คน", Users]].filter((item): item is [string, number, string, typeof Users] => item[1] != null);
   const nav = [
-    ["ข่าวสาร", "news", Newspaper], ["ปฏิทินกิจกรรม", "calendar", Calendar], ["แกลเลอรี", "gallery", FolderOpen], ["สถานที่", "places", Compass], ["เอกสาร", "downloads", Download], ["ความโปร่งใส", "transparency", Eye], ["ติดต่อ", "contacts", Phone],
+    ["ข่าวสาร", "news", Newspaper], ["ปฏิทินกิจกรรม", "calendar", Calendar], ["แกลเลอรี", "gallery", FolderOpen], ["สถานที่", "places", Compass], ["เอกสาร", "downloads", Download], ["งบประมาณ", "transparency", Eye], ["ติดต่อ", "contacts", Phone],
   ] as const;
   const services = [{ category: VillagePlaceCategory.TEMPLE, label: "วัดและศาสนสถาน", icon: Compass }, { category: VillagePlaceCategory.CLINIC, label: "โรงพยาบาล/คลินิก", icon: HeartPulse }, { category: VillagePlaceCategory.SCHOOL, label: "สถานศึกษา", icon: School }, { category: VillagePlaceCategory.GOVERNMENT, label: "หน่วยงานและบริการ", icon: Landmark }, { category: VillagePlaceCategory.COMMUNITY, label: "สถานที่ชุมชน", icon: Users }];
   const history = village.description ? [village.description, community?.history?.[1]].filter(Boolean) : community?.history;

@@ -27,7 +27,7 @@ async function requireAdminVillage() {
   if (!session?.id) return { ok: false as const, error: "กรุณาเข้าสู่ระบบ" };
   const membership = getAdminMembership(session);
   if (!membership) return { ok: false as const, error: "ไม่พบสิทธิ์ผู้ดูแลหมู่บ้าน" };
-  if (!hasVillagePermission(membership.role, "transparency.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข้อมูลความโปร่งใส" };
+  if (!hasVillagePermission(membership.role, "transparency.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข้อมูลงบประมาณ" };
   return { ok: true as const, userId: session.id, villageId: membership.villageId, actorRole: membership.role };
 }
 
@@ -60,8 +60,8 @@ async function createPublishNotifications(tx: Prisma.TransactionClient, villageI
   if (!recipients.length) return;
   await tx.notification.createMany({ data: recipients.map(({ userId }) => ({
     userId, villageId, type: NotificationType.SYSTEM,
-    title: `ข้อมูลความโปร่งใสใหม่: ${title}`,
-    body: category ? `หมวดหมู่: ${category}` : "มีข้อมูลความโปร่งใสใหม่ในหมู่บ้าน",
+    title: `ข้อมูลงบประมาณใหม่: ${title}`,
+    body: category ? `หมวดหมู่: ${category}` : "มีข้อมูลงบประมาณใหม่ในหมู่บ้าน",
     metadata: notificationMetadata("TRANSPARENCY", { transparencyId }),
   })) });
 }

@@ -27,7 +27,7 @@ const TYPE_LABELS: Record<string, string> = {
   issue: "ปัญหา",
   album: "แกลเลอรี",
   download: "เอกสาร",
-  transparency: "ความโปร่งใส",
+  transparency: "งบประมาณ",
   contact: "ผู้ติดต่อ",
   place: "สถานที่",
 };
@@ -209,7 +209,7 @@ export default async function SavedPage({
                   <ShieldCheck className="h-4 w-4 text-teal-600" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs text-gray-400 mb-0.5">ความโปร่งใส</p>
+                  <p className="text-xs text-gray-400 mb-0.5">งบประมาณ</p>
                   <p className="font-medium text-gray-900 line-clamp-1">{item.target.title}</p>
                   {item.target.category && <p className="text-sm text-gray-500">{item.target.category}</p>}
                 </div>

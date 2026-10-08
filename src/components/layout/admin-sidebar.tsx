@@ -33,7 +33,7 @@ export const adminMenuItems: AdminMenuItem[] = [
   { href: "/admin/gallery", label: "แกลเลอรี", icon: Images, permission: "gallery.manage" },
   { href: "/admin/places", label: "สถานที่", icon: MapPin, permission: "places.manage" },
   { href: "/admin/contacts", label: "รายชื่อผู้ติดต่อ", icon: Phone, permission: "contacts.manage" },
-  { href: "/admin/transparency", label: "ความโปร่งใส", icon: FileSearch, permission: "transparency.manage" },
+  { href: "/admin/transparency", label: "งบประมาณ", icon: FileSearch, permission: "transparency.manage" },
   { href: "/admin/downloads", label: "เอกสารดาวน์โหลด", icon: FileDown, permission: "downloads.manage" },
   { href: "/admin/population", label: "ทะเบียนครัวเรือน", icon: UsersRound, permission: "population.view" },
   { href: "/admin/population/account-opening-requests", label: "คำขอเปิดบัญชีบ้าน", icon: ClipboardCheck, permission: "house_account_opening.review" },

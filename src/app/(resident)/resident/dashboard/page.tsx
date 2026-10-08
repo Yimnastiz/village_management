@@ -39,7 +39,7 @@ export default async function ResidentDashboard() {
       { href: "/resident/gallery", label: "แกลเลอรี", icon: Images },
       { href: "/resident/places", label: "สถานที่", icon: MapPin },
       { href: "/resident/downloads", label: "เอกสาร", icon: FileDown },
-      { href: "/resident/transparency", label: "ความโปร่งใส", icon: FileSearch },
+      { href: "/resident/transparency", label: "งบประมาณ", icon: FileSearch },
       { href: "/resident/contacts", label: "ผู้ติดต่อ", icon: Phone },
     ];
     return <div className="mx-auto w-full max-w-5xl space-y-6">

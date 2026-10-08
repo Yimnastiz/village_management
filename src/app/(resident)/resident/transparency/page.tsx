@@ -89,7 +89,7 @@ export default async function ResidentTransparencyPage({
       {records.length === 0 ? (
         <EmptyState
           icon={ShieldCheck}
-          title={hasFilter ? "ไม่พบรายการที่ตรงกัน" : "ยังไม่มีข้อมูลความโปร่งใส"}
+          title={hasFilter ? "ไม่พบรายการที่ตรงกัน" : "ยังไม่มีข้อมูลงบประมาณ"}
           description={
             hasFilter
               ? "ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง"

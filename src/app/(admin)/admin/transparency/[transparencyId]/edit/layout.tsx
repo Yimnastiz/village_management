@@ -1,2 +1,2 @@
 import { AdminRouteHeader } from "@/components/admin/admin-route-header";
-export default function Layout({ children }: { children: React.ReactNode }) { return <AdminRouteHeader title="แก้ไขข้อมูลความโปร่งใส" priority={3}>{children}</AdminRouteHeader>; }
+export default function Layout({ children }: { children: React.ReactNode }) { return <AdminRouteHeader title="แก้ไขข้อมูลงบประมาณ" priority={3}>{children}</AdminRouteHeader>; }

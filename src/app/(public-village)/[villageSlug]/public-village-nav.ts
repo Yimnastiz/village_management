@@ -7,7 +7,7 @@ export const PUBLIC_VILLAGE_NAV_ITEMS = (base: string) => [
   { href: `${base}/gallery`, label: "แกลเลอรี", icon: Images },
   { href: `${base}/places`, label: "สถานที่", icon: MapPin },
   { href: `${base}/downloads`, label: "เอกสาร", icon: FileDown },
-  { href: `${base}/transparency`, label: "ความโปร่งใส", icon: FileSearch },
+  { href: `${base}/transparency`, label: "งบประมาณ", icon: FileSearch },
   { href: `${base}/contacts`, label: "ติดต่อ", icon: Phone },
 ] as const;
 
