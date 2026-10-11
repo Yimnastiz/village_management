@@ -11,14 +11,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { createVillageEventSubmissionAction, updateResidentVillageEventSubmissionAction } from "./actions";
+import { eventTitleSchema, eventVisibilitySchema } from "@/lib/public-content-validation";
 
 const schema = z.object({
-  title: z.string().trim().min(3, "กรุณาระบุชื่อกิจกรรมอย่างน้อย 3 ตัวอักษร"),
+  title: eventTitleSchema,
   description: z.string().optional(),
   location: z.string().optional(),
   startsAt: z.string().min(1, "กรุณาระบุวันที่และเวลาเริ่ม"),
   endsAt: z.string().optional(),
-  visibility: z.enum(["PUBLIC", "RESIDENT"], { message: "กรุณาเลือกการมองเห็นที่ต้องการ" }),
+  visibility: eventVisibilitySchema,
 }).superRefine((data, context) => {
   if (!data.endsAt?.trim()) return;
   const startsAt = new Date(data.startsAt), endsAt = new Date(data.endsAt);

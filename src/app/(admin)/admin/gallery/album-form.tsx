@@ -12,15 +12,16 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { GalleryImageManager, type GalleryImageDraft } from "@/components/gallery/gallery-image-manager";
 import { createGalleryAlbumAction, saveGalleryAlbumEditAction } from "./actions";
+import { galleryTitleSchema, galleryVisibilitySchema, residentSubmissionOptionSchema } from "@/lib/public-content-validation";
 
 const schema = z.object({
-  title: z.string().min(2, "กรุณาระบุชื่ออัลบั้ม"), description: z.string().optional(),
-  albumDate: z.string().min(1, "กรุณาระบุวันที่อัลบั้ม"), isPublic: z.string().min(1), allowResidentSubmissions: z.string().min(1),
+  title: galleryTitleSchema, description: z.string().optional(),
+  albumDate: z.string().min(1, "กรุณาระบุวันที่อัลบั้ม"), isPublic: galleryVisibilitySchema, allowResidentSubmissions: residentSubmissionOptionSchema,
 });
 type FormData = z.infer<typeof schema>;
 type Props = {
   mode: "create" | "edit"; albumId?: string;
-  defaultValues?: { title: string; description: string; albumDate: string; isPublic: string; allowResidentSubmissions: string };
+  defaultValues?: { title: string; description: string; albumDate: string; isPublic: "PUBLIC" | "RESIDENT"; allowResidentSubmissions: "ALLOW" | "DISALLOW" };
   initialItems?: GalleryImageDraft[];
 };
 

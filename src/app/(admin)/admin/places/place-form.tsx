@@ -14,9 +14,11 @@ import { useToast } from "@/components/ui/toast";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { VILLAGE_PLACE_CATEGORIES } from "@/lib/village-place";
 import type { PlaceImageInput, PlaceImageView } from "@/lib/place-image";
+import { normalizeVillagePhone, validateVillagePhone } from "@/lib/contact";
+import { isHttpUrl } from "@/lib/public-content-validation";
 import { adminCreateVillagePlaceAction, adminUpdateVillagePlaceAction } from "./actions";
 
-const schema = z.object({ name: z.string().trim().min(2, "กรุณาระบุชื่อสถานที่อย่างน้อย 2 ตัวอักษร"), category: z.string(), description: z.string(), address: z.string(), openingHours: z.string(), contactPhone: z.string(), mapUrl: z.string(), latitude: z.string(), longitude: z.string(), isPublic: z.boolean(), isFeatured: z.boolean() });
+const schema = z.object({ name: z.string().trim().min(2, "กรุณาระบุชื่อสถานที่อย่างน้อย 2 ตัวอักษร"), category: z.string(), description: z.string(), address: z.string(), openingHours: z.string(), contactPhone: z.string().refine((value) => validateVillagePhone(normalizeVillagePhone(value)) == null, "รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง"), mapUrl: z.string().refine((value) => !value.trim() || isHttpUrl(value.trim()), "ลิงก์แผนที่ต้องเป็น URL แบบ http:// หรือ https:// ที่ถูกต้อง"), latitude: z.string(), longitude: z.string(), isPublic: z.boolean(), isFeatured: z.boolean() });
 type FormData = z.infer<typeof schema>;
 type Props = { mode: "create" | "edit"; placeId?: string; cancelHref?: string; cancelLabel?: string; defaultValues?: Omit<FormData, "isFeatured"> & { isFeatured?: boolean; images: PlaceImageView[] } };
 

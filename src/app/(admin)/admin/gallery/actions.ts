@@ -11,15 +11,16 @@ import { deletePlaceUploads, verifyPlaceUploadToken } from "@/lib/place-upload.s
 import { notificationMetadata } from "@/lib/notification-copy";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
+import { galleryTitleSchema, galleryVisibilitySchema, residentSubmissionOptionSchema } from "@/lib/public-content-validation";
 
 const db = prisma;
 
 const albumSchema = z.object({
-  title: z.string().min(2, "กรุณาระบุชื่ออัลบั้ม"),
+  title: galleryTitleSchema,
   description: z.string().optional(),
   albumDate: z.string().min(1, "กรุณาระบุวันที่อัลบั้ม"),
-  isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
-  allowResidentSubmissions: z.string().min(1, "กรุณาเลือกการรับคำขอเพิ่มรูป"),
+  isPublic: galleryVisibilitySchema,
+  allowResidentSubmissions: residentSubmissionOptionSchema,
 });
 
 const itemSchema = z.object({

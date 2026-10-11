@@ -1,4 +1,7 @@
-import { legacyImageViews, normalizePlaceImages, parsePlaceImageInputs, type PlaceImageInput } from "@/lib/place-image";
+import { legacyImageViews, normalizePlaceImages, parsePlaceImageInputs, type PlaceImageInput } from "./place-image.ts";
+import { MAX_IMAGES_PER_REQUEST } from "./image-constraints.ts";
+import { normalizeVillagePhone, validateVillagePhone } from "./contact.ts";
+import { isHttpUrl } from "./public-content-validation.ts";
 
 export const VILLAGE_PLACE_CATEGORIES = [
   "TEMPLE", "SHOP", "FOOD", "SERVICE", "SCHOOL", "CLINIC", "GOVERNMENT",
@@ -34,7 +37,10 @@ export function normalizeVillagePlaceInput(data: {
   const category = (data.category ?? "OTHER").trim();
   if (!isVillagePlaceCategory(category)) return { ok: false, error: "หมวดหมู่สถานที่ไม่ถูกต้อง" };
   const mapUrl = (data.mapUrl ?? "").trim();
-  if (mapUrl && !/^https?:\/\//i.test(mapUrl)) return { ok: false, error: "ลิงก์แผนที่ต้องขึ้นต้นด้วย http:// หรือ https://" };
+  if (mapUrl && !isHttpUrl(mapUrl)) return { ok: false, error: "ลิงก์แผนที่ต้องเป็น URL แบบ http:// หรือ https:// ที่ถูกต้อง" };
+  const contactPhone = normalizeVillagePhone(data.contactPhone ?? "");
+  const contactPhoneError = validateVillagePhone(contactPhone);
+  if (contactPhoneError) return { ok: false, error: contactPhoneError };
   const rawLatitude = typeof data.latitude === "string" ? data.latitude.trim() : data.latitude;
   const rawLongitude = typeof data.longitude === "string" ? data.longitude.trim() : data.longitude;
   const latitude = rawLatitude === "" || rawLatitude == null ? null : Number(rawLatitude);
@@ -42,11 +48,12 @@ export function normalizeVillagePlaceInput(data: {
   if ((latitude == null) !== (longitude == null)) return { ok: false, error: "กรุณาระบุพิกัดละติจูดและลองจิจูดให้ครบทั้งคู่" };
   if (latitude != null && (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)) return { ok: false, error: "ละติจูดต้องอยู่ระหว่าง -90 ถึง 90" };
   if (longitude != null && (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)) return { ok: false, error: "ลองจิจูดต้องอยู่ระหว่าง -180 ถึง 180" };
+  if ((data.images?.length ?? 0) > MAX_IMAGES_PER_REQUEST) return { ok: false, error: `แนบรูปภาพได้สูงสุด ${MAX_IMAGES_PER_REQUEST} รูป` };
   const images = normalizePlaceImages(data.images ?? []);
   if (images.some((image) => image.url?.startsWith("data:"))) return { ok: false, error: "กรุณาอัปโหลดรูปภาพให้เสร็จก่อนบันทึก" };
   return { ok: true, value: {
     name, category, description: (data.description ?? "").trim(), address: (data.address ?? "").trim(),
-    openingHours: (data.openingHours ?? "").trim(), contactPhone: (data.contactPhone ?? "").trim(), mapUrl,
+    openingHours: (data.openingHours ?? "").trim(), contactPhone, mapUrl,
     latitude, longitude, isPublic: Boolean(data.isPublic), images,
   } };
 }

@@ -8,14 +8,15 @@ import { notificationMetadata } from "@/lib/notification-copy";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
+import { newsVisibilitySchema, normalizeFiscalYear, transparencyTitleSchema, validateFiscalYear } from "@/lib/public-content-validation";
 
 const transparencyInputSchema = z.object({
-  title: z.string().min(3, "กรุณาระบุหัวข้อ"),
+  title: transparencyTitleSchema,
   description: z.string().optional(),
   category: z.string().optional(),
-  amount: z.number().min(0, "จำนวนเงินต้องไม่น้อยกว่า 0").optional(),
+  amount: z.number().finite("จำนวนเงินไม่ถูกต้อง").min(0, "จำนวนเงินต้องไม่น้อยกว่า 0").optional(),
   fiscalYear: z.string().optional(),
-  visibility: z.string().min(1, "กรุณาเลือกการมองเห็น"),
+  visibility: newsVisibilitySchema,
 });
 
 export type TransparencyInput = z.infer<typeof transparencyInputSchema>;
@@ -36,7 +37,10 @@ function normalizeInput(data: TransparencyInput) {
   if (!parsed.success) return { ok: false as const, error: Object.values(parsed.error.flatten().fieldErrors)[0]?.[0] ?? "ข้อมูลไม่ถูกต้อง" };
   const visibility = parsed.data.visibility as NewsVisibility;
   if (!VALID_VISIBILITY.includes(visibility)) return { ok: false as const, error: "การมองเห็นไม่ถูกต้อง" };
-  return { ok: true as const, value: { title: parsed.data.title.trim(), description: parsed.data.description?.trim() || null, category: parsed.data.category?.trim() || null, amount: parsed.data.amount ?? null, fiscalYear: parsed.data.fiscalYear?.trim() || null, visibility } };
+  const fiscalYear = normalizeFiscalYear(parsed.data.fiscalYear ?? "");
+  const fiscalYearError = validateFiscalYear(fiscalYear);
+  if (fiscalYearError) return { ok: false as const, error: fiscalYearError };
+  return { ok: true as const, value: { title: parsed.data.title, description: parsed.data.description?.trim() || null, category: parsed.data.category?.trim() || null, amount: parsed.data.amount ?? null, fiscalYear: fiscalYear || null, visibility } };
 }
 
 function revalidateTransparencyViews(recordId?: string) {

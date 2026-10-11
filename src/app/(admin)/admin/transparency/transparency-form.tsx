@@ -10,10 +10,11 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { createTransparencyAction, updateTransparencyAction } from "./actions";
+import { newsVisibilitySchema, transparencyTitleSchema, validateFiscalYear } from "@/lib/public-content-validation";
 
-const schema = z.object({ title: z.string().min(3, "กรุณาระบุหัวข้อ"), description: z.string().optional(), category: z.string().optional(), amount: z.string().optional(), fiscalYear: z.string().optional(), visibility: z.string().min(1, "กรุณาเลือกการมองเห็น") });
+const schema = z.object({ title: transparencyTitleSchema, description: z.string().optional(), category: z.string().optional(), amount: z.string().optional(), fiscalYear: z.string().refine((value) => validateFiscalYear(value) == null, "ปีงบประมาณต้องเป็นตัวเลข 4 หลัก").optional(), visibility: newsVisibilitySchema });
 type FormData = z.infer<typeof schema>;
-type Props = { mode: "create" | "edit"; transparencyId?: string; defaultValues?: { title: string; description: string; category: string; amount: string; fiscalYear: string; visibility: string } };
+type Props = { mode: "create" | "edit"; transparencyId?: string; defaultValues?: { title: string; description: string; category: string; amount: string; fiscalYear: string; visibility: "PUBLIC" | "RESIDENT_ONLY" } };
 
 export function TransparencyForm({ mode, transparencyId, defaultValues }: Props) {
   const router = useRouter();

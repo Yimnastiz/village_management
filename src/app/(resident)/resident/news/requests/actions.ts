@@ -9,15 +9,16 @@ import { getSessionContextFromServerCookies, getResidentMembership } from "@/lib
 import { areSafeImageSources } from "@/lib/image-input";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { writeVillageAuditLog } from "@/lib/audit-log";
+import { newsContentSchema, newsStageSchema, newsTitleSchema, newsVisibilitySchema } from "@/lib/public-content-validation";
 
 const requestSchema = z.object({
-  title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
+  title: newsTitleSchema,
   summary: z.string().optional(),
-  content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).optional(),
+  content: newsContentSchema,
+  imageUrls: z.array(z.string().min(1, "รูปภาพไม่ถูกต้อง")).max(10).optional(),
   coverUrl: z.string().nullable().optional(),
-  visibility: z.string().min(1, "กรุณาเลือกการมองเห็นที่ต้องการ"),
-  stage: z.string().optional(),
+  visibility: newsVisibilitySchema,
+  stage: newsStageSchema.optional(),
   isPinned: z.boolean().optional(),
 });
 

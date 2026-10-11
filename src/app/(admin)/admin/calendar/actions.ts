@@ -9,16 +9,17 @@ import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/ac
 import { notificationMetadata } from "@/lib/notification-copy";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
+import { eventTitleSchema, eventVisibilitySchema } from "@/lib/public-content-validation";
 
 const villageEventSubmission = prisma.villageEventSubmission;
 
 const inputSchema = z.object({
-  title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
+  title: eventTitleSchema,
   description: z.string().optional(),
   location: z.string().optional(),
   startsAt: z.string().min(1, "กรุณาระบุวันเวลาเริ่ม"),
   endsAt: z.string().optional(),
-  isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
+  isPublic: eventVisibilitySchema,
 });
 
 type EventInput = z.infer<typeof inputSchema>;

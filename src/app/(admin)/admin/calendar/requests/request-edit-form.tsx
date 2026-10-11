@@ -10,14 +10,15 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
 import { updateVillageEventSubmissionAction } from "../actions";
+import { eventTitleSchema, eventVisibilitySchema } from "@/lib/public-content-validation";
 
 const schema = z.object({
-  title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
+  title: eventTitleSchema,
   description: z.string().optional(),
   location: z.string().optional(),
   startsAt: z.string().min(1, "กรุณาระบุวันเวลาเริ่ม"),
   endsAt: z.string().optional(),
-  isPublic: z.string().min(1, "กรุณาเลือกการมองเห็น"),
+  isPublic: eventVisibilitySchema,
 });
 
 type FormData = z.infer<typeof schema>;

@@ -15,15 +15,16 @@ import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { revalidatePath } from "next/cache";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
+import { newsContentSchema, newsStageSchema, newsTitleSchema, newsVisibilitySchema } from "@/lib/public-content-validation";
 
 const newsInputSchema = z.object({
-  title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
+  title: newsTitleSchema,
   summary: z.string().optional(),
-  content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
+  content: newsContentSchema,
   images: z.array(z.object({ url: z.string().min(1), fileKey: z.string().optional(), uploadToken: z.string().optional(), fileName: z.string().optional(), sizeBytes: z.number().nonnegative().optional(), sortOrder: z.number().int().nonnegative(), isCover: z.boolean() })).max(10).optional(),
-  imageUrls: z.array(z.string().min(1)).optional(),
-  visibility: z.string().min(1, "กรุณาเลือกการแสดงผล"),
-  stage: z.string().min(1, "กรุณาเลือกสถานะ"),
+  imageUrls: z.array(z.string().min(1)).max(10).optional(),
+  visibility: newsVisibilitySchema,
+  stage: newsStageSchema,
   isPinned: z.boolean().optional(),
 });
 

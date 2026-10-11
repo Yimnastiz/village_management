@@ -1,4 +1,4 @@
-import { MAX_IMAGES_PER_REQUEST } from "@/lib/image-constraints";
+import { MAX_IMAGES_PER_REQUEST } from "./image-constraints.ts";
 
 export type PlaceImageInput = {
   id?: string;
@@ -24,7 +24,7 @@ export type PlaceImageView = Required<Pick<PlaceImageInput, "url" | "sortOrder" 
 };
 
 export function normalizePlaceImages(images: readonly PlaceImageInput[]): PlaceImageInput[] {
-  const trimmed = [...images].sort((a, b) => a.sortOrder - b.sortOrder).slice(0, MAX_IMAGES_PER_REQUEST).map((image) => ({
+  const trimmed = [...images].sort((a, b) => a.sortOrder - b.sortOrder).map((image) => ({
     id: image.id?.trim() || undefined,
     url: image.url?.trim() || undefined,
     fileKey: image.fileKey?.trim() || undefined,

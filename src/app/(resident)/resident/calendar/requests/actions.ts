@@ -10,14 +10,15 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
 import { writeVillageAuditLog } from "@/lib/audit-log";
+import { eventTitleSchema, eventVisibilitySchema } from "@/lib/public-content-validation";
 
 const requestSchema = z.object({
-  title: z.string().min(3, "กรุณาระบุชื่อกิจกรรม"),
+  title: eventTitleSchema,
   description: z.string().optional(),
   location: z.string().optional(),
   startsAt: z.string().min(1, "กรุณาระบุวันเวลาเริ่ม"),
   endsAt: z.string().optional(),
-  visibility: z.enum(["PUBLIC", "RESIDENT"], { message: "กรุณาเลือกการมองเห็นที่ต้องการ" }),
+  visibility: eventVisibilitySchema,
 });
 
 type RequestInput = z.infer<typeof requestSchema>;

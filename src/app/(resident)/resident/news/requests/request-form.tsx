@@ -17,14 +17,13 @@ import {
   updatePendingNewsSubmissionAction,
 } from "./actions";
 import { NewsImageManager } from "@/components/news/news-image-manager";
-
-const REQUESTED_VISIBILITIES: readonly string[] = ["PUBLIC", "RESIDENT_ONLY"];
+import { newsContentSchema, newsTitleSchema, newsVisibilitySchema } from "@/lib/public-content-validation";
 
 const schema = z.object({
-  title: z.string().min(3, "กรุณาระบุหัวข้อข่าว"),
+  title: newsTitleSchema,
   summary: z.string().optional(),
-  content: z.string().min(10, "กรุณาระบุเนื้อหาอย่างน้อย 10 ตัวอักษร"),
-  visibility: z.string().min(1, "กรุณาเลือกการมองเห็นที่ต้องการ").refine((value: string) => REQUESTED_VISIBILITIES.includes(value), "กรุณาเลือกการมองเห็นที่ต้องการ"),
+  content: newsContentSchema,
+  visibility: newsVisibilitySchema,
 });
 
 type FormData = z.infer<typeof schema>;
@@ -66,18 +65,17 @@ export function NewsRequestForm({ mode, targetNewsId, submissionId, cancelHref =
       : defaultValues?.imageUrls[0] ?? null,
   );
 
-  const resolvedDefaults: FormData = defaultValues
+  const resolvedDefaults: Partial<FormData> = defaultValues
     ? {
         title: defaultValues.title,
         summary: defaultValues.summary,
         content: defaultValues.content,
-        visibility: isRequestedVisibility(defaultValues.visibility) ? defaultValues.visibility : "",
+        ...(isRequestedVisibility(defaultValues.visibility) ? { visibility: defaultValues.visibility } : {}),
       }
     : {
         title: "",
         summary: "",
         content: "",
-        visibility: "",
       };
 
   const {
