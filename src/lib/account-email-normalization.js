@@ -1,6 +1,16 @@
+export const EMAIL_MAX_LENGTH = 320;
+
 /** Conservatively normalize the global account-email identity. */
 export function normalizeAccountEmail(email) {
   return email.trim().toLocaleLowerCase("en-US");
+}
+
+/** Shared application-level validation for login and contact email fields. */
+export function isValidEmailAddress(email) {
+  const normalized = normalizeAccountEmail(email);
+  return normalized.length > 0
+    && normalized.length <= EMAIL_MAX_LENGTH
+    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
 }
 
 /** Mask an email for UI status and development-only delivery logs. */

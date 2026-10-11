@@ -1,5 +1,5 @@
 import type { AccountEmailStatus, HouseAccountOpeningRequestStatus } from "@prisma/client";
-export { maskEmail, normalizeAccountEmail } from "./account-email-normalization.js";
+export { EMAIL_MAX_LENGTH, isValidEmailAddress, maskEmail, normalizeAccountEmail } from "./account-email-normalization.js";
 
 /**
  * Normalize an email for the global account-identity namespace.

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { PrivacyPolicyContent } from "@/components/privacy-policy-content";
+import { EMAIL_MAX_LENGTH, isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email";
+import { isValidPersonName, normalizePersonNameInput, normalizeThaiPhoneInput, PERSON_NAME_MAX_LENGTH } from "@/lib/person-validation";
 
 type VillageOption = {
   id: string;
@@ -165,16 +167,17 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       setError("กรุณาค้นหาและเลือกบ้านเลขที่จากรายการ");
       return;
     }
-    if (!firstName.trim() || !lastName.trim()) {
+    if (!isValidPersonName(firstName) || !isValidPersonName(lastName)) {
       setError("กรุณากรอกชื่อและนามสกุลผู้ขอ");
       return;
     }
-    const phoneDigits = contactPhone.replace(/\D/g, "").slice(0, 10);
-    if (!/^\d{10}$/.test(phoneDigits)) {
+    const normalizedPhone = normalizeThaiPhoneInput(contactPhone);
+    if (!/^\d{10}$/.test(normalizedPhone)) {
       setError("กรุณากรอกเบอร์โทรสำหรับติดต่อให้ถูกต้อง");
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+    const normalizedEmail = normalizeAccountEmail(email);
+    if (!isValidEmailAddress(normalizedEmail)) {
       setError("กรุณากรอกอีเมลให้ถูกต้อง");
       return;
     }
@@ -192,8 +195,8 @@ export function RegisterForm({ village }: { village: VillageOption }) {
           houseId: selectedHouse.houseId,
           applicantFirstName: firstName,
           applicantLastName: lastName,
-          contactPhone: phoneDigits,
-          email,
+          contactPhone: normalizedPhone,
+          email: normalizedEmail,
           privacyConsent,
         }),
       });
@@ -360,11 +363,11 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input id="house-opening-first-name" name="givenName" label="ชื่อผู้ขอ" value={firstName} onChange={(event) => setFirstName(event.target.value.slice(0, 100))} autoComplete="given-name" maxLength={100} required />
-        <Input id="house-opening-last-name" name="familyName" label="นามสกุลผู้ขอ" value={lastName} onChange={(event) => setLastName(event.target.value.slice(0, 100))} autoComplete="family-name" maxLength={100} required />
+        <Input id="house-opening-first-name" name="givenName" label="ชื่อผู้ขอ" value={firstName} onChange={(event) => setFirstName(normalizePersonNameInput(event.target.value))} autoComplete="given-name" maxLength={PERSON_NAME_MAX_LENGTH} required />
+        <Input id="house-opening-last-name" name="familyName" label="นามสกุลผู้ขอ" value={lastName} onChange={(event) => setLastName(normalizePersonNameInput(event.target.value))} autoComplete="family-name" maxLength={PERSON_NAME_MAX_LENGTH} required />
       </div>
-      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="numeric" pattern="[0-9]{10}" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(event.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="0812345678" helperText="ใช้สำหรับให้ผู้ใหญ่บ้านติดต่อเพิ่มเติม ไม่ใช้เข้าสู่ระบบและไม่มี SMS OTP" maxLength={10} required />
-      <Input id="house-opening-email" name="email" label="อีเมลสำหรับเข้าสู่ระบบ" type="email" inputMode="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value.slice(0, 320))} placeholder="name@example.com" maxLength={320} required />
+      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="tel" pattern="(?:[0-9]{10}|\+66[0-9]{9})" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(normalizeThaiPhoneInput(event.target.value))} placeholder="0812345678" helperText="ใช้สำหรับให้ผู้ใหญ่บ้านติดต่อเพิ่มเติม ไม่ใช้เข้าสู่ระบบและไม่มี SMS OTP" maxLength={12} required />
+      <Input id="house-opening-email" name="email" label="อีเมลสำหรับเข้าสู่ระบบ" type="email" inputMode="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" maxLength={EMAIL_MAX_LENGTH} required />
       <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
         <input type="checkbox" checked={privacyConsent} onChange={(event) => setPrivacyConsent(event.target.checked)} className="mt-1 h-4 w-4 accent-green-600" required />
         <span>ฉันยอมรับ <button type="button" onClick={() => setPrivacyOpen(true)} className="font-medium text-green-700 underline focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">นโยบายความเป็นส่วนตัว</button> สำหรับการส่งคำขอเปิดบัญชีบ้าน</span>

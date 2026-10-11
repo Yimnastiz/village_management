@@ -26,12 +26,22 @@ test("opening input trims names and normalizes contact phone and email", () => {
   assert.equal(result.value.normalizedEmail, "home@example.com");
 });
 
-test("Thai contact phone accepts common 9-10 digit forms and rejects invalid input", () => {
+test("Thai contact phone accepts canonical 10-digit local and +66 forms and rejects invalid input", () => {
   assert.equal(normalizeContactPhone("+66 81 234 5678"), "0812345678");
-  assert.equal(validateHouseAccountOpeningInput({ ...validInput, contactPhone: "02-123-4567" }).success, true);
+  assert.equal(validateHouseAccountOpeningInput({ ...validInput, contactPhone: "02-123-4567" }).success, false);
+  assert.equal(validateHouseAccountOpeningInput({ ...validInput, contactPhone: "123456789" }).success, false);
   const invalid = validateHouseAccountOpeningInput({ ...validInput, contactPhone: "1234" });
   assert.equal(invalid.success, false);
   if (!invalid.success) assert.ok(invalid.errors.includes("CONTACT_PHONE_INVALID"));
+});
+
+test("opening input rejects applicant names with digits or arbitrary punctuation", () => {
+  const invalidFirstName = validateHouseAccountOpeningInput({ ...validInput, applicantFirstName: "Somchai123" });
+  assert.equal(invalidFirstName.success, false);
+  if (!invalidFirstName.success) assert.ok(invalidFirstName.errors.includes("FIRST_NAME_INVALID"));
+  const invalidLastName = validateHouseAccountOpeningInput({ ...validInput, applicantLastName: "Family!" });
+  assert.equal(invalidLastName.success, false);
+  if (!invalidLastName.success) assert.ok(invalidLastName.errors.includes("LAST_NAME_INVALID"));
 });
 
 test("required applicant, email, house, and consent fields are validated", () => {

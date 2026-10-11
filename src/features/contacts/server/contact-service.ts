@@ -1,6 +1,6 @@
 ﻿import { AuditAction, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { isContactCategory, validateContactEmail, validateContactPhone } from "@/lib/contact";
+import { isContactCategory, normalizeContactEmail, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
 import { prisma } from "@/lib/prisma";
 import { getContactProvenance } from "@/features/contact-provenance/server/provenance";
 import { getNextContactSortOrder } from "@/features/contact-ordering/server/order";
@@ -15,8 +15,8 @@ const inputSchema = z.object({ name: z.string().trim().min(2), role: z.string().
 function normalize(input: ContactInput, legacyCategory?: string | null) {
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) return { ok: false as const, error: "ข้อมูลผู้ติดต่อไม่ถูกต้อง" };
-  const phone = parsed.data.phone?.trim() ?? "";
-  const email = parsed.data.email?.trim() ?? "";
+  const phone = normalizeContactPhone(parsed.data.phone ?? "");
+  const email = normalizeContactEmail(parsed.data.email ?? "");
   if (validateContactPhone(phone, false) || validateContactEmail(email)) return { ok: false as const, error: "เบอร์โทรศัพท์หรืออีเมลไม่ถูกต้อง" };
   if (!isContactCategory(parsed.data.category) && parsed.data.category !== legacyCategory) return { ok: false as const, error: "หมวดหมู่ผู้ติดต่อไม่ถูกต้อง" };
   return { ok: true as const, value: { name: parsed.data.name, role: parsed.data.role?.trim() || null, phone: phone || null, email: email || null, address: parsed.data.address?.trim() || null, category: parsed.data.category, isPublic: parsed.data.isPublic === "PUBLIC" } };

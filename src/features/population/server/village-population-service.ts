@@ -16,9 +16,10 @@ import {
   normalizePersonGender,
   normalizePersonName,
   isValidOptionalThaiPhone,
-  normalizeThaiDigits,
+  normalizeThaiPhoneInput,
   validateOptionalPersonDate,
 } from "@/lib/person-validation";
+import { isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email-normalization.js";
 import { prisma } from "@/lib/prisma";
 import { ActionReasonError, requireActionReason, type SensitiveAction } from "@/lib/sensitive-action-policy";
 
@@ -75,11 +76,11 @@ function normalizePersonInputWithoutNationalId(data: VillagePersonInput) {
   const gender = normalizePersonGender(typeof data.gender === "string" ? data.gender : "");
   if (!gender) throw new PopulationValidationError("ข้อมูลเพศไม่ถูกต้อง");
   const rawPhone = typeof data.phone === "string" ? data.phone.trim() : "";
-  if (rawPhone && !/^[\d\u0E50-\u0E59]+$/.test(rawPhone)) throw new PopulationValidationError("รูปแบบเบอร์โทรไม่ถูกต้อง");
-  const phone = rawPhone ? normalizeThaiDigits(rawPhone) : null;
+  const phone = rawPhone ? normalizeThaiPhoneInput(rawPhone) : null;
   if (phone && !isValidOptionalThaiPhone(phone)) throw new PopulationValidationError("กรุณาระบุเบอร์โทร 10 หลัก");
-  const email = (typeof data.email === "string" ? data.email : "").trim().toLocaleLowerCase("en-US") || null;
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PopulationValidationError("อีเมลสำหรับติดต่อไม่ถูกต้อง");
+  const rawEmail = typeof data.email === "string" ? data.email : "";
+  const email = rawEmail.trim() ? normalizeAccountEmail(rawEmail) : null;
+  if (email && !isValidEmailAddress(email)) throw new PopulationValidationError("อีเมลสำหรับติดต่อไม่ถูกต้อง");
   return { firstName, lastName, dateOfBirth: parsedDate.value, gender, phone, email, houseId: (typeof data.houseId === "string" ? data.houseId : "").trim() || null };
 }
 

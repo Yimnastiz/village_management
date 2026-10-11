@@ -7,6 +7,7 @@ import {
   decideAccountEmailReservation,
   normalizeAccountEmail,
 } from "@/lib/account-email";
+import { isValidEmailAddress } from "@/lib/account-email-normalization.js";
 
 export type AccountEmailServiceErrorCode =
   | "INVALID_EMAIL"
@@ -34,7 +35,7 @@ export class AccountEmailServiceError extends Error {
 export function validateAccountEmail(email: string): { email: string; normalizedEmail: string } {
   const trimmedEmail = email.trim();
   const normalizedEmail = normalizeAccountEmail(trimmedEmail);
-  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) {
+  if (!isValidEmailAddress(normalizedEmail)) {
     throw new AccountEmailServiceError("INVALID_EMAIL", "A valid email address is required.");
   }
   return { email: trimmedEmail, normalizedEmail };

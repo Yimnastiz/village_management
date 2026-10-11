@@ -26,7 +26,7 @@ export function ThaiNationalIdInput({ onChange, ...props }: InputProps) {
 }
 
 export function ThaiPhoneInput({ onChange, ...props }: InputProps) {
-  return <Input {...props} inputMode="tel" maxLength={10} onChange={(event) => { setNormalizedValue(event.currentTarget, normalizeThaiPhoneInput); onChange?.(event); }} />;
+  return <Input {...props} inputMode="tel" pattern={props.pattern ?? "(?:[0-9]{10}|\\+66[0-9]{9})"} maxLength={12} onChange={(event) => { setNormalizedValue(event.currentTarget, normalizeThaiPhoneInput); onChange?.(event); }} />;
 }
 
 export function PersonGenderSelect(props: Omit<ComponentProps<typeof Select>, "options">) {

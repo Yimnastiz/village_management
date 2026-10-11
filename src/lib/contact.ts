@@ -1,3 +1,5 @@
+import { EMAIL_MAX_LENGTH, isValidEmailAddress, normalizeAccountEmail } from "./account-email-normalization.js";
+
 export const CONTACT_CATEGORIES = [
   "ผู้นำชุมชน",
   "หน่วยงานราชการ",
@@ -22,6 +24,8 @@ export function contactFilterCategories(values: Array<string | null | undefined>
 
 export const CONTACT_PHONE_MIN_LENGTH = 3;
 export const CONTACT_PHONE_MAX_LENGTH = 10;
+export const CONTACT_EMAIL_MAX_LENGTH = EMAIL_MAX_LENGTH;
+export const VILLAGE_PHONE_MAX_LENGTH = 50;
 
 export function isContactCategory(value: string): value is ContactCategory {
   return (CONTACT_CATEGORIES as readonly string[]).includes(value);
@@ -29,7 +33,7 @@ export function isContactCategory(value: string): value is ContactCategory {
 
 /** Normalizes interactive directory-phone input without changing unrelated text fields. */
 export function normalizeContactPhone(value: string): string {
-  return value.replace(/\D/g, "").slice(0, CONTACT_PHONE_MAX_LENGTH);
+  return value.trim().replace(/[\u0E50-\u0E59]/g, (digit) => String(digit.charCodeAt(0) - 0x0e50));
 }
 
 export function validateContactPhone(value: string, required = true): string | null {
@@ -43,5 +47,20 @@ export function validateContactPhone(value: string, required = true): string | n
 
 export function validateContactEmail(value: string): string | null {
   if (!value) return null;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? null : "รูปแบบอีเมลไม่ถูกต้อง";
+  return isValidEmailAddress(value) ? null : "รูปแบบอีเมลไม่ถูกต้อง";
+}
+export function normalizeContactEmail(value: string): string {
+  return normalizeAccountEmail(value);
+}
+
+export function normalizeVillagePhone(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+export function validateVillagePhone(value: string): string | null {
+  const normalized = normalizeVillagePhone(value);
+  if (!normalized) return null;
+  if (normalized.length > VILLAGE_PHONE_MAX_LENGTH) return "หมายเลขโทรศัพท์ยาวเกินกำหนด";
+  if (!/^(?=.*\d)[\d\s()+-]+$/.test(normalized)) return "รูปแบบหมายเลขโทรศัพท์ไม่ถูกต้อง";
+  return null;
 }

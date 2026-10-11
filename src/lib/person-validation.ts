@@ -37,16 +37,22 @@ export function normalizeThaiDigits(value: string): string {
   return value.replace(/[\u0E50-\u0E59]/g, (digit) => String(digit.charCodeAt(0) - 0x0e50)).replace(/\D/g, "");
 }
 
+function replaceThaiDigits(value: string): string {
+  return value.replace(/[\u0E50-\u0E59]/g, (digit) => String(digit.charCodeAt(0) - 0x0e50));
+}
+
 export function normalizeThaiNationalIdInput(value: string): string {
   return normalizeThaiDigits(value).slice(0, THAI_NATIONAL_ID_LENGTH);
 }
 
 export function normalizeThaiPhoneInput(value: string): string {
-  return normalizeThaiDigits(value).slice(0, THAI_PHONE_LENGTH);
+  const compact = replaceThaiDigits(value).trim().replace(/[\s()-]/g, "");
+  return /^\+66\d{9}$/.test(compact) ? `0${compact.slice(3)}` : compact;
 }
 
 export function isValidOptionalThaiPhone(value: string): boolean {
-  return !value || /^\d{10}$/.test(value);
+  const normalized = normalizeThaiPhoneInput(value);
+  return !normalized || /^\d{10}$/.test(normalized);
 }
 
 /** Returns null only for values outside the explicit canonical/legacy whitelist. */

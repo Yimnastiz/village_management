@@ -1,3 +1,5 @@
+import { isValidEmailAddress, normalizeAccountEmail } from "../src/lib/account-email-normalization.js";
+
 export class BootstrapInputError extends Error {
   constructor(code, message) {
     super(message);
@@ -26,8 +28,8 @@ export function normalizeBootstrapPhone(value) {
 }
 
 export function normalizeBootstrapEmail(value) {
-  const normalized = String(value ?? "").trim().toLowerCase();
-  return /^\S+@\S+\.\S+$/.test(normalized) && normalized.length <= 320 ? normalized : "";
+  const normalized = normalizeAccountEmail(String(value ?? ""));
+  return isValidEmailAddress(normalized) ? normalized : "";
 }
 
 /** Keep CLI slug normalization aligned with the public Village slug convention. */

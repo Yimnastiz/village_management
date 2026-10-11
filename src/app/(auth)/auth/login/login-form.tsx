@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { EMAIL_MAX_LENGTH, isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email";
 import { sanitizeInternalCallbackUrl } from "@/lib/callback-url";
 
 function LoginContent() {
@@ -13,8 +14,8 @@ function LoginContent() {
   const callbackUrl = sanitizeInternalCallbackUrl(searchParams.get("callbackUrl"));
   const registerHref = callbackUrl ? `/auth/register?callbackUrl=${encodeURIComponent(callbackUrl)}` : "/auth/register";
   const submit = async (event: React.FormEvent) => {
-    event.preventDefault(); setError(null); const normalizedEmail = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) { setError("กรุณากรอกอีเมลให้ถูกต้อง"); return; }
+    event.preventDefault(); setError(null); const normalizedEmail = normalizeAccountEmail(email);
+    if (!isValidEmailAddress(normalizedEmail)) { setError("กรุณากรอกอีเมลให้ถูกต้อง"); return; }
     setIsLoading(true);
     try {
       const response = await fetch("/api/auth/account-login/start", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include", body: JSON.stringify({ email: normalizedEmail, callbackUrl }) });
@@ -29,7 +30,7 @@ function LoginContent() {
     {searchParams.get("registered") === "1" ? <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">ส่งคำขอเปิดบัญชีบ้านแล้ว กรุณารอการตรวจสอบ เมื่ออนุมัติแล้วจึงเข้าสู่ระบบด้วยอีเมลได้</div> : null}
     {searchParams.get("openingStatus") === "APPROVED" ? <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">คำขอเปิดบัญชีบ้านได้รับการอนุมัติแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลที่ยืนยันไว้เพื่อเริ่มใช้งานบัญชีบ้าน</div> : null}
     {searchParams.get("deletionPending") === "1" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">บัญชีอยู่ระหว่างระยะผ่อนผันการปิด 7 วัน</div> : null}
-    <form onSubmit={submit} className="mt-5 space-y-4"><Input id="login-email" name="email" label="อีเมล" type="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={320} required />{error ? <p className="text-sm text-red-600">{error}</p> : null}<Button type="submit" className="w-full" isLoading={isLoading}>ส่งรหัสยืนยัน</Button></form>
+    <form onSubmit={submit} className="mt-5 space-y-4"><Input id="login-email" name="email" label="อีเมล" type="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={EMAIL_MAX_LENGTH} required />{error ? <p className="text-sm text-red-600">{error}</p> : null}<Button type="submit" className="w-full" isLoading={isLoading}>ส่งรหัสยืนยัน</Button></form>
     <div className="mt-6 text-center text-sm text-gray-600">บ้านของคุณยังไม่มีบัญชี?{" "}<Link href={registerHref} className="font-medium text-green-600 hover:underline">ขอเปิดบัญชีบ้าน</Link></div>
   </div>;
 }

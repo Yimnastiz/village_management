@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import { maskEmail, normalizeAccountEmail } from "@/lib/account-email";
+import { isValidEmailAddress, maskEmail, normalizeAccountEmail } from "@/lib/account-email";
 import { readAccountLoginFlowCookie, verifyAccountLoginFlowToken, ACCOUNT_LOGIN_FLOW_TTL_SECONDS } from "@/lib/account-login-access";
 import { resolveLoginEmail, type AccountLoginIdentity } from "@/lib/account-login-resolver";
 import { sanitizeAdminCallbackUrl, sanitizeInternalCallbackUrl, sanitizeResidentCallbackUrl } from "@/lib/callback-url";
@@ -34,7 +34,7 @@ function landingPath(identity: AccountLoginIdentity, callbackUrl: string | null)
 
 export async function startAccountLogin(input: { email: string; callbackUrl?: string | null }, context: EmailOtpClientContext): Promise<PublicFlow> {
   const normalizedEmail = normalizeAccountEmail(input.email);
-  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) throw new AccountLoginError("INVALID_EMAIL", "A valid email address is required.");
+  if (!isValidEmailAddress(normalizedEmail)) throw new AccountLoginError("INVALID_EMAIL", "A valid email address is required.");
   const config = readEmailOtpConfig();
   const now = new Date();
   const ipHash = hashEmailOtpAbuseContext(requestIp(context), config.hashSecret);

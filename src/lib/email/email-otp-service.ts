@@ -3,7 +3,7 @@ import {
   type EmailOtpChallenge,
   type EmailOtpPurpose,
 } from "@prisma/client";
-import { normalizeAccountEmail } from "@/lib/account-email";
+import { isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email";
 import { prisma } from "@/lib/prisma";
 import {
   generateEmailOtp,
@@ -79,7 +79,7 @@ type ServiceDependencies = {
 function validatedEmail(email: string): { deliveryEmail: string; normalizedEmail: string } {
   const deliveryEmail = email.trim();
   const normalizedEmail = normalizeAccountEmail(deliveryEmail);
-  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) {
+  if (!isValidEmailAddress(normalizedEmail)) {
     throw new EmailOtpServiceError("INVALID_EMAIL", "A valid email address is required.");
   }
   return { deliveryEmail, normalizedEmail };

@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PersonGenderSelect, PersonNameInput, ThaiNationalIdInput, ThaiPhoneInput } from "@/components/person/person-form-inputs";
 import { useToast } from "@/components/ui/toast";
 import { isValidOptionalThaiPhone, isValidPersonName, PERSON_GENDER_VALUES } from "@/lib/person-validation";
+import { EMAIL_MAX_LENGTH, isValidEmailAddress } from "@/lib/account-email";
 import type { VillagePersonInput } from "@/features/population/server/village-population-service";
 
 type Result =
@@ -204,7 +205,8 @@ export function VillagePersonForm({
           label="อีเมล"
           type="email"
           error={errors.email?.message}
-          {...register("email")}
+          maxLength={EMAIL_MAX_LENGTH}
+          {...register("email", { validate: (value) => !value || isValidEmailAddress(value) || "กรุณาระบุอีเมลให้ถูกต้อง" })}
         />
 
       </div>

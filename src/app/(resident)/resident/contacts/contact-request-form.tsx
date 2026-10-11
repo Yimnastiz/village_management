@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
-import { CONTACT_CATEGORY_OPTIONS, CONTACT_PHONE_MAX_LENGTH, isContactCategory, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
+import { CONTACT_CATEGORY_OPTIONS, CONTACT_EMAIL_MAX_LENGTH, CONTACT_PHONE_MAX_LENGTH, isContactCategory, normalizeContactEmail, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
 import { createResidentContactRequestAction, type ContactRequestResult } from "./actions";
 
 export type ContactRequestFormValues = { name: string; role?: string | null; phone: string; email?: string | null; address?: string | null; category?: string | null; note?: string | null };
@@ -38,8 +38,10 @@ export function ContactRequestForm({ formId, initialValues, submitAction = creat
     const form = event.currentTarget;
     const formData = new FormData(form);
     const name = String(formData.get("name") ?? "").trim();
-    const phone = String(formData.get("phone") ?? "").trim();
-    const email = String(formData.get("email") ?? "").trim();
+    const phone = normalizeContactPhone(String(formData.get("phone") ?? ""));
+    const email = normalizeContactEmail(String(formData.get("email") ?? ""));
+    formData.set("phone", phone);
+    formData.set("email", email);
     const category = String(formData.get("category") ?? "").trim();
     const nextErrors: Record<string, string> = {};
     if (name.length < 2) nextErrors.name = "กรุณาระบุชื่อผู้ติดต่ออย่างน้อย 2 ตัวอักษร";
@@ -89,7 +91,7 @@ export function ContactRequestForm({ formId, initialValues, submitAction = creat
       <Input name="role" label="ตำแหน่ง/บทบาท" defaultValue={initialValues?.role ?? ""} />
     </div>
     <Select name="category" label="หมวดหมู่" required placeholder="เลือกหมวดหมู่" options={categoryOptions} defaultValue={initialValues?.category ?? ""} error={errors.category} onChange={() => setErrors((current) => ({ ...current, category: "" }))} />
-    <Input name="email" type="email" label="อีเมล" autoComplete="email" defaultValue={initialValues?.email ?? ""} error={errors.email} onChange={() => setErrors((current) => ({ ...current, email: "" }))} />
+    <Input name="email" type="email" label="อีเมล" autoComplete="email" maxLength={CONTACT_EMAIL_MAX_LENGTH} defaultValue={initialValues?.email ?? ""} error={errors.email} onChange={() => setErrors((current) => ({ ...current, email: "" }))} />
     <Input name="address" label="ที่อยู่/รายละเอียดสถานที่" defaultValue={initialValues?.address ?? ""} />
     <Textarea name="note" label="หมายเหตุเพิ่มเติม" rows={4} defaultValue={initialValues?.note ?? ""} />
   </form>;

@@ -5,6 +5,8 @@ import {
   canReleaseOpeningRequestEmail,
   canTransitionAccountEmail,
   decideAccountEmailReservation,
+  EMAIL_MAX_LENGTH,
+  isValidEmailAddress,
   maskEmail,
   normalizeAccountEmail,
 } from "../src/lib/account-email.ts";
@@ -22,6 +24,14 @@ test("account email normalization preserves plus aliases and dots", () => {
 
 test("account email normalization handles Unicode without provider-specific rewriting", () => {
   assert.equal(normalizeAccountEmail("  ÜSER@例え.テスト  "), "üser@例え.テスト");
+});
+
+test("shared email validation enforces format and the 320-character boundary", () => {
+  assert.equal(EMAIL_MAX_LENGTH, 320);
+  assert.equal(isValidEmailAddress(" Resident@Example.COM "), true);
+  assert.equal(isValidEmailAddress("missing-at.example.com"), false);
+  assert.equal(isValidEmailAddress(`a@${"b".repeat(316)}.c`), true);
+  assert.equal(isValidEmailAddress(`a@${"b".repeat(317)}.c`), false);
 });
 
 test("only terminal non-approved opening requests may release their email", () => {

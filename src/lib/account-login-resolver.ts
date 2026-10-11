@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { normalizeAccountEmail } from "@/lib/account-email";
+import { isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email";
 import { headmanLoginEligibility, residentLoginEligibility, uniqueLoginUserId } from "@/lib/account-login-policy";
 import { getConfiguredVillage } from "@/lib/configured-village";
 import { prisma } from "@/lib/prisma";
@@ -37,7 +37,7 @@ export async function resolveLoginEmail(
   options: { db?: ResolverDb; configuredVillageId?: string } = {},
 ): Promise<AccountLoginResolution> {
   const normalizedEmail = normalizeAccountEmail(email);
-  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) return { kind: "NOT_FOUND" };
+  if (!isValidEmailAddress(normalizedEmail)) return { kind: "NOT_FOUND" };
   const db = options.db ?? prisma;
   const configuredVillageId = options.configuredVillageId ?? (await getConfiguredVillage()).id;
   const [alias, canonicalUsers] = await Promise.all([

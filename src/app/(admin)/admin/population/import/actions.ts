@@ -11,7 +11,8 @@ import {
 import { revalidatePath } from "next/cache";
 import { SSF, read, utils } from "xlsx";
 import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
-import { isValidPersonName, normalizePersonGender, normalizePersonName } from "@/lib/person-validation";
+import { isValidOptionalThaiPhone, isValidPersonName, normalizePersonGender, normalizePersonName, normalizeThaiPhoneInput } from "@/lib/person-validation";
+import { isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email-normalization.js";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
@@ -179,10 +180,6 @@ function toTrimmedString(value: unknown): string | null {
   return String(value).trim() || null;
 }
 
-function normalizePhoneNumber(raw: string): string {
-  return raw.replace(/[\s()-]/g, "");
-}
-
 function parseNumericValue(value: unknown, fieldName: string): number | null {
   const normalized = toTrimmedString(value);
   if (!normalized) {
@@ -335,9 +332,9 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
   if (lastName && !isValidPersonName(lastName)) throw new Error("นามสกุลใช้ได้เฉพาะตัวอักษร เว้นวรรค เครื่องหมาย - ' และ .");
 
   const phoneNumberRaw = toTrimmedString(row.phone_number);
-  const phoneNumber = phoneNumberRaw ? normalizePhoneNumber(phoneNumberRaw) : null;
-  if (phoneNumber && !/^\+?\d{9,15}$/.test(phoneNumber)) {
-    throw new Error("เบอร์โทรศัพท์ไม่ถูกต้อง");
+  const phoneNumber = phoneNumberRaw ? normalizeThaiPhoneInput(phoneNumberRaw) : null;
+  if (phoneNumber && !isValidOptionalThaiPhone(phoneNumber)) {
+    throw new Error("เบอร์โทรศัพท์ต้องเป็นหมายเลขไทย 10 หลัก");
   }
 
   const rawNationalId = toTrimmedString(row.national_id);
@@ -360,8 +357,9 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
   const gender = normalizePersonGender(toTrimmedString(row.gender));
   if (!gender) throw new Error("ข้อมูลเพศไม่ถูกต้อง");
 
-  const email = toTrimmedString(row.email);
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  const rawEmail = toTrimmedString(row.email);
+  const email = rawEmail ? normalizeAccountEmail(rawEmail) : null;
+  if (email && !isValidEmailAddress(email)) {
     throw new Error("อีเมลไม่ถูกต้อง");
   }
 

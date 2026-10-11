@@ -1,5 +1,6 @@
 import type { HouseAccountOpeningRequestStatus } from "@prisma/client";
-import { normalizeAccountEmail } from "./account-email-normalization.js";
+import { isValidEmailAddress, normalizeAccountEmail } from "./account-email-normalization.js";
+import { isValidPersonName, normalizePersonName, normalizeThaiPhoneInput, PERSON_NAME_MAX_LENGTH } from "./person-validation.ts";
 
 export const LIVE_HOUSE_OPENING_STATUSES = [
   "PENDING_EMAIL_VERIFICATION",
@@ -28,22 +29,16 @@ export type HouseAccountOpeningValidationError =
   | "HOUSE_REQUIRED"
   | "FIRST_NAME_REQUIRED"
   | "FIRST_NAME_TOO_LONG"
+  | "FIRST_NAME_INVALID"
   | "LAST_NAME_REQUIRED"
   | "LAST_NAME_TOO_LONG"
+  | "LAST_NAME_INVALID"
   | "CONTACT_PHONE_INVALID"
   | "EMAIL_INVALID"
   | "PRIVACY_CONSENT_REQUIRED";
 
-function normalizeName(value: string): string {
-  return value.trim().replace(/\s+/g, " ");
-}
-
 export function normalizeContactPhone(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  const localDigits = digits.startsWith("66") && digits.length === 11
-    ? `0${digits.slice(2)}`
-    : digits;
-  return localDigits.slice(0, 10);
+  return normalizeThaiPhoneInput(value);
 }
 
 export function validateHouseAccountOpeningInput(
@@ -53,19 +48,21 @@ export function validateHouseAccountOpeningInput(
   | { success: false; errors: HouseAccountOpeningValidationError[] } {
   const errors: HouseAccountOpeningValidationError[] = [];
   const houseId = input.houseId.trim();
-  const applicantFirstName = normalizeName(input.applicantFirstName);
-  const applicantLastName = normalizeName(input.applicantLastName);
+  const applicantFirstName = normalizePersonName(input.applicantFirstName);
+  const applicantLastName = normalizePersonName(input.applicantLastName);
   const contactPhone = normalizeContactPhone(input.contactPhone);
   const email = input.email.trim();
   const normalizedEmail = normalizeAccountEmail(email);
 
   if (!houseId) errors.push("HOUSE_REQUIRED");
   if (!applicantFirstName) errors.push("FIRST_NAME_REQUIRED");
-  else if (applicantFirstName.length > 100) errors.push("FIRST_NAME_TOO_LONG");
+  else if (applicantFirstName.length > PERSON_NAME_MAX_LENGTH) errors.push("FIRST_NAME_TOO_LONG");
+  else if (!isValidPersonName(applicantFirstName)) errors.push("FIRST_NAME_INVALID");
   if (!applicantLastName) errors.push("LAST_NAME_REQUIRED");
-  else if (applicantLastName.length > 100) errors.push("LAST_NAME_TOO_LONG");
-  if (!/^\d{9,10}$/.test(contactPhone)) errors.push("CONTACT_PHONE_INVALID");
-  if (!/^\S+@\S+\.\S+$/.test(normalizedEmail) || normalizedEmail.length > 320) {
+  else if (applicantLastName.length > PERSON_NAME_MAX_LENGTH) errors.push("LAST_NAME_TOO_LONG");
+  else if (!isValidPersonName(applicantLastName)) errors.push("LAST_NAME_INVALID");
+  if (!/^\d{10}$/.test(contactPhone)) errors.push("CONTACT_PHONE_INVALID");
+  if (!isValidEmailAddress(normalizedEmail)) {
     errors.push("EMAIL_INVALID");
   }
   if (!input.privacyConsent) errors.push("PRIVACY_CONSENT_REQUIRED");

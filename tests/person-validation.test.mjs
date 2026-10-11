@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isValidPersonName,
+  isValidOptionalThaiPhone,
   normalizePersonGender,
   normalizePersonName,
   PERSON_GENDER_VALUES,
+  normalizeThaiPhoneInput,
   validateOptionalPersonDate,
 } from "../src/lib/person-validation.ts";
 
@@ -19,6 +21,18 @@ test("person names reject digits, arbitrary punctuation, and emoji", () => {
     assert.equal(isValidPersonName(value), false, value);
   }
   assert.equal(normalizePersonName("  Anne   Marie  "), "Anne Marie");
+});
+
+test("Thai phone normalization accepts local and +66 forms without truncating invalid input", () => {
+  assert.equal(normalizeThaiPhoneInput("081-234-5678"), "0812345678");
+  assert.equal(normalizeThaiPhoneInput("+66 81 234 5678"), "0812345678");
+  assert.equal(normalizeThaiPhoneInput("๐๘๑๒๓๔๕๖๗๘"), "0812345678");
+  assert.equal(normalizeThaiPhoneInput("08123456789"), "08123456789");
+  assert.equal(normalizeThaiPhoneInput("phone0812345678"), "phone0812345678");
+  assert.equal(isValidOptionalThaiPhone(""), true);
+  assert.equal(isValidOptionalThaiPhone("+66812345678"), true);
+  assert.equal(isValidOptionalThaiPhone("08123456789"), false);
+  assert.equal(isValidOptionalThaiPhone("phone0812345678"), false);
 });
 
 test("gender has a canonical whitelist and compatible legacy aliases", () => {

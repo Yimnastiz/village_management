@@ -3,7 +3,7 @@
 import { randomUUID } from "crypto";
 import { AuditAction, ContactRequestType, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { revalidatePath } from "next/cache";
-import { isContactCategory, validateContactEmail, validateContactPhone } from "@/lib/contact";
+import { isContactCategory, normalizeContactEmail, normalizeContactPhone, validateContactEmail, validateContactPhone } from "@/lib/contact";
 import { prisma } from "@/lib/prisma";
 import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
@@ -141,7 +141,8 @@ type ContactSnapshot = Omit<ContactRequestValues, "note">;
 
 function readContactRequestValues(formData: FormData): ContactRequestValues {
   const optional = (key: string) => readText(formData, key) || null;
-  return { name: readText(formData, "name"), role: optional("role"), phone: readText(formData, "phone"), email: optional("email"), address: optional("address"), category: optional("category"), note: optional("note") };
+  const email = optional("email");
+  return { name: readText(formData, "name"), role: optional("role"), phone: normalizeContactPhone(readText(formData, "phone")), email: email ? normalizeContactEmail(email) : null, address: optional("address"), category: optional("category"), note: optional("note") };
 }
 
 function validateContactRequestValues(value: ContactRequestValues, allowedLegacyCategory?: string | null): Exclude<ContactRequestResult, { success: true }> | null {

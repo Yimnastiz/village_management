@@ -12,8 +12,11 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
   CONTACT_CATEGORY_OPTIONS,
+  CONTACT_EMAIL_MAX_LENGTH,
   CONTACT_PHONE_MAX_LENGTH,
+  normalizeContactEmail,
   normalizeContactPhone,
+  validateContactEmail,
   validateContactPhone,
 } from "@/lib/contact";
 import { createContactAction, updateContactAction } from "./actions";
@@ -22,7 +25,7 @@ const schema = z.object({
   name: z.string().trim().min(2, "กรุณาระบุชื่อผู้ติดต่อ"),
   role: z.string().optional(),
   phone: z.string().refine((value) => !value || !validateContactPhone(value, false), "เบอร์โทรต้องเป็นตัวเลข 3–10 หลัก"),
-  email: z.string().optional(),
+  email: z.string().refine((value) => !validateContactEmail(value), "รูปแบบอีเมลไม่ถูกต้อง").optional(),
   address: z.string().optional(),
   category: z.string().trim().min(1, "กรุณาเลือกหมวดหมู่"),
   isPublic: z.boolean(),
@@ -79,7 +82,7 @@ export function ContactForm({ mode, editScope = "full", contactId, defaultValues
 
   const onSubmit = async (data: FormData) => {
     try {
-      const payload = { ...data, phone: data.phone ? normalizeContactPhone(data.phone) : "", isPublic: data.isPublic ? "PUBLIC" as const : "RESIDENT" as const };
+      const payload = { ...data, phone: data.phone ? normalizeContactPhone(data.phone) : "", email: normalizeContactEmail(data.email ?? ""), isPublic: data.isPublic ? "PUBLIC" as const : "RESIDENT" as const };
       if (mode === "create") {
         const result = await createContactAction(payload);
         if (!result.success) {
@@ -130,7 +133,7 @@ export function ContactForm({ mode, editScope = "full", contactId, defaultValues
         {!compact ? <h2 className="text-sm font-semibold text-gray-900">ช่องทางติดต่อ</h2> : null}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="เบอร์โทร" inputMode="numeric" maxLength={CONTACT_PHONE_MAX_LENGTH} {...register("phone", { onChange: (event) => setValue("phone", normalizeContactPhone(event.target.value), { shouldDirty: true, shouldValidate: true }) })} error={errors.phone?.message} />
-          <Input label="อีเมล" type="email" {...register("email")} error={errors.email?.message} />
+          <Input label="อีเมล" type="email" maxLength={CONTACT_EMAIL_MAX_LENGTH} {...register("email")} error={errors.email?.message} />
         </div>
         <Textarea label="ที่อยู่" {...register("address")} error={errors.address?.message} rows={compact ? 2 : 3} />
       </section></>}

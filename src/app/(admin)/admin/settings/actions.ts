@@ -4,7 +4,7 @@ import { AuditAction, MembershipStatus, NotificationType, VillageMembershipRole 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { computeLandingPath, getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
-import { normalizeAccountEmail } from "@/lib/account-email";
+import { isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email";
 import { lockAccountEmailNamespace } from "@/lib/account-email-service";
 import { isSafeImageSource } from "@/lib/image-input";
 import { prisma } from "@/lib/prisma";
@@ -12,6 +12,7 @@ import { isAccessMembershipStatus } from "@/lib/settings-access";
 import { writeVillagePolicyAuditLog } from "@/lib/audit-log";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { requireVillagePermission } from "@/lib/village-permissions";
+import { normalizeVillagePhone, validateVillagePhone } from "@/lib/contact";
 
 async function requireAdminVillageContext() {
   const session = await getSessionContextFromServerCookies();
@@ -45,10 +46,13 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
   const name = cleanString(formData, "name");
   if (!name) return { success: false, error: "กรุณาระบุชื่อหมู่บ้าน" };
   if (name.length > 160) return { success: false, error: "ชื่อหมู่บ้านยาวเกินกำหนด" };
-  const phone = cleanString(formData, "phone");
-  if (phone && phone.length > 50) return { success: false, error: "หมายเลขโทรศัพท์ยาวเกินกำหนด" };
-  const email = cleanString(formData, "email");
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
+  const rawPhone = cleanString(formData, "phone");
+  const phone = rawPhone ? normalizeVillagePhone(rawPhone) : null;
+  const phoneError = validateVillagePhone(phone ?? "");
+  if (phoneError) return { success: false, error: phoneError };
+  const rawEmail = cleanString(formData, "email");
+  const email = rawEmail ? normalizeAccountEmail(rawEmail) : null;
+  if (email && !isValidEmailAddress(email)) return { success: false, error: "รูปแบบอีเมลไม่ถูกต้อง" };
   const website = cleanString(formData, "website");
   if (website) {
     try {
@@ -80,7 +84,7 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
 export async function updatePersonalSettingsAction(data: { email: string; image: string | null }): Promise<{ success: true } | { success: false; error: string }> {
   const { session, membership, villageId } = await requireAdminVillageContext();
   const email = normalizeAccountEmail(data.email);
-  if (!email || !/^\S+@\S+\.\S+$/.test(email) || email.length > 320) return { success: false, error: "กรุณาระบุอีเมลเข้าสู่ระบบให้ถูกต้อง" };
+  if (!isValidEmailAddress(email)) return { success: false, error: "กรุณาระบุอีเมลเข้าสู่ระบบให้ถูกต้อง" };
   if (data.image && !isSafeImageSource(data.image)) {
     return { success: false, error: "รูปโปรไฟล์ไม่ถูกต้อง" };
   }
