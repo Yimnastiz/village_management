@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { HOUSE_ADDRESS_MAX_LENGTH } from "@/lib/house-validation";
 
 type Result =
   | {
@@ -177,7 +178,7 @@ export function HouseForm({
           label="ที่อยู่เพิ่มเติม"
           placeholder="ซอย จุดสังเกต หรือรายละเอียดที่ช่วยระบุตำแหน่งบ้าน"
           defaultValue={defaults?.address}
-          maxLength={300}
+          maxLength={HOUSE_ADDRESS_MAX_LENGTH}
           error={fieldErrors.address}
           className="h-10"
         />

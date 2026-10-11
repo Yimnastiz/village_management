@@ -7,6 +7,7 @@ import {
   Prisma,
 } from "@prisma/client";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
+import { normalizeHouseAddress, validateHouseAddress } from "@/lib/house-validation";
 import {
   normalizeNewNationalId,
   resolveUpdatedNationalId,
@@ -47,7 +48,11 @@ export class PopulationBatchValidationError extends Error {
   constructor(public readonly errors: VillageHouseBatchError[]) { super("ข้อมูลบ้านไม่ถูกต้อง"); }
 }
 
-export class PopulationValidationError extends Error {}
+export class PopulationValidationError extends Error {
+  constructor(message: string, public readonly field?: "houseNumber" | "address") {
+    super(message);
+  }
+}
 
 function normalizedActionReason(action: SensitiveAction, input: unknown) {
   try {
@@ -122,6 +127,9 @@ export async function createVillageHouse(
   }
 
   const occupancyStatus = HouseholdOccupancyStatus.OCCUPIED;
+  const address = normalizeHouseAddress(input.address);
+  const addressError = validateHouseAddress(address);
+  if (addressError) throw new PopulationValidationError(addressError, "address");
   const sourceNote = input.sourceNote?.trim() || null;
   const supportReason = options?.supportReason?.trim() || null;
 
@@ -132,7 +140,7 @@ export async function createVillageHouse(
           villageId,
           houseNumber,
           normalizedHouseNumber,
-          address: input.address?.trim() || null,
+          address,
           occupancyStatus,
           sourceType: HouseSourceType.ADMIN_CREATED,
           sourceNote,
@@ -209,10 +217,7 @@ export async function createVillageHouses(
         ? input.houseNumber.trim()
         : "";
 
-    const address =
-      typeof input?.address === "string"
-        ? input.address.trim()
-        : "";
+    const address = normalizeHouseAddress(input?.address);
 
     const normalizedHouseNumber =
       normalizeHouseNumber(houseNumber);
@@ -234,12 +239,12 @@ export async function createVillageHouses(
       });
     }
 
-    if (address.length > 300) {
+    const addressError = validateHouseAddress(address);
+    if (addressError) {
       errors.push({
         index,
         field: "address",
-        message:
-          "ที่อยู่เพิ่มเติมต้องไม่เกิน 300 ตัวอักษร",
+        message: addressError,
       });
     }
 
@@ -328,7 +333,7 @@ export async function createVillageHouses(
               houseNumber: value.houseNumber,
               normalizedHouseNumber:
                 value.normalizedHouseNumber,
-              address: value.address || null,
+              address: value.address,
               occupancyStatus:
                 HouseholdOccupancyStatus.OCCUPIED,
               sourceType: HouseSourceType.ADMIN_CREATED,
@@ -419,6 +424,10 @@ export async function updateVillageHouse(
   const sourceNote =
     input.sourceNote?.trim() || null;
 
+  const address = normalizeHouseAddress(input.address);
+  const addressError = validateHouseAddress(address);
+  if (addressError) throw new PopulationValidationError(addressError, "address");
+
   const supportReason =
     options?.supportReason?.trim() || null;
 
@@ -451,7 +460,7 @@ export async function updateVillageHouse(
         data: {
           houseNumber,
           normalizedHouseNumber,
-          address: input.address?.trim() || null,
+          address,
 
           // Only update sourceNote when explicitly supplied.
           // Support Reason is NOT stored here.
@@ -487,8 +496,7 @@ export async function updateVillageHouse(
             },
             newValue: {
               houseNumber,
-              address:
-                input.address?.trim() || null,
+              address,
               sourceNote:
                 input.sourceNote !== undefined
                   ? sourceNote

@@ -28,7 +28,7 @@ export async function createHouseAction(formData: FormData): Promise<HouseAction
     return { success: true, id: house.id, message: "เพิ่มบ้านเรียบร้อยแล้ว" };
   } catch (error) {
     if (error instanceof PopulationValidationError) {
-      return { success: false, error: error.message, field: "houseNumber" };
+      return { success: false, error: error.message, field: error.field ?? "houseNumber" };
     }
     console.error("[population] create house failed", { errorName: error instanceof Error ? error.name : "UnknownError" });
     return { success: false, error: "ไม่สามารถเพิ่มบ้านได้ กรุณาลองใหม่อีกครั้ง" };

@@ -9,6 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
+import { HOUSE_ADDRESS_MAX_LENGTH } from "@/lib/house-validation";
 
 const MAX_BATCH_SIZE = 50;
 type DraftHouse = { id: string; houseNumber: string; address: string };
@@ -101,7 +102,7 @@ export function HouseBatchCreateDialog({ compact = false, createAction = createH
       <div className="space-y-5">
         <form className="grid gap-3 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_auto] md:items-end" onSubmit={addDraft}>
           <Input ref={houseNumberRef} id={`${dialogId}-number`} label="บ้านเลขที่" required maxLength={50} placeholder="เช่น 99/1" value={draft.houseNumber} onChange={(event) => { setDraft((current) => ({ ...current, houseNumber: event.target.value })); setDraftError(undefined); }} error={draftError} disabled={pending} />
-          <Input id={`${dialogId}-address`} label="ที่อยู่เพิ่มเติม" maxLength={300} placeholder="ซอย จุดสังเกต หรือรายละเอียดที่ช่วยระบุตำแหน่งบ้าน" value={draft.address} onChange={(event) => setDraft((current) => ({ ...current, address: event.target.value }))} disabled={pending} />
+          <Input id={`${dialogId}-address`} label="ที่อยู่เพิ่มเติม" maxLength={HOUSE_ADDRESS_MAX_LENGTH} placeholder="ซอย จุดสังเกต หรือรายละเอียดที่ช่วยระบุตำแหน่งบ้าน" value={draft.address} onChange={(event) => setDraft((current) => ({ ...current, address: event.target.value }))} disabled={pending} />
           <Button type="submit" className="min-h-11 w-full md:w-auto" disabled={pending || items.length >= MAX_BATCH_SIZE}>เพิ่ม</Button>
         </form>
         {items.length >= MAX_BATCH_SIZE ? <p className="text-sm text-gray-500">เพิ่มได้สูงสุด 50 หลังต่อครั้ง</p> : null}

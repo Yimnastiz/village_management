@@ -13,6 +13,7 @@ import { SSF, read, utils } from "xlsx";
 import { isValidStrictThaiNationalId, normalizeNationalId } from "@/lib/thai-identity";
 import { isValidOptionalThaiPhone, isValidPersonName, normalizePersonGender, normalizePersonName, normalizeThaiPhoneInput } from "@/lib/person-validation";
 import { isValidEmailAddress, normalizeAccountEmail } from "@/lib/account-email-normalization.js";
+import { normalizeHouseAddress, parseOptionalHouseCoordinate, validateHouseAddress, validateHouseCoordinates } from "@/lib/house-validation";
 import { prisma } from "@/lib/prisma";
 import { isValidHouseNumber, normalizeHouseNumber } from "@/lib/house-number";
 import { maskNationalId } from "@/lib/utils";
@@ -178,20 +179,6 @@ function toTrimmedString(value: unknown): string | null {
   }
 
   return String(value).trim() || null;
-}
-
-function parseNumericValue(value: unknown, fieldName: string): number | null {
-  const normalized = toTrimmedString(value);
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed)) {
-    throw new Error(`${fieldName} ต้องเป็นตัวเลข`);
-  }
-
-  return parsed;
 }
 
 function parseSpreadsheetDate(value: unknown): Date | null {
@@ -363,6 +350,15 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     throw new Error("อีเมลไม่ถูกต้อง");
   }
 
+  const houseAddress = normalizeHouseAddress(toTrimmedString(row.house_address));
+  const addressError = validateHouseAddress(houseAddress);
+  if (addressError) throw new Error(addressError);
+
+  const latitude = parseOptionalHouseCoordinate(row.latitude, "ละติจูด");
+  const longitude = parseOptionalHouseCoordinate(row.longitude, "ลองจิจูด");
+  const coordinateError = validateHouseCoordinates(latitude, longitude);
+  if (coordinateError) throw new Error(coordinateError);
+
   return {
     houseNumber,
     firstName,
@@ -373,14 +369,14 @@ function parseImportRow(row: Partial<Record<CanonicalColumnKey, unknown>>): Norm
     dateOfBirth,
     gender,
     email,
-    houseAddress: toTrimmedString(row.house_address),
+    houseAddress,
     zoneName: toTrimmedString(row.zone_name),
     occupancyStatus: parseHouseholdOccupancyStatus(row.occupancy_status),
     personStatus: parsePersonStatus(row.person_status),
     movementType: parseMovementType(row.movement_type),
     movementDate,
-    latitude: parseNumericValue(row.latitude, "latitude"),
-    longitude: parseNumericValue(row.longitude, "longitude"),
+    latitude,
+    longitude,
     note: toTrimmedString(row.note),
   };
 }
