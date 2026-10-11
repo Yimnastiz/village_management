@@ -15,12 +15,13 @@ import { IssueImageManager } from "@/components/issues/issue-image-manager";
 import type { IssueImageInput } from "@/lib/issue-images";
 import { ISSUE_CATEGORY_LABELS, ISSUE_PRIORITY_LABELS } from "@/lib/constants";
 import { createIssueAction } from "../actions";
+import { issueCategorySchema, issueDescriptionSchema, issuePrioritySchema, issueTitleSchema } from "@/lib/issue-appointment-validation";
 
 const schema = z.object({
-  title: z.string().min(5, "กรุณาระบุหัวข้อ (อย่างน้อย 5 ตัวอักษร)"),
-  category: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
-  priority: z.string().min(1, "กรุณาเลือกระดับความสำคัญ"),
-  description: z.string().min(10, "กรุณาอธิบายรายละเอียด (อย่างน้อย 10 ตัวอักษร)"),
+  title: issueTitleSchema,
+  category: issueCategorySchema,
+  priority: issuePrioritySchema,
+  description: issueDescriptionSchema,
   location: z.string().optional(),
   isPublic: z.boolean().optional(),
 });

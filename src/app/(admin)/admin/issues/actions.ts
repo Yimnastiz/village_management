@@ -1,8 +1,6 @@
 ﻿"use server";
 
 import {
-  IssueCategory,
-  IssuePriority,
   IssueStage,
   NotificationType,
   AuditAction,
@@ -19,12 +17,13 @@ import { writeVillageAuditLog } from "@/lib/audit-log";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
+import { issueCategorySchema, issueDescriptionSchema, issuePrioritySchema, issueTitleSchema } from "@/lib/issue-appointment-validation";
 
 const issueInputSchema = z.object({
-  title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
-  description: z.string().min(10, "รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร"),
-  category: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
-  priority: z.string().min(1, "กรุณาเลือกระดับความสำคัญ"),
+  title: issueTitleSchema,
+  description: issueDescriptionSchema,
+  category: issueCategorySchema,
+  priority: issuePrioritySchema,
   location: z.string().optional(),
 });
 
@@ -119,8 +118,8 @@ export async function adminCreateIssueAction(
       reporterId: ctx.session!.id,
       title: parsed.data.title,
       description: parsed.data.description,
-      category: parsed.data.category as IssueCategory,
-      priority: parsed.data.priority as IssuePriority,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
       location: parsed.data.location?.trim() || null,
       stage: "WAITING",
     } });
@@ -166,8 +165,8 @@ export async function adminEditIssueAction(
     await tx.issue.update({ where: { id: issueId }, data: {
       title: parsed.data.title,
       description: parsed.data.description,
-      category: parsed.data.category as IssueCategory,
-      priority: parsed.data.priority as IssuePriority,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
       location: parsed.data.location?.trim() || null,
     } });
     await tx.issueTimeline.create({ data: {

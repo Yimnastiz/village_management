@@ -1,6 +1,6 @@
 ﻿"use server";
 
-import { AuditAction, IssueCategory, IssuePriority, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
+import { AuditAction, NotificationType, Prisma, VillageMembershipRole } from "@prisma/client";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
@@ -14,10 +14,11 @@ import { ISSUE_PRIORITY_LABELS } from "@/lib/issues/priority";
 import { writeVillageAuditLog } from "@/lib/audit-log";
 import { notificationMetadata } from "@/lib/notification-copy";
 import { getResidentActorDisplayByUserId } from "@/lib/resident-actor-display";
+import { issueCategorySchema, issueDescriptionSchema, issuePrioritySchema, issueTitleSchema } from "@/lib/issue-appointment-validation";
 
 const issueInputSchema = z.object({
-  title: z.string().min(5, "หัวข้อต้องมีอย่างน้อย 5 ตัวอักษร"),
-  description: z.string().min(10, "รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร"),
+  title: issueTitleSchema,
+  description: issueDescriptionSchema,
   imageUrls: z.array(z.object({
     url: z.string().min(1, "รูปภาพไม่ถูกต้อง"),
     fileKey: z.string().optional(),
@@ -26,8 +27,8 @@ const issueInputSchema = z.object({
     sizeBytes: z.number().int().positive().max(5 * 1024 * 1024).optional(),
   }).strict()).max(MAX_IMAGES_PER_REQUEST).optional(),
   isPublic: z.boolean().optional(),
-  category: z.string().min(1, "กรุณาเลือกหมวดหมู่"),
-  priority: z.string().min(1, "กรุณาเลือกระดับความสำคัญ"),
+  category: issueCategorySchema,
+  priority: issuePrioritySchema,
   location: z.string().optional(),
 });
 
@@ -123,8 +124,8 @@ export async function createIssueAction(
       description: parsed.data.description,
       imageUrls,
       isPublic: Boolean(parsed.data.isPublic),
-      category: parsed.data.category as IssueCategory,
-      priority: parsed.data.priority as IssuePriority,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
       location: parsed.data.location?.trim() || null,
       stage: "WAITING",
     } });
@@ -233,8 +234,8 @@ export async function editIssueAction(
       description: parsed.data.description,
       imageUrls,
       isPublic: Boolean(parsed.data.isPublic),
-      category: parsed.data.category as IssueCategory,
-      priority: parsed.data.priority as IssuePriority,
+      category: parsed.data.category,
+      priority: parsed.data.priority,
       location: parsed.data.location?.trim() || null,
     } });
     await tx.issueTimeline.create({ data: {
