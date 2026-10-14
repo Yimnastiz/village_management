@@ -123,6 +123,7 @@ export async function searchConfiguredVillageHouses(query: string): Promise<Arra
   const houses = await prisma.house.findMany({
     where: {
       villageId: village.id,
+      residentHouseAccount: { is: null },
       normalizedHouseNumber: normalizedQuery.length === 1
         ? { equals: normalizedQuery }
         : { startsWith: normalizedQuery },

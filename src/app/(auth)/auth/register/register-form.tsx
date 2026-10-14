@@ -61,6 +61,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
   const otpRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -112,7 +113,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   }, []);
 
   useEffect(() => {
-    if (step === "OTP") otpRef.current?.focus();
+    if (step === "OTP") otpRefs.current[0]?.focus();
     if (step === "SUCCESS") headingRef.current?.focus();
   }, [step]);
 
@@ -159,6 +160,41 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   const resendSeconds = otpState
     ? Math.max(0, Math.ceil((new Date(otpState.resendAvailableAt).getTime() - clock) / 1_000))
     : 0;
+
+  function updateOtpCode(nextCode: string) {
+    setOtpCode(nextCode.replace(/\D/g, "").slice(0, 6));
+  }
+
+  function handleOtpChange(index: number, value: string) {
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const digits = otpCode.split("");
+    digits[index] = digit;
+    setOtpCode(digits.join("").slice(0, 6));
+    if (digit && index < 5) otpRefs.current[index + 1]?.focus();
+  }
+
+  function handleOtpKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Backspace" && !otpCode[index] && index > 0) {
+      event.preventDefault();
+      const digits = otpCode.split("");
+      digits[index - 1] = "";
+      setOtpCode(digits.join(""));
+      otpRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowLeft" && index > 0) {
+      event.preventDefault();
+      otpRefs.current[index - 1]?.focus();
+    } else if (event.key === "ArrowRight" && index < 5) {
+      event.preventDefault();
+      otpRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handleOtpPaste(event: React.ClipboardEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const pasted = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    updateOtpCode(pasted);
+    otpRefs.current[Math.min(pasted.length, 5)]?.focus();
+  }
 
   async function startRequest(event: React.FormEvent) {
     event.preventDefault();
@@ -235,7 +271,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
     } catch (verifyError) {
       setError(verifyError instanceof Error ? verifyError.message : "ยืนยันอีเมลไม่สำเร็จ");
       setOtpCode("");
-      otpRef.current?.focus();
+      otpRefs.current[0]?.focus();
     } finally {
       setPending(false);
     }
@@ -257,7 +293,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       setOtpState((current) => current ? { ...current, ...data } : data);
       setClock(Date.now());
       setOtpCode("");
-      otpRef.current?.focus();
+      otpRefs.current[0]?.focus();
     } catch (resendError) {
       setError(resendError instanceof Error ? resendError.message : "ส่งรหัสยืนยันอีกครั้งไม่สำเร็จ");
     } finally {
@@ -295,6 +331,26 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   }
 
   const cardClass = "mx-auto w-full max-w-2xl rounded-2xl border border-white/90 bg-white/95 p-4 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8";
+
+  if (step === "OTP" && otpState) {
+    return <div className={cardClass}>
+      <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
+      <p className="mt-2 break-all text-sm leading-6 text-gray-600" aria-live="polite">เราส่งรหัส 6 หลักไปยัง <strong>{otpState.maskedEmail}</strong></p>
+      <p className="mt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
+      <form onSubmit={verifyOtp} className="mt-6 space-y-4">
+        <fieldset disabled={pending}>
+          <legend className="mb-2 block text-sm font-medium text-gray-700">รหัสยืนยัน <span className="text-red-600">*</span></legend>
+          <div className="grid grid-cols-6 gap-2 sm:gap-3" onPaste={handleOtpPaste}>
+            {Array.from({ length: 6 }, (_, index) => <input key={index} ref={(element) => { otpRefs.current[index] = element; }} aria-label={`รหัสยืนยันหลักที่ ${index + 1}`} value={otpCode[index] || ""} onChange={(event) => handleOtpChange(index, event.target.value)} onKeyDown={(event) => handleOtpKeyDown(index, event)} inputMode="numeric" autoComplete={index === 0 ? "one-time-code" : "off"} pattern="[0-9]" maxLength={1} className="h-14 w-full rounded-xl border border-gray-300 bg-white text-center text-2xl font-semibold tracking-wide text-gray-900 shadow-sm outline-none transition placeholder:text-gray-300 focus:border-emerald-600 focus:ring-4 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400" />)}
+          </div>
+        </fieldset>
+        {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
+        <Button type="submit" isLoading={pending} className="w-full">ยืนยันอีเมล</Button>
+      </form>
+      <div className="mt-4 flex flex-col gap-2 text-center text-sm"><button type="button" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</button><button type="button" disabled={pending} onClick={() => void cancelRequest(true)} className="min-h-11 text-gray-600 hover:text-gray-900 disabled:opacity-50">กลับไปแก้ไขข้อมูล</button></div>
+      <button type="button" disabled={pending} onClick={() => void cancelRequest(false)} className="mt-3 w-full cursor-pointer text-sm text-red-700 underline disabled:opacity-50">ยกเลิกคำขอ</button>
+    </div>;
+  }
 
   if (step === "OTP" && otpState) {
     return <div className={cardClass}>
@@ -345,7 +401,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
 
   return <div className={cardClass}>
     <h1 className="text-xl font-bold text-gray-900">ขอเปิดบัญชีบ้าน</h1>
-    <p className="mt-2 text-sm leading-6 text-gray-600">สำหรับบ้านที่ยังไม่มีบัญชี กรุณาเลือกบ้านเลขที่และยืนยันอีเมลเพื่อส่งคำขอให้ผู้ใหญ่บ้านตรวจสอบ</p>
+    <p className="mt-2 text-sm leading-6 text-gray-600">กรุณาเลือกบ้านเลขที่และยืนยันอีเมลเพื่อส่งคำขอให้ผู้ใหญ่บ้านตรวจสอบ</p>
     <section className="mt-5 rounded-xl border border-green-100 bg-green-50 p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-green-700">หมู่บ้าน</p>
       <p className="mt-1 font-semibold text-green-950">{village.name}{village.moo ? ` หมู่ ${village.moo}` : ""}</p>
@@ -366,7 +422,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         <Input id="house-opening-first-name" name="givenName" label="ชื่อผู้ขอ" value={firstName} onChange={(event) => setFirstName(normalizePersonNameInput(event.target.value))} autoComplete="given-name" maxLength={PERSON_NAME_MAX_LENGTH} required />
         <Input id="house-opening-last-name" name="familyName" label="นามสกุลผู้ขอ" value={lastName} onChange={(event) => setLastName(normalizePersonNameInput(event.target.value))} autoComplete="family-name" maxLength={PERSON_NAME_MAX_LENGTH} required />
       </div>
-      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="tel" pattern="(?:[0-9]{10}|\+66[0-9]{9})" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(normalizeThaiPhoneInput(event.target.value))} placeholder="0812345678" helperText="ใช้สำหรับให้ผู้ใหญ่บ้านติดต่อเพิ่มเติม ไม่ใช้เข้าสู่ระบบและไม่มี SMS OTP" maxLength={12} required />
+      <Input id="house-opening-phone" name="contactPhone" label="เบอร์โทรสำหรับติดต่อ" type="tel" inputMode="numeric" pattern="[0-9]{10}" autoComplete="tel" value={contactPhone} onChange={(event) => setContactPhone(normalizeThaiPhoneInput(event.target.value).slice(0, 10))} placeholder="0812345678" maxLength={10} required />
       <Input id="house-opening-email" name="email" label="อีเมลสำหรับเข้าสู่ระบบ" type="email" inputMode="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" maxLength={EMAIL_MAX_LENGTH} required />
       <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
         <input type="checkbox" checked={privacyConsent} onChange={(event) => setPrivacyConsent(event.target.checked)} className="mt-1 h-4 w-4 accent-green-600" required />
