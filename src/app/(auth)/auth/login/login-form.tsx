@@ -31,7 +31,7 @@ function LoginContent() {
     {searchParams.get("openingStatus") === "APPROVED" ? <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">คำขอเปิดบัญชีบ้านได้รับการอนุมัติแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลที่ยืนยันไว้เพื่อเริ่มใช้งานบัญชีบ้าน</div> : null}
     {searchParams.get("deletionPending") === "1" ? <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">บัญชีอยู่ระหว่างระยะผ่อนผันการปิด 7 วัน</div> : null}
     <form onSubmit={submit} className="mt-5 space-y-4"><Input id="login-email" name="email" label="อีเมล" type="email" placeholder="name@example.com" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" maxLength={EMAIL_MAX_LENGTH} required />{error ? <p className="text-sm text-red-600">{error}</p> : null}<Button type="submit" className="w-full" isLoading={isLoading}>ส่งรหัสยืนยัน</Button></form>
-    <div className="mt-6 text-center text-sm text-gray-600">บ้านของคุณยังไม่มีบัญชี?{" "}<Link href={registerHref} className="font-medium text-green-600 hover:underline">ขอเปิดบัญชีบ้าน</Link></div>
+    <div className="mt-6 text-center text-sm text-gray-600">ยังไม่มีบัญชี?{" "}<Link href={registerHref} className="font-medium text-green-600 hover:underline">ขอเปิดบัญชีประจำบ้าน</Link></div>
   </div>;
 }
 export function LoginForm() { return <Suspense fallback={<div>กำลังโหลด...</div>}><LoginContent /></Suspense>; }
