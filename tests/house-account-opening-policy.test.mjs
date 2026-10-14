@@ -66,19 +66,18 @@ test("required applicant, email, house, and consent fields are validated", () =>
   }
 });
 
-test("House opening eligibility rejects wrong Village, active account, and live request", () => {
+test("House opening eligibility rejects wrong Village and active account but allows concurrent requests", () => {
   const base = {
     houseExists: true,
     houseVillageId: "village-1",
     configuredVillageId: "village-1",
     hasResidentHouseAccount: false,
-    hasLiveOpeningRequest: false,
   };
   assert.equal(houseOpeningEligibility(base), "ELIGIBLE");
   assert.equal(houseOpeningEligibility({ ...base, houseExists: false }), "HOUSE_NOT_FOUND");
   assert.equal(houseOpeningEligibility({ ...base, houseVillageId: "village-2" }), "WRONG_VILLAGE");
   assert.equal(houseOpeningEligibility({ ...base, hasResidentHouseAccount: true }), "HOUSE_ALREADY_ACTIVE");
-  assert.equal(houseOpeningEligibility({ ...base, hasLiveOpeningRequest: true }), "HOUSE_REQUEST_ALREADY_PENDING");
+  assert.equal(houseOpeningEligibility({ ...base, hasLiveOpeningRequest: true }), "ELIGIBLE");
 });
 
 test("applicant cancellation is limited to the two live request states", () => {

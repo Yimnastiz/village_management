@@ -86,20 +86,17 @@ export type HouseOpeningEligibility =
   | "ELIGIBLE"
   | "HOUSE_NOT_FOUND"
   | "WRONG_VILLAGE"
-  | "HOUSE_ALREADY_ACTIVE"
-  | "HOUSE_REQUEST_ALREADY_PENDING";
+  | "HOUSE_ALREADY_ACTIVE";
 
 export function houseOpeningEligibility(input: {
   houseExists: boolean;
   houseVillageId: string | null;
   configuredVillageId: string;
   hasResidentHouseAccount: boolean;
-  hasLiveOpeningRequest: boolean;
 }): HouseOpeningEligibility {
   if (!input.houseExists) return "HOUSE_NOT_FOUND";
   if (input.houseVillageId !== input.configuredVillageId) return "WRONG_VILLAGE";
   if (input.hasResidentHouseAccount) return "HOUSE_ALREADY_ACTIVE";
-  if (input.hasLiveOpeningRequest) return "HOUSE_REQUEST_ALREADY_PENDING";
   return "ELIGIBLE";
 }
 

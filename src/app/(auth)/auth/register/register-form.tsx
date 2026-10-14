@@ -38,6 +38,43 @@ type SuccessState = {
   rejectionReason?: string | null;
 };
 
+type RegistrationDraft = {
+  houseQuery: string;
+  selectedHouse: HouseResult | null;
+  firstName: string;
+  lastName: string;
+  contactPhone: string;
+  email: string;
+  privacyConsent: boolean;
+};
+
+const REGISTRATION_DRAFT_KEY = "house-account-opening-registration-draft";
+
+function readRegistrationDraft(): RegistrationDraft | null {
+  try {
+    const value = window.sessionStorage.getItem(REGISTRATION_DRAFT_KEY);
+    return value ? JSON.parse(value) as RegistrationDraft : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeRegistrationDraft(draft: RegistrationDraft) {
+  try {
+    window.sessionStorage.setItem(REGISTRATION_DRAFT_KEY, JSON.stringify(draft));
+  } catch {
+    // The in-memory form state still preserves the draft when storage is unavailable.
+  }
+}
+
+function clearRegistrationDraft() {
+  try {
+    window.sessionStorage.removeItem(REGISTRATION_DRAFT_KEY);
+  } catch {
+    // Ignore unavailable storage.
+  }
+}
+
 async function responseError(response: Response, fallback: string): Promise<string> {
   const body = await response.json().catch(() => null) as { error?: string } | null;
   return body?.error ?? fallback;
@@ -62,10 +99,20 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   const [error, setError] = useState<string | null>(null);
   const [clock, setClock] = useState(Date.now());
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
-  const otpRef = useRef<HTMLInputElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
+    const draft = readRegistrationDraft();
+    if (draft) {
+      setHouseQuery(draft.houseQuery);
+      setSelectedHouse(draft.selectedHouse);
+      setFirstName(draft.firstName);
+      setLastName(draft.lastName);
+      setContactPhone(draft.contactPhone);
+      setEmail(draft.email);
+      setPrivacyConsent(draft.privacyConsent);
+    }
+
     const controller = new AbortController();
     void fetch("/api/auth/house-account-opening/status", {
       credentials: "include",
@@ -221,6 +268,15 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       setError("กรุณายอมรับนโยบายความเป็นส่วนตัวก่อนส่งคำขอ");
       return;
     }
+    writeRegistrationDraft({
+      houseQuery,
+      selectedHouse,
+      firstName,
+      lastName,
+      contactPhone,
+      email,
+      privacyConsent,
+    });
     setPending(true);
     try {
       const response = await fetch("/api/auth/house-account-opening/start", {
@@ -265,6 +321,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       });
       if (!response.ok) throw new Error(await responseError(response, "ยืนยันอีเมลไม่สำเร็จ"));
       const data = await response.json() as SuccessState;
+      clearRegistrationDraft();
       setSuccessState(data);
       setOtpCode("");
       setStep("SUCCESS");
@@ -313,7 +370,19 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       setOtpState(null);
       setSuccessState(null);
       setOtpCode("");
-      if (!preserveForm) {
+      if (preserveForm) {
+        const draft = readRegistrationDraft();
+        if (draft) {
+          setHouseQuery(draft.houseQuery);
+          setSelectedHouse(draft.selectedHouse);
+          setFirstName(draft.firstName);
+          setLastName(draft.lastName);
+          setContactPhone(draft.contactPhone);
+          setEmail(draft.email);
+          setPrivacyConsent(draft.privacyConsent);
+        }
+      } else {
+        clearRegistrationDraft();
         setHouseQuery("");
         setSelectedHouse(null);
         setFirstName("");
@@ -331,11 +400,12 @@ export function RegisterForm({ village }: { village: VillageOption }) {
   }
 
   const cardClass = "mx-auto w-full max-w-2xl rounded-2xl border border-white/90 bg-white/95 p-4 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8";
+  const otpCardClass = "mx-auto w-full max-w-md rounded-2xl border border-white/90 bg-white/95 p-4 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8";
 
   if (step === "OTP" && otpState) {
-    return <div className={cardClass}>
+    return <div className={otpCardClass}>
       <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
-      <p className="mt-2 break-all text-sm leading-6 text-gray-600" aria-live="polite">เราส่งรหัส 6 หลักไปยัง <strong>{otpState.maskedEmail}</strong></p>
+      <p className="mt-2 break-all text-sm leading-6 text-gray-600" aria-live="polite">กรอกรหัสยืนยันที่ส่งไปยังอีเมลของคุณ <strong>{otpState.maskedEmail}</strong></p>
       <p className="mt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
       <form onSubmit={verifyOtp} className="mt-6 space-y-4">
         <fieldset disabled={pending}>
@@ -347,26 +417,8 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
         <Button type="submit" isLoading={pending} className="w-full">ยืนยันอีเมล</Button>
       </form>
-      <div className="mt-4 flex flex-col gap-2 text-center text-sm"><button type="button" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</button><button type="button" disabled={pending} onClick={() => void cancelRequest(true)} className="min-h-11 text-gray-600 hover:text-gray-900 disabled:opacity-50">กลับไปแก้ไขข้อมูล</button></div>
-      <button type="button" disabled={pending} onClick={() => void cancelRequest(false)} className="mt-3 w-full cursor-pointer text-sm text-red-700 underline disabled:opacity-50">ยกเลิกคำขอ</button>
-    </div>;
-  }
-
-  if (step === "OTP" && otpState) {
-    return <div className={cardClass}>
-      <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
-      <p className="mt-2 break-all text-sm leading-6 text-gray-600" aria-live="polite">เราได้ส่งรหัส 6 หลักไปยัง <strong>{otpState.maskedEmail}</strong></p>
-      <p className="mt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
-      <form onSubmit={verifyOtp} className="mt-6 space-y-4">
-        <Input ref={otpRef} id="house-opening-otp" label="รหัสยืนยัน" value={otpCode} onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} className="text-center text-2xl tracking-[0.45em]" required />
-        {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
-        <Button type="submit" isLoading={pending} className="w-full">ยืนยันอีเมล</Button>
-      </form>
-      <div className="mt-4 grid gap-2 sm:grid-cols-2">
-        <Button type="button" variant="outline" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()}>{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</Button>
-        <Button type="button" variant="ghost" disabled={pending} onClick={() => void cancelRequest(true)}>กลับไปแก้ไขข้อมูล</Button>
-      </div>
-      <button type="button" disabled={pending} onClick={() => void cancelRequest(false)} className="mt-4 w-full cursor-pointer text-sm text-red-700 underline disabled:opacity-50">ยกเลิกคำขอ</button>
+      <div className="mt-4 flex items-center justify-between gap-3 text-sm"><button type="button" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</button><button type="button" disabled={pending} onClick={() => void cancelRequest(true)} className="min-h-11 text-gray-600 hover:text-gray-900 disabled:opacity-50">กลับไปแก้ไขข้อมูล</button></div>
+      <button type="button" disabled={pending} onClick={() => void cancelRequest(false)} className="mt-2 w-full cursor-pointer text-center text-sm text-red-700 underline disabled:opacity-50">ยกเลิกคำขอ</button>
     </div>;
   }
 

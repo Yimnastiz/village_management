@@ -168,11 +168,6 @@ export async function startHouseAccountOpening(
           villageId: true,
           houseNumber: true,
           residentHouseAccount: { select: { id: true } },
-          houseAccountOpeningRequests: {
-            where: { status: { in: [...LIVE_HOUSE_OPENING_STATUSES] } },
-            select: { id: true },
-            take: 1,
-          },
         },
       });
       const eligibility = houseOpeningEligibility({
@@ -180,14 +175,11 @@ export async function startHouseAccountOpening(
         houseVillageId: house?.villageId ?? null,
         configuredVillageId: village.id,
         hasResidentHouseAccount: Boolean(house?.residentHouseAccount),
-        hasLiveOpeningRequest: Boolean(house?.houseAccountOpeningRequests.length),
       });
       if (eligibility !== "ELIGIBLE") {
         const code: HouseAccountOpeningErrorCode = eligibility === "HOUSE_ALREADY_ACTIVE"
           ? "HOUSE_ALREADY_ACTIVE"
-          : eligibility === "HOUSE_REQUEST_ALREADY_PENDING"
-            ? "HOUSE_REQUEST_ALREADY_PENDING"
-            : "HOUSE_NOT_FOUND";
+          : "HOUSE_NOT_FOUND";
         throw new HouseAccountOpeningError(code, houseAccountOpeningErrorMessage(code));
       }
 
