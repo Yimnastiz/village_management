@@ -13,6 +13,7 @@ import { writeVillagePolicyAuditLog } from "@/lib/audit-log";
 import { requireActionReason } from "@/lib/sensitive-action-policy";
 import { requireVillagePermission } from "@/lib/village-permissions";
 import { normalizeVillagePhone, validateVillagePhone } from "@/lib/contact";
+import { isValidOptionalThaiPhone, isValidPersonName, normalizePersonName, normalizeThaiPhoneInput, PERSON_NAME_MAX_LENGTH } from "@/lib/person-validation";
 
 async function requireAdminVillageContext() {
   const session = await getSessionContextFromServerCookies();
@@ -81,14 +82,19 @@ export async function updateVillageSettingsAction(formData: FormData): Promise<{
   return { success: true };
 }
 
-export async function updatePersonalSettingsAction(data: { email: string; image: string | null }): Promise<{ success: true } | { success: false; error: string }> {
+export async function updatePersonalSettingsAction(data: { name: string; phone: string | null; email: string; image: string | null }): Promise<{ success: true } | { success: false; error: string }> {
   const { session, membership, villageId } = await requireAdminVillageContext();
+  const name = normalizePersonName(data.name);
+  if (!name) return { success: false, error: "กรุณาระบุชื่อ-นามสกุล" };
+  if (name.length > PERSON_NAME_MAX_LENGTH || !isValidPersonName(name)) return { success: false, error: "ชื่อ-นามสกุลไม่ถูกต้องหรือยาวเกินกำหนด" };
+  const phone = normalizeThaiPhoneInput(data.phone ?? "") || null;
+  if (!isValidOptionalThaiPhone(phone ?? "")) return { success: false, error: "กรุณาระบุเบอร์โทรศัพท์ไทย 10 หลักให้ถูกต้อง" };
   const email = normalizeAccountEmail(data.email);
   if (!isValidEmailAddress(email)) return { success: false, error: "กรุณาระบุอีเมลเข้าสู่ระบบให้ถูกต้อง" };
   if (data.image && !isSafeImageSource(data.image)) {
     return { success: false, error: "รูปโปรไฟล์ไม่ถูกต้อง" };
   }
-  const current = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { email: true } });
+  const current = await prisma.user.findUniqueOrThrow({ where: { id: session.id }, select: { name: true, phoneNumber: true, email: true, image: true } });
   const updated = await prisma.$transaction(async (tx) => {
     await lockAccountEmailNamespace(tx, email);
     const [userConflict, accountEmailConflict] = await Promise.all([
@@ -96,8 +102,17 @@ export async function updatePersonalSettingsAction(data: { email: string; image:
       tx.accountEmail.findUnique({ where: { normalizedEmail: email }, select: { userId: true } }),
     ]);
     if (userConflict || (accountEmailConflict && accountEmailConflict.userId !== session.id)) return false;
-    await tx.user.update({ where: { id: session.id }, data: { email, image: data.image, ...(email !== current.email ? { emailVerified: false } : {}) } });
-    await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.UPDATE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: membership.role, actionName: "USER_PROFILE_UPDATED", changedFields: [email !== current.email ? "email" : null, "profileImage"].filter(Boolean) } } });
+    const currentEmail = normalizeAccountEmail(current.email ?? "");
+    const changedFields = [
+      name !== current.name ? "name" : null,
+      phone !== current.phoneNumber ? "phoneNumber" : null,
+      email !== currentEmail ? "email" : null,
+      data.image !== current.image ? "profileImage" : null,
+    ].filter((field): field is string => Boolean(field));
+    if (changedFields.length) {
+      await tx.user.update({ where: { id: session.id }, data: { name, phoneNumber: phone, email, image: data.image, ...(email !== currentEmail ? { emailVerified: false } : {}) } });
+      await tx.auditLog.create({ data: { userId: session.id, villageId, action: AuditAction.UPDATE, resource: "UserProfile", resourceId: session.id, metadata: { actorRole: membership.role, actionName: "USER_PROFILE_UPDATED", changedFields } } });
+    }
     return true;
   });
   if (!updated) return { success: false, error: "อีเมลนี้ถูกใช้งานแล้ว" };
