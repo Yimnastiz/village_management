@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { CalendarDays } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { getPublicVillageBySlug, getVillageCalendarEvents } from "@/features/public-village/server/public-village-data";
 import { CalendarToolbar } from "@/components/calendar/calendar-toolbar";
 import { parseCalendarMonth, toDateKey, toMonthKey } from "@/lib/calendar-month";
@@ -72,19 +74,26 @@ export default async function Page({ params, searchParams }: PageProps) {
         search={{ keyword, placeholder: "ค้นหากิจกรรม", label: "ค้นหากิจกรรม" }}
         className="mt-0"
       />
-      {showFilteredEmptyState && emptyStateMessage ? <p className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">{emptyStateMessage}</p> : null}
-      <ResidentCalendarGrid
-        key={`${monthKey}-${initialDate ?? "none"}-${keyword}`}
-        year={year}
-        monthIndex={monthIndex}
-        todayKey={toDateKey(new Date())}
-        initialDate={initialDate}
-        showAppointments={false}
-        searchKeyword={keyword}
-        eventHrefBase={`/${villageSlug}/calendar`}
-        events={events.map((event) => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))}
-        appointments={[]}
-      />
+      {events.length === 0 || showFilteredEmptyState ? (
+        <EmptyState
+          icon={CalendarDays}
+          title={emptyStateMessage ?? "ยังไม่มีกิจกรรมสาธารณะ"}
+          description={emptyStateMessage ? "ลองเปลี่ยนคำค้นหาหรือวันที่ที่เลือก" : "กิจกรรมสาธารณะของหมู่บ้านจะแสดงที่นี่"}
+        />
+      ) : (
+        <ResidentCalendarGrid
+          key={`${monthKey}-${initialDate ?? "none"}-${keyword}`}
+          year={year}
+          monthIndex={monthIndex}
+          todayKey={toDateKey(new Date())}
+          initialDate={initialDate}
+          showAppointments={false}
+          searchKeyword={keyword}
+          eventHrefBase={`/${villageSlug}/calendar`}
+          events={events.map((event) => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))}
+          appointments={[]}
+        />
+      )}
     </div>
   );
 }

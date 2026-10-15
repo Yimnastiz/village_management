@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import { ContactRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicContactsToolbar } from "./public-contacts-toolbar";
@@ -48,9 +50,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       />
 
       {contacts.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">ยังไม่มีข้อมูลผู้ติดต่อสาธารณะ</p>
-        </div>
+        <EmptyState icon={ContactRound} title="ยังไม่มีข้อมูลผู้ติดต่อสาธารณะ" description="ข้อมูลผู้ติดต่อสาธารณะของหมู่บ้านจะแสดงที่นี่" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {contacts.map((contact) => (

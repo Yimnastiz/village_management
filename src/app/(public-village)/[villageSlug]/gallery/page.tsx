@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Images } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { prisma } from "@/lib/prisma";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicGalleryToolbar } from "./public-gallery-toolbar";
@@ -83,9 +85,7 @@ export default async function Page({ params, searchParams }: PageProps) {
       />
 
       {albums.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">ยังไม่มีอัลบั้มสาธารณะ</p>
-        </div>
+        <EmptyState icon={Images} title="ยังไม่มีอัลบั้มสาธารณะ" description="อัลบั้มภาพของหมู่บ้านจะแสดงที่นี่" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {albums.map((album) => (
