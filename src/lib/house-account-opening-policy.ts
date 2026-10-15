@@ -1,4 +1,4 @@
-import type { HouseAccountOpeningRequestStatus } from "@prisma/client";
+import type { EmailOtpChallengeStatus, HouseAccountOpeningRequestStatus } from "@prisma/client";
 import { isValidEmailAddress, normalizeAccountEmail } from "./account-email-normalization.js";
 import { isValidPersonName, normalizePersonName, normalizeThaiPhoneInput, PERSON_NAME_MAX_LENGTH } from "./person-validation.ts";
 
@@ -104,4 +104,31 @@ export function canApplicantCancelOpeningRequest(
   status: HouseAccountOpeningRequestStatus,
 ): boolean {
   return status === "PENDING_EMAIL_VERIFICATION" || status === "PENDING_REVIEW";
+}
+
+export type HouseOpeningEditOtpDecision =
+  | "REUSE_ACTIVE_CHALLENGE"
+  | "REISSUE_EXPIRED_CHALLENGE"
+  | "ROTATE_EMAIL"
+  | "LOCKED"
+  | "UNAVAILABLE";
+
+export function decideHouseOpeningEditOtp(input: {
+  previousNormalizedEmail: string;
+  nextNormalizedEmail: string;
+  challenge: { status: EmailOtpChallengeStatus; expiresAt: Date } | null;
+  now: Date;
+}): HouseOpeningEditOtpDecision {
+  if (!input.challenge) return "UNAVAILABLE";
+  if (input.challenge.status === "LOCKED") return "LOCKED";
+  if (input.challenge.status !== "ACTIVE" && input.challenge.status !== "EXPIRED") return "UNAVAILABLE";
+  if (input.previousNormalizedEmail !== input.nextNormalizedEmail) return "ROTATE_EMAIL";
+  if (
+    input.challenge.status === "EXPIRED"
+    || (input.challenge.status === "ACTIVE" && input.challenge.expiresAt <= input.now)
+  ) return "REISSUE_EXPIRED_CHALLENGE";
+  if (input.challenge.status === "ACTIVE" && input.challenge.expiresAt > input.now) {
+    return "REUSE_ACTIVE_CHALLENGE";
+  }
+  return "UNAVAILABLE";
 }

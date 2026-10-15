@@ -158,6 +158,69 @@ export async function reserveEmailForOpeningRequestInTransaction(
   return accountEmail;
 }
 
+export async function rotateOpeningRequestEmailInTransaction(
+  tx: Prisma.TransactionClient,
+  input: { openingRequestId: string; email: string },
+): Promise<AccountEmail> {
+  const identity = validateAccountEmail(input.email);
+  const openingRequest = await tx.houseAccountOpeningRequest.findUnique({
+    where: { id: input.openingRequestId },
+    include: { initialEmail: true },
+  });
+  if (!openingRequest || !openingRequest.initialEmail) {
+    throw new AccountEmailServiceError(
+      "OPENING_REQUEST_NOT_FOUND",
+      "House account opening request or its email reservation was not found.",
+    );
+  }
+  if (openingRequest.status !== "PENDING_EMAIL_VERIFICATION") {
+    throw new AccountEmailServiceError(
+      "OPENING_REQUEST_NOT_RESERVABLE",
+      "Only an opening request awaiting email verification may change its email.",
+    );
+  }
+
+  const previousIdentity = openingRequest.initialEmail;
+  if (previousIdentity.normalizedEmail === identity.normalizedEmail) return previousIdentity;
+
+  for (const normalizedEmail of [previousIdentity.normalizedEmail, identity.normalizedEmail].sort()) {
+    await lockAccountEmailNamespace(tx, normalizedEmail);
+  }
+
+  const [existing, canonicalOwner] = await Promise.all([
+    tx.accountEmail.findUnique({ where: { normalizedEmail: identity.normalizedEmail } }),
+    tx.user.findFirst({
+      where: { email: { equals: identity.normalizedEmail, mode: "insensitive" } },
+      select: { id: true },
+    }),
+  ]);
+  if (canonicalOwner || (existing && existing.id !== previousIdentity.id)) {
+    throw new AccountEmailServiceError(
+      "EMAIL_ALREADY_RESERVED",
+      "This normalized email is already owned or reserved.",
+    );
+  }
+
+  const rotated = await tx.accountEmail.update({
+    where: { id: previousIdentity.id },
+    data: {
+      ...identity,
+      status: "PENDING_VERIFICATION",
+      verifiedAt: null,
+      activatedAt: null,
+      revokedAt: null,
+    },
+  });
+  await tx.houseAccountOpeningRequest.update({
+    where: { id: openingRequest.id },
+    data: {
+      emailSnapshot: identity.email,
+      normalizedEmailSnapshot: identity.normalizedEmail,
+    },
+  });
+  return rotated;
+}
+
 export async function markOpeningRequestEmailVerified(input: {
   openingRequestId: string;
   accountEmailId: string;

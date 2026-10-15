@@ -444,6 +444,8 @@ export async function consumeVerifiedEmailOtpChallenge<T = void>(
   challengeId: string,
   options: {
     now?: Date;
+    /** Lets a domain flow establish its lock order before the challenge row is locked. */
+    beforeChallengeLock?: (tx: Prisma.TransactionClient) => Promise<void>;
     /** Runs in the same transaction as the one-time CONSUMED transition. */
     apply?: (
       tx: Prisma.TransactionClient,
@@ -453,6 +455,7 @@ export async function consumeVerifiedEmailOtpChallenge<T = void>(
 ): Promise<T | undefined> {
   const now = options.now ?? new Date();
   const outcome = await prisma.$transaction(async (tx) => {
+    await options.beforeChallengeLock?.(tx);
     await lockChallengeRow(tx, challengeId);
     const challenge = await tx.emailOtpChallenge.findUnique({ where: { id: challengeId } });
     if (!challenge) return "NOT_FOUND" as const;

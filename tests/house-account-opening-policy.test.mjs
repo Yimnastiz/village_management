@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   canApplicantCancelOpeningRequest,
+  decideHouseOpeningEditOtp,
   houseOpeningEligibility,
   normalizeContactPhone,
   validateHouseAccountOpeningInput,
@@ -85,4 +86,53 @@ test("applicant cancellation is limited to the two live request states", () => {
   assert.equal(canApplicantCancelOpeningRequest("PENDING_REVIEW"), true);
   assert.equal(canApplicantCancelOpeningRequest("APPROVED"), false);
   assert.equal(canApplicantCancelOpeningRequest("CANCELLED"), false);
+});
+
+test("same-email edits reuse an unexpired active opening challenge", () => {
+  const now = new Date("2026-10-15T00:00:00.000Z");
+  assert.equal(decideHouseOpeningEditOtp({
+    previousNormalizedEmail: "home@example.com",
+    nextNormalizedEmail: "home@example.com",
+    challenge: { status: "ACTIVE", expiresAt: new Date("2026-10-15T00:05:00.000Z") },
+    now,
+  }), "REUSE_ACTIVE_CHALLENGE");
+});
+
+test("changed-email edits rotate the reservation and require a new challenge", () => {
+  assert.equal(decideHouseOpeningEditOtp({
+    previousNormalizedEmail: "old@example.com",
+    nextNormalizedEmail: "new@example.com",
+    challenge: { status: "ACTIVE", expiresAt: new Date("2026-10-15T00:05:00.000Z") },
+    now: new Date("2026-10-15T00:00:00.000Z"),
+  }), "ROTATE_EMAIL");
+});
+
+test("expired same-email challenges may be reissued", () => {
+  assert.equal(decideHouseOpeningEditOtp({
+    previousNormalizedEmail: "home@example.com",
+    nextNormalizedEmail: "home@example.com",
+    challenge: { status: "ACTIVE", expiresAt: new Date("2026-10-14T23:59:59.000Z") },
+    now: new Date("2026-10-15T00:00:00.000Z"),
+  }), "REISSUE_EXPIRED_CHALLENGE");
+});
+
+test("locked and invalid same-email challenges cannot restart OTP limits", () => {
+  const base = {
+    previousNormalizedEmail: "home@example.com",
+    nextNormalizedEmail: "home@example.com",
+    now: new Date("2026-10-15T00:00:00.000Z"),
+  };
+  assert.equal(decideHouseOpeningEditOtp({
+    ...base,
+    challenge: { status: "LOCKED", expiresAt: new Date("2026-10-15T00:05:00.000Z") },
+  }), "LOCKED");
+  assert.equal(decideHouseOpeningEditOtp({
+    ...base,
+    nextNormalizedEmail: "different@example.com",
+    challenge: { status: "LOCKED", expiresAt: new Date("2026-10-15T00:05:00.000Z") },
+  }), "LOCKED");
+  assert.equal(decideHouseOpeningEditOtp({
+    ...base,
+    challenge: { status: "CANCELLED", expiresAt: new Date("2026-10-15T00:05:00.000Z") },
+  }), "UNAVAILABLE");
 });

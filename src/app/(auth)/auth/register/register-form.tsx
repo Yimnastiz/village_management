@@ -358,7 +358,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
     }
   }
 
-  async function cancelRequest(preserveForm = false) {
+  async function cancelRequest() {
     setPending(true);
     setError(null);
     try {
@@ -370,33 +370,26 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       setOtpState(null);
       setSuccessState(null);
       setOtpCode("");
-      if (preserveForm) {
-        const draft = readRegistrationDraft();
-        if (draft) {
-          setHouseQuery(draft.houseQuery);
-          setSelectedHouse(draft.selectedHouse);
-          setFirstName(draft.firstName);
-          setLastName(draft.lastName);
-          setContactPhone(draft.contactPhone);
-          setEmail(draft.email);
-          setPrivacyConsent(draft.privacyConsent);
-        }
-      } else {
-        clearRegistrationDraft();
-        setHouseQuery("");
-        setSelectedHouse(null);
-        setFirstName("");
-        setLastName("");
-        setContactPhone("");
-        setEmail("");
-        setPrivacyConsent(false);
-      }
+      clearRegistrationDraft();
+      setHouseQuery("");
+      setSelectedHouse(null);
+      setFirstName("");
+      setLastName("");
+      setContactPhone("");
+      setEmail("");
+      setPrivacyConsent(false);
       setStep("FORM");
     } catch (cancelError) {
       setError(cancelError instanceof Error ? cancelError.message : "ยกเลิกคำขอไม่สำเร็จ");
     } finally {
       setPending(false);
     }
+  }
+
+  function editRequest() {
+    setError(null);
+    setOtpCode("");
+    setStep("FORM");
   }
 
   const cardClass = "mx-auto w-full max-w-2xl rounded-2xl border border-white/90 bg-white/95 p-4 shadow-xl shadow-emerald-950/10 ring-1 ring-emerald-100/80 backdrop-blur sm:p-8";
@@ -419,7 +412,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
         <Button type="submit" isLoading={pending} className="w-full">ยืนยันอีเมล</Button>
       </form>
-      <div className="mt-4 flex items-center justify-between gap-3 text-sm"><button type="button" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</button><button type="button" disabled={pending} onClick={() => void cancelRequest(true)} className="min-h-11 text-gray-600 hover:text-gray-900 disabled:opacity-50">กลับไปแก้ไขข้อมูล</button></div>
+      <div className="mt-4 flex items-center justify-between gap-3 text-sm"><button type="button" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</button><button type="button" disabled={pending} onClick={editRequest} className="min-h-11 text-gray-600 hover:text-gray-900 disabled:opacity-50">กลับไปแก้ไขข้อมูล</button></div>
     </div>;
   }
 
@@ -447,7 +440,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
       {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <Link href={successState.status === "PENDING_REVIEW" ? "/resident/dashboard" : "/auth/login"} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-green-700">{successState.status === "PENDING_REVIEW" ? "ดูข้อมูลหมู่บ้านระหว่างรออนุมัติ" : "กลับไปหน้าเข้าสู่ระบบ"}</Link>
-        {successState.status === "PENDING_REVIEW" ? <Button type="button" variant="dangerOutline" disabled={pending} isLoading={pending} onClick={() => void cancelRequest(false)}>ยกเลิกคำขอ</Button> : null}
+        {successState.status === "PENDING_REVIEW" ? <Button type="button" variant="dangerOutline" disabled={pending} isLoading={pending} onClick={() => void cancelRequest()}>ยกเลิกคำขอ</Button> : null}
       </div>
     </div>;
   }
@@ -482,7 +475,7 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         <span>ฉันยอมรับ <button type="button" onClick={() => setPrivacyOpen(true)} className="font-medium text-green-700 underline focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">นโยบายความเป็นส่วนตัว</button> สำหรับการส่งคำขอเปิดบัญชีบ้าน</span>
       </label>
       {error ? <p role="alert" aria-live="polite" className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" className="w-full" isLoading={pending}>ส่งรหัสยืนยันอีเมล</Button>
+      <Button type="submit" className="w-full" isLoading={pending}>{otpState ? "ดำเนินการต่อ" : "ส่งรหัสยืนยันอีเมล"}</Button>
     </form>
     <p className="mt-6 text-center text-sm text-gray-600">มีบัญชีอยู่แล้ว? <Link href="/auth/login" className="font-medium text-green-700 underline">เข้าสู่ระบบ</Link></p>
     <Dialog open={privacyOpen} title="นโยบายความเป็นส่วนตัว" onClose={() => setPrivacyOpen(false)} className="max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]"><PrivacyPolicyContent /></Dialog>

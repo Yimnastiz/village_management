@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   assertHouseOpeningAccessConfiguration,
+  readHouseOpeningAccess,
   setHouseOpeningAccessCookie,
 } from "@/lib/house-account-opening-access";
 import {
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
   } | null;
   try {
     assertHouseOpeningAccessConfiguration();
+    const access = readHouseOpeningAccess(request);
     const result = await startHouseAccountOpening({
       houseId: body?.houseId ?? "",
       applicantFirstName: body?.applicantFirstName ?? "",
@@ -27,7 +29,7 @@ export async function POST(request: NextRequest) {
       contactPhone: body?.contactPhone ?? "",
       email: body?.email ?? "",
       privacyConsent: body?.privacyConsent === true,
-    }, emailOtpClientContext(request));
+    }, emailOtpClientContext(request), { existingRequestId: access?.requestId });
     const response = NextResponse.json({
       ok: true,
       challengeId: result.challengeId,
@@ -35,6 +37,7 @@ export async function POST(request: NextRequest) {
       houseNumber: result.houseNumber,
       expiresAt: result.expiresAt.toISOString(),
       resendAvailableAt: result.resendAvailableAt.toISOString(),
+      sentOtp: result.sentOtp,
     });
     setHouseOpeningAccessCookie(response, result.requestId);
     return response;

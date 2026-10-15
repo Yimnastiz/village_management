@@ -10,6 +10,7 @@ import {
   markOpeningRequestEmailVerifiedInTransaction,
   releaseOpeningRequestEmailInTransaction,
   reserveEmailForOpeningRequestInTransaction,
+  rotateOpeningRequestEmailInTransaction,
 } from "@/lib/account-email-service";
 import { maskEmail } from "@/lib/account-email";
 import { getConfiguredVillage } from "@/lib/configured-village";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/email/email-otp-service";
 import {
   canApplicantCancelOpeningRequest,
+  decideHouseOpeningEditOtp,
   houseOpeningEligibility,
   LIVE_HOUSE_OPENING_STATUSES,
   validateHouseAccountOpeningInput,
@@ -138,6 +140,7 @@ export async function searchConfiguredVillageHouses(query: string): Promise<Arra
 export async function startHouseAccountOpening(
   input: HouseAccountOpeningInput,
   context: EmailOtpClientContext = {},
+  options: { existingRequestId?: string | null } = {},
 ): Promise<{
   requestId: string;
   challengeId: string;
@@ -145,6 +148,7 @@ export async function startHouseAccountOpening(
   houseNumber: string;
   expiresAt: Date;
   resendAvailableAt: Date;
+  sentOtp: boolean;
 }> {
   await assertOpeningAvailable();
   const validated = validateHouseAccountOpeningInput(input);
@@ -156,10 +160,136 @@ export async function startHouseAccountOpening(
     );
   }
   const village = await getConfiguredVillage();
-  let created: { requestId: string; accountEmailId: string; email: string; houseNumber: string };
+  let prepared: {
+    requestId: string;
+    accountEmailId: string;
+    email: string;
+    houseNumber: string;
+    existingChallenge: {
+      challengeId: string;
+      expiresAt: Date;
+      resendAvailableAt: Date;
+    } | null;
+  };
 
   try {
-    created = await prisma.$transaction(async (tx) => {
+    prepared = await prisma.$transaction(async (tx) => {
+      if (options.existingRequestId) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`house-opening-review:${options.existingRequestId}`}))`;
+        const current = await tx.houseAccountOpeningRequest.findUnique({
+          where: { id: options.existingRequestId },
+          include: { initialEmail: true },
+        });
+        if (!current || !current.initialEmail) {
+          throw new HouseAccountOpeningError("REQUEST_NOT_FOUND", houseAccountOpeningErrorMessage("REQUEST_NOT_FOUND"));
+        }
+        if (current.status !== "PENDING_EMAIL_VERIFICATION") {
+          throw new HouseAccountOpeningError("REQUEST_NOT_EDITABLE", houseAccountOpeningErrorMessage("REQUEST_NOT_EDITABLE"));
+        }
+
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`house-account-opening:${validated.value.houseId}`}))`;
+        const house = await tx.house.findUnique({
+          where: { id: validated.value.houseId },
+          select: {
+            id: true,
+            villageId: true,
+            houseNumber: true,
+            residentHouseAccount: { select: { id: true } },
+          },
+        });
+        const eligibility = houseOpeningEligibility({
+          houseExists: Boolean(house),
+          houseVillageId: house?.villageId ?? null,
+          configuredVillageId: village.id,
+          hasResidentHouseAccount: Boolean(house?.residentHouseAccount),
+        });
+        if (eligibility !== "ELIGIBLE") {
+          const code: HouseAccountOpeningErrorCode = eligibility === "HOUSE_ALREADY_ACTIVE"
+            ? "HOUSE_ALREADY_ACTIVE"
+            : "HOUSE_NOT_FOUND";
+          throw new HouseAccountOpeningError(code, houseAccountOpeningErrorMessage(code));
+        }
+
+        let latestChallenge = await tx.emailOtpChallenge.findFirst({
+          where: {
+            accountEmailId: current.initialEmail.id,
+            normalizedEmail: current.initialEmail.normalizedEmail,
+            purpose: "HOUSE_OPENING",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, status: true, expiresAt: true, resendAvailableAt: true },
+        });
+        if (latestChallenge) {
+          await tx.$queryRaw`SELECT "id" FROM "EmailOtpChallenge" WHERE "id" = ${latestChallenge.id} FOR UPDATE`;
+          latestChallenge = await tx.emailOtpChallenge.findUnique({
+            where: { id: latestChallenge.id },
+            select: { id: true, status: true, expiresAt: true, resendAvailableAt: true },
+          });
+        }
+        const decision = decideHouseOpeningEditOtp({
+          previousNormalizedEmail: current.initialEmail.normalizedEmail,
+          nextNormalizedEmail: validated.value.normalizedEmail,
+          challenge: latestChallenge,
+          now: new Date(),
+        });
+        if (decision === "LOCKED") {
+          throw new HouseAccountOpeningError("OTP_LOCKED", houseAccountOpeningErrorMessage("OTP_LOCKED"));
+        }
+        if (decision === "UNAVAILABLE") {
+          throw new HouseAccountOpeningError("OTP_UNAVAILABLE", houseAccountOpeningErrorMessage("OTP_UNAVAILABLE"));
+        }
+
+        let accountEmail = current.initialEmail;
+        if (decision === "ROTATE_EMAIL") {
+          await tx.emailOtpChallenge.updateMany({
+            where: {
+              accountEmailId: current.initialEmail.id,
+              purpose: "HOUSE_OPENING",
+              status: { in: ["PENDING_DELIVERY", "ACTIVE", "VERIFIED"] },
+            },
+            data: { status: "CANCELLED" },
+          });
+          accountEmail = await rotateOpeningRequestEmailInTransaction(tx, {
+            openingRequestId: current.id,
+            email: validated.value.email,
+          });
+        } else if (decision === "REISSUE_EXPIRED_CHALLENGE" && latestChallenge?.status === "ACTIVE") {
+          await tx.emailOtpChallenge.update({
+            where: { id: latestChallenge.id },
+            data: { status: "EXPIRED" },
+          });
+        }
+
+        await tx.houseAccountOpeningRequest.update({
+          where: { id: current.id },
+          data: {
+            houseId: house!.id,
+            applicantFirstName: validated.value.applicantFirstName,
+            applicantLastName: validated.value.applicantLastName,
+            contactPhone: validated.value.contactPhone,
+          },
+        });
+
+        const reusable = decision === "REUSE_ACTIVE_CHALLENGE"
+          && latestChallenge?.resendAvailableAt
+          ? {
+              challengeId: latestChallenge.id,
+              expiresAt: latestChallenge.expiresAt,
+              resendAvailableAt: latestChallenge.resendAvailableAt,
+            }
+          : null;
+        if (decision === "REUSE_ACTIVE_CHALLENGE" && !reusable) {
+          throw new HouseAccountOpeningError("OTP_UNAVAILABLE", houseAccountOpeningErrorMessage("OTP_UNAVAILABLE"));
+        }
+        return {
+          requestId: current.id,
+          accountEmailId: accountEmail.id,
+          email: accountEmail.email,
+          houseNumber: house!.houseNumber,
+          existingChallenge: reusable,
+        };
+      }
+
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`house-account-opening:${validated.value.houseId}`}))`;
       const house = await tx.house.findUnique({
         where: { id: validated.value.houseId },
@@ -204,6 +334,7 @@ export async function startHouseAccountOpening(
         accountEmailId: accountEmail.id,
         email: accountEmail.email,
         houseNumber: house!.houseNumber,
+        existingChallenge: null,
       };
     });
   } catch (error) {
@@ -224,23 +355,36 @@ export async function startHouseAccountOpening(
     throw error;
   }
 
+  if (prepared.existingChallenge) {
+    return {
+      requestId: prepared.requestId,
+      challengeId: prepared.existingChallenge.challengeId,
+      maskedEmail: maskEmail(prepared.email),
+      houseNumber: prepared.houseNumber,
+      expiresAt: prepared.existingChallenge.expiresAt,
+      resendAvailableAt: prepared.existingChallenge.resendAvailableAt,
+      sentOtp: false,
+    };
+  }
+
   try {
     const challenge = await issueEmailOtpChallenge({
-      email: created.email,
+      email: prepared.email,
       purpose: "HOUSE_OPENING",
-      accountEmailId: created.accountEmailId,
+      accountEmailId: prepared.accountEmailId,
       context,
     });
     return {
-      requestId: created.requestId,
+      requestId: prepared.requestId,
       challengeId: challenge.challengeId,
-      maskedEmail: maskEmail(created.email),
-      houseNumber: created.houseNumber,
+      maskedEmail: maskEmail(prepared.email),
+      houseNumber: prepared.houseNumber,
       expiresAt: challenge.expiresAt,
       resendAvailableAt: challenge.resendAvailableAt,
+      sentOtp: true,
     };
   } catch (error) {
-    await cancelHouseAccountOpeningInternal(created.requestId, new Date());
+    await cancelHouseAccountOpeningInternal(prepared.requestId, new Date());
     if (error instanceof EmailOtpServiceError) throw mapEmailOtpError(error);
     throw error;
   }
@@ -329,6 +473,9 @@ export async function verifyHouseAccountOpeningEmail(
   try {
     await verifyEmailOtpChallenge({ challengeId, code });
     const result = await consumeVerifiedEmailOtpChallenge(challengeId, {
+      beforeChallengeLock: async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`house-opening-review:${requestId}`}))`;
+      },
       apply: async (tx, verifiedChallenge) => {
         const current = await tx.houseAccountOpeningRequest.findUnique({
           where: { id: requestId },
