@@ -206,12 +206,13 @@ export function CalendarToolbar({
     <section
       className={cn(
         "sticky top-[var(--app-sticky-top)] z-30 border-gray-200 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)]",
-        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 !mx-0 mt-0 w-[100dvw] left-1/2 -translate-x-1/2 rounded-none border-x-0 border-y px-3 py-2 sm:px-4 lg:px-8" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 mx-[calc(50%_-_50vw)] mt-0 rounded-none border-x-0 border-y px-0 py-2 sm:py-2.5" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
         className,
       )}
       aria-label={`เครื่องมือ${title ?? "ปฏิทิน"}`}
       data-public-calendar-toolbar={publicFullBleed ? "" : undefined}
     >
+      <div className={publicFullBleed ? "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8" : "contents"}>
       {adminPageHeaderRegistry && title ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -375,6 +376,7 @@ export function CalendarToolbar({
       {search?.suggestions?.length ? (
         <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist>
       ) : null}
+      </div>
     </section>
   );
 }

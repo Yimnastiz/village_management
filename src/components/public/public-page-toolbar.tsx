@@ -17,9 +17,9 @@ export function PublicPageToolbar({ namespace, keyword, placeholder, suggestions
   return <ResidentPageToolbar
     namespace={namespace}
     hideHeading
+    fullBleed
     search={{ keyword, placeholder, label: "ค้นหา", suggestions }}
     activeFilterCount={activeFilterCount}
     filters={filters}
-    className="!mx-0 mt-0 w-[100dvw] left-1/2 -translate-x-1/2 rounded-none border-x-0 px-3 py-2 sm:px-4 sm:py-2.5 lg:px-8"
   />;
 }
