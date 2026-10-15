@@ -82,6 +82,7 @@ export default async function Page({ params, searchParams }: PageProps) {
         eventHrefBase={`/${villageSlug}/calendar`}
         events={events.map((event) => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))}
         appointments={[]}
+        publicStickyWeekdays
       />
       {events.length === 0 || showFilteredEmptyState ? <p className="text-sm text-gray-500">{emptyStateMessage ?? "ยังไม่มีกิจกรรมในเดือนนี้"}</p> : null}
     </div>

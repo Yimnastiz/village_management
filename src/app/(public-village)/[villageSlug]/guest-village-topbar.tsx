@@ -19,7 +19,7 @@ export function GuestVillageTopbar({ base, villageName }: Props) {
   return (
     <header className="sticky top-0 z-40 border-b border-emerald-950/15 bg-emerald-800 text-white shadow-sm">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-[max(0.75rem,env(safe-area-inset-left))] pr-[max(0.75rem,env(safe-area-inset-right))] sm:px-6 xl:h-16 xl:px-8">
-        <Link href={base} className="inline-flex h-9 min-w-0 flex-1 items-center gap-2 leading-none text-sm font-bold sm:text-base xl:max-w-48 xl:flex-none">
+        <Link href={base} className="inline-flex h-9 min-w-0 flex-1 items-center gap-2 leading-normal text-sm font-bold sm:text-base xl:max-w-48 xl:flex-none">
           <BrandLogo size="sm" alt="" priority />
           <span className="truncate">หมู่บ้าน {villageName}</span>
         </Link>

@@ -18,7 +18,7 @@ function CalendarItemRow({ title, remaining, tone, href }: { title: string; rema
   return <Link href={href} onClick={(event) => event.stopPropagation()} className={`pointer-events-auto flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-xs ${colors}`}><span className="min-w-0 flex-1 truncate">{title}</span>{remaining > 0 ? <span className="shrink-0 font-medium">+{remaining}</span> : null}</Link>;
 }
 
-export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, showAppointments, searchKeyword = "", itemType = "all", events, appointments, eventHrefBase = "/resident/calendar" }: { year: number; monthIndex: number; todayKey: string; initialDate: string | null; showAppointments: boolean; searchKeyword?: string; itemType?: "all" | "appointment" | "event"; events: EventItem[]; appointments: AppointmentItem[]; eventHrefBase?: string }) {
+export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, showAppointments, searchKeyword = "", itemType = "all", events, appointments, eventHrefBase = "/resident/calendar", publicStickyWeekdays = false }: { year: number; monthIndex: number; todayKey: string; initialDate: string | null; showAppointments: boolean; searchKeyword?: string; itemType?: "all" | "appointment" | "event"; events: EventItem[]; appointments: AppointmentItem[]; eventHrefBase?: string; publicStickyWeekdays?: boolean }) {
   const router = useRouter(), pathname = usePathname(), searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const selectedDateDetailRef = useRef<HTMLElement>(null);
@@ -62,8 +62,8 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
     requestAnimationFrame(() => selectedDateDetailRef.current?.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" }));
   }, [selectedDate]);
   return <>
-    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="grid grid-cols-7 border-b border-gray-200 bg-gray-50">{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div>
+    <section className={publicStickyWeekdays ? "overflow-visible rounded-xl border border-gray-200 bg-white" : "overflow-hidden rounded-xl border border-gray-200 bg-white"}>
+      <div className={publicStickyWeekdays ? "sticky top-[calc(var(--app-sticky-top)+7rem)] z-20 grid grid-cols-7 border-b border-gray-200 bg-gray-50 sm:top-[calc(var(--app-sticky-top)+7.75rem)] md:top-[calc(var(--app-sticky-top)+4rem)]" : "grid grid-cols-7 border-b border-gray-200 bg-gray-50"}>{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div>
       <div className="grid grid-cols-7">
         {Array.from({ length: blanks }).map((_, index) => <div key={`blank-${index}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/60 sm:min-h-28 lg:min-h-32" />)}
         {Array.from({ length: days }).map((_, index) => {
