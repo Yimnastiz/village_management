@@ -172,10 +172,11 @@ export function CalendarToolbar({
     <section
       className={cn(
         "sticky top-[var(--app-sticky-top)] z-30 border-gray-200 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)]",
-        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "relative left-1/2 !mx-0 -mt-3 w-screen -translate-x-1/2 bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 border-x-0 border-y px-3 py-2 sm:-mt-5 sm:px-4 lg:rounded-none lg:px-8" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "relative left-1/2 !mx-0 mt-0 w-screen -translate-x-1/2 bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 border-x-0 border-y px-3 py-2 sm:px-4 lg:rounded-none lg:px-8" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
         className,
       )}
       aria-label={`เครื่องมือ${title ?? "ปฏิทิน"}`}
+      data-public-calendar-toolbar={publicFullBleed ? "" : undefined}
     >
       {adminPageHeaderRegistry && title ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
