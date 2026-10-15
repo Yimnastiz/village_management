@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { AdminPageHeaderRegistration, useOptionalAdminPageHeaderRegistry } from "@/components/layout/admin-page-header-context";
 import { ResidentPageHeaderRegistration, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
 import { AdminFilterDropdown, type ToolbarGroup } from "@/components/ui/admin-list-toolbar";
+import { PUBLIC_STICKY_TOOLBAR_INNER_CLASS, PUBLIC_STICKY_TOOLBAR_SHELL_CLASS } from "@/components/public/public-sticky-toolbar";
 
 type CalendarToolbarProps = {
   namespace: string;
@@ -88,6 +89,7 @@ export function CalendarToolbar({
   const [, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const toolbarRef = useRef<HTMLElement>(null);
   const searchPanelId = `${namespace}-search-panel`;
   const suggestionsId = `${namespace}-search-suggestions`;
   const monthIndex = currentMonth - 1;
@@ -117,6 +119,21 @@ export function CalendarToolbar({
   useEffect(() => {
     if (!isMonthPickerOpen) setPickerYear(currentYear);
   }, [currentYear, isMonthPickerOpen]);
+
+  useEffect(() => {
+    if (!publicFullBleed || !toolbarRef.current) return;
+    const toolbar = toolbarRef.current;
+    const contractOwner = toolbar.parentElement;
+    if (!contractOwner) return;
+    const publishHeight = () => contractOwner.style.setProperty("--public-calendar-toolbar-height", `${toolbar.getBoundingClientRect().height}px`);
+    publishHeight();
+    const observer = new ResizeObserver(publishHeight);
+    observer.observe(toolbar);
+    return () => {
+      observer.disconnect();
+      contractOwner.style.removeProperty("--public-calendar-toolbar-height");
+    };
+  }, [publicFullBleed]);
 
   useEffect(() => {
     if ((!isAdminToolbar && !residentCompact) || !sessionStorage.getItem(filterPersistenceKey)) return;
@@ -194,7 +211,7 @@ export function CalendarToolbar({
         onChange={(event) => setSearchValue(event.target.value)}
         list={search.suggestions?.length ? suggestionsId : undefined}
         placeholder={search.placeholder}
-        className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
+        className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10", publicFullBleed && "h-9")}
       />
       {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="เธฅเนเธฒเธเธเธฒเธฃเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       {!publicFullBleed ? <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
@@ -204,15 +221,16 @@ export function CalendarToolbar({
 
   return (
     <section
+      ref={toolbarRef}
       className={cn(
         "sticky top-[var(--app-sticky-top)] z-30 border-gray-200 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)]",
-        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 mx-[calc(50%_-_50vw)] mt-0 border-y border-gray-200 px-0 py-2 sm:py-2.5" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? cn(PUBLIC_STICKY_TOOLBAR_SHELL_CLASS, "py-1.5") : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
         className,
       )}
       aria-label={`เครื่องมือ${title ?? "ปฏิทิน"}`}
       data-public-calendar-toolbar={publicFullBleed ? "" : undefined}
     >
-      <div className={publicFullBleed ? "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8" : "contents"}>
+      <div className={publicFullBleed ? PUBLIC_STICKY_TOOLBAR_INNER_CLASS : "contents"}>
       {adminPageHeaderRegistry && title ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
       <div className="flex min-w-0 items-center justify-between gap-2">
@@ -228,7 +246,7 @@ export function CalendarToolbar({
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
             aria-label="เดือนก่อนหน้า"
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
+            className={cn("inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", publicFullBleed && "h-9")}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -239,7 +257,7 @@ export function CalendarToolbar({
           <Link
             href={buildHref(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1)}
             aria-label="เดือนถัดไป"
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
+            className={cn("inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", publicFullBleed && "h-9")}
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -279,7 +297,7 @@ export function CalendarToolbar({
             id={`${namespace}-month`}
             value={currentMonth}
             onChange={(event) => navigateToMonth(currentYear, Number(event.target.value))}
-            className="h-11 min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 sm:w-40"
+            className={cn("h-11 min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 sm:w-40", publicFullBleed && "h-9")}
           >
             {THAI_MONTH_NAMES.map((monthName, index) => (
               <option key={monthName} value={index + 1}>{monthName}</option>
@@ -291,7 +309,7 @@ export function CalendarToolbar({
             id={`${namespace}-year`}
             value={currentYear}
             onChange={(event) => navigateToMonth(Number(event.target.value), currentMonth)}
-            className="h-11 min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 sm:w-28"
+            className={cn("h-11 min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 sm:w-28", publicFullBleed && "h-9")}
           >
             {years.map((year) => (
               <option key={year} value={year}>{year + 543}</option>
@@ -301,7 +319,7 @@ export function CalendarToolbar({
           <Link
             href={todayHref()}
             aria-label="กลับไปเดือนปัจจุบัน"
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5"
+            className={cn("inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5", publicFullBleed && "h-9")}
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{currentMonthLabel ?? (residentCompact ? "เดือนนี้" : "วันนี้")}</span>

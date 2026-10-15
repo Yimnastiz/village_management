@@ -9,6 +9,7 @@ import { ArrowLeft, Check, ChevronDown, Filter, Search, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ResidentPageHeaderRegistration, useOptionalResidentPageHeader, useOptionalResidentPageHeaderRegistry } from "@/components/layout/resident-page-header-context";
+import { PUBLIC_STICKY_TOOLBAR_INNER_CLASS, PUBLIC_STICKY_TOOLBAR_SHELL_CLASS } from "@/components/public/public-sticky-toolbar";
 
 type ExpandedPanel = "filter" | null;
 
@@ -177,14 +178,14 @@ export function ResidentPageToolbar({
 
   return <section
     className={cn(
-      fullBleed ? "z-30 mx-[calc(50%_-_50vw)] mt-0 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-0 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:py-2.5" : "relative z-30 -mx-4 -mt-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4",
+      fullBleed ? cn(PUBLIC_STICKY_TOOLBAR_SHELL_CLASS, "py-2 sm:py-2.5") : "relative z-30 -mx-4 -mt-4 shrink-0 overflow-visible border-y border-gray-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/90 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4",
       sticky && "sticky top-[var(--app-sticky-top)] z-30 transition-[top] duration-[var(--app-topbar-motion,180ms)]",
       className,
     )}
     aria-label={`เครื่องมือ${title}`}
     data-resident-page-toolbar
   >
-    <div className={fullBleed ? "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8" : "contents"}>
+    <div className={fullBleed ? PUBLIC_STICKY_TOOLBAR_INNER_CLASS : "contents"}>
       {registerHeader && residentPageHeaderRegistry && title ? <ResidentPageHeaderRegistration context={{ title, description }} /> : null}
       {backLink ? <div className="mb-2">{backLink}</div> : null}
 

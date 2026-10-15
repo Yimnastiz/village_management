@@ -63,7 +63,7 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
   }, [selectedDate]);
   return <>
     <section className={publicStickyWeekdays ? "overflow-visible rounded-xl border border-gray-200 bg-white" : "overflow-hidden rounded-xl border border-gray-200 bg-white"}>
-      <div className={publicStickyWeekdays ? "sticky top-[calc(var(--app-sticky-top)+7rem)] z-20 grid grid-cols-7 border-b border-gray-200 bg-gray-50 sm:top-[calc(var(--app-sticky-top)+7.75rem)] md:top-[calc(var(--app-sticky-top)+4rem)]" : "grid grid-cols-7 border-b border-gray-200 bg-gray-50"}>{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div>
+      <div className={publicStickyWeekdays ? "sticky top-[calc(var(--app-sticky-top)+var(--public-calendar-toolbar-height,0px))] z-20 grid grid-cols-7 border-b border-gray-200 bg-white shadow-sm" : "grid grid-cols-7 border-b border-gray-200 bg-gray-50"}>{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div>
       <div className="grid grid-cols-7">
         {Array.from({ length: blanks }).map((_, index) => <div key={`blank-${index}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/60 sm:min-h-28 lg:min-h-32" />)}
         {Array.from({ length: days }).map((_, index) => {
