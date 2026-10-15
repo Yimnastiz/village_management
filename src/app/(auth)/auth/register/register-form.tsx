@@ -404,9 +404,11 @@ export function RegisterForm({ village }: { village: VillageOption }) {
 
   if (step === "OTP" && otpState) {
     return <div className={otpCardClass}>
-      <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="text-xl font-bold text-gray-900">ยืนยันอีเมล</h1>
+        <p className="shrink-0 pt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
+      </div>
       <p className="mt-2 break-all text-sm leading-6 text-gray-600" aria-live="polite">กรอกรหัสยืนยันที่ส่งไปยังอีเมลของคุณ <strong>{otpState.maskedEmail}</strong></p>
-      <p className="mt-1 text-sm text-gray-500">บ้านเลขที่ {otpState.houseNumber}</p>
       <form onSubmit={verifyOtp} className="mt-6 space-y-4">
         <fieldset disabled={pending}>
           <legend className="mb-2 block text-sm font-medium text-gray-700">รหัสยืนยัน <span className="text-red-600">*</span></legend>
@@ -418,7 +420,6 @@ export function RegisterForm({ village }: { village: VillageOption }) {
         <Button type="submit" isLoading={pending} className="w-full">ยืนยันอีเมล</Button>
       </form>
       <div className="mt-4 flex items-center justify-between gap-3 text-sm"><button type="button" disabled={pending || resendSeconds > 0} onClick={() => void resendOtp()} className="min-h-11 font-medium text-green-700 disabled:text-gray-400">{resendSeconds > 0 ? `ส่งรหัสอีกครั้งใน ${resendSeconds} วินาที` : "ส่งรหัสอีกครั้ง"}</button><button type="button" disabled={pending} onClick={() => void cancelRequest(true)} className="min-h-11 text-gray-600 hover:text-gray-900 disabled:opacity-50">กลับไปแก้ไขข้อมูล</button></div>
-      <button type="button" disabled={pending} onClick={() => void cancelRequest(false)} className="mt-2 w-full cursor-pointer text-center text-sm text-red-700 underline disabled:opacity-50">ยกเลิกคำขอ</button>
     </div>;
   }
 
