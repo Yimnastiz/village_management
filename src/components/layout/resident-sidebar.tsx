@@ -104,7 +104,6 @@ export function ResidentSidebar({ state }: { state: ResidentNavigationState }) {
             {state.accessMode === "PENDING" ? (
               <div className="text-xs leading-5 text-amber-700">
                 <p>รอการอนุมัติ</p>
-                <p className="whitespace-nowrap">กำลังตรวจสอบคำขอ</p>
               </div>
             ) : state.hasMembership || state.isHouseAccount ? (
               <p className="text-xs text-gray-500">{state.isHouseAccount ? "บัญชีบ้าน" : "เมนูใช้งานส่วนบุคคล"}</p>

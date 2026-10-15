@@ -16,6 +16,7 @@ export type PendingResidentContext = {
   houseNumber: string;
   applicantName: string;
   verifiedEmail: string;
+  contactPhone: string;
 };
 
 export type PendingResidentAccessResult =
@@ -38,6 +39,7 @@ async function inspectToken(token: string | null | undefined): Promise<PendingRe
         applicantFirstName: true,
         applicantLastName: true,
         emailSnapshot: true,
+        contactPhone: true,
         status: true,
         house: { select: { houseNumber: true } },
         initialEmail: { select: { verifiedAt: true } },
@@ -66,6 +68,7 @@ async function inspectToken(token: string | null | undefined): Promise<PendingRe
       houseNumber: openingRequest.house.houseNumber,
       applicantName: `${openingRequest.applicantFirstName} ${openingRequest.applicantLastName}`.trim(),
       verifiedEmail: openingRequest.emailSnapshot,
+      contactPhone: openingRequest.contactPhone,
     },
   };
 }

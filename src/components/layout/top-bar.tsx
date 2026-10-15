@@ -222,10 +222,26 @@ export function TopBar({
               )}
             </div>
             <div className="my-1 h-px bg-gray-100" />
-            <Link href={profileHref} role="menuitem" onClick={() => setProfileMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <Link href={profileHref} role="menuitem" onClick={(event) => {
+              if (isPendingResident) {
+                event.preventDefault();
+                setProfileMenuOpen(false);
+                setLockedMenuLabel("โปรไฟล์ผู้ใช้");
+              } else {
+                setProfileMenuOpen(false);
+              }
+            }} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
               โปรไฟล์ผู้ใช้
             </Link>
-            <Link href={notificationsHref} role="menuitem" onClick={() => setProfileMenuOpen(false)} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
+            <Link href={notificationsHref} role="menuitem" onClick={(event) => {
+              if (isPendingResident) {
+                event.preventDefault();
+                setProfileMenuOpen(false);
+                setLockedMenuLabel("การแจ้งเตือน");
+              } else {
+                setProfileMenuOpen(false);
+              }
+            }} className="block rounded-md px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">
               การแจ้งเตือน
             </Link>
             <div className="my-1 h-px bg-gray-100" />
