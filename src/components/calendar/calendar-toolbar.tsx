@@ -168,11 +168,45 @@ export function CalendarToolbar({
   const previousMonthDate = new Date(currentYear, currentMonth - 2, 1);
   const nextMonthDate = new Date(currentYear, currentMonth, 1);
 
+  const searchForm = search && (publicFullBleed || isSearchOpen) ? (
+    <form
+      id={searchPanelId}
+      role="search"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        applySearch(searchValue);
+      }}
+      className={cn(
+        "relative flex min-w-0 basis-full items-center gap-1.5",
+        publicFullBleed ? "md:w-auto md:flex-1 md:basis-auto" : "sm:w-[min(26rem,40vw)] sm:basis-auto",
+        isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]",
+      )}
+    >
+      <label htmlFor={`${namespace}-search-input`} className="sr-only">{search.label ?? "เธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก"}</label>
+      {isAdminToolbar || residentCompact ? <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" /> : null}
+      <input
+        ref={searchInputRef}
+        id={`${namespace}-search-input`}
+        name="q"
+        type="search"
+        value={searchValue}
+        onChange={(event) => setSearchValue(event.target.value)}
+        list={search.suggestions?.length ? suggestionsId : undefined}
+        placeholder={search.placeholder}
+        className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
+      />
+      {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="เธฅเนเธฒเธเธเธฒเธฃเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {!publicFullBleed ? <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      <button type="submit" className="sr-only">เธเนเธเธซเธฒ</button>
+    </form>
+  ) : null;
+
   return (
     <section
       className={cn(
         "sticky top-[var(--app-sticky-top)] z-30 border-gray-200 shadow-sm backdrop-blur transition-[top] duration-[var(--app-topbar-motion,180ms)]",
-        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "relative left-1/2 !mx-0 mt-0 w-screen -translate-x-1/2 bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 border-x-0 border-y px-3 py-2 sm:px-4 lg:rounded-none lg:px-8" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
+        isAdminToolbar ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 border-y px-4 py-3 sm:-mx-6 sm:px-6 sm:py-4" : hasTopbarHeader ? "bg-white/95 supports-[backdrop-filter]:bg-white/90 -mx-4 -mt-4 border-y px-4 py-3 sm:-mx-6 sm:-mt-6 sm:px-6 sm:py-4" : publicFullBleed ? "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 mt-0 border-x-0 border-y px-3 py-2 sm:-mx-6 sm:px-4 lg:-mx-8 lg:rounded-none lg:px-8" : "bg-gray-50/95 supports-[backdrop-filter]:bg-gray-50/90 -mx-4 -mt-2 border-y px-3 py-2 sm:-mx-6 sm:-mt-3 sm:px-6 lg:mx-0 lg:rounded-xl lg:border lg:px-4",
         className,
       )}
       aria-label={`เครื่องมือ${title ?? "ปฏิทิน"}`}
@@ -187,9 +221,9 @@ export function CalendarToolbar({
         </div> : null}
       </div>
 
-      <div className="mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center">
+      <div className={cn("mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center", publicFullBleed && "mt-0 flex-wrap md:flex-row md:items-center")}>
         {leadingActions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{leadingActions}</div> : null}
-        <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
+        <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", publicFullBleed && "sm:min-w-0", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
             aria-label="เดือนก่อนหน้า"
@@ -272,10 +306,11 @@ export function CalendarToolbar({
             <span className="hidden sm:inline">{currentMonthLabel ?? (residentCompact ? "เดือนนี้" : "วันนี้")}</span>
           </Link>
         </div>
+        {publicFullBleed ? searchForm : null}
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
       </div>
 
-      {(search || filters) ? (
+      {!publicFullBleed && (search || filters) ? (
         <div className="mt-2 flex min-h-11 min-w-0 flex-wrap items-center gap-2">
           {search ? (
             <>
