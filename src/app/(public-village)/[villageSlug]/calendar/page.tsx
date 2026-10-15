@@ -72,7 +72,6 @@ export default async function Page({ params, searchParams }: PageProps) {
         selectToday
         publicFullBleed
         search={{ keyword, placeholder: "ค้นหากิจกรรม", label: "ค้นหากิจกรรม" }}
-        className="mt-0"
       />
       {events.length === 0 || showFilteredEmptyState ? (
         <EmptyState
