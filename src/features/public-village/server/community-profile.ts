@@ -1,6 +1,11 @@
 export type CommunityProfile = {
   history: string[];
   highlights: { title: string; description: string; kind: "landmark" | "tradition" | "community" }[];
+  importantServices: {
+    category: "religious" | "health" | "education" | "government" | "community";
+    title: string;
+    description: string;
+  }[];
   transport: string;
   attribution: string;
 };
@@ -23,7 +28,24 @@ export function getCommunityProfile(officialCode: string | null | undefined): Co
       { title: "ประเพณีตักบาตรเทโว", description: "ประเพณีสำคัญที่จัดสืบต่อกันในพื้นที่เขาทรายหลังช่วงออกพรรษา", kind: "tradition" },
       { title: "ชุมชนเกษตรกรรม", description: "วิถีชีวิตดั้งเดิมของชุมชนสัมพันธ์กับการทำนาและทำไร่", kind: "community" },
     ],
+    importantServices: [
+      {
+        category: "religious",
+        title: "วัดพระพุทธบาทเขาทราย",
+        description: "บ้านเขาทราย หมู่ 10 ตำบลเขาทราย เป็นศาสนสถานสำคัญและศูนย์รวมกิจกรรมทางศาสนาของชุมชน",
+      },
+      {
+        category: "health",
+        title: "โรงพยาบาลส่งเสริมสุขภาพตำบลเขาทราย",
+        description: "หน่วยบริการสุขภาพปฐมภูมิในตำบลเขาทราย ตั้งอยู่หมู่ 4",
+      },
+      {
+        category: "education",
+        title: "สถานศึกษาในพื้นที่",
+        description: "โรงเรียนวัดเขาทราย บ้านเขาทราย หมู่ 10 · โรงเรียนเขาทรายทับคล้อพิทยา สถานศึกษาระดับมัธยมศึกษา หมู่ 1 ตำบลเขาทราย",
+      },
+    ],
     transport: "ชุมชนเชื่อมต่อกับทางหลวงหมายเลข 113 สายเขาทราย–เพชรบูรณ์",
-    attribution: "ข้อมูลประกอบ: ข้อมูลประวัติท้องถิ่นอำเภอทับคล้อ และข้อมูลชุมชนวัดเขาทราย",
+    attribution: "ข้อมูลประกอบ: ข้อมูลประวัติท้องถิ่นอำเภอทับคล้อ, Thailand Tourism Directory, โรงเรียนวัดเขาทราย, โรงเรียนเขาทรายทับคล้อพิทยา และหน่วยงานสาธารณสุขจังหวัดพิจิตร",
   };
 }
