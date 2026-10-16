@@ -26,8 +26,6 @@ export default async function Page({ params, searchParams }: PageProps) {
   const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
   const initialDate = parseSelectedDate(date, monthKey);
   const keyword = q?.trim() ?? "";
-  const hasSearch = keyword.length > 0;
-  const hasSelectedDate = initialDate !== null;
   const monthStart = new Date(year, monthIndex, 1);
   const nextMonthStart = new Date(year, monthIndex + 1, 1);
   const events = await getVillageCalendarEvents({
@@ -37,24 +35,6 @@ export default async function Page({ params, searchParams }: PageProps) {
     publicOnly: true,
     keyword,
   });
-  const hasSelectedDateEvent = initialDate
-    ? events.some((event) => {
-        const startKey = toDateKey(event.startsAt);
-        const endKey = event.endsAt ? toDateKey(event.endsAt) : startKey;
-        return initialDate >= startKey && initialDate <= endKey;
-      })
-    : false;
-  const hasNoMatchingEvents = hasSelectedDate ? !hasSelectedDateEvent : events.length === 0;
-  const showFilteredEmptyState = hasNoMatchingEvents && (hasSearch || hasSelectedDate);
-  let emptyStateMessage: string | null = null;
-  if (hasSearch && hasSelectedDate) {
-    emptyStateMessage = "ไม่พบกิจกรรมตามเงื่อนไขที่เลือก";
-  } else if (hasSearch) {
-    emptyStateMessage = "ไม่พบกิจกรรมที่ตรงกับคำค้นหา";
-  } else if (hasSelectedDate) {
-    emptyStateMessage = "ไม่มีกิจกรรมในวันที่เลือก";
-  }
-
   return (
     <div className="space-y-4">
       <CalendarToolbar
@@ -69,7 +49,7 @@ export default async function Page({ params, searchParams }: PageProps) {
         todayDateKey={toDateKey(new Date())}
         selectToday
         publicFullBleed
-        search={{ keyword, placeholder: "ค้นหากิจกรรม", label: "ค้นหากิจกรรม" }}
+        search={{ keyword, placeholder: "ค้นหาในเดือนนี้", label: "ค้นหากิจกรรมในเดือนนี้" }}
       />
       <ResidentCalendarGrid
         key={`${monthKey}-${initialDate ?? "none"}-${keyword}`}
@@ -82,9 +62,9 @@ export default async function Page({ params, searchParams }: PageProps) {
         eventHrefBase={`/${villageSlug}/calendar`}
         events={events.map((event) => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))}
         appointments={[]}
-        publicStickyWeekdays
+        stickyWeekdays
       />
-      {events.length === 0 || showFilteredEmptyState ? <p className="text-sm text-gray-500">{emptyStateMessage ?? "ยังไม่มีกิจกรรมในเดือนนี้"}</p> : null}
+      {!keyword && events.length === 0 ? <p className="text-sm text-gray-500">ยังไม่มีกิจกรรมในเดือนนี้</p> : null}
     </div>
   );
 }

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Clock, MapPin } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { toDateKey } from "@/lib/calendar-month";
+import { CalendarSearchSummary, type CalendarSearchResult } from "@/components/calendar/calendar-search-summary";
+import { formatThaiMonthYear, toDateKey } from "@/lib/calendar-month";
 
 type EventItem = { id: string; title: string; startsAt: string; endsAt: string | null; location: string | null; isPublic: boolean };
 type AppointmentItem = { id: string; title: string; stage: string; date: string; startTime: string | null; endTime: string | null };
@@ -18,15 +19,14 @@ function CalendarItemRow({ title, remaining, tone, href }: { title: string; rema
   return <Link href={href} onClick={(event) => event.stopPropagation()} className={`pointer-events-auto flex min-h-7 items-center gap-1 rounded-md px-2 py-1 text-xs ${colors}`}><span className="min-w-0 flex-1 truncate">{title}</span>{remaining > 0 ? <span className="shrink-0 font-medium">+{remaining}</span> : null}</Link>;
 }
 
-export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, showAppointments, searchKeyword = "", itemType = "all", events, appointments, eventHrefBase = "/resident/calendar", publicStickyWeekdays = false }: { year: number; monthIndex: number; todayKey: string; initialDate: string | null; showAppointments: boolean; searchKeyword?: string; itemType?: "all" | "appointment" | "event"; events: EventItem[]; appointments: AppointmentItem[]; eventHrefBase?: string; publicStickyWeekdays?: boolean }) {
+export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, showAppointments, searchKeyword = "", itemType = "all", events, appointments, eventHrefBase = "/resident/calendar", stickyWeekdays = false }: { year: number; monthIndex: number; todayKey: string; initialDate: string | null; showAppointments: boolean; searchKeyword?: string; itemType?: "all" | "appointment" | "event"; events: EventItem[]; appointments: AppointmentItem[]; eventHrefBase?: string; stickyWeekdays?: boolean }) {
   const router = useRouter(), pathname = usePathname(), searchParams = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<string | null>(initialDate);
   const selectedDateDetailRef = useRef<HTMLElement>(null);
   const shouldScrollToDetailRef = useRef(false);
   const normalizedSearch = searchKeyword.trim().toLocaleLowerCase();
-  const matches = (value: string) => !normalizedSearch || value.toLocaleLowerCase().includes(normalizedSearch);
-  const visibleEvents = itemType === "appointment" ? [] : events.filter((item) => matches([item.title, item.location ?? ""].join(" ")));
-  const visibleAppointments = itemType === "event" ? [] : appointments.filter((item) => matches(item.title));
+  const visibleEvents = itemType === "appointment" ? [] : events;
+  const visibleAppointments = itemType === "event" ? [] : appointments;
   const eventsByDate = new Map<string, EventItem[]>(), appointmentsByDate = new Map<string, AppointmentItem[]>();
   for (const item of visibleEvents) {
     const startKey = toDateKey(new Date(item.startsAt));
@@ -42,9 +42,9 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
   if (showAppointments) for (const item of visibleAppointments) appointmentsByDate.set(item.date, [...(appointmentsByDate.get(item.date) ?? []), item]);
   for (const items of eventsByDate.values()) items.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   for (const items of appointmentsByDate.values()) items.sort((a, b) => !a.startTime ? (b.startTime ? 1 : 0) : !b.startTime ? -1 : a.startTime.localeCompare(b.startTime));
-  const selectDate = (date: string) => {
-    const nextDate = selectedDate === date ? null : date;
-    const hasDateContent = (eventsByDate.get(date)?.length ?? 0) > 0 || (showAppointments && appointments.some((item) => item.date === date));
+  const selectDate = (date: string, forceSelect = false) => {
+    const nextDate = !forceSelect && selectedDate === date ? null : date;
+    const hasDateContent = (eventsByDate.get(date)?.length ?? 0) > 0 || (appointmentsByDate.get(date)?.length ?? 0) > 0;
     shouldScrollToDetailRef.current = Boolean(nextDate && hasDateContent);
     setSelectedDate(nextDate);
     const params = new URLSearchParams(searchParams.toString()); if (nextDate) params.set("date", nextDate); else params.delete("date"); const query = params.toString(); router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -53,8 +53,15 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
   const days = new Date(year, monthIndex + 1, 0).getDate(), blanks = new Date(year, monthIndex, 1).getDay();
   const selectedEvents = selectedDate ? eventsByDate.get(selectedDate) ?? [] : [], selectedAppointments = selectedDate ? appointmentsByDate.get(selectedDate) ?? [] : [];
   const totalSelected = selectedEvents.length + selectedAppointments.length;
-  const selectedHadItems = Boolean(selectedDate && ((showAppointments && appointments.some((item) => item.date === selectedDate)) || (eventsByDate.get(selectedDate)?.length ?? 0) > 0));
   const hasActiveFilter = Boolean(normalizedSearch) || itemType !== "all";
+  const firstMonthDate = `${year}-${String(monthIndex + 1).padStart(2, "0")}-01`;
+  const searchResults: CalendarSearchResult[] = [
+    ...visibleEvents.map((item) => {
+      const startDate = toDateKey(new Date(item.startsAt));
+      return { id: item.id, type: "event" as const, title: item.title, date: startDate, selectionDate: startDate < firstMonthDate ? firstMonthDate : startDate };
+    }),
+    ...(showAppointments ? visibleAppointments.map((item) => ({ id: item.id, type: "appointment" as const, title: item.title, date: item.date })) : []),
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title, "th"));
   useEffect(() => {
     if (!shouldScrollToDetailRef.current || !selectedDateDetailRef.current) return;
     shouldScrollToDetailRef.current = false;
@@ -62,8 +69,9 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
     requestAnimationFrame(() => selectedDateDetailRef.current?.scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" }));
   }, [selectedDate]);
   return <>
-    <section className={publicStickyWeekdays ? "overflow-visible rounded-xl border border-gray-200 bg-white" : "overflow-hidden rounded-xl border border-gray-200 bg-white"}>
-      <div className={publicStickyWeekdays ? "sticky top-[calc(var(--app-sticky-top)+var(--public-calendar-toolbar-height,0px))] z-20 grid grid-cols-7 border-b border-gray-200 bg-white shadow-sm" : "grid grid-cols-7 border-b border-gray-200 bg-gray-50"}>{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div>
+    <CalendarSearchSummary query={searchKeyword} monthLabel={formatThaiMonthYear(year, monthIndex)} results={searchResults} emptyMessage={showAppointments ? `ไม่พบกิจกรรมหรือนัดหมายที่ตรงกับ “${searchKeyword}” ในเดือนนี้` : `ไม่พบกิจกรรมที่ตรงกับ “${searchKeyword}” ในเดือนนี้`} onSelectDate={(date) => selectDate(date, true)} />
+    <section className={stickyWeekdays ? "overflow-visible rounded-xl border border-gray-200 bg-white" : "overflow-hidden rounded-xl border border-gray-200 bg-white"}>
+      <div className={stickyWeekdays ? "sticky top-[calc(var(--app-sticky-top)+var(--calendar-toolbar-height,0px))] z-20 grid grid-cols-7 border-b border-gray-200 bg-white shadow-sm" : "grid grid-cols-7 border-b border-gray-200 bg-gray-50"}>{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <div key={day} className="px-1 py-2 text-center text-xs font-semibold text-gray-600">{day}</div>)}</div>
       <div className="grid grid-cols-7">
         {Array.from({ length: blanks }).map((_, index) => <div key={`blank-${index}`} className="min-h-16 border-b border-r border-gray-100 bg-gray-50/60 sm:min-h-28 lg:min-h-32" />)}
         {Array.from({ length: days }).map((_, index) => {
@@ -77,9 +85,9 @@ export function ResidentCalendarGrid({ year, monthIndex, todayKey, initialDate, 
         })}
       </div>
     </section>
-    {selectedDate ? <section ref={selectedDateDetailRef} className="scroll-mt-[calc(var(--app-sticky-top)+5rem)] rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+    {selectedDate ? <section ref={selectedDateDetailRef} className="scroll-mt-[calc(var(--app-sticky-top)+var(--calendar-toolbar-height,0px)+var(--calendar-weekday-height,2.25rem)+1rem)] rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
       <div className="flex items-start justify-between gap-3"><h2 className="text-base font-semibold text-gray-900 sm:text-lg">รายละเอียดวันที่เลือก: {new Date(`${selectedDate}T00:00:00`).toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</h2><span className="shrink-0 pt-0.5 text-sm text-gray-500">{totalSelected} รายการ</span></div>
-      {!totalSelected ? <p className="mt-5 text-sm text-gray-500">{hasActiveFilter && selectedHadItems ? "ไม่พบรายการที่ตรงกับการค้นหาหรือตัวกรอง" : showAppointments ? "ไม่มีกิจกรรมหรือนัดหมายในวันนี้" : "ไม่มีกิจกรรมในวันนี้"}</p> : <div className="mt-5 space-y-5">
+      {!totalSelected ? <p className="mt-5 text-sm text-gray-500">{hasActiveFilter ? "ไม่พบรายการที่ตรงกับการค้นหาหรือตัวกรอง" : showAppointments ? "ไม่มีกิจกรรมหรือนัดหมายในวันนี้" : "ไม่มีกิจกรรมในวันนี้"}</p> : <div className="mt-5 space-y-5">
         {showAppointments && selectedAppointments.length ? <section><h3 className="text-sm font-semibold text-gray-800">นัดหมาย ({selectedAppointments.length})</h3><div className="mt-2 divide-y divide-gray-100 border-y border-gray-100">{selectedAppointments.map((item) => <Link key={item.id} href={`/resident/appointments/${item.id}`} className="block py-3 hover:bg-gray-50"><p className="font-medium text-gray-900">{item.title}</p>{item.startTime ? <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500"><Clock className="h-4 w-4" aria-hidden="true" />{item.startTime}</p> : null}<p className="mt-1 text-sm text-gray-500">{residentStageLabels[item.stage] ?? item.stage}</p></Link>)}</div></section> : null}
         {selectedEvents.length ? <section className={selectedAppointments.length ? "border-t border-gray-100 pt-5" : ""}><h3 className="text-sm font-semibold text-gray-800">กิจกรรม ({selectedEvents.length})</h3><div className="mt-2 divide-y divide-gray-100 border-y border-gray-100">{selectedEvents.map((item) => <Link key={item.id} href={`${eventHrefBase}/${item.id}`} className="block py-3 hover:bg-gray-50"><p className="font-medium text-gray-900">{item.title}</p><p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500"><Clock className="h-4 w-4" aria-hidden="true" />{timeLabel(item.startsAt)}</p>{item.location ? <p className="mt-1 flex items-center gap-1.5 text-sm text-gray-500"><MapPin className="h-4 w-4" aria-hidden="true" />{item.location}</p> : null}</Link>)}</div></section> : null}
       </div>}

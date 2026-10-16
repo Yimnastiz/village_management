@@ -24,7 +24,7 @@ export async function getVillageCalendarEvents(params: {
       AND: [
         { startsAt: { lt: params.endsBefore } },
         { OR: [{ endsAt: { gte: params.startsAt } }, { endsAt: null, startsAt: { gte: params.startsAt } }] },
-        ...(keyword ? [{ OR: [{ title: { contains: keyword, mode: "insensitive" as const } }, { location: { contains: keyword, mode: "insensitive" as const } }] }] : []),
+        ...(keyword ? [{ OR: [{ title: { contains: keyword, mode: "insensitive" as const } }, { location: { contains: keyword, mode: "insensitive" as const } }, { description: { contains: keyword, mode: "insensitive" as const } }] }] : []),
       ],
     },
     orderBy: [{ startsAt: "asc" }],

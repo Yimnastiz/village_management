@@ -48,6 +48,10 @@ type CalendarToolbarProps = {
   selectToday?: boolean;
   /** Extends the public toolbar across the public layout's horizontal padding. */
   publicFullBleed?: boolean;
+  /** Keeps Calendar search, filters, and navigation in the primary compact row. */
+  compactInline?: boolean;
+  /** Publishes the rendered sticky height for the weekday row below this toolbar. */
+  publishStickyHeight?: boolean;
 };
 
 export function CalendarToolbar({
@@ -73,6 +77,8 @@ export function CalendarToolbar({
   todayDateKey,
   selectToday = false,
   publicFullBleed = false,
+  compactInline = false,
+  publishStickyHeight = false,
 }: CalendarToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   const residentPageHeaderRegistry = useOptionalResidentPageHeaderRegistry();
@@ -80,6 +86,8 @@ export function CalendarToolbar({
   const router = useRouter();
   const currentSearchParams = useSearchParams();
   const isAdminToolbar = Boolean(adminPageHeaderRegistry);
+  const hasAdminFilterGroups = adminFilterGroups.length > 0;
+  const usesFilterTrigger = isAdminToolbar || residentCompact || hasAdminFilterGroups;
   const hasTopbarHeader = hideHeading || isAdminToolbar || (registerHeader && Boolean(residentPageHeaderRegistry));
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar || residentCompact);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -95,7 +103,8 @@ export function CalendarToolbar({
   const monthIndex = currentMonth - 1;
   const monthLabel = formatThaiMonthYear(currentYear, monthIndex, "long");
   const compactMonthLabel = formatThaiMonthYear(currentYear, monthIndex, "short");
-  const filtersVisible = isAdminToolbar ? isFilterOpen : residentCompact ? isFilterOpen : true;
+  const hasFilters = Boolean(filters || hasAdminFilterGroups);
+  const filtersVisible = usesFilterTrigger ? isFilterOpen : true;
   const filterPersistenceKey = `calendar-toolbar:${pathname}:filters-open`;
   const years = Array.from({ length: yearEnd - yearStart + 1 }, (_, index) => yearStart + index);
 
@@ -121,25 +130,25 @@ export function CalendarToolbar({
   }, [currentYear, isMonthPickerOpen]);
 
   useEffect(() => {
-    if (!publicFullBleed || !toolbarRef.current) return;
+    if (!(publicFullBleed || publishStickyHeight) || !toolbarRef.current) return;
     const toolbar = toolbarRef.current;
     const contractOwner = toolbar.parentElement;
     if (!contractOwner) return;
-    const publishHeight = () => contractOwner.style.setProperty("--public-calendar-toolbar-height", `${toolbar.getBoundingClientRect().height}px`);
+    const publishHeight = () => contractOwner.style.setProperty("--calendar-toolbar-height", `${toolbar.getBoundingClientRect().height}px`);
     publishHeight();
     const observer = new ResizeObserver(publishHeight);
     observer.observe(toolbar);
     return () => {
       observer.disconnect();
-      contractOwner.style.removeProperty("--public-calendar-toolbar-height");
+      contractOwner.style.removeProperty("--calendar-toolbar-height");
     };
-  }, [publicFullBleed]);
+  }, [publicFullBleed, publishStickyHeight]);
 
   useEffect(() => {
-    if ((!isAdminToolbar && !residentCompact) || !sessionStorage.getItem(filterPersistenceKey)) return;
+    if (!usesFilterTrigger || !sessionStorage.getItem(filterPersistenceKey)) return;
     sessionStorage.removeItem(filterPersistenceKey);
     setIsFilterOpen(true);
-  }, [filterPersistenceKey, isAdminToolbar]);
+  }, [filterPersistenceKey, usesFilterTrigger]);
 
   const buildHref = (year: number, month: number) => {
     const params = new URLSearchParams(currentSearchParams.toString());
@@ -185,7 +194,7 @@ export function CalendarToolbar({
   const previousMonthDate = new Date(currentYear, currentMonth - 2, 1);
   const nextMonthDate = new Date(currentYear, currentMonth, 1);
 
-  const searchForm = search && (publicFullBleed || isSearchOpen) ? (
+  const searchForm = search && (publicFullBleed || compactInline || isSearchOpen) ? (
     <form
       id={searchPanelId}
       role="search"
@@ -195,9 +204,9 @@ export function CalendarToolbar({
         applySearch(searchValue);
       }}
       className={cn(
-        "relative flex min-w-0 basis-full items-center gap-1.5",
-        publicFullBleed ? "md:w-auto md:flex-1 md:basis-auto" : "sm:w-[min(26rem,40vw)] sm:basis-auto",
-        isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]",
+        "relative flex min-w-0 items-center gap-1.5",
+        publicFullBleed ? "basis-full md:w-auto md:flex-1 md:basis-auto" : compactInline ? "min-w-[12rem] flex-1 basis-[12rem] lg:max-w-96" : "basis-full sm:w-[min(26rem,40vw)] sm:basis-auto",
+        isAdminToolbar && !compactInline && "sm:w-[clamp(14rem,28vw,24rem)]",
       )}
     >
       <label htmlFor={`${namespace}-search-input`} className="sr-only">{search.label ?? "เธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก"}</label>
@@ -211,13 +220,20 @@ export function CalendarToolbar({
         onChange={(event) => setSearchValue(event.target.value)}
         list={search.suggestions?.length ? suggestionsId : undefined}
         placeholder={search.placeholder}
-        className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10", publicFullBleed && "h-9")}
+        className={cn("min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", publicFullBleed || compactInline ? "h-9" : "h-11", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
       />
       {(isAdminToolbar || residentCompact) && searchValue ? <button type="button" onClick={() => { if (debounceRef.current) clearTimeout(debounceRef.current); setSearchValue(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="เธฅเนเธฒเธเธเธฒเธฃเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
-      {!publicFullBleed ? <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {!publicFullBleed && !compactInline ? <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       <button type="submit" className="sr-only">เธเนเธเธซเธฒ</button>
     </form>
   ) : null;
+
+  const filterControls = hasFilters ? <>
+    {usesFilterTrigger ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className={cn("inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", compactInline ? "h-9" : "h-11")}><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
+    {filtersVisible ? <div className={cn(usesFilterTrigger ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !usesFilterTrigger ? "hidden md:block" : "")} onClickCapture={() => { if (usesFilterTrigger) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
+      <div className={cn("flex items-center gap-2", hasAdminFilterGroups ? "flex-wrap" : "w-max whitespace-nowrap")}>{hasAdminFilterGroups ? <>{adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />)}{adminClearFiltersHref ? <Link href={adminClearFiltersHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}</> : filters}</div>
+    </div> : null}
+  </> : null;
 
   return (
     <section
@@ -240,13 +256,13 @@ export function CalendarToolbar({
         </div> : null}
       </div>
 
-      <div className={cn("mt-2 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center", publicFullBleed && "mt-0 flex-wrap md:flex-row md:items-center")}>
+      <div className={cn("mt-2 flex min-w-0 gap-2 lg:items-center", compactInline ? "flex-row flex-wrap items-center" : "flex-col lg:flex-row", publicFullBleed && "mt-0 flex-wrap md:flex-row md:items-center", compactInline && hasTopbarHeader && "mt-0")}>
         {leadingActions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{leadingActions}</div> : null}
-        <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto sm:min-w-80", publicFullBleed && "sm:min-w-0", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
+        <div className={cn("relative grid min-w-0 items-center gap-2 sm:w-auto", publicFullBleed ? "sm:min-w-0" : compactInline ? "sm:min-w-56" : "sm:min-w-80", residentCompact ? "grid-cols-[36px_minmax(0,1fr)_36px_auto] sm:grid-cols-[44px_minmax(0,1fr)_44px]" : "grid-cols-[44px_minmax(0,1fr)_44px]")}>
           <Link
             href={buildHref(previousMonthDate.getFullYear(), previousMonthDate.getMonth() + 1)}
             aria-label="เดือนก่อนหน้า"
-            className={cn("inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", publicFullBleed && "h-9")}
+            className={cn("inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", publicFullBleed || compactInline ? "h-9" : "h-11")}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -257,7 +273,7 @@ export function CalendarToolbar({
           <Link
             href={buildHref(nextMonthDate.getFullYear(), nextMonthDate.getMonth() + 1)}
             aria-label="เดือนถัดไป"
-            className={cn("inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", publicFullBleed && "h-9")}
+            className={cn("inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", publicFullBleed || compactInline ? "h-9" : "h-11")}
           >
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </Link>
@@ -297,7 +313,7 @@ export function CalendarToolbar({
             id={`${namespace}-month`}
             value={currentMonth}
             onChange={(event) => navigateToMonth(currentYear, Number(event.target.value))}
-            className={cn("h-11 min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 sm:w-40", publicFullBleed && "h-9")}
+            className={cn("min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500", publicFullBleed || compactInline ? "h-9" : "h-11", compactInline ? "sm:w-32" : "sm:w-40")}
           >
             {THAI_MONTH_NAMES.map((monthName, index) => (
               <option key={monthName} value={index + 1}>{monthName}</option>
@@ -309,7 +325,7 @@ export function CalendarToolbar({
             id={`${namespace}-year`}
             value={currentYear}
             onChange={(event) => navigateToMonth(Number(event.target.value), currentMonth)}
-            className={cn("h-11 min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500 sm:w-28", publicFullBleed && "h-9")}
+            className={cn("min-w-0 rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 shadow-sm outline-none focus:border-green-500 focus:ring-1 focus:ring-green-500", publicFullBleed || compactInline ? "h-9" : "h-11", compactInline ? "sm:w-24" : "sm:w-28")}
           >
             {years.map((year) => (
               <option key={year} value={year}>{year + 543}</option>
@@ -319,17 +335,18 @@ export function CalendarToolbar({
           <Link
             href={todayHref()}
             aria-label="กลับไปเดือนปัจจุบัน"
-            className={cn("inline-flex h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5", publicFullBleed && "h-9")}
+            className={cn("inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 sm:w-auto sm:gap-1.5", publicFullBleed || compactInline ? "h-9" : "h-11")}
           >
             <RotateCcw className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{currentMonthLabel ?? (residentCompact ? "เดือนนี้" : "วันนี้")}</span>
           </Link>
         </div>
-        {publicFullBleed ? searchForm : null}
+        {publicFullBleed || compactInline ? searchForm : null}
+        {compactInline ? filterControls : null}
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
       </div>
 
-      {!publicFullBleed && (search || filters) ? (
+      {!publicFullBleed && !compactInline && (search || hasFilters) ? (
         <div className="mt-2 flex min-h-11 min-w-0 flex-wrap items-center gap-2">
           {search ? (
             <>
@@ -382,12 +399,7 @@ export function CalendarToolbar({
             </>
           ) : null}
 
-          {filters ? <>
-            {(isAdminToolbar || residentCompact) ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className="inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
-            {filtersVisible ? <div className={cn(isAdminToolbar || residentCompact ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !isAdminToolbar && !residentCompact ? "hidden md:block" : "")} onClickCapture={() => { if (isAdminToolbar || residentCompact) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
-              <div className={cn("flex items-center gap-2", isAdminToolbar ? "flex-wrap" : "w-max whitespace-nowrap")}>{isAdminToolbar && adminFilterGroups.length ? <>{adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />)}{adminClearFiltersHref ? <Link href={adminClearFiltersHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}</> : filters}</div>
-            </div> : null}
-          </> : null}
+          {filterControls}
         </div>
       ) : null}
 
