@@ -22,9 +22,9 @@ export function AdminEventModal() {
       open={open}
       title="เพิ่มกิจกรรม"
       onClose={close}
-      closeOnBackdrop={!isSubmitting}
-      closeOnEscape={!isSubmitting}
-      footer={<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={close} disabled={isSubmitting}>ยกเลิก</Button><Button type="submit" form={formId} isLoading={isSubmitting}>เพิ่มกิจกรรม</Button></div>}
+      closeOnBackdrop={false}
+      closeOnEscape={false}
+      footer={<div className="flex justify-end"><Button type="submit" form={formId} isLoading={isSubmitting}>เพิ่มกิจกรรม</Button></div>}
     >
       <CalendarForm mode="create" embedded formId={formId} hideActions onSuccess={() => { setIsSubmitting(false); setOpen(false); }} onSubmittingChange={setIsSubmitting} />
     </Dialog>

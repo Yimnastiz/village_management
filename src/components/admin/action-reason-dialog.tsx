@@ -17,6 +17,7 @@ type ActionReasonDialogProps = {
   requireReason?: boolean;
   minReasonLength?: number;
   maxReasonLength?: number;
+  invalidReasonMessage?: string;
   children?: ReactNode;
   loading?: boolean;
   onCancel: () => void;
@@ -24,10 +25,11 @@ type ActionReasonDialogProps = {
 };
 
 /** Shared reason interaction for sensitive actions. The field component renders the required marker. */
-export function ActionReasonDialog({ open, action, title, description, submitLabel = "ยืนยัน", reasonLabel = "เหตุผล", helperText, requireReason, minReasonLength, maxReasonLength, children, loading = false, onCancel, onSubmit }: ActionReasonDialogProps) {
+export function ActionReasonDialog({ open, action, title, description, submitLabel = "ยืนยัน", reasonLabel = "เหตุผล", helperText, requireReason, minReasonLength, maxReasonLength, invalidReasonMessage, children, loading = false, onCancel, onSubmit }: ActionReasonDialogProps) {
   const policy = getActionPolicy(action);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const submittingRef = useRef(false);
   const normalizedReason = reason.trim();
   const busy = loading || submitting;
@@ -36,26 +38,28 @@ export function ActionReasonDialog({ open, action, title, description, submitLab
   const valid = (!requiresReason || normalizedReason.length >= minimumLength) && (!maxReasonLength || normalizedReason.length <= maxReasonLength);
 
   useEffect(() => {
-    if (!open) setReason("");
+    if (!open) { setReason(""); setAttemptedSubmit(false); }
   }, [open]);
 
   const submit = async () => {
-    if (!valid || busy || submittingRef.current) return;
+    if (busy || submittingRef.current) return;
+    if (!valid) { setAttemptedSubmit(true); return; }
     submittingRef.current = true;
     setSubmitting(true);
     try { await onSubmit(normalizedReason); } finally { submittingRef.current = false; setSubmitting(false); }
   };
-  const cancel = () => { if (!busy) { setReason(""); onCancel(); } };
+  const cancel = () => { if (!busy) { setReason(""); setAttemptedSubmit(false); onCancel(); } };
 
   return (
     <Dialog open={open} title={title} description={description} onClose={cancel} closeOnBackdrop={false} closeOnEscape={!busy} footer={
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <Button type="button" variant="outline" disabled={busy} onClick={cancel}>ยกเลิก</Button>
-        <Button type="button" isLoading={busy} disabled={!valid || busy} onClick={() => void submit()}>{submitLabel}</Button>
+        <Button type="button" isLoading={busy} disabled={busy || (!valid && !invalidReasonMessage)} onClick={() => void submit()}>{submitLabel}</Button>
       </div>
     }>
       {children ? <div className="mb-4">{children}</div> : null}
       <Textarea autoFocus label={reasonLabel} required={requiresReason} value={reason} onChange={(event) => setReason(event.target.value)} helperText={helperText ?? `อย่างน้อย ${minimumLength} ตัวอักษร`} maxLength={maxReasonLength} disabled={busy} />
+      {attemptedSubmit && !valid && invalidReasonMessage ? <p className="mt-1 text-sm text-red-600">{invalidReasonMessage}</p> : null}
     </Dialog>
   );
 }

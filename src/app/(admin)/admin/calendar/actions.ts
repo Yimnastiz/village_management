@@ -349,67 +349,15 @@ export async function adminRejectVillageEventSubmissionAction(
 }
 
 export async function updateVillageEventSubmissionAction(
-  requestId: string,
-  data: EventInput
+  _requestId: string,
+  _data: EventInput
 ): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-
-  const normalized = normalizeInput(data);
-  if (!normalized.ok) return { success: false, error: normalized.error };
-
-  const request = await villageEventSubmission.findFirst({
-    where: { id: requestId, villageId: ctx.villageId, status: "PENDING" },
-  });
-  if (!request) {
-    return { success: false, error: "แก้ไขได้เฉพาะคำขอที่รอพิจารณาเท่านั้น" };
-  }
-
-  try {
-    await villageEventSubmission.update({
-      where: { id: request.id },
-      data: normalized.value,
-    });
-
-    revalidatePath("/admin/calendar/requests");
-    revalidateAdminSidebar();
-    revalidatePath(`/admin/calendar/requests/${requestId}`);
-    revalidatePath("/resident/calendar/requests");
-    return { success: true };
-  } catch {
-    return { success: false, error: "แก้ไขคำขอไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
-  }
+  return { success: false, error: "คำขอของสมาชิกสามารถอนุมัติหรือไม่อนุมัติได้เท่านั้น" };
 }
 
 export async function deleteVillageEventSubmissionAction(
-  requestId: string,
-  reasonInput: string,
+  _requestId: string,
+  _reasonInput: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
-  const ctx = await requireAdminVillage();
-  if (!ctx.ok) return { success: false, error: ctx.error };
-  let reason: string;
-  try { reason = requireActionReason("content.delete", reasonInput); }
-  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
-
-  const request = await villageEventSubmission.findFirst({
-    where: { id: requestId, villageId: ctx.villageId, status: "PENDING" },
-  });
-  if (!request) {
-    return { success: false, error: "ลบได้เฉพาะคำขอที่รอพิจารณาเท่านั้น เพื่อป้องกันข้อมูลกิจกรรมไม่สอดคล้องกัน" };
-  }
-
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.villageEventSubmission.delete({ where: { id: request.id } });
-      await tx.notification.create({ data: { userId: request.requesterId, villageId: request.villageId, type: NotificationType.SYSTEM, title: "คำขอกิจกรรมถูกนำออก", body: `คำขอ “${request.title}” ถูกนำออก เหตุผล: ${reason}`, metadata: notificationMetadata("CALENDAR", { requestId: request.id, status: "DELETED", reason, actionUrl: "/resident/calendar/requests" }) } });
-      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillageEventSubmission", resourceId: request.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, requesterId: request.requesterId, title: request.title } } });
-    });
-    revalidatePath("/admin/calendar/requests");
-    revalidateAdminSidebar();
-    revalidatePath(`/admin/calendar/requests/${requestId}`);
-    revalidatePath("/resident/calendar/requests");
-    return { success: true };
-  } catch {
-    return { success: false, error: "ไม่สามารถลบคำขอได้ กรุณาลองใหม่อีกครั้ง" };
-  }
+  return { success: false, error: "คำขอของสมาชิกสามารถอนุมัติหรือไม่อนุมัติได้เท่านั้น" };
 }

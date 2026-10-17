@@ -8,6 +8,7 @@ import { formatCalendarPerson } from "@/lib/calendar-person";
 import { canHeadmanEditCalendarEvent } from "@/lib/calendar-event-policy";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { DeleteVillageEventButton } from "./delete-button";
+import { PageBackLink } from "@/components/ui/page-back-link";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
@@ -51,6 +52,7 @@ export default async function VillageEventDetailPage({ params }: PageProps) {
 
   return (
     <main className="mx-auto w-full max-w-4xl space-y-6">
+      <PageBackLink href="/admin/calendar" label="กลับปฏิทิน" />
       <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
           {canEdit ? <Link href={`/admin/calendar/${event.id}/edit`}>
             <Button variant="outline" className="w-full sm:w-auto">แก้ไข</Button>

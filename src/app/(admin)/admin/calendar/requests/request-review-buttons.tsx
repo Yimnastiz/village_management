@@ -1,24 +1,28 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { VisibilitySelector } from "@/components/ui/visibility-selector";
 import { useToast } from "@/components/ui/toast";
 import {
   adminApproveVillageEventSubmissionAction,
   adminRejectVillageEventSubmissionAction,
 } from "../actions";
 
+type ReviewFormData = { finalVisibility: "PUBLIC" | "RESIDENT" };
+
 export function CalendarRequestReviewButtons({ requestId, requestedVisibility }: { requestId: string; requestedVisibility: "PUBLIC" | "RESIDENT" }) {
   const router = useRouter();
   const { pushToast } = useToast();
+  const { register, watch } = useForm<ReviewFormData>({ defaultValues: { finalVisibility: requestedVisibility } });
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
-  const [reviewNote, setReviewNote] = useState("");
-  const [finalVisibility, setFinalVisibility] = useState<"PUBLIC" | "RESIDENT">(requestedVisibility);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const finalVisibility = watch("finalVisibility");
   const isPending = isApproving || isRejecting;
 
   const onApprove = async () => {
@@ -26,14 +30,13 @@ export function CalendarRequestReviewButtons({ requestId, requestedVisibility }:
     setError(null);
 
     try {
-      const result = await adminApproveVillageEventSubmissionAction(requestId, reviewNote, finalVisibility);
+      const result = await adminApproveVillageEventSubmissionAction(requestId, "", finalVisibility);
       if (!result.success) {
         setError(result.error);
         pushToast({ tone: "error", title: "อนุมัติคำขอไม่สำเร็จ", description: result.error });
         return;
       }
 
-      setReviewNote("");
       pushToast({ tone: "success", title: "อนุมัติคำขอเรียบร้อยแล้ว" });
       router.push(`/admin/calendar/${result.eventId}`);
     } catch (error) {
@@ -45,19 +48,19 @@ export function CalendarRequestReviewButtons({ requestId, requestedVisibility }:
     }
   };
 
-  const onReject = async () => {
+  const onReject = async (reason: string) => {
     setIsRejecting(true);
     setError(null);
 
     try {
-      const result = await adminRejectVillageEventSubmissionAction(requestId, reviewNote);
+      const result = await adminRejectVillageEventSubmissionAction(requestId, reason);
       if (!result.success) {
         setError(result.error);
         pushToast({ tone: "error", title: "ปฏิเสธคำขอไม่สำเร็จ", description: result.error });
         return;
       }
 
-      setReviewNote("");
+      setIsRejectDialogOpen(false);
       pushToast({ tone: "success", title: "ปฏิเสธคำขอเรียบร้อยแล้ว" });
       router.refresh();
     } catch (error) {
@@ -71,29 +74,31 @@ export function CalendarRequestReviewButtons({ requestId, requestedVisibility }:
 
   return (
     <div className="space-y-3">
-      <Select
+      <VisibilitySelector
+        publicInput={register("finalVisibility")}
+        residentInput={register("finalVisibility")}
+        residentValue="RESIDENT"
+        helperId="calendar-request-final-visibility"
         label="การมองเห็นเมื่อเผยแพร่"
-        value={finalVisibility}
-        onChange={(event) => setFinalVisibility(event.target.value as "PUBLIC" | "RESIDENT")}
         disabled={isPending}
-        options={[
-          { value: "RESIDENT", label: "เฉพาะสมาชิก" },
-          { value: "PUBLIC", label: "สาธารณะ" },
-        ]}
-      />
-      <Textarea
-        label="หมายเหตุถึงผู้ส่งคำขอ"
-        value={reviewNote}
-        onChange={(event) => setReviewNote(event.target.value)}
-        rows={3}
-        disabled={isPending}
-        placeholder="ไม่บังคับ ยกเว้นกรณีไม่อนุมัติควรระบุเหตุผล"
       />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Button onClick={onApprove} isLoading={isApproving} disabled={isPending} className="w-full sm:w-auto">อนุมัติ</Button>
-        <Button variant="danger" onClick={onReject} isLoading={isRejecting} disabled={isPending} className="w-full sm:w-auto">ไม่อนุมัติ</Button>
+        <Button variant="danger" onClick={() => { setError(null); setIsRejectDialogOpen(true); }} disabled={isPending} className="w-full sm:w-auto">ไม่อนุมัติ</Button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      <ActionReasonDialog
+        open={isRejectDialogOpen}
+        action="content.request.reject"
+        title="ไม่อนุมัติคำขอกิจกรรม"
+        description="คำขอจะถูกเก็บไว้ในประวัติพร้อมเหตุผลที่แจ้งแก่ผู้ส่งคำขอ"
+        reasonLabel="เหตุผลที่ไม่อนุมัติ"
+        invalidReasonMessage="กรุณาระบุเหตุผลที่ไม่อนุมัติ"
+        submitLabel="ยืนยันไม่อนุมัติ"
+        loading={isRejecting}
+        onCancel={() => setIsRejectDialogOpen(false)}
+        onSubmit={onReject}
+      />
     </div>
   );
 }

@@ -8,7 +8,6 @@ import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatCalendarPerson } from "@/lib/calendar-person";
 import { CalendarRequestReviewButtons } from "../request-review-buttons";
-import { CalendarRequestManagementActions } from "../request-management-actions";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { DeleteVillageEventButton } from "../../[eventId]/delete-button";
 
@@ -122,14 +121,13 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
         {request.status === "PENDING" ? (
           <div className="space-y-4 border-t border-gray-100 pt-4">
             <CalendarRequestReviewButtons requestId={request.id} requestedVisibility={request.isPublic ? "PUBLIC" : "RESIDENT"} />
-            <CalendarRequestManagementActions requestId={request.id} />
           </div>
         ) : (
           <div className="text-sm text-gray-600">
             <p>
               ผู้พิจารณา: {request.reviewedBy ? formatCalendarPerson(reviewer, "ไม่พบข้อมูลผู้พิจารณา") : "ยังไม่มีผู้พิจารณา"} • {request.reviewedAt ? new Date(request.reviewedAt).toLocaleString("th-TH") : "-"}
             </p>
-            {request.reviewNote && <p className="mt-1">หมายเหตุ: {request.reviewNote}</p>}
+            {request.reviewNote && <p className="mt-1">{request.status === "REJECTED" ? "เหตุผลที่ไม่อนุมัติ" : "หมายเหตุ"}: {request.reviewNote}</p>}
           </div>
         )}
         {publishedEvent ? <div className="flex flex-wrap items-start gap-2"><Link href={`/admin/calendar/${publishedEvent.id}`} className="inline-flex h-10 w-fit items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><CalendarDays className="h-4 w-4" aria-hidden="true" />ดูกิจกรรมที่เผยแพร่</Link><DeleteVillageEventButton eventId={publishedEvent.id} isResidentOwned={Boolean(publishedEvent.createdById && publishedEvent.createdById !== context.session.id)} /></div> : null}
