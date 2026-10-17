@@ -28,10 +28,16 @@ export default async function AdminCalendarPage({ searchParams }: PageProps) {
   const { year, monthIndex, yearStart, yearEnd } = parseCalendarMonth(params.month);
   const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
   const nextMonthStart = new Date(year, monthIndex + 1, 1, 0, 0, 0, 0);
-  const where: Prisma.VillageEventWhereInput = { villageId: membership.villageId, startsAt: { gte: monthStart, lt: nextMonthStart } };
+  const where: Prisma.VillageEventWhereInput = {
+    villageId: membership.villageId,
+    AND: [
+      { startsAt: { lt: nextMonthStart } },
+      { OR: [{ endsAt: { gt: monthStart } }, { endsAt: null, startsAt: { gte: monthStart } }] },
+      ...(keyword ? [{ OR: [{ title: { contains: keyword, mode: "insensitive" as const } }, { location: { contains: keyword, mode: "insensitive" as const } }, { description: { contains: keyword, mode: "insensitive" as const } }] }] : []),
+    ],
+  };
   if (activeVisibility === "PUBLIC") where.isPublic = true;
   if (activeVisibility === "RESIDENT_ONLY") where.isPublic = false;
-  if (keyword) where.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { location: { contains: keyword, mode: "insensitive" } }, { description: { contains: keyword, mode: "insensitive" } }];
   const appointmentWhere: Prisma.AppointmentWhereInput = { villageId: membership.villageId, stage: { notIn: ["CANCELLED", "REJECTED"] }, scheduledAt: { gte: monthStart, lt: nextMonthStart } };
   if (keyword) appointmentWhere.OR = [{ title: { contains: keyword, mode: "insensitive" } }, { user: { name: { contains: keyword, mode: "insensitive" } } }];
 

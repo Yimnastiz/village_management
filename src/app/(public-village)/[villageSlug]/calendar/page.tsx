@@ -58,6 +58,7 @@ export default async function Page({ params, searchParams }: PageProps) {
         todayKey={toDateKey(new Date())}
         initialDate={initialDate}
         showAppointments={false}
+        showEventVisibility={false}
         searchKeyword={keyword}
         eventHrefBase={`/${villageSlug}/calendar`}
         events={events.map((event) => ({ id: event.id, title: event.title, startsAt: event.startsAt.toISOString(), endsAt: event.endsAt?.toISOString() ?? null, location: event.location, isPublic: event.isPublic }))}

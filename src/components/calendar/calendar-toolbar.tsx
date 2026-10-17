@@ -228,12 +228,10 @@ export function CalendarToolbar({
     </form>
   ) : null;
 
-  const filterControls = hasFilters ? <>
-    {usesFilterTrigger ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className={cn("inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", compactInline ? "h-9" : "h-11")}><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null}
-    {filtersVisible ? <div className={cn(usesFilterTrigger ? "relative z-40 flex min-w-0 flex-wrap items-center gap-2 overflow-visible" : "min-w-0 flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !usesFilterTrigger ? "hidden md:block" : "")} onClickCapture={() => { if (usesFilterTrigger) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
-      <div className={cn("flex items-center gap-2", hasAdminFilterGroups ? "flex-wrap" : "w-max whitespace-nowrap")}>{hasAdminFilterGroups ? <>{adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />)}{adminClearFiltersHref ? <Link href={adminClearFiltersHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}</> : filters}</div>
-    </div> : null}
-  </> : null;
+  const filterTrigger = hasFilters && usesFilterTrigger ? <button type="button" aria-expanded={isFilterOpen} onClick={() => setIsFilterOpen((open) => !open)} className={cn("inline-flex shrink-0 items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1", compactInline ? "h-9" : "h-11")}><Filter className="h-4 w-4" aria-hidden="true" /><span>ตัวกรอง</span></button> : null;
+  const filterBody = hasFilters ? <div className={cn("relative z-40 min-w-0 overflow-visible", !usesFilterTrigger && "flex-1 overflow-x-auto overscroll-x-contain rounded-lg border border-gray-200 bg-white px-2 py-1.5 [scrollbar-width:thin]", search && isSearchOpen && !usesFilterTrigger ? "hidden md:block" : "")} onClickCapture={() => { if (usesFilterTrigger) sessionStorage.setItem(filterPersistenceKey, "true"); }}>
+    <div className={cn("flex items-center gap-2", hasAdminFilterGroups ? "flex-wrap" : "w-max whitespace-nowrap")}>{hasAdminFilterGroups ? <>{adminFilterGroups.map((group) => <AdminFilterDropdown key={group.label} group={group} />)}{adminClearFiltersHref ? <Link href={adminClearFiltersHref} className="inline-flex h-9 items-center rounded-md px-2 text-xs font-medium text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500">ล้างตัวกรอง</Link> : null}</> : filters}</div>
+  </div> : null;
 
   return (
     <section
@@ -342,7 +340,7 @@ export function CalendarToolbar({
           </Link>
         </div>
         {publicFullBleed || compactInline ? searchForm : null}
-        {compactInline ? filterControls : null}
+        {compactInline ? (usesFilterTrigger ? filterTrigger : filterBody) : null}
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 lg:ml-auto">{actions}</div> : null}
       </div>
 
@@ -399,7 +397,13 @@ export function CalendarToolbar({
             </>
           ) : null}
 
-          {filterControls}
+          {usesFilterTrigger ? filterTrigger : filterBody}
+        </div>
+      ) : null}
+
+      {usesFilterTrigger && filtersVisible ? (
+        <div className="mt-3 w-full border-t border-gray-200 pt-2">
+          {filterBody}
         </div>
       ) : null}
 
