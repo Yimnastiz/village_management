@@ -36,7 +36,7 @@ export default async function Page({ params, searchParams }: PageProps) {
     keyword,
   });
   return (
-    <div className="space-y-4">
+    <div>
       <CalendarToolbar
         namespace="public-calendar"
         hideHeading
@@ -65,7 +65,7 @@ export default async function Page({ params, searchParams }: PageProps) {
         appointments={[]}
         stickyWeekdays
       />
-      {!keyword && events.length === 0 ? <p className="text-sm text-gray-500">ยังไม่มีกิจกรรมในเดือนนี้</p> : null}
+      {!keyword && events.length === 0 ? <p className="pt-4 text-sm text-gray-500">ยังไม่มีกิจกรรมในเดือนนี้</p> : null}
     </div>
   );
 }

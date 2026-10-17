@@ -32,7 +32,7 @@ export function CalendarSearchSummary({
   if (!query.trim()) return null;
   const visibleResults = results.slice(0, 5);
 
-  return <section aria-live="polite" className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+  return <section aria-live="polite" className="mb-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
     {results.length ? <>
       <p><span className="font-medium text-gray-900">ผลการค้นหา “{query}”</span> · พบ {results.length.toLocaleString("th-TH")} รายการในเดือน{monthLabel}</p>
       <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
