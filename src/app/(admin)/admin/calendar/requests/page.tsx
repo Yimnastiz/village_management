@@ -6,6 +6,7 @@ import { VILLAGE_EVENT_SUBMISSION_STATUS_LABELS } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
+import { PageBackLink } from "@/components/ui/page-back-link";
 
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = {
   PENDING: "warning",
@@ -51,6 +52,7 @@ export default async function AdminCalendarRequestListPage() {
 
   return (
     <div className="space-y-3">
+      <PageBackLink href="/admin/calendar" label="กลับปฏิทิน" />
       {requests.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <FileClock className="mx-auto mb-3 h-10 w-10 text-gray-300" />

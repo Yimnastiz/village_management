@@ -103,7 +103,6 @@ export function CalendarToolbar({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const toolbarRef = useRef<HTMLElement>(null);
   const searchPanelId = `${namespace}-search-panel`;
-  const suggestionsId = `${namespace}-search-suggestions`;
   const monthIndex = currentMonth - 1;
   const monthLabel = formatThaiMonthYear(currentYear, monthIndex, "long");
   const compactMonthLabel = formatThaiMonthYear(currentYear, monthIndex, "short");
@@ -240,18 +239,19 @@ export function CalendarToolbar({
         ref={searchInputRef}
         id={`${namespace}-search-input`}
         name="q"
-        type="search"
+        type="text"
+        inputMode="search"
+        autoComplete="off"
         value={searchDraft}
         onChange={(event) => setSearchDraft(event.target.value)}
         onFocus={() => { searchInputFocusedRef.current = true; }}
         onBlur={() => { searchInputFocusedRef.current = false; }}
         onCompositionStart={() => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); setIsComposingSearch(true); }}
         onCompositionEnd={() => setIsComposingSearch(false)}
-        list={search.suggestions?.length ? suggestionsId : undefined}
         placeholder={search.placeholder}
-        className={cn("min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", publicFullBleed || compactInline ? "h-9" : "h-11", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
+        className={cn("min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500", publicFullBleed || compactInline ? "h-9" : "h-11", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
       />
-      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); commitSearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); commitSearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       {!publicFullBleed && !compactInline ? <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       <button type="submit" className="sr-only">เธเนเธเธซเธฒ</button>
     </form>
@@ -403,18 +403,19 @@ export function CalendarToolbar({
                     ref={searchInputRef}
                     id={`${namespace}-search-input`}
                     name="q"
-                    type="search"
+                    type="text"
+                    inputMode="search"
+                    autoComplete="off"
                     value={searchDraft}
                     onChange={(event) => setSearchDraft(event.target.value)}
                     onFocus={() => { searchInputFocusedRef.current = true; }}
                     onBlur={() => { searchInputFocusedRef.current = false; }}
                     onCompositionStart={() => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); setIsComposingSearch(true); }}
                     onCompositionEnd={() => setIsComposingSearch(false)}
-                    list={search.suggestions?.length ? suggestionsId : undefined}
                     placeholder={search.placeholder}
-                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
+                    className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
                   />
-      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); commitSearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); commitSearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
                   <button
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
@@ -439,9 +440,6 @@ export function CalendarToolbar({
         </div>
       ) : null}
 
-      {search?.suggestions?.length ? (
-        <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist>
-      ) : null}
       </div>
     </section>
   );

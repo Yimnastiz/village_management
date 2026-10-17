@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ActionReasonDialog } from "@/components/admin/action-reason-dialog";
 import { deleteVillageEventAction } from "../actions";
 
-export function DeleteVillageEventButton({ eventId }: { eventId: string }) {
+export function DeleteVillageEventButton({ eventId, isResidentOwned }: { eventId: string; isResidentOwned: boolean }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +34,7 @@ export function DeleteVillageEventButton({ eventId }: { eventId: string }) {
         ลบกิจกรรม
       </Button>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <ActionReasonDialog open={open} action="content.delete" title="ลบกิจกรรม" description="กิจกรรมจะถูกลบออกจากปฏิทินและบันทึกเหตุผลใน Audit Log" submitLabel="ยืนยันการลบ" loading={isSubmitting} onCancel={() => setOpen(false)} onSubmit={onDelete} />
+      <ActionReasonDialog open={open} action="content.delete" title="ลบกิจกรรม" description={isResidentOwned ? "กิจกรรมจะถูกลบออกจากปฏิทิน เหตุผลจะถูกบันทึก และสมาชิกผู้ส่งคำขอจะได้รับการแจ้งเตือน" : "กิจกรรมจะถูกลบออกจากปฏิทินและบันทึกเหตุผลในการดำเนินการ"} submitLabel="ยืนยันการลบ" loading={isSubmitting} onCancel={() => setOpen(false)} onSubmit={onDelete} />
     </div>
   );
 }

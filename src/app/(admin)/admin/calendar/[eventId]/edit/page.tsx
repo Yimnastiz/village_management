@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { CalendarForm } from "../../calendar-form";
+import { canHeadmanEditCalendarEvent } from "@/lib/calendar-event-policy";
 
 interface PageProps {
   params: Promise<{ eventId: string }>;
@@ -31,6 +32,7 @@ export default async function EditVillageEventPage({ params }: PageProps) {
     where: { id: eventId, villageId: membership.villageId },
   });
   if (!event) notFound();
+  if (!canHeadmanEditCalendarEvent(event.createdById, session.id)) redirect(`/admin/calendar/${event.id}`);
 
   return (
     <div className="space-y-4">

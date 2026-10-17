@@ -10,6 +10,7 @@ import { notificationMetadata } from "@/lib/notification-copy";
 import { hasVillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 import { eventTitleSchema, eventVisibilitySchema } from "@/lib/public-content-validation";
+import { calendarEventCreatorId, canHeadmanEditCalendarEvent, getCalendarEventDeletionPolicy, residentEventDeletionNotification } from "@/lib/calendar-event-policy";
 
 const villageEventSubmission = prisma.villageEventSubmission;
 
@@ -87,7 +88,7 @@ export async function createVillageEventAction(
     const created = await prisma.$transaction(async (tx) => {
       const event = await tx.villageEvent.create({ data: {
         villageId: ctx.villageId,
-        createdById: ctx.userId,
+        createdById: calendarEventCreatorId({ kind: "HEADMAN", actorUserId: ctx.userId }),
         title: normalized.value.title,
         description: normalized.value.description,
         location: normalized.value.location,
@@ -120,10 +121,13 @@ export async function updateVillageEventAction(
 
   const existing = await prisma.villageEvent.findFirst({
     where: { id, villageId: ctx.villageId },
-    select: { id: true },
+    select: { id: true, createdById: true },
   });
   if (!existing) {
     return { success: false, error: "ไม่พบกิจกรรมนี้หรือไม่มีสิทธิ์แก้ไข" };
+  }
+  if (!canHeadmanEditCalendarEvent(existing.createdById, ctx.userId)) {
+    return { success: false, error: "กิจกรรมที่สมาชิกส่งคำขอเข้ามาไม่สามารถแก้ไขโดยตรงได้" };
   }
 
   try {
@@ -158,7 +162,7 @@ export async function deleteVillageEventAction(
 
   const existing = await prisma.villageEvent.findFirst({
     where: { id, villageId: ctx.villageId },
-    select: { id: true },
+    select: { id: true, title: true, createdById: true },
   });
   if (!existing) {
     return { success: false, error: "ไม่พบกิจกรรมนี้หรือไม่มีสิทธิ์ลบ" };
@@ -168,13 +172,28 @@ export async function deleteVillageEventAction(
   try { normalizedReason = requireActionReason("content.delete", reason); }
   catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
 
+  const deletionPolicy = getCalendarEventDeletionPolicy(existing.createdById, ctx.userId);
+  const residentNotification = residentEventDeletionNotification(existing.title, normalizedReason);
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.villageEvent.delete({ where: { id } });
-      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillageEvent", resourceId: id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason: normalizedReason } } });
+      if (deletionPolicy.notificationUserId) {
+        await tx.notification.create({ data: {
+          userId: deletionPolicy.notificationUserId,
+          villageId: ctx.villageId,
+          type: NotificationType.SYSTEM,
+          title: residentNotification.title,
+          body: residentNotification.body,
+          metadata: notificationMetadata("CALENDAR", { actionUrl: residentNotification.actionUrl, actionLabel: residentNotification.actionLabel, eventId: id, reason: normalizedReason }),
+        } });
+      }
+      await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillageEvent", resourceId: id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason: normalizedReason, eventOrigin: deletionPolicy.eventOrigin } } });
     });
     revalidatePath("/admin/calendar");
     revalidatePath("/resident/calendar");
+    revalidatePath("/resident/calendar/requests");
+    revalidatePath("/resident/notifications");
     return { success: true };
   } catch {
     return { success: false, error: "ลบกิจกรรมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" };
@@ -210,7 +229,7 @@ export async function adminApproveVillageEventSubmissionAction(
     const approved = await prisma.$transaction(async (tx) => {
       let eventId = request.eventId ?? "";
       if ((request.type ?? "CREATE") === "CREATE") {
-        const event = await tx.villageEvent.create({ data: { villageId: request.villageId, createdById: ctx.userId, title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic }, select: { id: true } });
+        const event = await tx.villageEvent.create({ data: { villageId: request.villageId, createdById: calendarEventCreatorId({ kind: "RESIDENT_REQUEST", requesterId: request.requesterId }), title: request.title, description: request.description, location: request.location, startsAt: request.startsAt, endsAt: request.endsAt, isPublic }, select: { id: true } });
         eventId = event.id;
       } else {
         const existingEvent = request.eventId ? await tx.villageEvent.findFirst({ where: { id: request.eventId, villageId: request.villageId }, select: { id: true } }) : null;

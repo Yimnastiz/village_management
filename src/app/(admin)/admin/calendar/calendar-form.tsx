@@ -2,15 +2,17 @@
 
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { VisibilitySelector } from "@/components/ui/visibility-selector";
 import { useToast } from "@/components/ui/toast";
 import { createVillageEventAction, updateVillageEventAction } from "./actions";
 import { eventTitleSchema, eventVisibilitySchema } from "@/lib/public-content-validation";
+import { cn } from "@/lib/utils";
 
 const schema = z.object({
   title: eventTitleSchema,
@@ -26,6 +28,12 @@ type FormData = z.infer<typeof schema>;
 type CalendarFormProps = {
   mode: "create" | "edit";
   eventId?: string;
+  embedded?: boolean;
+  formId?: string;
+  hideActions?: boolean;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   defaultValues?: {
     title: string;
     description: string;
@@ -36,7 +44,7 @@ type CalendarFormProps = {
   };
 };
 
-export function CalendarForm({ mode, eventId, defaultValues }: CalendarFormProps) {
+export function CalendarForm({ mode, eventId, embedded = false, formId, hideActions = false, onSuccess, onCancel, onSubmittingChange, defaultValues }: CalendarFormProps) {
   const router = useRouter();
   const { pushToast } = useToast();
   const {
@@ -56,6 +64,7 @@ export function CalendarForm({ mode, eventId, defaultValues }: CalendarFormProps
       isPublic: "PUBLIC",
     },
   });
+  useEffect(() => { onSubmittingChange?.(isSubmitting); }, [isSubmitting, onSubmittingChange]);
 
   const getCalendarRedirectHref = (startsAt: string) => {
     const date = startsAt.slice(0, 10);
@@ -87,6 +96,11 @@ export function CalendarForm({ mode, eventId, defaultValues }: CalendarFormProps
           title: "สร้างกิจกรรมเรียบร้อยแล้ว",
           description: "กิจกรรมถูกเพิ่มลงในปฏิทินหมู่บ้านแล้ว",
         });
+        if (onSuccess) {
+          onSuccess();
+          router.refresh();
+          return;
+        }
         router.push(getCalendarRedirectHref(data.startsAt));
       } else {
         const result = await updateVillageEventAction(eventId ?? "", data);
@@ -118,21 +132,11 @@ export function CalendarForm({ mode, eventId, defaultValues }: CalendarFormProps
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+    <form id={formId} onSubmit={handleSubmit(onSubmit)} className={cn("space-y-4", !embedded && "rounded-xl border border-gray-200 bg-white p-4 sm:p-6")}>
       <Input label="ชื่อกิจกรรม" {...register("title")} error={errors.title?.message} />
       <Textarea label="รายละเอียด" {...register("description")} error={errors.description?.message} rows={4} />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Input label="สถานที่" {...register("location")} error={errors.location?.message} />
-        <Select
-          label="การมองเห็น"
-          {...register("isPublic")}
-          options={[
-            { value: "PUBLIC", label: "สาธารณะ" },
-            { value: "RESIDENT", label: "เฉพาะสมาชิก" },
-          ]}
-          error={errors.isPublic?.message}
-        />
-      </div>
+      <Input label="สถานที่" {...register("location")} error={errors.location?.message} />
+      <VisibilitySelector publicInput={register("isPublic")} residentInput={register("isPublic")} residentValue="RESIDENT" helperId="admin-calendar-visibility-helper" error={errors.isPublic?.message} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Input
           label="วันเวลาเริ่ม"
@@ -150,14 +154,14 @@ export function CalendarForm({ mode, eventId, defaultValues }: CalendarFormProps
 
       {errors.root && <p className="text-sm text-red-600">{errors.root.message}</p>}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {!hideActions ? <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Button type="submit" isLoading={isSubmitting} className="w-full sm:w-auto">
           {mode === "create" ? "บันทึกกิจกรรม" : "บันทึกการแก้ไข"}
         </Button>
-        <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting} className="w-full sm:w-auto">
+        <Button type="button" variant="outline" onClick={onCancel ?? (() => router.back())} disabled={isSubmitting} className="w-full sm:w-auto">
           ย้อนกลับ
         </Button>
-      </div>
+      </div> : null}
     </form>
   );
 }

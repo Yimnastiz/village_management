@@ -10,6 +10,7 @@ import { formatCalendarPerson } from "@/lib/calendar-person";
 import { CalendarRequestReviewButtons } from "../request-review-buttons";
 import { CalendarRequestManagementActions } from "../request-management-actions";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
+import { DeleteVillageEventButton } from "../../[eventId]/delete-button";
 
 type AdminCalendarRequestDetailPageProps = {
   params: Promise<{ requestId: string }>;
@@ -131,7 +132,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
             {request.reviewNote && <p className="mt-1">หมายเหตุ: {request.reviewNote}</p>}
           </div>
         )}
-        {publishedEvent ? <Link href={`/admin/calendar/${publishedEvent.id}`} className="inline-flex h-10 w-fit items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><CalendarDays className="h-4 w-4" aria-hidden="true" />ดูกิจกรรมที่เผยแพร่</Link> : null}
+        {publishedEvent ? <div className="flex flex-wrap items-start gap-2"><Link href={`/admin/calendar/${publishedEvent.id}`} className="inline-flex h-10 w-fit items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><CalendarDays className="h-4 w-4" aria-hidden="true" />ดูกิจกรรมที่เผยแพร่</Link><DeleteVillageEventButton eventId={publishedEvent.id} isResidentOwned={Boolean(publishedEvent.createdById && publishedEvent.createdById !== context.session.id)} /></div> : null}
       </div>
     </main>
   );
