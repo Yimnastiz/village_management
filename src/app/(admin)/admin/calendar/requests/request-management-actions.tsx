@@ -45,7 +45,7 @@ export function CalendarRequestManagementActions({ requestId }: { requestId: str
         <Link href={`/admin/calendar/requests/${requestId}/edit`} className="w-full sm:w-auto">
           <Button variant="outline" className="w-full sm:w-auto"><Pencil className="mr-1.5 h-4 w-4" />แก้ไข</Button>
         </Link>
-        <Button variant="danger" onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto"><Trash2 className="mr-1.5 h-4 w-4" />ลบ</Button>
+        <Button variant="danger" onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto"><Trash2 className="mr-1.5 h-4 w-4" />ลบคำขอ</Button>
       </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <ActionReasonDialog

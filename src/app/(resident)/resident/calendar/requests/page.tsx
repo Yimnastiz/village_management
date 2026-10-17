@@ -56,15 +56,18 @@ export default async function ResidentCalendarRequestsPage({ searchParams }: { s
     }),
     tab !== "published" ? Promise.resolve([]) : prisma.villageEventSubmission.findMany({
       where: { requesterId: session.id, villageId: membership.villageId, type: "CREATE", status: "APPROVED" },
-      select: { eventId: true, villageId: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true },
+      select: { id: true, eventId: true, villageId: true, title: true, description: true, location: true, startsAt: true, endsAt: true, isPublic: true },
       orderBy: [{ reviewedAt: "desc" }, { createdAt: "desc" }],
     }),
   ]);
 
   const publishedEvents = tab === "published"
-    ? Array.from(new Map((await Promise.all(approvedCreateSubmissions.map(resolveApprovedSubmissionEvent))).filter((event): event is NonNullable<typeof event> => Boolean(event)).map((event) => [event.id, event])).values())
+    ? Array.from(new Map((await Promise.all(approvedCreateSubmissions.map(async (submission) => {
+      const event = await resolveApprovedSubmissionEvent(submission);
+      return event ? { submissionId: submission.id, event } : null;
+    }))).filter((item): item is NonNullable<typeof item> => Boolean(item)).map((item) => [item.event.id, item])).values())
     : [];
-  const pendingEventIds = publishedEvents.map((event) => event.id);
+  const pendingEventIds = publishedEvents.map(({ event }) => event.id);
   const pendingChangeRequests = pendingEventIds.length
     ? await prisma.villageEventSubmission.findMany({ where: { requesterId: session.id, villageId: membership.villageId, eventId: { in: pendingEventIds }, type: { in: ["EDIT", "DELETE"] }, status: "PENDING" }, select: { eventId: true } })
     : [];
@@ -81,7 +84,8 @@ export default async function ResidentCalendarRequestsPage({ searchParams }: { s
       namespace="resident-calendar-requests"
       title="คำขอกิจกรรม"
       hideHeading
-      actions={<div className="flex min-w-0 flex-wrap items-center gap-2"><PageBackLink href="/resident/calendar" label="กลับปฏิทิน" />{tabs}<ResidentEventRequestModal triggerLabel="ส่งคำขอ" /></div>}
+      leadingActions={<PageBackLink href="/resident/calendar" label="กลับปฏิทิน" />}
+      actions={<div className="flex min-w-0 flex-wrap items-center gap-2">{tabs}<ResidentEventRequestModal triggerLabel="ขอเพิ่มกิจกรรม" /></div>}
     />
 
     {tab !== "published" ? <section className="space-y-3" aria-label={tab === "pending" ? "คำขอที่รอพิจารณา" : "ประวัติคำขอ"}>
@@ -100,9 +104,9 @@ export default async function ResidentCalendarRequestsPage({ searchParams }: { s
         note={request.reviewNote}
       />)}
     </section> : <section className="space-y-3" aria-label="กิจกรรมที่เผยแพร่จากคำขอของฉัน">
-      {publishedEvents.length === 0 ? <EmptyState icon={FileClock} title="ยังไม่มีกิจกรรมที่เผยแพร่จากคำขอของคุณ" /> : publishedEvents.map((event) => <ResidentPublishedCalendarCard
+      {publishedEvents.length === 0 ? <EmptyState icon={FileClock} title="ยังไม่มีกิจกรรมที่เผยแพร่จากคำขอของคุณ" /> : publishedEvents.map(({ submissionId, event }) => <ResidentPublishedCalendarCard
         key={event.id}
-        href={`/resident/calendar/${event.id}`}
+        href={`/resident/calendar/requests/${submissionId}`}
         title={event.title}
         schedule={formatEventSchedule(event.startsAt, event.endsAt)}
         location={event.location}

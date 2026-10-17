@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarDays, Globe2, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import {
-  VILLAGE_EVENT_SUBMISSION_STATUS_LABELS,
-  VILLAGE_EVENT_VISIBILITY_LABELS,
-} from "@/lib/constants";
+import { VILLAGE_EVENT_SUBMISSION_STATUS_LABELS } from "@/lib/constants";
+import { resolveApprovedSubmissionEvent } from "@/lib/calendar-submission-event";
 import { prisma } from "@/lib/prisma";
 import { getVillagePermissionContext } from "@/lib/admin-permission.server";
 import { formatCalendarPerson } from "@/lib/calendar-person";
@@ -37,7 +35,9 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
     },
     select: {
       id: true,
+      type: true,
       status: true,
+      eventId: true,
       isPublic: true,
       title: true,
       description: true,
@@ -54,6 +54,9 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
   if (!requestRow) notFound();
   const requesterDisplay = residentActorDisplay(requestRow.requester, { villageId: membership.villageId });
   const request = { ...requestRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
+  const publishedEvent = request.status === "APPROVED" && request.type === "CREATE"
+    ? await resolveApprovedSubmissionEvent({ ...request, villageId: membership.villageId })
+    : null;
 
   const reviewer = request.reviewedBy
     ? await prisma.user.findUnique({
@@ -84,7 +87,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
             {VILLAGE_EVENT_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}
           </Badge>
           <Badge variant="outline">
-            การมองเห็นที่ต้องการ: {VILLAGE_EVENT_VISIBILITY_LABELS[request.isPublic ? "PUBLIC" : "RESIDENT"]}
+            การมองเห็นที่ขอ: {request.isPublic ? <><Globe2 className="mx-1 h-3.5 w-3.5" aria-hidden="true" />สาธารณะ</> : <><Users className="mx-1 h-3.5 w-3.5" aria-hidden="true" />เฉพาะสมาชิก</>}
           </Badge>
         </div>
 
@@ -128,6 +131,7 @@ export default async function AdminCalendarRequestDetailPage({ params }: AdminCa
             {request.reviewNote && <p className="mt-1">หมายเหตุ: {request.reviewNote}</p>}
           </div>
         )}
+        {publishedEvent ? <Link href={`/admin/calendar/${publishedEvent.id}`} className="inline-flex h-10 w-fit items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1"><CalendarDays className="h-4 w-4" aria-hidden="true" />ดูกิจกรรมที่เผยแพร่</Link> : null}
       </div>
     </main>
   );

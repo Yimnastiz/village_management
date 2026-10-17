@@ -84,6 +84,7 @@ type ResidentPageToolbarProps = {
   namespace: string;
   title?: string;
   description?: string;
+  leadingActions?: ReactNode;
   actions?: ReactNode;
   backHref?: string;
   backLabel?: string;
@@ -103,7 +104,7 @@ type ResidentPageToolbarProps = {
 
 /** Shared Resident operational toolbar; pages continue to own filter and URL semantics. */
 export function ResidentPageToolbar({
-  namespace, title, description, actions, backHref, backLabel = "กลับรายการ", search, filters,
+  namespace, title, description, leadingActions, actions, backHref, backLabel = "กลับรายการ", search, filters,
   activeFilterCount = 0, registerHeader = false, hideHeading, sticky = true, className,
   compactSpacing: _compactSpacing = false, fullBleed = false,
 }: ResidentPageToolbarProps) {
@@ -190,12 +191,13 @@ export function ResidentPageToolbar({
       {backLink ? <div className="mb-2">{backLink}</div> : null}
 
       {!shouldHideHeading ? <header className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-        <div className="min-w-0"><h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>{description ? <p className="mt-0.5 hidden text-sm leading-5 text-gray-500 sm:block">{description}</p> : null}</div>
+        <div className="flex min-w-0 items-start gap-2">{leadingActions ? <div className="shrink-0">{leadingActions}</div> : null}<div className="min-w-0"><h1 className="truncate text-lg font-bold tracking-tight text-gray-900 sm:text-xl">{title}</h1>{description ? <p className="mt-0.5 hidden text-sm leading-5 text-gray-500 sm:block">{description}</p> : null}</div></div>
         {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div> : null}
       </header> : null}
-      {shouldHideHeading && actions && !hasTools ? <div className="flex min-w-0 flex-wrap justify-end gap-2 sm:gap-3">{actions}</div> : null}
+      {shouldHideHeading && (leadingActions || actions) && !hasTools ? <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:gap-3"><div className="flex shrink-0 flex-wrap items-center gap-2">{leadingActions}</div>{actions ? <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div> : null}</div> : null}
 
       {hasTools ? <div className={cn("flex min-w-0 flex-wrap items-center gap-2", !shouldHideHeading && "mt-2")} onKeyDown={(event) => { if (event.key === "Escape" && filterExpanded) closeFilter(); }}>
+        {leadingActions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{leadingActions}</div> : null}
         {search ? <form id={searchPanelId} role="search" onSubmit={(event) => { event.preventDefault(); if (debounceRef.current) clearTimeout(debounceRef.current); applySearch(searchValue); }} className="relative flex min-w-0 w-full shrink-0 items-center sm:w-[clamp(14rem,28vw,24rem)]">
           <label htmlFor={searchInputId} className="sr-only">{searchLabel}</label>
           <Search className="pointer-events-none absolute left-3 h-4 w-4 text-gray-400" aria-hidden="true" />

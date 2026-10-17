@@ -92,9 +92,14 @@ export function CalendarToolbar({
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(search?.keyword) || isAdminToolbar || residentCompact);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [searchDraft, setSearchDraft] = useState(search?.keyword ?? "");
+  const [isComposingSearch, setIsComposingSearch] = useState(false);
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(currentYear);
   const [, startTransition] = useTransition();
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputFocusedRef = useRef(false);
+  const committedSearchRef = useRef((search?.keyword ?? "").trim());
+  const pendingSearchRef = useRef<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const toolbarRef = useRef<HTMLElement>(null);
   const searchPanelId = `${namespace}-search-panel`;
@@ -108,7 +113,25 @@ export function CalendarToolbar({
   const years = Array.from({ length: yearEnd - yearStart + 1 }, (_, index) => yearStart + index);
 
   useEffect(() => {
-    setSearchDraft(search?.keyword ?? "");
+    const externalSearch = (search?.keyword ?? "").trim();
+    if (pendingSearchRef.current !== null) {
+      if (externalSearch !== pendingSearchRef.current) {
+        const params = new URLSearchParams(currentSearchParams.toString());
+        if (pendingSearchRef.current) params.set("q", pendingSearchRef.current); else params.delete("q");
+        const query = params.toString();
+        startTransition(() => router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false }));
+        return;
+      }
+      pendingSearchRef.current = null;
+      committedSearchRef.current = externalSearch;
+      if (!searchInputFocusedRef.current || searchDraft.trim() === externalSearch) setSearchDraft(externalSearch);
+      return;
+    }
+    if (externalSearch === committedSearchRef.current) return;
+    committedSearchRef.current = externalSearch;
+    setSearchDraft(externalSearch);
+    // Preserve a newer focused draft when an expected navigation response arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search?.keyword]);
 
   useEffect(() => {
@@ -169,15 +192,30 @@ export function CalendarToolbar({
     startTransition(() => router.replace(buildHref(year, month), { scroll: false }));
   };
 
-  const applySearch = (value: string) => {
+  const commitSearch = (value: string) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     const params = new URLSearchParams(currentSearchParams.toString());
     const normalized = value.trim();
+    if (normalized === pendingSearchRef.current || (normalized === committedSearchRef.current && pendingSearchRef.current === null)) return;
+    pendingSearchRef.current = normalized;
     if (normalized) params.set("q", normalized);
     else params.delete("q");
     params.delete("page");
     const query = params.toString();
     startTransition(() => router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false }));
   };
+
+  useEffect(() => {
+    if (!search || isComposingSearch) return;
+    const normalizedDraft = searchDraft.trim();
+    if (normalizedDraft === pendingSearchRef.current || (normalizedDraft === committedSearchRef.current && pendingSearchRef.current === null)) return;
+    searchDebounceRef.current = setTimeout(() => commitSearch(searchDraft), 500);
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+    // commitSearch intentionally reads the latest URL search params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isComposingSearch, search, searchDraft]);
 
   const previousMonthDate = new Date(currentYear, currentMonth - 2, 1);
   const nextMonthDate = new Date(currentYear, currentMonth, 1);
@@ -188,7 +226,7 @@ export function CalendarToolbar({
       role="search"
       onSubmit={(event) => {
         event.preventDefault();
-        applySearch(searchDraft);
+        commitSearch(searchDraft);
       }}
       className={cn(
         "relative flex min-w-0 items-center gap-1.5",
@@ -205,11 +243,15 @@ export function CalendarToolbar({
         type="search"
         value={searchDraft}
         onChange={(event) => setSearchDraft(event.target.value)}
+        onFocus={() => { searchInputFocusedRef.current = true; }}
+        onBlur={() => { searchInputFocusedRef.current = false; }}
+        onCompositionStart={() => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); setIsComposingSearch(true); }}
+        onCompositionEnd={() => setIsComposingSearch(false)}
         list={search.suggestions?.length ? suggestionsId : undefined}
         placeholder={search.placeholder}
         className={cn("min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", publicFullBleed || compactInline ? "h-9" : "h-11", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
       />
-      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); commitSearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       {!publicFullBleed && !compactInline ? <button type="button" onClick={() => setIsSearchOpen(false)} aria-label="เธเธดเธ”เธเนเธญเธเธเนเธเธซเธฒเธเธดเธเธเธฃเธฃเธก" className={cn("inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-green-500", (isAdminToolbar || residentCompact) && "hidden")}><X className="h-4 w-4" aria-hidden="true" /></button> : null}
       <button type="submit" className="sr-only">เธเนเธเธซเธฒ</button>
     </form>
@@ -351,7 +393,7 @@ export function CalendarToolbar({
                   role="search"
                   onSubmit={(event) => {
                     event.preventDefault();
-                    applySearch(searchDraft);
+                    commitSearch(searchDraft);
                   }}
                   className={cn("relative flex min-w-0 basis-full items-center gap-1.5 sm:w-[min(26rem,40vw)] sm:basis-auto", isAdminToolbar && "sm:w-[clamp(14rem,28vw,24rem)]")}
                 >
@@ -364,11 +406,15 @@ export function CalendarToolbar({
                     type="search"
                     value={searchDraft}
                     onChange={(event) => setSearchDraft(event.target.value)}
+                    onFocus={() => { searchInputFocusedRef.current = true; }}
+                    onBlur={() => { searchInputFocusedRef.current = false; }}
+                    onCompositionStart={() => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); setIsComposingSearch(true); }}
+                    onCompositionEnd={() => setIsComposingSearch(false)}
                     list={search.suggestions?.length ? suggestionsId : undefined}
                     placeholder={search.placeholder}
                     className={cn("h-11 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 text-sm outline-none placeholder:text-gray-400 focus:border-green-500 focus:ring-1 focus:ring-green-500 [::-webkit-search-cancel-button]:appearance-none", (isAdminToolbar || residentCompact) && "w-full pl-9 pr-10")}
                   />
-      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); applySearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
+      {(isAdminToolbar || residentCompact) && searchDraft ? <button type="button" onClick={() => { setSearchDraft(""); commitSearch(""); searchInputRef.current?.focus(); }} aria-label="ล้างการค้นหากิจกรรม" className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-green-500"><X className="h-4 w-4" aria-hidden="true" /></button> : null}
                   <button
                     type="button"
                     onClick={() => setIsSearchOpen(false)}
