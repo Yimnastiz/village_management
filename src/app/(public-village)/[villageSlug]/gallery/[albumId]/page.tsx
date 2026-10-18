@@ -52,7 +52,6 @@ export default async function PublicGalleryAlbumDetailPage({ params }: PublicGal
 
       <article className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
         <div className="flex items-center gap-2">
-          <Badge variant="success">สาธารณะ</Badge>
           <Badge variant="outline">{album.items.length} รูป</Badge>
         </div>
 

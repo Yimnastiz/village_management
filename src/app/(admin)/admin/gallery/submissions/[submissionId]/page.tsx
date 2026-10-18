@@ -6,6 +6,7 @@ import { GallerySubmissionReviewButtons } from "../request-review-buttons";
 import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { formatThaiDateTime } from "@/lib/utils";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
+import { DeleteGallerySubmissionButton } from "../delete-submission-button";
 
 const db = prisma;
 
@@ -48,10 +49,11 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
   const submission = { ...submissionRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
 
   return (
-    <div data-admin-compact-top className="mx-auto w-full max-w-3xl space-y-6 px-1 sm:px-0">
-      <AdminPageToolbar sticky variant="request" backHref="/admin/gallery/submissions" backLabel="กลับรายการคำขอ" backPlacement="header-end" title="รายละเอียดคำขอเพิ่มรูปภาพ" description="ตรวจสอบรูปภาพและข้อมูลผู้ส่งคำขอ" />
+    <div data-admin-compact-top className="space-y-4">
+      <AdminPageToolbar sticky variant="request" backHref="/admin/gallery/submissions" backLabel="กลับรายการคำขอ" backPlacement="header-start" title="รายละเอียดคำขอเพิ่มรูปภาพ" description="ตรวจสอบรูปภาพและข้อมูลผู้ส่งคำขอ" />
 
-      <article className="min-w-0 space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+      <div className="mx-auto w-full max-w-3xl px-1 sm:px-0">
+        <article className="min-w-0 space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant={statusVariant[submission.status] ?? "default"}>{statusLabel[submission.status]}</Badge>
           <Badge variant="outline">{submission.album.title}</Badge>
@@ -89,7 +91,11 @@ export default async function AdminGallerySubmissionDetailPage({ params }: Admin
         ) : (
           <p className="text-sm text-gray-500">คำขอนี้ถูกดำเนินการแล้ว</p>
         )}
-      </article>
+          <div className="border-t border-gray-100 pt-5">
+            <DeleteGallerySubmissionButton submissionId={submission.id} />
+          </div>
+        </article>
+      </div>
     </div>
   );
 }

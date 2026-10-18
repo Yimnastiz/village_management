@@ -438,6 +438,19 @@ export async function updateGalleryItemAction(
   return { success: true };
 }
 
+async function deleteGalleryItemAndReassignCover(tx: Prisma.TransactionClient, albumId: string, itemId: string) {
+  const deleting = await tx.galleryItem.findUnique({ where: { id: itemId }, select: { isCover: true } });
+  await tx.galleryItem.delete({ where: { id: itemId } });
+  if (!deleting?.isCover) return;
+
+  const nextCover = await tx.galleryItem.findFirst({
+    where: { albumId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+  if (nextCover) await tx.galleryItem.update({ where: { id: nextCover.id }, data: { isCover: true } });
+}
+
 export async function deleteGalleryItemAction(
   albumId: string,
   itemId: string,
@@ -456,15 +469,91 @@ export async function deleteGalleryItemAction(
   if (!item) return { success: false, error: "ไม่พบรูปภาพนี้หรือไม่มีสิทธิ์ลบ" };
 
   await prisma.$transaction(async (tx) => {
-    const deleting = await tx.galleryItem.findUnique({ where: { id: itemId }, select: { isCover: true } });
-    await tx.galleryItem.delete({ where: { id: itemId } });
-    if (deleting?.isCover) {
-      const next = await tx.galleryItem.findFirst({ where: { albumId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }], select: { id: true } });
-      if (next) await tx.galleryItem.update({ where: { id: next.id }, data: { isCover: true } });
-    }
+    await deleteGalleryItemAndReassignCover(tx, albumId, itemId);
     await tx.auditLog.create({ data: { userId: ctx.userId, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "GalleryItem", resourceId: itemId, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, albumId } } });
   });
   revalidateGalleryViews(albumId);
+  return { success: true };
+}
+
+export async function adminDeleteGalleryItemSubmissionAction(
+  submissionId: string,
+  reasonInput: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage();
+  if (!ctx.ok) return { success: false, error: ctx.error };
+
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+
+  const submission = await prisma.galleryItemSubmission.findFirst({
+    where: { id: submissionId, album: { villageId: ctx.villageId } },
+    select: {
+      id: true,
+      requesterId: true,
+      albumId: true,
+      batchId: true,
+      title: true,
+      fileKey: true,
+      status: true,
+      album: { select: { title: true, isPublic: true, village: { select: { slug: true } } } },
+      approvedItem: { select: { id: true, fileKey: true, isCover: true } },
+    },
+  });
+  if (!submission) return { success: false, error: "ไม่พบรูปภาพที่ส่งหรือไม่มีสิทธิ์ลบ" };
+
+  await prisma.$transaction(async (tx) => {
+    if (submission.approvedItem) {
+      await deleteGalleryItemAndReassignCover(tx, submission.albumId, submission.approvedItem.id);
+    }
+
+    await tx.galleryItemSubmission.delete({ where: { id: submission.id } });
+    await tx.notification.create({
+      data: {
+        userId: submission.requesterId,
+        villageId: ctx.villageId,
+        type: NotificationType.SYSTEM,
+        title: "รูปภาพของคุณถูกลบ",
+        body: `รูปภาพที่คุณส่งเข้าอัลบั้ม “${submission.album.title}” ถูกลบ\nเหตุผล: ${reason}`,
+        metadata: notificationMetadata("GALLERY", {
+          actionUrl: "/resident/gallery/requests?tab=history",
+          actionLabel: "ดูประวัติคำขอ",
+          albumId: submission.albumId,
+          submissionId: submission.id,
+          status: "DELETED",
+          reason,
+        }),
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        userId: ctx.userId,
+        villageId: ctx.villageId,
+        action: AuditAction.DELETE,
+        resource: "GalleryItemSubmission",
+        resourceId: submission.id,
+        metadata: {
+          actorRole: ctx.actorRole,
+          policyAction: "content.delete",
+          reason,
+          albumId: submission.albumId,
+          requesterId: submission.requesterId,
+          previousStatus: submission.status,
+          approvedItemId: submission.approvedItem?.id ?? null,
+          title: submission.title,
+        },
+      },
+    });
+  });
+
+  await deletePlaceUploads([...new Set([submission.fileKey, submission.approvedItem?.fileKey].filter((key): key is string => Boolean(key)))]);
+  revalidateGalleryViews(submission.albumId, submission.id);
+  revalidatePath(`/resident/gallery/requests/${submission.batchId ?? submission.id}`);
+  if (submission.album.isPublic) {
+    revalidatePath(`/${submission.album.village.slug}/gallery`);
+    revalidatePath(`/${submission.album.village.slug}/gallery/${submission.albumId}`);
+  }
   return { success: true };
 }
 

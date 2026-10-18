@@ -8,20 +8,102 @@ import { getResidentMembership, getSessionContextFromServerCookies } from "@/lib
 import { prisma } from "@/lib/prisma";
 import { formatThaiDateTime } from "@/lib/utils";
 
-type Tab = "pending" | "history"; type Status = "PENDING" | "APPROVED" | "REJECTED";
+type Tab = "pending" | "history";
+type Status = "PENDING" | "APPROVED" | "REJECTED";
 type Submission = { id: string; batchId: string | null; batchOrder: number | null; status: Status; fileUrl: string; createdAt: Date; album: { id: string; title: string } };
 type Batch = { key: string; submissions: Submission[] };
-function statusSummary(submissions: Submission[]) { const counts = submissions.reduce<Record<Status, number>>((result, item) => ({ ...result, [item.status]: result[item.status] + 1 }), { PENDING: 0, APPROVED: 0, REJECTED: 0 }); return counts.APPROVED === submissions.length ? "อนุมัติทั้งหมด" : counts.REJECTED === submissions.length ? "ไม่อนุมัติทั้งหมด" : [counts.PENDING ? `รอพิจารณา ${counts.PENDING}` : null, counts.APPROVED ? `อนุมัติแล้ว ${counts.APPROVED}` : null, counts.REJECTED ? `ไม่อนุมัติ ${counts.REJECTED}` : null].filter(Boolean).join(" · "); }
+
+function statusCounts(submissions: Submission[]) {
+  return submissions.reduce<Record<Status, number>>(
+    (result, item) => ({ ...result, [item.status]: result[item.status] + 1 }),
+    { PENDING: 0, APPROVED: 0, REJECTED: 0 },
+  );
+}
+
+function pendingStatusSummary(submissions: Submission[]) {
+  const counts = statusCounts(submissions);
+  return [
+    counts.PENDING ? `รอพิจารณา ${counts.PENDING}` : null,
+    counts.APPROVED ? `อนุมัติแล้ว ${counts.APPROVED}` : null,
+    counts.REJECTED ? `ไม่อนุมัติ ${counts.REJECTED}` : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function historyStatus(submissions: Submission[]) {
+  const counts = statusCounts(submissions);
+  if (counts.APPROVED === submissions.length) return { label: "อนุมัติแล้ว", variant: "success" as const, detail: null };
+  if (counts.REJECTED === submissions.length) return { label: "ไม่อนุมัติ", variant: "danger" as const, detail: null };
+  return {
+    label: "อนุมัติบางส่วน",
+    variant: "outline" as const,
+    detail: `อนุมัติ ${counts.APPROVED} · ไม่อนุมัติ ${counts.REJECTED}`,
+  };
+}
 
 export default async function ResidentGalleryRequestsPage({ searchParams }: { searchParams?: Promise<{ tab?: string }> }) {
-  const session = await getSessionContextFromServerCookies(); if (!session?.id) redirect("/auth/login");
-  const membership = getResidentMembership(session); if (!membership) redirect("/resident/dashboard");
+  const session = await getSessionContextFromServerCookies();
+  if (!session?.id) redirect("/auth/login");
+  const membership = getResidentMembership(session);
+  if (!membership) redirect("/resident/dashboard");
   const tab: Tab = (await searchParams)?.tab === "history" ? "history" : "pending";
-  const submissions = await prisma.galleryItemSubmission.findMany({ where: { requesterId: session.id, album: { villageId: membership.villageId } }, select: { id: true, batchId: true, batchOrder: true, status: true, fileUrl: true, createdAt: true, album: { select: { id: true, title: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 200 });
-  const grouped = Array.from(submissions.reduce((groups, item) => { const key = item.batchId ?? `legacy-${item.id}`; const batch = groups.get(key) ?? { key, submissions: [] }; batch.submissions.push(item); groups.set(key, batch); return groups; }, new Map<string, Batch>()).values()).map((batch) => ({ ...batch, submissions: [...batch.submissions].sort((a, b) => (a.batchOrder ?? 0) - (b.batchOrder ?? 0) || a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id)) }));
-  const batches = grouped.filter((batch) => tab === "pending" ? batch.submissions.some((item) => item.status === "PENDING") : batch.submissions.every((item) => item.status !== "PENDING"));
+  const submissions = await prisma.galleryItemSubmission.findMany({
+    where: { requesterId: session.id, album: { villageId: membership.villageId } },
+    select: { id: true, batchId: true, batchOrder: true, status: true, fileUrl: true, createdAt: true, album: { select: { id: true, title: true } } },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: 200,
+  });
+  const grouped = Array.from(submissions.reduce((groups, item) => {
+    const key = item.batchId ?? `legacy-${item.id}`;
+    const batch = groups.get(key) ?? { key, submissions: [] };
+    batch.submissions.push(item);
+    groups.set(key, batch);
+    return groups;
+  }, new Map<string, Batch>()).values()).map((batch) => ({
+    ...batch,
+    submissions: [...batch.submissions].sort((a, b) => (a.batchOrder ?? 0) - (b.batchOrder ?? 0) || a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id)),
+  }));
+  const batches = grouped.filter((batch) => tab === "pending"
+    ? batch.submissions.some((item) => item.status === "PENDING")
+    : batch.submissions.every((item) => item.status !== "PENDING"));
   const pendingCount = grouped.filter((batch) => batch.submissions.some((item) => item.status === "PENDING")).length;
   const href = (next: Tab) => next === "history" ? "/resident/gallery/requests?tab=history" : "/resident/gallery/requests";
-  const tabs = <div className="flex shrink-0 gap-1 border-b border-gray-200"><Link href={href("pending")} aria-current={tab === "pending" ? "page" : undefined} className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "pending" ? "border-green-700 text-green-800" : "border-transparent text-gray-500 hover:text-gray-700"}`}>รอพิจารณา ({pendingCount})</Link><Link href={href("history")} aria-current={tab === "history" ? "page" : undefined} className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "history" ? "border-green-700 text-green-800" : "border-transparent text-gray-500 hover:text-gray-700"}`}>ประวัติ</Link></div>;
-  return <div className="space-y-4"><ResidentPageToolbar namespace="resident-gallery-requests" title="คำขอเพิ่มรูป" actions={<div className="flex w-full flex-wrap items-center justify-between gap-2"><Link href="/resident/gallery" className="inline-flex min-h-10 items-center gap-1.5 px-1 text-sm font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" />กลับหน้าแกลเลอรี</Link>{tabs}</div>} />{batches.length === 0 ? <EmptyState icon={FileClock} title={tab === "pending" ? "ไม่มีคำขอที่รอพิจารณา" : "ยังไม่มีประวัติคำขอเพิ่มรูป"} /> : <div className="space-y-3">{batches.map((batch) => { const first = batch.submissions[0]; const visible = batch.submissions.slice(0, 4); const routeId = first.batchId ?? first.id; return <Link key={batch.key} href={`/resident/gallery/requests/${routeId}`} className="block rounded-xl border border-gray-200 bg-white p-3 transition hover:border-gray-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600"><div className="flex flex-col gap-3 sm:flex-row sm:items-center"><div className="flex shrink-0 -space-x-2 overflow-hidden py-1">{visible.map((item) => <img key={item.id} src={item.fileUrl} alt="รูปที่ส่ง" className="h-14 w-14 rounded-lg border-2 border-white object-cover sm:h-16 sm:w-16" />)}{batch.submissions.length > visible.length ? <span className="flex h-14 w-14 items-center justify-center rounded-lg border-2 border-white bg-gray-100 text-xs font-medium text-gray-700 sm:h-16 sm:w-16">+{batch.submissions.length - visible.length}</span> : null}</div><div className="min-w-0 flex-1"><Badge variant="outline">{first.album.title}</Badge><p className="mt-2 text-sm text-gray-500">{formatThaiDateTime(first.createdAt)}</p><p className="mt-1 text-sm text-gray-700">ส่ง {batch.submissions.length} รูป</p><p className="mt-1 text-sm font-medium text-gray-800">{statusSummary(batch.submissions)}</p></div></div></Link>; })}</div>}</div>;
+  const tabs = <div className="flex shrink-0 flex-wrap gap-1 border-b border-gray-200">
+    <Link href={href("pending")} aria-current={tab === "pending" ? "page" : undefined} className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "pending" ? "border-green-700 text-green-800" : "border-transparent text-gray-500 hover:text-gray-700"}`}>รอพิจารณา ({pendingCount})</Link>
+    <Link href={href("history")} aria-current={tab === "history" ? "page" : undefined} className={`border-b-2 px-3 py-2 text-sm font-medium ${tab === "history" ? "border-green-700 text-green-800" : "border-transparent text-gray-500 hover:text-gray-700"}`}>ประวัติ</Link>
+  </div>;
+  const backAction = <Link href="/resident/gallery" className="inline-flex min-h-10 items-center gap-1.5 px-1 text-sm font-medium text-gray-600 hover:text-gray-900"><ArrowLeft className="h-4 w-4" />กลับหน้าแกลเลอรี</Link>;
+
+  return <div className="space-y-4">
+    <ResidentPageToolbar namespace="resident-gallery-requests" title="คำขอเพิ่มรูป" leadingActions={backAction} actions={tabs} />
+    {batches.length === 0 ? (
+      <EmptyState icon={FileClock} title={tab === "pending" ? "ไม่มีคำขอที่รอพิจารณา" : "ยังไม่มีประวัติคำขอเพิ่มรูป"} />
+    ) : (
+      <div className="space-y-3">
+        {batches.map((batch) => {
+          const first = batch.submissions[0];
+          const visible = batch.submissions.slice(0, 4);
+          const routeId = first.batchId ?? first.id;
+          const history = tab === "history" ? historyStatus(batch.submissions) : null;
+          return <Link key={batch.key} href={`/resident/gallery/requests/${routeId}`} className="block rounded-xl border border-gray-200 bg-white p-3 transition hover:border-gray-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="flex shrink-0 -space-x-2 overflow-hidden py-1">
+                {visible.map((item) => <img key={item.id} src={item.fileUrl} alt="รูปที่ส่ง" className="h-14 w-14 rounded-lg border-2 border-white object-cover sm:h-16 sm:w-16" />)}
+                {batch.submissions.length > visible.length ? <span className="flex h-14 w-14 items-center justify-center rounded-lg border-2 border-white bg-gray-100 text-xs font-medium text-gray-700 sm:h-16 sm:w-16">+{batch.submissions.length - visible.length}</span> : null}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{first.album.title}</Badge>
+                  {history ? <Badge variant={history.variant}>{history.label}</Badge> : null}
+                </div>
+                <p className="mt-2 text-sm text-gray-500">{formatThaiDateTime(first.createdAt)}</p>
+                <p className="mt-1 text-sm text-gray-700">ส่ง {batch.submissions.length} รูป</p>
+                {history?.detail ? <p className="mt-1 text-xs text-gray-500">{history.detail}</p> : null}
+                {!history ? <p className="mt-1 text-sm font-medium text-gray-800">{pendingStatusSummary(batch.submissions)}</p> : null}
+              </div>
+            </div>
+          </Link>;
+        })}
+      </div>
+    )}
+  </div>;
 }
