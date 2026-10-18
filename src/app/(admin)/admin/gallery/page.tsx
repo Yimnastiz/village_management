@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { ImagePlus, Plus } from "lucide-react";
+import { Globe2, ImagePlus, Plus, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
 
   const keyword = params.q?.trim() ?? "";
   const activeVisibility = params.visibility ?? "ALL";
-  const activeSubmissions = params.submissions ?? "ALL";
+  const activeSubmissions = params.submissions === "OPEN" || params.submissions === "CLOSED" ? params.submissions : "ALL";
   const activeSort = params.sort ?? "newest";
 
   const where: Prisma.GalleryAlbumWhereInput = { villageId: membership.villageId };
@@ -40,6 +40,8 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
   }
   if (activeSubmissions === "OPEN") {
     where.allowResidentSubmissions = true;
+  } else if (activeSubmissions === "CLOSED") {
+    where.allowResidentSubmissions = false;
   }
   if (keyword) {
     where.OR = [
@@ -105,10 +107,11 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
             ],
           },
           {
-            label: "รับรูป",
+            label: "การส่งรูป",
             options: [
               { label: "ทั้งหมด", href: buildGalleryHref({ q: keyword, visibility: activeVisibility, submissions: "ALL", sort: activeSort }), active: activeSubmissions === "ALL" },
               { label: "เปิดรับคำขอ", href: buildGalleryHref({ q: keyword, visibility: activeVisibility, submissions: "OPEN", sort: activeSort }), active: activeSubmissions === "OPEN" },
+              { label: "ปิดรับคำขอ", href: buildGalleryHref({ q: keyword, visibility: activeVisibility, submissions: "CLOSED", sort: activeSort }), active: activeSubmissions === "CLOSED" },
             ],
           },
           {
@@ -155,9 +158,10 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
               </div>
               <div className="p-4 space-y-2">
                 <div className="flex items-center gap-2">
-                  <Badge variant={album.isPublic ? "success" : "info"}>
+                  <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                    {album.isPublic ? <Globe2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Users className="h-3.5 w-3.5" aria-hidden="true" />}
                     {album.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
-                  </Badge>
+                  </span>
                   {album.allowResidentSubmissions && (
                     <Badge variant="warning">รับคำขอรูป</Badge>
                   )}

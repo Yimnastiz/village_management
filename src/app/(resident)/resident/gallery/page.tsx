@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { Images } from "lucide-react";
+import { Globe2, Images, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,7 +10,7 @@ import { ResidentGalleryToolbar } from "./resident-gallery-toolbar";
 import { residentAlbumWhere } from "@/lib/resident-content-access";
 
 type ResidentGalleryPageProps = {
-  searchParams?: Promise<{ q?: string; sort?: string; visibility?: string; allowSubmissions?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string; visibility?: string; submissions?: string }>;
 };
 
 export default async function ResidentGalleryPage({ searchParams }: ResidentGalleryPageProps) {
@@ -32,7 +32,10 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
     )
   );
   const selectedVisibilities = membership.hasResidentAccess ? requestedVisibilities : [];
-  const allowSubmissionsOnly = membership.hasResidentAccess && query.allowSubmissions === "1";
+  const submissionFilter = membership.hasResidentAccess
+    ? query.submissions === "open" ? "OPEN" : query.submissions === "closed" ? "CLOSED" : "ALL"
+    : "ALL";
+  const hasActiveFilters = Boolean(keyword || selectedVisibilities.length || submissionFilter !== "ALL");
 
   const village = await prisma.village.findUnique({
     where: { id: membership.villageId },
@@ -47,7 +50,11 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
       ...(membership.hasResidentAccess && selectedVisibilities.length === 1
         ? { isPublic: selectedVisibilities[0] === "PUBLIC" }
         : {}),
-      ...(allowSubmissionsOnly ? { allowResidentSubmissions: true } : {}),
+      ...(submissionFilter === "OPEN"
+        ? { allowResidentSubmissions: true }
+        : submissionFilter === "CLOSED"
+          ? { allowResidentSubmissions: false }
+          : {}),
       ...(keyword
         ? {
             title: {
@@ -101,7 +108,7 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
         sort={sort}
         villageName={village.name}
         selectedVisibilities={selectedVisibilities}
-        allowSubmissionsOnly={allowSubmissionsOnly}
+        submissionFilter={submissionFilter}
         suggestionTitles={suggestionTitles}
         canSubmit={membership.hasResidentAccess}
         hasResidentAccess={membership.hasResidentAccess}
@@ -110,8 +117,8 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
       {albums.length === 0 ? (
         <EmptyState
           icon={Images}
-          title={keyword || selectedVisibilities.length || allowSubmissionsOnly ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มภาพ"}
-          description={keyword || selectedVisibilities.length || allowSubmissionsOnly ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อผู้ดูแลหมู่บ้านเพิ่มอัลบั้มแล้วจะแสดงที่นี่"}
+          title={hasActiveFilters ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มภาพ"}
+          description={hasActiveFilters ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อผู้ดูแลหมู่บ้านเพิ่มอัลบั้มแล้วจะแสดงที่นี่"}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -138,9 +145,10 @@ export default async function ResidentGalleryPage({ searchParams }: ResidentGall
 
               <div className="space-y-2 p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  {membership.hasResidentAccess ? <Badge variant={album.isPublic ? "success" : "info"}>
+                  {membership.hasResidentAccess ? <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                    {album.isPublic ? <Globe2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Users className="h-3.5 w-3.5" aria-hidden="true" />}
                     {album.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
-                  </Badge> : null}
+                  </span> : null}
                   {membership.hasResidentAccess && album.allowResidentSubmissions && <Badge variant="warning">ขอเพิ่มรูปได้</Badge>}
                   <Badge variant="outline">{album._count.items} รูป</Badge>
                 </div>

@@ -33,7 +33,7 @@ export default async function EditGalleryAlbumPage({ params }: PageProps) {
 
   return (
     <div data-admin-compact-top className="space-y-4">
-      <AdminPageToolbar sticky variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-end" title="แก้ไขอัลบั้ม" description="อัปเดตข้อมูลอัลบั้มรูปภาพ" />
+      <AdminPageToolbar sticky variant="form" backHref={`/admin/gallery/${album.id}`} backLabel="กลับรายละเอียดอัลบั้ม" backPlacement="header-start" title="แก้ไขอัลบั้ม" description="อัปเดตข้อมูลอัลบั้มรูปภาพ" />
       <AlbumForm
         mode="edit"
         albumId={album.id}
