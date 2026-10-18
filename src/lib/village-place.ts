@@ -21,6 +21,7 @@ export type VillagePlaceInput = {
   longitude: number | null;
   isPublic: boolean;
   images: PlaceImageInput[];
+  requestReason?: string;
 };
 
 export function isVillagePlaceCategory(value: string): value is VillagePlaceCategoryValue {
@@ -91,7 +92,7 @@ export function parseVillagePlacePayload(payload: unknown): VillagePlaceInput | 
     });
     return withoutImages.ok ? { ...withoutImages.value, images } : null;
   }
-  return result.ok ? result.value : null;
+  return result.ok ? { ...result.value, requestReason: typeof candidate.requestReason === "string" ? candidate.requestReason.trim() : undefined } : null;
 }
 
 export function getVillagePlaceEmbedMapUrl(latitude: number | null, longitude: number | null): string | null {

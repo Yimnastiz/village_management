@@ -19,8 +19,9 @@ type PlaceInput = {
 };
 
 type Submission = {
-  id: string; villageId: string; requesterId: string; type: "CREATE" | "UPDATE"; targetPlaceId: string | null; payload: unknown; status: string;
+  id: string; villageId: string; requesterId: string; type: "CREATE" | "UPDATE" | "DELETE"; targetPlaceId: string | null; payload: unknown; status: string;
 };
+type PlaceReviewOptions = { isPublic: boolean; isFeatured: boolean };
 
 async function requireAdminVillage() {
   const session = await getSessionContextFromServerCookies();
@@ -87,8 +88,10 @@ export async function adminDeleteVillagePlaceAction(placeId: string, reasonInput
   const result = await prisma.$transaction(async (tx) => {
     const existing = await tx.villagePlace.findFirst({ where: { id: placeId, villageId: ctx.villageId }, select: { id: true, name: true, images: { select: { fileKey: true } } } });
     if (!existing) return false;
+    const origin = await tx.villagePlaceSubmission.findFirst({ where: { villageId: ctx.villageId, approvedPlaceId: placeId, type: "CREATE", status: "APPROVED" }, orderBy: { reviewedAt: "asc" }, select: { requesterId: true } });
     await tx.savedItem.deleteMany({ where: { placeId } });
     await tx.villagePlace.delete({ where: { id: placeId } });
+    if (origin) await tx.notification.create({ data: { villageId: ctx.villageId, userId: origin.requesterId, type: NotificationType.SYSTEM, title: "สถานที่ของคุณถูกลบ", body: `“${existing.name}” ถูกลบโดยผู้ใหญ่บ้าน\nเหตุผล: ${reason}`, metadata: { source: "PLACE", status: "DELETED", actionUrl: "/resident/places/requests?tab=history" } } });
     await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.DELETE, resource: "VillagePlace", resourceId: placeId, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, actionName: "PLACE_DELETED", name: existing.name } } });
     return existing.images.flatMap((image) => image.fileKey ? [image.fileKey] : []);
   });
@@ -102,48 +105,55 @@ async function findPendingSubmission(submissionId: string, villageId: string): P
   return prisma.villagePlaceSubmission.findFirst({ where: { id: submissionId, villageId, status: "PENDING" }, select: { id: true, villageId: true, requesterId: true, type: true, targetPlaceId: true, payload: true, status: true } });
 }
 
-export async function adminApproveVillagePlaceSubmissionAction(submissionId: string): Promise<{ success: true; placeId: string } | { success: false; error: string }> {
+export async function adminApproveVillagePlaceSubmissionAction(submissionId: string, reviewOptions?: PlaceReviewOptions): Promise<{ success: true; placeId: string | null } | { success: false; error: string }> {
   const ctx = await requireAdminVillage();
   if (!ctx.ok) return { success: false, error: ctx.error };
   const submission = await findPendingSubmission(submissionId, ctx.villageId);
   if (!submission) return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
   const payload = parseVillagePlacePayload(submission.payload);
   if (!payload) return { success: false, error: "ข้อมูลคำขอไม่ถูกต้อง ไม่สามารถอนุมัติได้" };
+  if (submission.type !== "DELETE" && (!reviewOptions || typeof reviewOptions.isPublic !== "boolean" || typeof reviewOptions.isFeatured !== "boolean")) return { success: false, error: "กรุณากำหนดการมองเห็นและสถานที่สำคัญก่อนอนุมัติ" };
   try {
     let removedFileKeys: string[] = [];
     const result = await prisma.$transaction(async (tx) => {
       // The conditional state transition is the claim: only one admin can proceed.
       const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "APPROVED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: null } });
       if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
-      let place;
-      if (submission.type === "UPDATE") {
+      let place: { id: string } | null = null;
+      if (submission.type === "DELETE") {
+        if (!submission.targetPlaceId) throw new Error("PLACE_TARGET_NOT_FOUND");
+        const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId, villageId: ctx.villageId }, select: { id: true, name: true, images: { select: { fileKey: true } } } });
+        if (!target) throw new Error("PLACE_TARGET_NOT_FOUND");
+        await tx.savedItem.deleteMany({ where: { placeId: target.id } });
+        await tx.villagePlace.delete({ where: { id: target.id } });
+        removedFileKeys = target.images.flatMap((image) => image.fileKey ? [image.fileKey] : []);
+      } else if (submission.type === "UPDATE") {
         if (!submission.targetPlaceId) throw new Error("PLACE_TARGET_NOT_FOUND");
         const target = await tx.villagePlace.findFirst({ where: { id: submission.targetPlaceId, villageId: ctx.villageId }, select: { id: true, images: { select: { fileKey: true } } } });
         if (!target) throw new Error("PLACE_TARGET_NOT_FOUND");
-        // Resident submissions never control visibility or the featured flag.
         const imageRows = await materializePlaceImages(tx, payload.images, ctx.villageId, { existingPlaceId: target.id, trustedNew: true });
         if (!imageRows) throw new Error("INVALID_PLACE_IMAGES");
-        const { isPublic: _submittedVisibility, images: _images, ...placeChanges } = payload;
-        place = await tx.villagePlace.update({ where: { id: target.id }, data: { ...placeChanges, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null }, select: { id: true } });
+        const { isPublic: _submittedVisibility, images: _images, requestReason: _requestReason, ...placeChanges } = payload;
+        place = await tx.villagePlace.update({ where: { id: target.id }, data: { ...placeChanges, isPublic: reviewOptions!.isPublic, isFeatured: reviewOptions!.isFeatured, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null }, select: { id: true } });
         await replacePlaceImages(tx, place.id, imageRows);
         const retained = new Set(imageRows.flatMap((image) => image.fileKey ? [image.fileKey] : []));
         removedFileKeys = target.images.flatMap((image) => image.fileKey && !retained.has(image.fileKey) ? [image.fileKey] : []);
       } else {
         const imageRows = await materializePlaceImages(tx, payload.images, ctx.villageId, { trustedNew: true });
         if (!imageRows) throw new Error("INVALID_PLACE_IMAGES");
-        const { images: _images, ...placeFields } = payload;
-        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...placeFields, imageUrls: [], isPublic: false, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: false, createdById: submission.requesterId }, select: { id: true } });
+        const { images: _images, requestReason: _requestReason, ...placeFields } = payload;
+        place = await tx.villagePlace.create({ data: { villageId: ctx.villageId, ...placeFields, imageUrls: [], isPublic: reviewOptions!.isPublic, description: payload.description || null, address: payload.address || null, openingHours: payload.openingHours || null, contactPhone: payload.contactPhone || null, mapUrl: payload.mapUrl || null, isFeatured: reviewOptions!.isFeatured, createdById: submission.requesterId }, select: { id: true } });
         await replacePlaceImages(tx, place.id, imageRows);
       }
-      await tx.villagePlaceSubmission.update({ where: { id: submission.id }, data: { approvedPlaceId: place.id } });
-      const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
-      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `สถานที่: ${payload.name}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, placeId: place.id, status: "APPROVED", actionUrl: `/resident/places/${place.id}?from=notifications` } } });
-      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "places.requests.review", actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place.id, requesterId: submission.requesterId } } });
+      if (place) await tx.villagePlaceSubmission.update({ where: { id: submission.id }, data: { approvedPlaceId: place.id } });
+      const title = submission.type === "DELETE" ? "คำขอลบสถานที่ของคุณได้รับการอนุมัติ" : submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณได้รับการอนุมัติ";
+      await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: submission.type === "DELETE" ? `สถานที่ “${payload.name}” ถูกลบออกจากระบบแล้ว` : `สถานที่: ${payload.name}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, placeId: place?.id, status: "APPROVED", actionUrl: submission.type === "DELETE" ? "/resident/places/requests?tab=history" : `/resident/places/${place!.id}?from=notifications` } } });
+      await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.APPROVE, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "places.requests.review", actionName: "PLACE_REQUEST_APPROVED", requestType: submission.type, placeId: place?.id ?? submission.targetPlaceId, requesterId: submission.requesterId, finalIsPublic: submission.type === "DELETE" ? undefined : reviewOptions!.isPublic, finalIsFeatured: submission.type === "DELETE" ? undefined : reviewOptions!.isFeatured } } });
       return place;
     });
     await deletePlaceUploads(removedFileKeys);
-    revalidatePlacePaths(result.id, submissionId);
-    return { success: true, placeId: result.id };
+    revalidatePlacePaths(result?.id ?? submission.targetPlaceId ?? undefined, submissionId);
+    return { success: true, placeId: result?.id ?? null };
   } catch (error) {
     if (error instanceof Error && error.message === "PLACE_TARGET_NOT_FOUND") return { success: false, error: "ไม่พบสถานที่ปลายทางสำหรับคำขอนี้" };
     if (error instanceof Error && error.message === "คำขอนี้ถูกดำเนินการแล้ว") return { success: false, error: "คำขอนี้ถูกดำเนินการแล้ว" };
@@ -164,7 +174,7 @@ export async function adminRejectVillagePlaceSubmissionAction(submissionId: stri
     await prisma.$transaction(async (tx) => {
       const claimed = await tx.villagePlaceSubmission.updateMany({ where: { id: submission.id, villageId: ctx.villageId, status: "PENDING" }, data: { status: "REJECTED", reviewedBy: ctx.session.id, reviewedAt: new Date(), reviewNote: reason } });
       if (claimed.count !== 1) throw new Error("คำขอนี้ถูกดำเนินการแล้ว");
-      const title = submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณไม่ได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ";
+      const title = submission.type === "DELETE" ? "คำขอลบสถานที่ของคุณไม่ได้รับการอนุมัติ" : submission.type === "UPDATE" ? "คำขอแก้ไขสถานที่ของคุณไม่ได้รับการอนุมัติ" : "คำขอเพิ่มสถานที่ของคุณไม่ได้รับการอนุมัติ";
       await tx.notification.create({ data: { villageId: ctx.villageId, userId: submission.requesterId, type: NotificationType.SYSTEM, title, body: `เหตุผล: ${reason}`, metadata: { source: "PLACE", submissionId: submission.id, requestType: submission.type, status: "REJECTED", actionUrl: `/resident/places/requests/${submission.id}?from=notifications` } } });
       await tx.auditLog.create({ data: { userId: ctx.session.id, villageId: ctx.villageId, action: AuditAction.REJECT, resource: "VillagePlaceSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.request.reject", actionName: "PLACE_REQUEST_REJECTED", requestType: submission.type, requesterId: submission.requesterId, reason } } });
     });

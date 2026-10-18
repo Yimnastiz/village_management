@@ -84,6 +84,7 @@ export const VILLAGE_PLACE_SUBMISSION_STATUS_LABELS: Record<string, string> = {
 export const VILLAGE_PLACE_SUBMISSION_TYPE_LABELS: Record<string, string> = {
   CREATE: "ขอเพิ่มสถานที่",
   UPDATE: "ขอแก้ไขสถานที่",
+  DELETE: "ขอลบสถานที่",
 };
 
 export const MEMBERSHIP_ROLE_LABELS: Record<string, string> = {

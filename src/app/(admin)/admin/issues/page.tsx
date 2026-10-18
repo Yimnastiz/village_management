@@ -13,6 +13,7 @@ import { IssueStatusIndicator } from "@/components/issues/issue-status-indicator
 import { ISSUE_STATUS_META } from "@/lib/issues/status";
 import { getIssuePriorityMeta } from "@/lib/issues/priority";
 import { normalizeIssueImageUrls } from "@/lib/issues/images";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface PageProps {
   searchParams: Promise<{ q?: string; stage?: string; category?: string; sort?: string; page?: string }>;
@@ -191,13 +192,10 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
         }
       />
 
-      <section className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white sm:-mx-6">
       {issues.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center p-8 text-center sm:p-12">
-          <AlertCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="font-medium text-gray-700">ไม่พบคำร้อง</p>
-        </div>
+        <EmptyState variant="admin" icon={AlertCircle} title={keyword || activeStage !== "ALL" || activeCategory !== "ALL" ? "ไม่พบปัญหาที่ตรงกับเงื่อนไข" : "ยังไม่มีปัญหาหรือคำร้อง"} description={keyword || activeStage !== "ALL" || activeCategory !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อมีสมาชิกแจ้งปัญหา หรือผู้ใหญ่บ้านเพิ่มรายการ รายการจะแสดงที่นี่"} action={keyword || activeStage !== "ALL" || activeCategory !== "ALL" ? undefined : <Link href="/admin/issues/new"><Button size="sm"><Plus className="mr-1 h-4 w-4" />แจ้งปัญหาใหม่</Button></Link>} />
       ) : (
+      <section className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white sm:-mx-6">
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full min-w-[800px] table-fixed text-sm">
             <thead className="sticky top-0 z-10 shadow-[0_1px_0_rgb(229_231_235)]">
@@ -268,11 +266,11 @@ export default async function AdminIssuesPage({ searchParams }: PageProps) {
             </tbody>
           </table>
         </div>
-      )}
       {totalPages > 1 ? <footer className="shrink-0 border-t border-gray-200 px-3 py-2 [&>div]:mt-0 sm:px-4">
         <QueryPagination pathname="/admin/issues" page={page} totalPages={totalPages} params={{ q: keyword || undefined, stage: activeStage !== "ALL" ? activeStage : undefined, category: activeCategory !== "ALL" ? activeCategory : undefined, sort: activeSort !== "newest" ? activeSort : undefined }} />
       </footer> : null}
       </section>
+      )}
     </div>
   );
 }

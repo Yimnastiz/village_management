@@ -11,8 +11,9 @@ import { getVillagePlaceEmbedMapUrl, parseVillagePlacePayload } from "@/lib/vill
 import { getVillageReviewerDisplay } from "@/lib/village-reviewer";
 import { PlaceRequestReviewButtons } from "../request-review-buttons";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay, type ResidentActorUser } from "@/lib/resident-actor-display";
+import { DeletePlaceButton } from "../../delete-place-button";
 
-type RequestDetail = { id: string; type: string; status: string; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: ResidentActorUser };
+type RequestDetail = { id: string; type: string; status: string; targetPlaceId: string | null; approvedPlaceId: string | null; payload: unknown; createdAt: Date; reviewedBy: string | null; reviewedAt: Date | null; reviewNote: string | null; requester: ResidentActorUser };
 type VillagePlaceSubmissionDetailDelegate = { findFirst(args: unknown): Promise<RequestDetail | null> };
 type PageProps = { params: Promise<{ requestId: string }> };
 const statusVariant: Record<string, "default" | "info" | "success" | "warning" | "danger"> = { PENDING: "warning", APPROVED: "success", REJECTED: "danger" };
@@ -30,9 +31,11 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
   const payload = parseVillagePlacePayload(request.payload);
   if (!payload) notFound();
   const referencedImageIds = payload.images.flatMap((image) => image.id ? [image.id] : []);
-  const [imageRows, reviewer] = await Promise.all([
+  const [imageRows, reviewer, targetPlace, approvedPlace] = await Promise.all([
     referencedImageIds.length ? prisma.villagePlaceImage.findMany({ where: { id: { in: referencedImageIds }, place: { villageId: membership.villageId } }, select: { id: true, url: true } }) : [],
     getVillageReviewerDisplay(request.reviewedBy, membership.villageId),
+    request.targetPlaceId ? prisma.villagePlace.findFirst({ where: { id: request.targetPlaceId, villageId: membership.villageId }, select: { id: true, isPublic: true, isFeatured: true } }) : null,
+    request.approvedPlaceId ? prisma.villagePlace.findFirst({ where: { id: request.approvedPlaceId, villageId: membership.villageId }, select: { id: true } }) : null,
   ]);
   const imageUrlsById = new Map(imageRows.map((image) => [image.id, image.url]));
   const images = [...payload.images].sort((a, b) => a.sortOrder - b.sortOrder).flatMap((image) => {
@@ -98,13 +101,14 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
               <p className="whitespace-pre-wrap leading-7 text-gray-700">{payload.description}</p>
             </section>
           ) : null}
+          {request.type === "DELETE" && payload.requestReason ? <section className="border-t border-gray-100 pt-5"><h2 className="text-sm font-medium text-gray-900">เหตุผลที่ขอลบ</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-700">{payload.requestReason}</p></section> : null}
 
           {payload.mapUrl ? <a href={payload.mapUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-medium text-blue-700 hover:text-blue-800">เปิดแผนที่</a> : null}
           {embedMapUrl ? <div className="overflow-hidden rounded-xl border border-gray-200"><iframe title={`request-map-${request.id}`} src={embedMapUrl} className="h-72 w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div> : null}
 
           <section className="border-t border-gray-100 pt-5">
             {request.status === "PENDING" ? (
-              <PlaceRequestReviewButtons requestId={request.id} placeName={payload.name} type={request.type as "CREATE" | "UPDATE"} />
+              <PlaceRequestReviewButtons requestId={request.id} placeName={payload.name} type={request.type as "CREATE" | "UPDATE" | "DELETE"} proposedIsPublic={payload.isPublic} initialIsPublic={request.type === "UPDATE" ? targetPlace?.isPublic ?? payload.isPublic : payload.isPublic} initialIsFeatured={request.type === "UPDATE" ? targetPlace?.isFeatured ?? false : false} />
             ) : (
               <dl className="grid gap-4 text-sm text-gray-600 sm:grid-cols-2">
                 <div>
@@ -118,6 +122,7 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
                 {request.reviewNote ? <div className="sm:col-span-2"><dt className="text-gray-500">{request.status === "REJECTED" ? "เหตุผลที่ไม่อนุมัติ" : "หมายเหตุ"}</dt><dd className="mt-1 whitespace-pre-wrap text-gray-800">{request.reviewNote}</dd></div> : null}
               </dl>
             )}
+            {request.status === "APPROVED" && request.type === "CREATE" && approvedPlace ? <div className="mt-5 border-t border-gray-100 pt-5"><DeletePlaceButton placeId={approvedPlace.id} placeName={payload.name} /></div> : null}
           </section>
         </article>
       </div>

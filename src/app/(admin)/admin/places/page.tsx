@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { VILLAGE_PLACE_CATEGORY_LABELS } from "@/lib/constants";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { orderedPlaceImages, type PlaceImageView } from "@/lib/place-image";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; category?: string; visibility?: string; featured?: string; sort?: string; page?: string }>;
@@ -198,12 +199,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
       />
 
       {rows.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
-          <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="font-medium text-gray-800">{activeFeatured === "FEATURED" ? "ยังไม่มีสถานที่ที่ถูกกำหนดเป็นสถานที่สำคัญ" : keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ไม่พบสถานที่ที่ตรงกับเงื่อนไข" : "ยังไม่มีสถานที่"}</p>
-          <p className="mt-1 text-sm text-gray-500">{keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มสถานที่เพื่อให้สมาชิกและประชาชนค้นหาข้อมูลได้"}</p>
-          {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มสถานที่</Link>}
-        </div>
+        <EmptyState variant="admin" icon={Building2} title={activeFeatured === "FEATURED" ? "ยังไม่มีสถานที่ที่ถูกกำหนดเป็นสถานที่สำคัญ" : keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" ? "ไม่พบสถานที่ที่ตรงกับเงื่อนไข" : "ยังไม่มีสถานที่"} description={keyword || activeCategory !== "ALL" || activeVisibility !== "ALL" || activeFeatured === "FEATURED" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อเพิ่มสถานที่ รายการจะแสดงที่นี่"} action={!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" ? <Link href="/admin/places/new" className="inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white">เพิ่มสถานที่</Link> : undefined} />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((place) => {

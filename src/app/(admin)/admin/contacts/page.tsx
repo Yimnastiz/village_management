@@ -10,6 +10,7 @@ import { contactFilterCategories } from "@/lib/contact";
 import { CONTACT_SORT_OPTIONS, parseContactSort, sortContactsByName } from "@/lib/contact-sort";
 import { ContactCreateDialog } from "./contact-create-dialog";
 import { ContactSortableList } from "./contact-sortable-list";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; visibility?: string; category?: string; sort?: string }>;
@@ -150,12 +151,7 @@ export default async function AdminContactsPage({ searchParams }: PageProps) {
       {activeSort === "recommended" ? <p className="px-1 text-xs text-gray-500">{canReorder ? "ลาก ⠿ เพื่อจัดลำดับ" : "ล้างการค้นหาและตัวกรองเพื่อจัดลำดับ"}</p> : null}
 
       {contacts.length === 0 ? (
-        <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
-          <PhoneCall className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="font-medium text-gray-700">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "recommended" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีข้อมูลผู้ติดต่อ"}</p>
-          <p className="mt-1 text-sm text-gray-500">{keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "recommended" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เพิ่มผู้ติดต่อเพื่อเริ่มต้นจัดการรายชื่อ"}</p>
-          {!keyword && activeVisibility === "ALL" && !activeCategory && activeSort === "recommended" ? <div className="mt-4 inline-flex"><ContactCreateDialog /></div> : null}
-        </div>
+        <EmptyState variant="admin" icon={PhoneCall} title={keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "recommended" ? "ไม่พบผู้ติดต่อที่ตรงกับเงื่อนไข" : "ยังไม่มีข้อมูลผู้ติดต่อ"} description={keyword || activeVisibility !== "ALL" || activeCategory || activeSort !== "recommended" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อเพิ่มผู้ติดต่อ รายการจะแสดงที่นี่"} action={!keyword && activeVisibility === "ALL" && !activeCategory && activeSort === "recommended" ? <ContactCreateDialog /> : undefined} />
       ) : (
         <ContactSortableList contacts={contacts} enabled={canReorder} />
       )}

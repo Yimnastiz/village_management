@@ -8,6 +8,7 @@ import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
 import { formatThaiShortDate } from "@/lib/utils";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const db = prisma;
 
@@ -135,11 +136,7 @@ export default async function AdminGalleryPage({ searchParams }: PageProps) {
       />
 
       {albums.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-          <ImagePlus className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600">{keyword || activeVisibility !== "ALL" || activeSubmissions !== "ALL" ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มรูปภาพ"}</p>
-          {(keyword || activeVisibility !== "ALL" || activeSubmissions !== "ALL") && <p className="mt-1 text-sm text-gray-500">ลองเปลี่ยนคำค้นหาหรือตัวกรอง</p>}
-        </div>
+        <EmptyState variant="admin" icon={ImagePlus} title={keyword || activeVisibility !== "ALL" || activeSubmissions !== "ALL" ? "ไม่พบอัลบั้มที่ตรงกับเงื่อนไข" : "ยังไม่มีอัลบั้มรูปภาพ"} description={keyword || activeVisibility !== "ALL" || activeSubmissions !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อเพิ่มอัลบั้ม รายการจะแสดงที่นี่"} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {albums.map((album) => (

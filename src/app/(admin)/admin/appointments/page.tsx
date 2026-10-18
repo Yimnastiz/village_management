@@ -13,6 +13,7 @@ import { Clock } from "lucide-react";
 import { QueryPagination } from "@/components/ui/query-pagination";
 import { CreateAppointmentButton } from "./create-appointment-button";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; sort?: string; page?: string }>;
@@ -212,9 +213,7 @@ export default async function AdminAppointmentsPage({ searchParams }: PageProps)
       />
 
       {appointments.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">ยังไม่มีคำขอนัดหมาย</p>
-        </div>
+        <EmptyState variant="admin" icon={Clock} title={keyword || activeStage !== "ALL" ? "ไม่พบคำขอนัดหมายที่ตรงกับเงื่อนไข" : "ยังไม่มีคำขอนัดหมาย"} description={keyword || activeStage !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อมีคำขอนัดหมาย รายการจะแสดงที่นี่"} />
       ) : (
         <div className="space-y-3">
           {appointments.map((apt) => {

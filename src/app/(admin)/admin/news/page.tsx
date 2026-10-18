@@ -11,6 +11,7 @@ import { getPendingNewsSubmissionCount } from "@/lib/news-submission.server";
 import { getActiveSystemBroadcastTickerItems } from "@/lib/system-broadcast-ticker.server";
 import { SystemBroadcastTicker } from "@/components/notifications/system-broadcast-ticker";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
+import { EmptyState } from "@/components/ui/empty-state";
 
 type PageProps = {
   searchParams?: Promise<{ q?: string; stage?: string; visibility?: string; sort?: string }>;
@@ -82,10 +83,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
       <SystemBroadcastTicker items={tickerItems} />
 
       {newsList.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
-          <Newspaper className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600">ยังไม่มีข่าวในระบบ</p>
-        </div>
+        <EmptyState variant="admin" icon={Newspaper} title={keyword || activeStage !== "ALL" || activeVisibility !== "ALL" ? "ไม่พบข่าวที่ตรงกับเงื่อนไข" : "ยังไม่มีข่าวในระบบ"} description={keyword || activeStage !== "ALL" || activeVisibility !== "ALL" ? "ลองเปลี่ยนคำค้นหาหรือตัวกรอง" : "เมื่อเพิ่มข่าว รายการจะแสดงที่นี่"} />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {newsList.map((news) => (

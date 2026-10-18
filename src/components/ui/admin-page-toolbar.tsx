@@ -53,6 +53,8 @@ type AdminPageToolbarProps = {
   /** Lets workspace pages keep the shared tools without repeating the page header. */
   hideHeading?: boolean;
   className?: string;
+  /** Constrains only the toolbar contents while preserving the full-width sticky shell. */
+  contentClassName?: string;
 };
 
 /**
@@ -80,6 +82,7 @@ export function AdminPageToolbar({
   filtersInlineWithSearch: _filtersInlineWithSearch = false,
   hideHeading = false,
   className,
+  contentClassName,
 }: AdminPageToolbarProps) {
   const adminPageHeaderRegistry = useOptionalAdminPageHeaderRegistry();
   const [expandedPanel, setExpandedPanel] = useState<ExpandedPanel>(null);
@@ -169,6 +172,7 @@ export function AdminPageToolbar({
       aria-label={`เครื่องมือ${title}`}
       data-admin-page-toolbar={variant}
     >
+      <div className={cn("w-full", contentClassName)}>
       {adminPageHeaderRegistry ? <AdminPageHeaderRegistration context={{ title, description }} /> : null}
       {backPlacement === "top" && backLink ? <div className="mb-2">{backLink}</div> : null}
 
@@ -236,6 +240,7 @@ export function AdminPageToolbar({
         {(hideHeading || adminPageHeaderRegistry) && actions ? <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2 sm:gap-3">{actions}</div> : null}
       </div> : null}
       {search?.suggestions?.length ? <datalist id={suggestionsId}>{search.suggestions.map((value) => <option key={value} value={value} />)}</datalist> : null}
+      </div>
     </section>
   );
 }

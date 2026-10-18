@@ -131,6 +131,7 @@ enum VillagePlaceSubmissionStatus {
 enum VillagePlaceSubmissionType {
   CREATE
   UPDATE
+  DELETE
 }
 
 enum IssueStage {
