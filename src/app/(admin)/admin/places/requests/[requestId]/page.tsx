@@ -1,6 +1,6 @@
-﻿import Link from "next/link";
-import { ArrowLeft, Clock3, MapPin, Phone } from "lucide-react";
+import { Clock3, Globe2, MapPin, Phone, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { AdminPageToolbar } from "@/components/ui/admin-page-toolbar";
 import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { formatThaiDateTime } from "@/lib/date-format";
@@ -19,14 +19,16 @@ const statusVariant: Record<string, "default" | "info" | "success" | "warning" |
 
 export default async function AdminPlaceRequestDetailPage({ params }: PageProps) {
   const { requestId } = await params;
-  const context = await getVillagePermissionContext("places.requests.review"); if (!context) redirect("/admin/places");
+  const context = await getVillagePermissionContext("places.requests.review");
+  if (!context) redirect("/admin/places");
   const membership = context.membership;
   const villagePlaceSubmission = (prisma as unknown as { villagePlaceSubmission: VillagePlaceSubmissionDetailDelegate }).villagePlaceSubmission;
   const requestRow = await villagePlaceSubmission.findFirst({ where: { id: requestId, villageId: membership.villageId }, include: { requester: { select: RESIDENT_ACTOR_USER_SELECT } } });
   if (!requestRow) notFound();
   const requesterDisplay = residentActorDisplay(requestRow.requester, { villageId: membership.villageId });
   const request = { ...requestRow, requester: { name: requesterDisplay.label, phoneNumber: requesterDisplay.contactPhone ?? "-" } };
-  const payload = parseVillagePlacePayload(request.payload); if (!payload) notFound();
+  const payload = parseVillagePlacePayload(request.payload);
+  if (!payload) notFound();
   const referencedImageIds = payload.images.flatMap((image) => image.id ? [image.id] : []);
   const [imageRows, reviewer] = await Promise.all([
     referencedImageIds.length ? prisma.villagePlaceImage.findMany({ where: { id: { in: referencedImageIds }, place: { villageId: membership.villageId } }, select: { id: true, url: true } }) : [],
@@ -40,5 +42,85 @@ export default async function AdminPlaceRequestDetailPage({ params }: PageProps)
   const coverIndex = images.findIndex((image) => image.isCover);
   const embedMapUrl = getVillagePlaceEmbedMapUrl(payload.latitude, payload.longitude);
 
-  return <div className="mx-auto w-full max-w-4xl space-y-6"><Link href="/admin/places/requests" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"><ArrowLeft className="h-4 w-4" /> กลับรายการคำขอ</Link><div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 sm:p-6"><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{VILLAGE_PLACE_SUBMISSION_TYPE_LABELS[request.type] ?? request.type}</Badge><Badge variant={statusVariant[request.status] ?? "default"}>{VILLAGE_PLACE_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}</Badge><Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[payload.category]}</Badge><Badge variant={payload.isPublic ? "success" : "info"}>{payload.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</Badge></div><div><h1 className="text-2xl font-bold text-gray-900">คำขอ{VILLAGE_PLACE_SUBMISSION_TYPE_LABELS[request.type] ?? request.type}</h1><p className="mt-2 text-sm text-gray-600">ผู้ส่ง: {request.requester.name} • {request.requester.phoneNumber}</p><p className="mt-1 text-sm text-gray-500">ส่งเมื่อ: {formatThaiDateTime(request.createdAt)} น.</p></div><p className="font-medium text-gray-900">{payload.name}</p><div className="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">{payload.address && <p className="inline-flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 text-gray-500" /> {payload.address}</p>}{payload.openingHours && <p className="inline-flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 text-gray-500" /> {payload.openingHours}</p>}{payload.contactPhone && <p className="inline-flex items-start gap-2"><Phone className="mt-0.5 h-4 w-4 text-gray-500" /> {payload.contactPhone}</p>}{payload.latitude != null && payload.longitude != null && <p className="text-xs text-gray-500">พิกัด: {payload.latitude}, {payload.longitude}</p>}</div>{payload.description && <div className="rounded-lg border border-gray-100 bg-gray-50 p-4"><p className="whitespace-pre-wrap leading-7 text-gray-700">{payload.description}</p></div>}{payload.mapUrl && <a href={payload.mapUrl} target="_blank" rel="noreferrer" className="text-sm font-medium text-blue-700 hover:text-blue-800">เปิดแผนที่</a>}{embedMapUrl && <div className="overflow-hidden rounded-xl border border-gray-200"><iframe title={`request-map-${request.id}`} src={embedMapUrl} className="h-72 w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div>}{images.length > 0 && <div className="space-y-2"><p className="text-sm text-gray-500">รูปภาพ {images.length} รูป</p><ImageCarousel images={images.map((image) => image.url)} altPrefix={payload.name} coverIndex={coverIndex >= 0 ? coverIndex : undefined} /></div>}{request.status === "PENDING" ? <PlaceRequestReviewButtons requestId={request.id} placeName={payload.name} type={request.type as "CREATE" | "UPDATE"} /> : <div className="grid gap-3 border-t border-gray-100 pt-3 text-sm text-gray-600 sm:grid-cols-2"><div><p className="text-gray-500">ผู้พิจารณา</p><p className="mt-1 font-medium text-gray-800">{reviewer?.label ?? "ผู้ดูแลหมู่บ้าน"}</p></div><div><p className="text-gray-500">พิจารณาเมื่อ</p><p className="mt-1 font-medium text-gray-800">{request.reviewedAt ? formatThaiDateTime(request.reviewedAt) : "-"}</p></div>{request.reviewNote && <p className="sm:col-span-2">หมายเหตุ: {request.reviewNote}</p>}</div>}</div></div>;
+  return (
+    <div data-admin-compact-top className="space-y-3">
+      <AdminPageToolbar
+        variant="request"
+        sticky
+        backHref="/admin/places/requests"
+        backLabel="กลับรายการคำขอ"
+        backPlacement="header-start"
+        title={payload.name}
+        description="ตรวจสอบรายละเอียดคำขอสถานที่จากสมาชิก"
+      />
+
+      <div className="mx-auto w-full max-w-4xl">
+        <article className="space-y-5 rounded-xl border border-gray-200 bg-white p-4 sm:p-6">
+          <header className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{VILLAGE_PLACE_SUBMISSION_TYPE_LABELS[request.type] ?? request.type}</Badge>
+              <Badge variant={statusVariant[request.status] ?? "default"}>{VILLAGE_PLACE_SUBMISSION_STATUS_LABELS[request.status] ?? request.status}</Badge>
+              <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[payload.category]}</Badge>
+              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
+                {payload.isPublic ? <Globe2 className="h-4 w-4" aria-hidden="true" /> : <Users className="h-4 w-4" aria-hidden="true" />}
+                {payload.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
+              </span>
+            </div>
+            <dl className="grid gap-4 border-b border-gray-100 pb-5 text-sm sm:grid-cols-2">
+              <div>
+                <dt className="text-gray-500">ผู้ส่งคำขอ</dt>
+                <dd className="mt-1 font-medium text-gray-800">{request.requester.name} · {request.requester.phoneNumber}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">ส่งเมื่อ</dt>
+                <dd className="mt-1 font-medium text-gray-800">{formatThaiDateTime(request.createdAt)}</dd>
+              </div>
+            </dl>
+          </header>
+
+          {images.length > 0 ? (
+            <section className="space-y-2">
+              <p className="text-sm text-gray-500">รูปภาพ {images.length} รูป</p>
+              <ImageCarousel images={images.map((image) => image.url)} altPrefix={payload.name} coverIndex={coverIndex >= 0 ? coverIndex : undefined} thumbnailBehavior="select" />
+            </section>
+          ) : null}
+
+          <section className="grid grid-cols-1 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
+            {payload.address ? <p className="inline-flex items-start gap-2"><MapPin className="mt-0.5 h-4 w-4 text-gray-500" aria-hidden="true" />{payload.address}</p> : null}
+            {payload.openingHours ? <p className="inline-flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 text-gray-500" aria-hidden="true" />{payload.openingHours}</p> : null}
+            {payload.contactPhone ? <p className="inline-flex items-start gap-2"><Phone className="mt-0.5 h-4 w-4 text-gray-500" aria-hidden="true" />{payload.contactPhone}</p> : null}
+            {payload.latitude != null && payload.longitude != null ? <p className="text-xs text-gray-500">พิกัด: {payload.latitude}, {payload.longitude}</p> : null}
+          </section>
+
+          {payload.description ? (
+            <section className="border-t border-gray-100 pt-5">
+              <h2 className="mb-2 font-medium text-gray-900">รายละเอียด</h2>
+              <p className="whitespace-pre-wrap leading-7 text-gray-700">{payload.description}</p>
+            </section>
+          ) : null}
+
+          {payload.mapUrl ? <a href={payload.mapUrl} target="_blank" rel="noreferrer" className="inline-flex text-sm font-medium text-blue-700 hover:text-blue-800">เปิดแผนที่</a> : null}
+          {embedMapUrl ? <div className="overflow-hidden rounded-xl border border-gray-200"><iframe title={`request-map-${request.id}`} src={embedMapUrl} className="h-72 w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" /></div> : null}
+
+          <section className="border-t border-gray-100 pt-5">
+            {request.status === "PENDING" ? (
+              <PlaceRequestReviewButtons requestId={request.id} placeName={payload.name} type={request.type as "CREATE" | "UPDATE"} />
+            ) : (
+              <dl className="grid gap-4 text-sm text-gray-600 sm:grid-cols-2">
+                <div>
+                  <dt className="text-gray-500">ผู้พิจารณา</dt>
+                  <dd className="mt-1 font-medium text-gray-800">{reviewer?.label ?? "ผู้ดูแลหมู่บ้าน"}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">พิจารณาเมื่อ</dt>
+                  <dd className="mt-1 font-medium text-gray-800">{request.reviewedAt ? formatThaiDateTime(request.reviewedAt) : "-"}</dd>
+                </div>
+                {request.reviewNote ? <div className="sm:col-span-2"><dt className="text-gray-500">{request.status === "REJECTED" ? "เหตุผลที่ไม่อนุมัติ" : "หมายเหตุ"}</dt><dd className="mt-1 whitespace-pre-wrap text-gray-800">{request.reviewNote}</dd></div> : null}
+              </dl>
+            )}
+          </section>
+        </article>
+      </div>
+    </div>
+  );
 }

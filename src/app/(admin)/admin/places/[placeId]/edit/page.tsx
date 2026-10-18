@@ -71,27 +71,29 @@ export default async function AdminPlaceEditPage({ params }: PageProps) {
   const images = orderedPlaceImages(place.images, place.imageUrls);
 
   return (
-    <div data-admin-compact-top className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-      <AdminPageToolbar variant="form" backHref={`/admin/places/${place.id}`} backLabel="กลับรายละเอียดสถานที่" backPlacement="header-end" title="แก้ไขสถานที่" description="อัปเดตข้อมูลและรูปภาพสถานที่" />
-      <PlaceForm
-        mode="edit"
-        placeId={place.id}
-        cancelHref={`/admin/places/${place.id}`}
-        defaultValues={{
-          name: place.name,
-          category: place.category,
-          description: place.description ?? "",
-          address: place.address ?? "",
-          openingHours: place.openingHours ?? "",
-          contactPhone: place.contactPhone ?? "",
-          mapUrl: place.mapUrl ?? "",
-          latitude: place.latitude == null ? "" : String(place.latitude),
-          longitude: place.longitude == null ? "" : String(place.longitude),
-          isPublic: place.isPublic,
-          isFeatured: place.isFeatured,
-          images,
-        }}
-      />
+    <div data-admin-compact-top className="space-y-3">
+      <AdminPageToolbar variant="form" sticky backHref={`/admin/places/${place.id}`} backLabel="กลับรายละเอียดสถานที่" backPlacement="header-start" title="แก้ไขสถานที่" description="อัปเดตข้อมูลและรูปภาพสถานที่" />
+      <div className="mx-auto w-full max-w-3xl">
+        <PlaceForm
+          mode="edit"
+          placeId={place.id}
+          cancelHref={`/admin/places/${place.id}`}
+          defaultValues={{
+            name: place.name,
+            category: place.category,
+            description: place.description ?? "",
+            address: place.address ?? "",
+            openingHours: place.openingHours ?? "",
+            contactPhone: place.contactPhone ?? "",
+            mapUrl: place.mapUrl ?? "",
+            latitude: place.latitude == null ? "" : String(place.latitude),
+            longitude: place.longitude == null ? "" : String(place.longitude),
+            isPublic: place.isPublic,
+            isFeatured: place.isFeatured,
+            images,
+          }}
+        />
+      </div>
     </div>
   );
 }

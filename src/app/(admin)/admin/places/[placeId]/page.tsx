@@ -92,6 +92,7 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
     <div data-admin-compact-top className="space-y-3">
       <AdminPageToolbar
         variant="detail"
+        sticky
         backHref="/admin/places"
         backLabel="กลับรายการสถานที่"
         backPlacement="header-start"

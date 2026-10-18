@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, Clock3, Eye, MapPin, Phone, Star, Tag } from "lucide-react";
+import { ArrowLeft, Clock3, Globe2, MapPin, Phone, Star, Tag, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { ImageCarousel } from "@/components/ui/image-carousel";
 import { SaveButton } from "@/components/ui/save-button";
@@ -129,7 +129,7 @@ export default async function ResidentPlaceDetailPage({ params }: PageProps) {
 
         <div className="mt-5 grid gap-2 border-t border-gray-100 pt-5 text-sm text-gray-600 sm:grid-cols-2">
           <p className="inline-flex items-center gap-2"><Tag className="h-4 w-4 text-gray-400" aria-hidden="true" /><span>หมวดหมู่</span><span className="font-medium text-gray-800">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</span></p>
-          <p className="inline-flex items-center gap-2"><Eye className="h-4 w-4 text-gray-400" aria-hidden="true" /><span>การมองเห็น</span><span className="font-medium text-gray-800">{place.isPublic ? "สาธารณะ" : "ภายในหมู่บ้าน"}</span></p>
+          <p className="inline-flex items-center gap-1.5 text-gray-600">{place.isPublic ? <Globe2 className="h-4 w-4" aria-hidden="true" /> : <Users className="h-4 w-4" aria-hidden="true" />}{place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</p>
           {place.isFeatured ? <p className="inline-flex items-center gap-2 font-medium text-green-700 sm:col-span-2"><Star className="h-4 w-4 fill-current" aria-hidden="true" />สถานที่สำคัญ</p> : null}
         </div>
 
