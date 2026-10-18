@@ -31,6 +31,8 @@ type VillagePlaceListDelegate = {
   count(args: unknown): Promise<number>;
 };
 
+type ImportanceFilter = "ALL" | "FEATURED" | "NORMAL";
+
 export default async function VillagePlacesPage({ params, searchParams }: PageProps) {
   const { villageSlug: rawVillageSlug } = await params;
   const villageSlug = normalizeVillageSlugParam(rawVillageSlug);
@@ -38,7 +40,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const category = query.category?.trim() ?? "ALL";
-  const featured = query.featured === "1";
+  const importance: ImportanceFilter = query.featured === "1" ? "FEATURED" : query.featured === "0" ? "NORMAL" : "ALL";
   const sort = query.sort === "name_desc" ? "name_desc" : "name_asc";
   const page = Number.parseInt(query.page ?? "1", 10);
   const currentPage = Number.isNaN(page) || page < 1 ? 1 : page;
@@ -56,7 +58,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
     villageId: village.id,
     isPublic: true,
     ...(category !== "ALL" ? { category } : {}),
-    ...(featured ? { isFeatured: true } : {}),
+    ...(importance === "FEATURED" ? { isFeatured: true } : importance === "NORMAL" ? { isFeatured: false } : {}),
     ...(keyword
       ? {
           OR: [
@@ -93,18 +95,19 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const suggestionTitles = Array.from(new Set(places.map((item) => item.name))).slice(0, 12);
 
-  function buildHref(next: { q?: string; category?: string; featured?: boolean; sort?: string; page?: number }) {
+  function buildHref(next: { q?: string; category?: string; importance?: ImportanceFilter; sort?: string; page?: number }) {
     const params = new URLSearchParams();
     const nextQ = next.q ?? keyword;
     const nextCategory = next.category ?? category;
     const nextSort = next.sort ?? sort;
-    const nextFeatured = next.featured ?? featured;
+    const nextImportance = next.importance ?? importance;
     const nextPage = next.page ?? currentPage;
 
     if (nextQ) params.set("q", nextQ);
     if (nextCategory !== "ALL") params.set("category", nextCategory);
-    if (nextFeatured) params.set("featured", "1");
-    if (nextSort !== "newest") params.set("sort", nextSort);
+    if (nextImportance === "FEATURED") params.set("featured", "1");
+    if (nextImportance === "NORMAL") params.set("featured", "0");
+    if (nextSort !== "name_asc") params.set("sort", nextSort);
     if (nextPage > 1) params.set("page", String(nextPage));
 
     const qs = params.toString();
@@ -117,7 +120,7 @@ export default async function VillagePlacesPage({ params, searchParams }: PagePr
         villageSlug={villagePathSlug}
         keyword={keyword}
         category={category}
-        featured={featured}
+        importance={importance}
         sort={sort}
         suggestionTitles={suggestionTitles}
       />

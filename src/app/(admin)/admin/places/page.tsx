@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { Building2, ListChecks, Plus } from "lucide-react";
+import { Building2, Globe2, ListChecks, Plus, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { AdminListToolbar } from "@/components/ui/admin-list-toolbar";
@@ -197,7 +197,6 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
         }
       />
 
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-white">
       {rows.length === 0 ? (
         <div className="rounded-xl border border-gray-200 bg-white p-10 text-center">
           <Building2 className="mx-auto mb-3 h-10 w-10 text-gray-300" />
@@ -206,7 +205,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           {!keyword && activeCategory === "ALL" && activeVisibility === "ALL" && activeFeatured === "ALL" && <Link href="/admin/places/new" className="mt-4 inline-flex items-center justify-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">เพิ่มสถานที่</Link>}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {rows.map((place) => {
             const images = orderedPlaceImages(place.images, place.imageUrls);
             return (
@@ -226,7 +225,10 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
                     {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
-                    <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</Badge>
+                    <span className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+                      {place.isPublic ? <Globe2 className="h-3.5 w-3.5" aria-hidden="true" /> : <Users className="h-3.5 w-3.5" aria-hidden="true" />}
+                      {place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
+                    </span>
                   </div>
                   <p className="line-clamp-1 font-medium text-gray-900">{place.name}</p>
                   {place.address && <p className="line-clamp-1 text-sm text-gray-600">{place.address}</p>}
@@ -239,7 +241,7 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
       )}
 
       {totalPages > 1 && (
-        <div className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-200 px-3 py-2 sm:px-4">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <Link href={buildHref({ q: keyword, category: activeCategory, visibility: activeVisibility, featured: activeFeatured, sort: activeSort, page: Math.max(1, currentPage - 1) })} className={`rounded-lg border px-3 py-1.5 text-sm ${currentPage <= 1 ? "pointer-events-none border-gray-200 text-gray-300" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}>
             ก่อนหน้า
           </Link>
@@ -249,7 +251,6 @@ export default async function AdminPlacesPage({ searchParams }: PageProps) {
           </Link>
         </div>
       )}
-      </section>
     </div>
   );
 }

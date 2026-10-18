@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { Clock3, MapPin, Pencil, Phone } from "lucide-react";
+import { Clock3, Globe2, MapPin, Pencil, Phone, Users } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { ImageCarousel } from "@/components/ui/image-carousel";
@@ -89,24 +89,27 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
   const embedMapUrl = getVillagePlaceEmbedMapUrl(place.latitude, place.longitude);
 
   return (
-    <div data-admin-compact-top className="mx-auto flex w-full max-w-4xl flex-col gap-3">
+    <div data-admin-compact-top className="space-y-3">
       <AdminPageToolbar
         variant="detail"
         backHref="/admin/places"
         backLabel="กลับรายการสถานที่"
-        backPlacement="header-end"
+        backPlacement="header-start"
         title="รายละเอียดสถานที่"
         description="ข้อมูลสถานที่และการแสดงผล"
         actions={<><Link href={`/admin/places/${place.id}/edit`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"><Pencil className="mr-1 h-4 w-4" /> แก้ไข</Link><DeletePlaceButton placeId={place.id} placeName={place.name} /></>}
       />
 
-      <div className="rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
+      <div className="mx-auto w-full max-w-4xl rounded-xl border border-gray-200 bg-white p-4 sm:p-8">
         <div>
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{VILLAGE_PLACE_CATEGORY_LABELS[place.category] ?? place.category}</Badge>
               {place.isFeatured && <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">สำคัญ</Badge>}
-              <Badge variant={place.isPublic ? "success" : "info"}>{place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}</Badge>
+              <span className="inline-flex items-center gap-1.5 text-sm text-gray-600">
+                {place.isPublic ? <Globe2 className="h-4 w-4" aria-hidden="true" /> : <Users className="h-4 w-4" aria-hidden="true" />}
+                {place.isPublic ? "สาธารณะ" : "เฉพาะสมาชิก"}
+              </span>
             </div>
             <h2 className="mt-3 text-xl font-bold text-gray-900">{place.name}</h2>
             {creatorName && <p className="mt-1 text-sm text-gray-500">{creatorLabel} {creatorName}</p>}
@@ -116,7 +119,7 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
 
         {imageUrls.length > 0 && (
           <div className="mt-5">
-            <ImageCarousel images={imageUrls} altPrefix={place.name} />
+            <ImageCarousel images={imageUrls} altPrefix={place.name} thumbnailBehavior="select" />
           </div>
         )}
 
@@ -142,7 +145,7 @@ export default async function AdminPlaceDetailPage({ params }: PageProps) {
         </div>
 
         {place.description && (
-          <div className="mt-6 border-t pt-6">
+          <div className="mt-6 border-t border-gray-100 pt-6">
             <p className="whitespace-pre-wrap leading-7 text-gray-700">{place.description}</p>
           </div>
         )}
