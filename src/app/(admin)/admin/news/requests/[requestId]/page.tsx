@@ -72,7 +72,7 @@ export default async function AdminNewsRequestDetailPage({ params }: PageProps) 
           {payload?.isPinned ? <Badge variant="warning">ขอปักหมุด</Badge> : null}
         </div>
         {payload?.summary ? <p className="text-sm text-gray-600">{payload.summary}</p> : null}
-        {payload?.imageUrls.length ? <ImageCarousel images={payload.imageUrls} altPrefix={title} /> : null}
+        {payload?.imageUrls.length ? <ImageCarousel images={payload.imageUrls} altPrefix={title} thumbnailBehavior="select" /> : null}
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
           <p className="break-words whitespace-pre-wrap leading-7 text-gray-700">{payload?.content || "-"}</p>
         </div>
