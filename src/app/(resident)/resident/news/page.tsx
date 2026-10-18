@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getResidentContentAccessFromServerCookies } from "@/lib/access-control";
 import { ResidentNewsToolbar } from "./resident-news-toolbar";
 import { NewsCard } from "@/components/news/news-card";
+import { getNewsImageCount } from "@/lib/news-image-count";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
 import { residentContentVisibility } from "@/lib/resident-content-access";
 import { newsDetailHref, type ResidentNewsContext } from "@/lib/resident-news-navigation";
@@ -155,6 +156,7 @@ export default async function ResidentNewsPage({ searchParams }: PageProps) {
               title={news.title}
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
+              imageCount={getNewsImageCount(news.imageUrls, news.coverUrl)}
               isPinned={news.isPinned}
               metadata={<NewsMetadata visibility={news.visibility} isPinned={news.isPinned} showPinned={false} showStage={false} />}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${news.author ? residentActorDisplay(news.author, { villageId: membership.villageId }).label : "ไม่ระบุ"}`}

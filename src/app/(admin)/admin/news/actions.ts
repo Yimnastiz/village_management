@@ -318,10 +318,10 @@ export async function adminApproveNewsSubmissionAction(
           imageUrls: parsed.value.images.map((image) => image.url),
           coverUrl: parsed.value.coverUrl,
           visibility: finalVisibility,
-          stage: parsed.value.stage,
+          stage: "PUBLISHED",
           isPinned: finalIsPinned,
           authorId: submission.requesterId,
-          publishedAt: parsed.value.stage === "PUBLISHED" ? now : null,
+          publishedAt: now,
         },
         select: { id: true },
       });

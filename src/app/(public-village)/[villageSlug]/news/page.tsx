@@ -7,6 +7,7 @@ import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicNewsToolbar } from "./public-news-toolbar";
 import { NewsCard } from "@/components/news/news-card";
+import { getNewsImageCount } from "@/lib/news-image-count";
 import type { Prisma } from "@prisma/client";
 
 interface PageProps {
@@ -131,6 +132,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
               title={news.title}
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
+              imageCount={getNewsImageCount(news.imageUrls, news.coverUrl)}
               isPinned={news.isPinned}
               badge={<Badge variant="outline">{(() => { if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? []; if (roles.includes("HEADMAN")) return NEWS_AUTHOR_SOURCE_LABELS.ADMIN; if (news.author?.accountKind === "RESIDENT_HOUSE" || roles.includes("RESIDENT")) return NEWS_AUTHOR_SOURCE_LABELS.RESIDENT; return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; })()}</Badge>}
               meta={(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}

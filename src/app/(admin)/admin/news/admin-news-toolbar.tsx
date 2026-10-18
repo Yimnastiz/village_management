@@ -36,7 +36,7 @@ export function AdminNewsToolbar({ keyword, stage, visibility, sort, suggestionT
         { label: "เรียง", options: [["newest", "ล่าสุด"], ["oldest", "เก่าสุด"]].map(([value, label], index) => ({ label, href: href(keyword, stage, visibility, value), active: sort === value, isDefault: index === 0 })) },
       ]}
       actions={<>
-        <Link href="/admin/news/requests" aria-label={pendingCount > 0 ? `คำขอข่าวจากสมาชิก ${pendingCount} รายการรอพิจารณา` : "คำขอข่าวจากสมาชิก"}><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><Inbox className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอข่าว</span></Button>{pendingCount > 0 ? <AdminPendingCountBadge count={pendingCount} /> : null}</Link>
+        <Link href="/admin/news/requests" aria-label={pendingCount > 0 ? `คำขอข่าวจากสมาชิก ${pendingCount} รายการรอพิจารณา` : "คำขอข่าวจากสมาชิก"}><Button size="sm" variant="outline" className="h-10 px-2 sm:px-3"><Inbox className="h-4 w-4" /><span className="hidden sm:ml-1.5 sm:inline">คำขอข่าว</span>{pendingCount > 0 ? <AdminPendingCountBadge count={pendingCount} /> : null}</Button></Link>
         <Link href="/admin/news/new"><Button size="sm" className="h-10 px-2 sm:px-3"><Plus className="h-4 w-4" /><span className="ml-1 hidden min-[360px]:inline">เพิ่มข่าว</span></Button></Link>
       </>}
     />

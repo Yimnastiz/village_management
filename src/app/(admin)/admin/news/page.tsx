@@ -2,6 +2,7 @@ import { Newspaper } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { NewsCard } from "@/components/news/news-card";
+import { getNewsImageCount } from "@/lib/news-image-count";
 import { NewsMetadata } from "@/components/news/news-metadata";
 import { prisma } from "@/lib/prisma";
 import { getSessionContextFromServerCookies, isAdminUser } from "@/lib/access-control";
@@ -94,6 +95,7 @@ export default async function AdminNewsPage({ searchParams }: PageProps) {
               title={news.title}
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
+              imageCount={getNewsImageCount(news.imageUrls, news.coverUrl)}
               isPinned={news.isPinned}
               metadata={<NewsMetadata stage={news.stage} visibility={news.visibility} isPinned={news.isPinned} showPinned={false} />}
               meta={`${(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")} · ${news.author ? residentActorDisplay(news.author, { villageId: membership.villageId }).label : "ไม่ระบุ"}`}
