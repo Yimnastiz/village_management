@@ -7,20 +7,23 @@ import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { PublicNewsToolbar } from "./public-news-toolbar";
 import { NewsCard } from "@/components/news/news-card";
+import type { Prisma } from "@prisma/client";
 
 interface PageProps {
   params: Promise<{ villageSlug: string }>;
-  searchParams?: Promise<{ q?: string; sort?: string }>;
+  searchParams?: Promise<{ q?: string; sort?: string; source?: string }>;
 }
 
-const SOURCE_EMPTY_STATE: Record<"all" | "admin" | "resident", { title: string; description: string }> = {
+type NewsSource = "all" | "headman" | "resident";
+
+const SOURCE_EMPTY_STATE: Record<NewsSource, { title: string; description: string }> = {
   all: {
     title: "ยังไม่มีข่าวสาธารณะ",
     description: "ข่าวสาธารณะของหมู่บ้านจะแสดงที่นี่",
   },
-  admin: {
-    title: "ยังไม่มีข่าวจากแอดมิน",
-    description: "เมื่อแอดมินเผยแพร่ข่าวสาธารณะ ข่าวจะแสดงที่นี่",
+  headman: {
+    title: "ยังไม่มีข่าวจากผู้ใหญ่บ้าน",
+    description: "เมื่อผู้ใหญ่บ้านเผยแพร่ข่าวสาธารณะ ข่าวจะแสดงที่นี่",
   },
   resident: {
     title: "ยังไม่มีข่าวจากสมาชิก",
@@ -34,8 +37,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   const query = (searchParams ? await searchParams : {}) ?? {};
   const keyword = query.q?.trim() ?? "";
   const sort = query.sort === "oldest" ? "oldest" : "newest";
-  const source = "all" as const;
-  const adminRoles = ["HEADMAN"] as const;
+  const source: NewsSource = query.source === "headman" || query.source === "resident" ? query.source : "all";
 
   const village = await prisma.village.findFirst({
     where: { slug: { in: getSlugVariants(villageSlug) }, isActive: true },
@@ -43,11 +45,25 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   });
   if (!village) notFound();
 
+  const sourceWhere: Prisma.NewsWhereInput = source === "headman"
+    ? { author: { is: { memberships: { some: { villageId: village.id, status: "ACTIVE", role: "HEADMAN" } } } } }
+    : source === "resident"
+      ? { author: { is: { OR: [
+          { accountKind: "RESIDENT_HOUSE", residentHouseAccount: { is: { villageId: village.id } } },
+          { memberships: { some: { villageId: village.id, status: "ACTIVE", role: "RESIDENT" } } },
+        ] } } }
+      : {};
+
+  const publishedPublicWhere: Prisma.NewsWhereInput = {
+    villageId: village.id,
+    stage: "PUBLISHED",
+    visibility: "PUBLIC",
+    ...sourceWhere,
+  };
+
   const newsList = await prisma.news.findMany({
     where: {
-      villageId: village.id,
-      stage: "PUBLISHED",
-      visibility: "PUBLIC",
+      ...publishedPublicWhere,
       ...(keyword
         ? {
             title: {
@@ -73,6 +89,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
       authorId: true,
       author: {
         select: {
+          accountKind: true,
           memberships: {
             where: {
               villageId: village.id,
@@ -86,11 +103,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
   });
 
   const titleSuggestions = await prisma.news.findMany({
-    where: {
-      villageId: village.id,
-      stage: "PUBLISHED",
-      visibility: "PUBLIC",
-    },
+    where: publishedPublicWhere,
     select: { title: true },
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
     take: 50,
@@ -103,6 +116,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
         villageSlug={villageSlug}
         keyword={keyword}
         sort={sort}
+        source={source}
         suggestionTitles={suggestionTitles}
       />
 
@@ -118,7 +132,7 @@ export default async function VillageNewsPage({ params, searchParams }: PageProp
               summary={news.summary}
               imageUrl={news.coverUrl || (Array.isArray(news.imageUrls) ? String(news.imageUrls[0] ?? "") : null)}
               isPinned={news.isPinned}
-              badge={<Badge variant="outline">{(() => { if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? []; return roles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number])) ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT; })()}</Badge>}
+              badge={<Badge variant="outline">{(() => { if (!news.authorId) return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; const roles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? []; if (roles.includes("HEADMAN")) return NEWS_AUTHOR_SOURCE_LABELS.ADMIN; if (news.author?.accountKind === "RESIDENT_HOUSE" || roles.includes("RESIDENT")) return NEWS_AUTHOR_SOURCE_LABELS.RESIDENT; return NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN; })()}</Badge>}
               meta={(news.publishedAt ?? news.createdAt).toLocaleDateString("th-TH")}
             />
           ))}

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { NEWS_AUTHOR_SOURCE_LABELS } from "@/lib/constants";
 import { normalizeVillageSlugParam, getSlugVariants } from "@/lib/village-slug";
 import { RESIDENT_ACTOR_USER_SELECT, residentActorDisplay } from "@/lib/resident-actor-display";
+import { formatNewsAuthor } from "@/lib/news-author";
 
 interface PageProps {
   params: Promise<{ villageSlug: string; newsId: string }>;
@@ -49,12 +50,19 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
 
   const authorRoles = news.author?.memberships.map((membershipItem) => membershipItem.role) ?? [];
   const isAdminAuthor = authorRoles.some((role) => adminRoles.includes(role as (typeof adminRoles)[number]));
+  const isResidentAuthor = news.author?.accountKind === "RESIDENT_HOUSE" || authorRoles.includes("RESIDENT");
   const sourceLabel = !news.authorId
     ? NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN
     : isAdminAuthor
       ? NEWS_AUTHOR_SOURCE_LABELS.ADMIN
-      : NEWS_AUTHOR_SOURCE_LABELS.RESIDENT;
-  const authorDisplay = news.author ? residentActorDisplay(news.author, { villageId: village.id }).label : "ไม่ระบุ";
+      : isResidentAuthor
+        ? NEWS_AUTHOR_SOURCE_LABELS.RESIDENT
+        : NEWS_AUTHOR_SOURCE_LABELS.UNKNOWN;
+  const authorDisplay = !news.author
+    ? "ไม่ระบุ"
+    : isAdminAuthor
+      ? formatNewsAuthor(news.author.name, "HEADMAN")
+      : residentActorDisplay(news.author, { villageId: village.id }).label;
 
   const imageUrls = Array.isArray(news.imageUrls)
     ? news.imageUrls.map((value) => String(value)).filter((url) => url.length > 0)
@@ -62,7 +70,7 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
   if (news.coverUrl && imageUrls.includes(news.coverUrl)) imageUrls.splice(0, 0, ...imageUrls.splice(imageUrls.indexOf(news.coverUrl), 1));
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-4xl space-y-6 px-1 sm:px-0">
       <Link
         href={`/${village.slug}/news`}
         className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
@@ -83,11 +91,11 @@ export default async function VillageNewsDetailPage({ params }: PageProps) {
 
         {imageUrls.length > 0 && (
           <div className="mt-6">
-            <ImageCarousel images={imageUrls} altPrefix={news.title} />
+            <ImageCarousel images={imageUrls} altPrefix={news.title} thumbnailBehavior="select" />
           </div>
         )}
 
-        <div className="mt-6 border-t pt-6">
+        <div className="mt-6 border-t border-gray-100 pt-6">
           <p className="whitespace-pre-wrap text-gray-700 leading-7">{news.content}</p>
         </div>
       </div>

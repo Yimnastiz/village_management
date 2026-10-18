@@ -44,7 +44,7 @@ export const NEWS_SUBMISSION_STATUS_LABELS: Record<string, string> = {
 };
 
 export const NEWS_AUTHOR_SOURCE_LABELS: Record<string, string> = {
-  ADMIN: "โดยแอดมิน",
+  ADMIN: "โดยผู้ใหญ่บ้าน",
   RESIDENT: "โดยสมาชิก",
   UNKNOWN: "ไม่ระบุผู้สร้าง",
 };

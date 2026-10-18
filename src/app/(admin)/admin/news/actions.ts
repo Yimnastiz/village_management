@@ -13,9 +13,10 @@ import { revalidateAdminSidebar } from "@/lib/revalidate-admin-sidebar";
 import { getAdminMembership, getSessionContextFromServerCookies } from "@/lib/access-control";
 import { verifyPlaceUploadToken } from "@/lib/place-upload.server";
 import { revalidatePath } from "next/cache";
-import { hasVillagePermission } from "@/lib/village-permissions";
+import { hasVillagePermission, type VillagePermission } from "@/lib/village-permissions";
 import { ActionReasonError, requireActionReason } from "@/lib/sensitive-action-policy";
 import { newsContentSchema, newsStageSchema, newsTitleSchema, newsVisibilitySchema } from "@/lib/public-content-validation";
+import { notificationMetadata } from "@/lib/notification-copy";
 
 const newsInputSchema = z.object({
   title: newsTitleSchema,
@@ -44,7 +45,7 @@ const VALID_VISIBILITY: NewsVisibility[] = ["PUBLIC", "RESIDENT_ONLY"];
 const VALID_STAGE: NewsStage[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const newsApprovalOverridesSchema = z.object({ visibility: z.enum(["PUBLIC", "RESIDENT_ONLY"]), isPinned: z.boolean() });
 
-async function requireAdminVillage() {
+async function requireAdminVillage(permission: VillagePermission = "news.manage") {
   const session = await getSessionContextFromServerCookies();
   if (!session?.id) {
     return { ok: false as const, error: "กรุณาเข้าสู่ระบบ", session: null, villageId: "" };
@@ -53,7 +54,7 @@ async function requireAdminVillage() {
   if (!membership) {
     return { ok: false as const, error: "ไม่พบหมู่บ้านของคุณ", session: null, villageId: "" };
   }
-  if (!hasVillagePermission(membership.role, "news.manage")) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข่าวสาร", session: null, villageId: "" };
+  if (!hasVillagePermission(membership.role, permission)) return { ok: false as const, error: "ไม่มีสิทธิ์จัดการข่าวสาร", session: null, villageId: "" };
 
   return {
     ok: true as const,
@@ -421,6 +422,54 @@ export async function adminApproveNewsSubmissionAction(
 
   revalidateNewsPaths(target.id);
   return { success: true, newsId: target.id };
+}
+
+export async function adminDeleteNewsSubmissionAction(
+  submissionId: string,
+  reasonInput: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const ctx = await requireAdminVillage("news.requests.review");
+  if (!ctx.ok) return { success: false, error: ctx.error };
+
+  let reason: string;
+  try { reason = requireActionReason("content.delete", reasonInput); }
+  catch (error) { if (error instanceof ActionReasonError) return { success: false, error: "กรุณาระบุเหตุผลอย่างน้อย 5 ตัวอักษร" }; throw error; }
+
+  const submission = await prisma.newsSubmission.findFirst({
+    where: { id: submissionId, villageId: ctx.villageId, status: "PENDING" },
+    select: { id: true, requesterId: true, payload: true },
+  });
+  if (!submission) return { success: false, error: "ไม่พบคำขอนี้หรือคำขอถูกดำเนินการแล้ว" };
+
+  const payload = submission.payload;
+  const title = payload && typeof payload === "object" && !Array.isArray(payload) && typeof payload.title === "string" && payload.title.trim()
+    ? payload.title.trim()
+    : "คำขอข่าว";
+
+  await prisma.$transaction(async (tx) => {
+    await tx.newsSubmission.delete({ where: { id: submission.id } });
+    await tx.notification.create({ data: {
+      villageId: ctx.villageId,
+      userId: submission.requesterId,
+      type: NotificationType.NEWS,
+      title: "คำขอข่าวของคุณถูกลบ",
+      body: `คำขอ “${title}” ถูกนำออกจากรายการพิจารณา\nเหตุผล: ${reason}`,
+      metadata: notificationMetadata("NEWS", {
+        actionUrl: "/resident/news/requests?tab=history",
+        actionLabel: "ดูประวัติคำขอ",
+        status: "DELETED",
+        reason,
+      }),
+    } });
+    await writeVillageAuditLog(tx, { villageId: ctx.villageId, userId: ctx.session.id, action: "DELETE", resource: "NewsSubmission", resourceId: submission.id, metadata: { actorRole: ctx.actorRole, policyAction: "content.delete", reason, actionName: "NEWS_SUBMISSION_DELETED", title } });
+  });
+
+  revalidatePath("/admin/news/requests");
+  revalidatePath(`/admin/news/requests/${submissionId}`);
+  revalidatePath("/resident/news/requests");
+  revalidatePath("/resident/notifications");
+  revalidateAdminSidebar();
+  return { success: true };
 }
 
 export async function adminRejectNewsSubmissionAction(
